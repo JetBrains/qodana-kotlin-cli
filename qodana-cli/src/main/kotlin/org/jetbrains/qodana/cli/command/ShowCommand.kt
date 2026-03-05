@@ -4,7 +4,9 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.options.default
+import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
 import org.jetbrains.qodana.core.port.Terminal
 import java.nio.file.Files
@@ -14,15 +16,33 @@ class ShowCommand(
     private val terminal: Terminal,
 ) : CliktCommand("show") {
 
-    override fun help(context: Context) = "Show Qodana report in the browser"
+    override fun help(context: Context) = "Show a Qodana report"
 
+    private val linter by option("-l", "--linter", help = "Override linter to use")
     private val projectDir by option("-i", "--project-dir", help = "Root directory of the project")
         .path(mustExist = true)
         .default(Path.of("."))
-    private val reportDir by option("-r", "--report-dir", help = "Report directory").path()
+    private val resultsDir by option("-o", "--results-dir", help = "Override results directory").path()
+    private val reportDir by option("-r", "--report-dir", help = "Override report directory").path()
+    private val port by option("-p", "--port", help = "Port to serve report at").int().default(8080)
+    private val openDir by option("-d", "--dir-only", help = "Open report directory only").flag()
+    private val configName by option("--config", help = "Custom configuration file")
 
     override fun run() {
-        val dir = reportDir ?: projectDir.resolve("results").resolve("report")
+        val dir = reportDir ?: resultsDir?.resolve("report")
+            ?: projectDir.resolve("results").resolve("report")
+
+        if (openDir) {
+            val targetDir = resultsDir ?: projectDir.resolve("results")
+            if (!Files.isDirectory(targetDir)) {
+                terminal.error("Results directory not found: $targetDir")
+                throw ProgramResult(1)
+            }
+            terminal.println("Opening results directory: $targetDir")
+            openDirectory(targetDir)
+            return
+        }
+
         val indexHtml = dir.resolve("index.html")
         if (!Files.exists(indexHtml)) {
             terminal.error("No report found at $indexHtml. Run 'qodana scan' first.")
@@ -30,20 +50,24 @@ class ShowCommand(
         }
 
         terminal.println("Opening report at $indexHtml")
+        openDirectory(indexHtml.parent)
+    }
+
+    private fun openDirectory(path: Path) {
         try {
             val os = System.getProperty("os.name").lowercase()
             val cmd = when {
-                os.contains("mac") -> arrayOf("open", indexHtml.toString())
-                os.contains("linux") -> arrayOf("xdg-open", indexHtml.toString())
-                os.contains("windows") -> arrayOf("cmd", "/c", "start", indexHtml.toString())
+                os.contains("mac") -> arrayOf("open", path.toString())
+                os.contains("linux") -> arrayOf("xdg-open", path.toString())
+                os.contains("windows") -> arrayOf("cmd", "/c", "start", path.toString())
                 else -> {
-                    terminal.println("Report path: $indexHtml")
+                    terminal.println("Path: $path")
                     return
                 }
             }
             Runtime.getRuntime().exec(cmd)
         } catch (_: Exception) {
-            terminal.println("Could not open browser. Report path: $indexHtml")
+            terminal.println("Could not open. Path: $path")
         }
     }
 }

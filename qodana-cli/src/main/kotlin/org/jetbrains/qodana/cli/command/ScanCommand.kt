@@ -68,6 +68,7 @@ class ScanCommand(
     private val coverageDir by option("--coverage-dir", help = "Coverage data directory").path()
     private val globalConfigDir by option("--global-config-dir", help = "Global config directory").path()
     private val jvmDebugPort by option("--jvm-debug-port", help = "JVM debug port").int()
+    private val printProblems by option("--print-problems", help = "Print problems to stdout").flag()
     private val disableStatistics by option("--disable-statistics").flag()
     private val clearCache by option("--clear-cache").flag()
 
@@ -132,8 +133,12 @@ class ScanCommand(
             }
         } else {
             resolvedIdeDir = null
-            resolvedLinter = linter
             isNative = false
+            // Auto-detect linter: check yaml first, then project detection (like Go's Compute)
+            resolvedLinter = linter ?: resolveImageFromYaml(projectDir) ?: run {
+                val detected = org.jetbrains.qodana.engine.scan.ProjectDetector.detectLinter(projectDir)
+                detected?.name
+            }
         }
 
         val context = ScanContext(
@@ -174,6 +179,7 @@ class ScanCommand(
                 baselineIncludeAbsent = baselineIncludeAbsent,
                 saveReport = saveReport,
                 showReport = showReport,
+                printProblems = printProblems,
             ),
             docker = DockerOptions(
                 image = resolvedLinter,
@@ -193,5 +199,20 @@ class ScanCommand(
 
         val exitCode = runBlocking { scanRunner(context) }
         throw ProgramResult(exitCode)
+    }
+
+    private fun resolveImageFromYaml(projectDir: Path): String? {
+        val yamlNames = listOf("qodana.yaml", "qodana.yml")
+        val yamlFile = yamlNames.map { projectDir.resolve(it) }.firstOrNull { Files.exists(it) } ?: return null
+        return try {
+            val mapper = com.fasterxml.jackson.dataformat.yaml.YAMLMapper.builder()
+                .addModule(com.fasterxml.jackson.module.kotlin.kotlinModule())
+                .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .build()
+            val yaml = mapper.readValue(yamlFile.toFile(), org.jetbrains.qodana.core.model.QodanaYaml::class.java)
+            yaml.image ?: yaml.linter
+        } catch (_: Exception) {
+            null
+        }
     }
 }
