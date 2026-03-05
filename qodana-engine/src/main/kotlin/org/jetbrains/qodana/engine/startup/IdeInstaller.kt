@@ -101,8 +101,15 @@ class IdeInstaller(
     }
 
     fun selectLatestCompatibleRelease(product: Product, reqType: String): ReleaseInfo? {
-        return product.releases
+        // Prefer matching the current release version
+        val preferred = product.releases
             .filter { it.majorVersion == Linters.RELEASE_VERSION && it.type == reqType }
+            .maxByOrNull { it.date }
+        if (preferred != null) return preferred
+
+        // Fall back to latest release of the requested type
+        return product.releases
+            .filter { it.type == reqType }
             .maxByOrNull { it.date }
     }
 
@@ -135,8 +142,14 @@ class IdeInstaller(
 
     private fun computeSha256(path: Path): String {
         val digest = MessageDigest.getInstance("SHA-256")
-        val bytes = fileSystem.readBytes(path)
-        return digest.digest(bytes).joinToString("") { "%02x".format(it) }
+        java.io.FileInputStream(path.toFile()).use { fis ->
+            val buffer = ByteArray(8192)
+            var bytesRead: Int
+            while (fis.read(buffer).also { bytesRead = it } != -1) {
+                digest.update(buffer, 0, bytesRead)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
     private fun extractArchive(archivePath: Path, targetDir: Path, extension: String) {
@@ -168,7 +181,7 @@ class IdeInstaller(
         val isArm = arch == "aarch64" || arch == "arm64"
 
         return when {
-            "mac" in os || "darwin" in os -> if (isArm) "macM1" else "mac"
+            "mac" in os || "darwin" in os -> if (isArm) "macSitM1" else "macSit"
             "win" in os -> if (isArm) "windowsZipARM64" else "windowsZip"
             else -> if (isArm) "linuxARM64" else "linux"
         }

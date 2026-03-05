@@ -5,30 +5,33 @@ import org.jetbrains.qodana.engine.model.ScanContext
 
 /**
  * Constructs IDE command-line arguments from [ScanContext].
+ * Mirrors Go's `GetIdeArgs()` in `ide.go`.
  *
- * Argument categories (in order):
- * 1. Configuration  – profile, config, promo inspections
- * 2. Analysis Scope – directory constraints, diff range
- * 3. Baseline       – baseline path, include-absent, fail-threshold
- * 4. Fixes          – apply-fixes, cleanup, fixes-strategy
- * 5. DotNet         – solution, project, configuration, platform
- * 6. Container      – save-report, analysis-id, coverage, code-climate
- * 7. Properties     – arbitrary -D property pairs
+ * Does NOT include the IDE binary, subcommand (inspect/qodana),
+ * or positional args (projectDir/resultsDir) — those are added by
+ * [NativeScan.getIdeRunCommand].
  */
 object IdeArgBuilder {
 
-    fun build(context: ScanContext): List<String> = buildList {
-        // Positional: sub-command
-        add("inspect")
-        add("qodana")
-
-        // --- 1. Configuration ---
-        context.yaml?.let { yaml ->
-            yaml.runPromoInspections?.let { value ->
-                add("--run-promo")
-                add(value)
-            }
+    fun build(context: ScanContext, product: IdeProduct? = null): List<String> = buildList {
+        // --config (effective configuration dir)
+        context.runtime.effectiveConfigDir?.let {
+            add("--config")
+            add(it.toString())
         }
+
+        // --save-report (container only)
+        if (context.docker.image != null && context.report.saveReport) {
+            add("--save-report")
+        }
+
+        // --only-directory
+        context.runtime.onlyDirectory?.let {
+            add("--only-directory")
+            add(it)
+        }
+
+        // --profile-name / --profile-path
         context.profile?.let { profile ->
             profile.name?.let {
                 add("--profile-name")
@@ -40,21 +43,21 @@ object IdeArgBuilder {
             }
         }
 
-        // --- 2. Analysis Scope ---
-        context.runtime.onlyDirectory?.let {
-            add("--only-directory")
-            add(it)
-        }
-        context.runtime.diffStart?.let {
-            add("--diff-start")
-            add(it)
-        }
-        context.runtime.diffEnd?.let {
-            add("--diff-end")
+        // --run-promo
+        context.yaml?.runPromoInspections?.let {
+            add("--run-promo")
             add(it)
         }
 
-        // --- 3. Baseline ---
+        // --script (only if non-default)
+        context.runtime.script.let {
+            if (it.isNotEmpty() && it != "default") {
+                add("--script")
+                add(it)
+            }
+        }
+
+        // --baseline / --baseline-include-absent / --fail-threshold
         context.report.baselinePath?.let {
             add("--baseline")
             add(it.toString())
@@ -67,67 +70,74 @@ object IdeArgBuilder {
             add(it.toString())
         }
 
-        // --- 4. Fixes ---
-        if (context.runtime.applyFixes) {
-            add("--apply-fixes")
-        }
-        if (context.runtime.cleanup) {
-            add("--cleanup")
-        }
-        context.runtime.fixesStrategy?.let {
-            add("--fixes-strategy")
-            add(it)
-        }
-
-        // --- 5. DotNet ---
-        context.yaml?.dotnet?.let { dotnet ->
-            dotnet.solution?.let {
-                add("--solution")
-                add(it)
+        // Fixes — matches Go: only for native mode on 233+ or container mode
+        val isNative = !context.nativeMode.not()
+        if (product != null && product.is233orNewer() && isNative) {
+            if (context.runtime.applyFixes) {
+                add("--apply-fixes")
+            } else if (context.runtime.cleanup) {
+                add("--cleanup")
             }
-            dotnet.project?.let {
-                add("--project")
-                add(it)
-            }
-            dotnet.configuration?.let {
-                add("--configuration")
-                add(it)
-            }
-            dotnet.platform?.let {
-                add("--platform")
-                add(it)
+        } else {
+            // Pre-233 or container: use --fixes-strategy
+            val applyFixes = context.runtime.applyFixes ||
+                context.runtime.fixesStrategy?.lowercase() == "apply"
+            val cleanup = context.runtime.cleanup ||
+                context.runtime.fixesStrategy?.lowercase() == "cleanup"
+            if (applyFixes) {
+                add("--fixes-strategy")
+                add("apply")
+            } else if (cleanup) {
+                add("--fixes-strategy")
+                add("cleanup")
             }
         }
 
-        // --- 6. Container-specific ---
-        if (context.report.saveReport) {
-            add("--save-report")
-        }
-        context.runtime.analysisId?.let {
-            add("--analysis-id")
-            add(it)
-        }
-        context.runtime.coverageDir?.let {
-            add("--coverage-dir")
-            add(it.toString())
-        }
-        context.runtime.globalConfigDir?.let {
-            add("--global-config-dir")
-            add(it.toString())
-        }
-        if (context.report.outputFormats.any {
-                it == ReportOptions.OutputFormat.CODE_CLIMATE
-            }) {
-            add("--code-climate")
-        }
+        // Container-specific args
+        if (!context.nativeMode) {
+            context.runtime.diffStart?.let {
+                if (context.runtime.script == "default") {
+                    add("--diff-start")
+                    add(it)
+                }
+            }
+            context.runtime.diffEnd?.let {
+                if (context.runtime.script == "default") {
+                    add("--diff-end")
+                    add(it)
+                }
+            }
 
-        // --- 7. Properties ---
-        context.runtime.properties.forEach { (key, value) ->
-            add("--property=$key=$value")
+            context.runtime.analysisId?.let {
+                add("--analysis-id")
+                add(it)
+            }
+            context.runtime.coverageDir?.let {
+                add("--coverage-dir")
+                add(it.toString())
+            }
+            context.runtime.jvmDebugPort?.let {
+                if (it > 0) {
+                    add("--jvm-debug-port")
+                    add(it.toString())
+                }
+            }
+            context.runtime.globalConfigDir?.let {
+                add("--global-config-dir")
+                add(it.toString())
+            }
+            if (context.report.outputFormats.any { it == ReportOptions.OutputFormat.CODE_CLIMATE }) {
+                add("--code-climate")
+            }
+            context.runtime.properties.forEach { (key, value) ->
+                add("--property=$key=$value")
+            }
+        } else if (product != null && product.is251orNewer()) {
+            // Native mode on 251+: --config-dir
+            context.runtime.effectiveConfigDir?.let {
+                add("--config-dir")
+                add(it.toString())
+            }
         }
-
-        // Positional: project and results directories
-        add(context.paths.projectDir.toString())
-        add(context.paths.resultsDir.toString())
     }
 }

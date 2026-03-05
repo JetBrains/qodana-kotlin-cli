@@ -23,54 +23,54 @@ class IdeInstallerTest {
     private val sampleFeedJson = """
         [
           {
-            "code": "IIU",
-            "releases": [
+            "Code": "IIU",
+            "Releases": [
               {
-                "date": "2025-03-01",
-                "type": "release",
-                "version": "2025.3.1",
-                "majorVersion": "2025.3",
-                "build": "253.1234",
-                "downloads": {
-                  "linux": {"link": "https://example.com/idea-2025.3.1.tar.gz", "size": 1000, "checksumLink": ""},
-                  "linuxARM64": {"link": "https://example.com/idea-2025.3.1-aarch64.tar.gz", "size": 1000, "checksumLink": ""},
-                  "mac": {"link": "https://example.com/idea-2025.3.1.sit", "size": 1000, "checksumLink": ""},
-                  "macM1": {"link": "https://example.com/idea-2025.3.1-aarch64.sit", "size": 1000, "checksumLink": ""},
-                  "windowsZip": {"link": "https://example.com/idea-2025.3.1.win.zip", "size": 1000, "checksumLink": ""}
+                "Date": "2025-03-01",
+                "Type": "release",
+                "Version": "2025.3.1",
+                "MajorVersion": "2025.3",
+                "Build": "253.1234",
+                "Downloads": {
+                  "linux": {"Link": "https://example.com/idea-2025.3.1.tar.gz", "Size": 1000, "ChecksumLink": ""},
+                  "linuxARM64": {"Link": "https://example.com/idea-2025.3.1-aarch64.tar.gz", "Size": 1000, "ChecksumLink": ""},
+                  "macSit": {"Link": "https://example.com/idea-2025.3.1.sit", "Size": 1000, "ChecksumLink": ""},
+                  "macSitM1": {"Link": "https://example.com/idea-2025.3.1-aarch64.sit", "Size": 1000, "ChecksumLink": ""},
+                  "windowsZip": {"Link": "https://example.com/idea-2025.3.1.win.zip", "Size": 1000, "ChecksumLink": ""}
                 }
               },
               {
-                "date": "2025-02-15",
-                "type": "release",
-                "version": "2025.3.0",
-                "majorVersion": "2025.3",
-                "build": "253.1000",
-                "downloads": {
-                  "linux": {"link": "https://example.com/idea-2025.3.0.tar.gz", "size": 900, "checksumLink": ""}
+                "Date": "2025-02-15",
+                "Type": "release",
+                "Version": "2025.3.0",
+                "MajorVersion": "2025.3",
+                "Build": "253.1000",
+                "Downloads": {
+                  "linux": {"Link": "https://example.com/idea-2025.3.0.tar.gz", "Size": 900, "ChecksumLink": ""}
                 }
               },
               {
-                "date": "2025-03-10",
-                "type": "eap",
-                "version": "2025.3.2-EAP",
-                "majorVersion": "2025.3",
-                "build": "253.2000",
-                "downloads": {
-                  "linux": {"link": "https://example.com/idea-2025.3.2-eap.tar.gz", "size": 1100, "checksumLink": ""}
+                "Date": "2025-03-10",
+                "Type": "eap",
+                "Version": "2025.3.2-EAP",
+                "MajorVersion": "2025.3",
+                "Build": "253.2000",
+                "Downloads": {
+                  "linux": {"Link": "https://example.com/idea-2025.3.2-eap.tar.gz", "Size": 1100, "ChecksumLink": ""}
                 }
               }
             ]
           },
           {
-            "code": "GO",
-            "releases": [
+            "Code": "GO",
+            "Releases": [
               {
-                "date": "2025-03-01",
-                "type": "release",
-                "version": "2025.3.1",
-                "majorVersion": "2025.3",
-                "downloads": {
-                  "linux": {"link": "https://example.com/goland-2025.3.1.tar.gz", "size": 800, "checksumLink": ""}
+                "Date": "2025-03-01",
+                "Type": "release",
+                "Version": "2025.3.1",
+                "MajorVersion": "2025.3",
+                "Downloads": {
+                  "linux": {"Link": "https://example.com/goland-2025.3.1.tar.gz", "Size": 800, "ChecksumLink": ""}
                 }
               }
             ]

@@ -15,13 +15,14 @@ import java.nio.file.Path
 
 /**
  * Runs the IDE inspection locally (native mode, no Docker).
+ * Mirrors Go's `runQodanaLocal()` in `ide.go`.
  *
  * Flow:
- * 1. Write `idea.properties` and VM options via [PropertyGenerator]
- * 2. Build IDE command-line via [IdeArgBuilder]
- * 3. Execute the IDE through [ProcessRunner] with the configured timeout
- * 4. Stream stdout/stderr as log events
- * 5. Read the actual exit code from the SARIF result when available
+ * 1. Discover IDE product via [IdeProductDiscovery.guessProduct]
+ * 2. Write VM options via [PropertyGenerator]
+ * 3. Build command: `<ideScript> [inspect] qodana <args> <projectDir> <resultsDir>`
+ * 4. Execute IDE through [ProcessRunner], stream stdout/stderr
+ * 5. Read exit code from SARIF when available
  */
 class NativeScan(
     private val processRunner: ProcessRunner,
@@ -30,11 +31,8 @@ class NativeScan(
 
     private val log = LoggerFactory.getLogger(NativeScan::class.java)
 
-    /**
-     * Execute the full native scan and return the final exit code.
-     */
     suspend fun run(context: ScanContext): Int {
-        // QODANA_DIST overrides the IDE installation directory
+        // Resolve IDE home directory
         val distOverride = System.getenv(QodanaEnv.DIST)
         val ideDir = if (!distOverride.isNullOrBlank()) {
             Path.of(distOverride)
@@ -43,26 +41,26 @@ class NativeScan(
                 ?: throw IllegalStateException("Native scan requires ideDir to be set")
         }
 
-        // 0. Unset Ruby variables if this is a Ruby linter
+        // Discover IDE product (matches Go's GuessProduct)
+        val product = IdeProductDiscovery.guessProduct(ideDir, fileSystem)
+        System.setProperty(QodanaEnv.DIST, product.home)
+
+        // Unset Ruby variables if this is a Ruby linter
         val linter = context.linter?.let { Linters.findByName(it) }
         if (linter != null && Linters.isRuby(linter)) {
             CiDetector.unsetRubyVariables()
         }
 
-        // 1. Prepare configuration files
-        writeProperties(context)
+        // Write VM options
+        writeProperties(context, product)
 
-        // 2. Build IDE command arguments
-        val ideArgs = IdeArgBuilder.build(context)
-        val toolOverride = System.getenv(QodanaEnv.TOOL)
-        val ideScript = if (!toolOverride.isNullOrBlank()) Path.of(toolOverride) else resolveIdeScript(ideDir)
+        // Build IDE command — matches Go's getIdeRunCommand()
+        val args = getIdeRunCommand(product, context)
+        log.info("Starting native IDE scan: {}", args.joinToString(" "))
 
-        log.info("Starting native IDE scan: {} {}", ideScript, ideArgs.joinToString(" "))
-
-        // 3. Execute IDE
         val spec = ProcessSpec(
-            command = ideScript.toString(),
-            args = ideArgs,
+            command = args[0],
+            args = args.drop(1),
             workDir = context.paths.projectDir,
             timeout = context.runtime.timeout,
             env = context.runtime.envVars,
@@ -70,7 +68,6 @@ class NativeScan(
 
         val process = processRunner.start(spec)
 
-        // 4. Collect log output
         process.events()
             .onEach { event ->
                 when (event.stream) {
@@ -83,19 +80,25 @@ class NativeScan(
         val processExitCode = process.awaitExit()
         log.info("IDE process exited with code {}", processExitCode)
 
-        // 5. Determine final exit code (SARIF takes precedence)
         return readIdeExitCode(context.paths.resultsDir, processExitCode)
     }
 
-    // ----------------------------------------------------------------
-    // Internal helpers
-    // ----------------------------------------------------------------
-
     /**
-     * Writes `idea.properties` and `idea64.vmoptions` into a config directory
-     * so the IDE picks them up via environment variables.
+     * Matches Go's `getIdeRunCommand()`:
+     * `[ideScript] [inspect] qodana <args> <projectDir> <resultsDir>`
      */
-    private fun writeProperties(context: ScanContext) {
+    private fun getIdeRunCommand(product: IdeProduct, context: ScanContext): List<String> = buildList {
+        add(product.ideScript)
+        if (!product.is242orNewer()) {
+            add("inspect")
+        }
+        add("qodana")
+        addAll(IdeArgBuilder.build(context, product))
+        add(context.paths.projectDir.toString())
+        add(context.paths.resultsDir.toString())
+    }
+
+    private fun writeProperties(context: ScanContext, product: IdeProduct) {
         val configDir = context.paths.cacheDir.resolve("idea-config")
         fileSystem.createDirectories(configDir)
 
@@ -103,37 +106,17 @@ class NativeScan(
             fileSystem.write(path, content)
         }
 
+        // Set VM options env var like Go does
+        val linterProps = context.linter?.let { Linters.findByName(it) }
+            ?.let { org.jetbrains.qodana.core.product.IntellijLinterProperties.findByLinter(it) }
+        if (linterProps != null) {
+            val vmOptionsPath = configDir.resolve("idea64.vmoptions").toString()
+            System.setProperty(linterProps.vmOptionsEnv, vmOptionsPath)
+        }
+
         log.debug("Wrote IDE property files to {}", configDir)
     }
 
-    /**
-     * Locates the `inspect.sh` (or `inspect.bat` on Windows) script inside the IDE
-     * installation directory. Falls back to `qodana.sh`/`qodana.bat` if the
-     * standard inspect script is missing.
-     */
-    private fun resolveIdeScript(ideDir: Path): Path {
-        val isWindows = System.getProperty("os.name").lowercase().contains("windows")
-        val binDir = ideDir.resolve("bin")
-
-        val inspectScript = binDir.resolve(if (isWindows) "inspect.bat" else "inspect.sh")
-        if (fileSystem.exists(inspectScript)) return inspectScript
-
-        val qodanaScript = binDir.resolve(if (isWindows) "qodana.bat" else "qodana.sh")
-        if (fileSystem.exists(qodanaScript)) return qodanaScript
-
-        throw IllegalStateException(
-            "Cannot find inspect script in $binDir. " +
-                "Searched: ${inspectScript.fileName}, ${qodanaScript.fileName}"
-        )
-    }
-
-    /**
-     * Tries to read the exit code written by the IDE into `qodana.sarif.json`.
-     * Falls back to [processExitCode] when the file is absent or unparseable.
-     *
-     * The IDE writes a top-level `"exitCode"` property in the SARIF report to
-     * communicate its own notion of success/failure (e.g. threshold exceeded).
-     */
     private fun readIdeExitCode(resultsDir: Path, processExitCode: Int): Int {
         val sarifPath = resultsDir.resolve(SARIF_FILENAME)
         if (!fileSystem.exists(sarifPath)) {

@@ -24,4 +24,5 @@ data class RuntimeContext(
     val onlyDirectory: String? = null,
     val coverageDir: Path? = null,
     val globalConfigDir: Path? = null,
+    val effectiveConfigDir: Path? = null,
 )

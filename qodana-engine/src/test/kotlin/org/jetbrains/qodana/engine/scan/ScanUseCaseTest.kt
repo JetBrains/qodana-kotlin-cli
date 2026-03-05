@@ -87,7 +87,15 @@ class ScanUseCaseTest {
     )
 
     private fun buildNativeScan(): NativeScan {
-        val fs = StubFileSystem(existingPaths = setOf("inspect.sh"))
+        val isMac = System.getProperty("os.name").lowercase().let { "mac" in it || "darwin" in it }
+        val ideBinary = if (isMac) "MacOS/idea" else "bin/idea"
+        val productInfoPath = if (isMac) "Resources/product-info.json" else "product-info.json"
+        val fs = StubFileSystem(
+            existingPaths = setOf(ideBinary),
+            fileContents = mapOf(
+                productInfoPath to """{"version":"2025.3","buildNumber":"253.12345","productCode":"IU","versionSuffix":""}""",
+            ),
+        )
         return NativeScan(recordingProcessRunner, fs)
     }
 
@@ -318,8 +326,12 @@ class ScanUseCaseTest {
      */
     private class StubFileSystem(
         private val existingPaths: Set<String> = emptySet(),
+        private val fileContents: Map<String, String> = emptyMap(),
     ) : FileSystem {
-        override fun read(path: Path) = ""
+        override fun read(path: Path): String {
+            val pathStr = path.toString()
+            return fileContents.entries.find { pathStr.endsWith(it.key) }?.value ?: ""
+        }
         override fun readBytes(path: Path) = byteArrayOf()
         override fun write(path: Path, content: String) {}
         override fun writeBytes(path: Path, content: ByteArray) {}
