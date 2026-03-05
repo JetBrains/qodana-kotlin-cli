@@ -22,6 +22,7 @@ class QodanaCommand : CliktCommand("qodana") {
     }
 
     override fun run() {
+        System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", logLevel)
         if (currentContext.invokedSubcommand == null) {
             echo(getFormattedHelp())
         }

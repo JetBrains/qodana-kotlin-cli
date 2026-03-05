@@ -2,11 +2,14 @@ package org.jetbrains.qodana.engine.scan
 
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onEach
+import org.jetbrains.qodana.core.env.QodanaEnv
 import org.jetbrains.qodana.core.model.ProcessSpec
-import org.jetbrains.qodana.engine.model.ScanContext
 import org.jetbrains.qodana.core.model.Stream
 import org.jetbrains.qodana.core.port.FileSystem
 import org.jetbrains.qodana.core.port.ProcessRunner
+import org.jetbrains.qodana.core.product.Linters
+import org.jetbrains.qodana.engine.env.CiDetector
+import org.jetbrains.qodana.engine.model.ScanContext
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
 
@@ -31,15 +34,28 @@ class NativeScan(
      * Execute the full native scan and return the final exit code.
      */
     suspend fun run(context: ScanContext): Int {
-        val ideDir = context.runtime.ideDir
-            ?: throw IllegalStateException("Native scan requires ideDir to be set")
+        // QODANA_DIST overrides the IDE installation directory
+        val distOverride = System.getenv(QodanaEnv.DIST)
+        val ideDir = if (!distOverride.isNullOrBlank()) {
+            Path.of(distOverride)
+        } else {
+            context.runtime.ideDir
+                ?: throw IllegalStateException("Native scan requires ideDir to be set")
+        }
+
+        // 0. Unset Ruby variables if this is a Ruby linter
+        val linter = context.linter?.let { Linters.findByName(it) }
+        if (linter != null && Linters.isRuby(linter)) {
+            CiDetector.unsetRubyVariables()
+        }
 
         // 1. Prepare configuration files
         writeProperties(context)
 
         // 2. Build IDE command arguments
         val ideArgs = IdeArgBuilder.build(context)
-        val ideScript = resolveIdeScript(ideDir)
+        val toolOverride = System.getenv(QodanaEnv.TOOL)
+        val ideScript = if (!toolOverride.isNullOrBlank()) Path.of(toolOverride) else resolveIdeScript(ideDir)
 
         log.info("Starting native IDE scan: {} {}", ideScript, ideArgs.joinToString(" "))
 

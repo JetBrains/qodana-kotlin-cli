@@ -5,6 +5,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -160,6 +161,36 @@ class QodanaSarifServiceTest {
         val content = Files.readString(file)
         assertTrue(content.contains("src/main/File.kt"), "Backslashes should be normalized: $content")
         assertTrue(!content.contains("src\\\\main"), "No backslashes should remain")
+    }
+
+    @Test
+    fun `normalize paths strips projectDir prefix`(@TempDir dir: Path) {
+        val projectDir = dir.resolve("myproject")
+        val sarif = """
+            {
+              "version": "2.1.0",
+              "runs": [{
+                "tool": {"driver": {"name": "T", "version": "1"}},
+                "results": [{
+                  "ruleId": "R1",
+                  "message": {"text": "msg"},
+                  "locations": [{
+                    "physicalLocation": {
+                      "artifactLocation": {"uri": "${projectDir.toString().replace("\\", "/")}/src/Main.kt"}
+                    }
+                  }]
+                }]
+              }]
+            }
+        """.trimIndent()
+
+        val file = dir.resolve("prefix.sarif.json")
+        Files.writeString(file, sarif)
+        service.normalizePaths(file, projectDir)
+
+        val content = Files.readString(file)
+        assertTrue(content.contains("src/Main.kt"), "Project dir prefix should be stripped: $content")
+        assertFalse(content.contains(projectDir.toString().replace("\\", "/")), "Full path should not remain")
     }
 
     @Test

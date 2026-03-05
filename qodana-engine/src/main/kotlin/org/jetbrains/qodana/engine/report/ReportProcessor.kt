@@ -27,6 +27,7 @@ class ReportProcessor(
         reportDir: Path,
         reportOptions: ReportOptions,
         failThreshold: Int? = null,
+        analysisExitCode: Int = 0,
     ): ProcessedReport {
         val sarifPath = resultsDir.resolve(SARIF_FILENAME)
 
@@ -44,6 +45,7 @@ class ReportProcessor(
         val exitCode = determineExitCode(
             newProblems = newProblems,
             failThreshold = failThreshold,
+            analysisExitCode = analysisExitCode,
         )
 
         if (reportOptions.saveReport) {
@@ -63,7 +65,12 @@ class ReportProcessor(
         return extractProblemCount(report)
     }
 
-    private fun determineExitCode(newProblems: Int, failThreshold: Int?): ExitCode {
+    private fun determineExitCode(newProblems: Int, failThreshold: Int?, analysisExitCode: Int = 0): ExitCode {
+        if (analysisExitCode != 0) {
+            val fatalCode = ExitCode.fromCode(analysisExitCode)
+            if (fatalCode != null && fatalCode != ExitCode.SUCCESS) return fatalCode
+        }
+
         if (newProblems == 0) return ExitCode.SUCCESS
 
         if (failThreshold != null && newProblems >= failThreshold) {

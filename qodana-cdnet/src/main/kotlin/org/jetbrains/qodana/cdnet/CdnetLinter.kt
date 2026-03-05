@@ -5,6 +5,7 @@ import org.jetbrains.qodana.core.model.ThirdPartyScanContext
 import org.jetbrains.qodana.core.port.FileSystem
 import org.jetbrains.qodana.core.port.ProcessRunner
 import org.jetbrains.qodana.core.port.Terminal
+import org.jetbrains.qodana.core.port.ThirdPartyLinter
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
@@ -13,14 +14,16 @@ class CdnetLinter(
     private val processRunner: ProcessRunner,
     private val fileSystem: FileSystem,
     private val terminal: Terminal,
-) {
+) : ThirdPartyLinter {
     private val logger = LoggerFactory.getLogger(CdnetLinter::class.java)
 
-    suspend fun runAnalysis(context: ThirdPartyScanContext) {
+    override suspend fun runAnalysis(context: ThirdPartyScanContext) {
         val args = CdnetOptions.computeArgs(context)
+        logger.info("Computed cdnet args: {}", args)
 
         if (NugetConfig.isNeeded()) {
             val homeDir = Path.of(System.getProperty("user.home"))
+            logger.info("Preparing NuGet config in {}", homeDir)
             NugetConfig.prepare(homeDir)
         }
         NugetConfig.unsetVariables()
@@ -44,9 +47,9 @@ class CdnetLinter(
         )
     }
 
-    fun mountTools(toolsDir: Path): Map<String, Path> {
-        // Look for the CLT DLL in the tools directory
-        // The archive contains the CLT tools extracted from the nupkg
+    override fun mountTools(targetPath: Path): Map<String, Path> {
+        val toolsDir = targetPath
+        logger.info("Mounting cdnet tools from {}", toolsDir)
         val archivePath = toolsDir.resolve("clt.zip")
 
         // Find the InspectCode DLL

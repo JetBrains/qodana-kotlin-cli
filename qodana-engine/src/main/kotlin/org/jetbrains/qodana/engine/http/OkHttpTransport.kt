@@ -47,7 +47,7 @@ class OkHttpTransport(
             val request = Request.Builder().url(url).headers(headers.toHeaders()).get().build()
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
-                    throw HttpException(response.code, "Download failed: ${response.message}")
+                    throw HttpException(response.code, "Download failed")
                 }
                 response.body?.byteStream()?.use { input ->
                     target.outputStream().use { output ->
@@ -98,4 +98,4 @@ class OkHttpTransport(
     }
 }
 
-class HttpException(val statusCode: Int, message: String) : RuntimeException(message)
+class HttpException(val statusCode: Int, message: String) : RuntimeException("response code '$statusCode', message '$message'")

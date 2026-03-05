@@ -68,7 +68,15 @@ class CloudClient(
         action: suspend (String) -> Result<T>,
     ): Result<T> {
         var lastException: Throwable? = null
+        val deadline = System.currentTimeMillis() + timeoutMs
         repeat(maxRetries) { attempt ->
+            if (System.currentTimeMillis() > deadline) {
+                return Result.failure(
+                    lastException ?: QodanaErrorException(
+                        QodanaError.Network(url, "Request timed out after ${timeoutMs}ms")
+                    )
+                )
+            }
             try {
                 val result = action(url)
                 if (result.isSuccess) return result

@@ -44,11 +44,14 @@ class QodanaSarifService : SarifService {
 
     override fun normalizePaths(reportPath: Path, projectDir: Path) {
         val report = SarifUtil.readReport(reportPath)
+        val projectDirPrefix = projectDir.toString().replace("\\", "/").let {
+            if (it.endsWith("/")) it else "$it/"
+        }
         for (run in report.runs ?: emptyList()) {
             for (result in run.results ?: emptyList()) {
                 for (location in result.locations ?: emptyList()) {
                     val uri = location.physicalLocation?.artifactLocation?.uri ?: continue
-                    val normalized = uri.replace("\\", "/")
+                    val normalized = uri.replace("\\", "/").removePrefix(projectDirPrefix)
                     location.physicalLocation.artifactLocation.uri = normalized
                 }
             }

@@ -1,5 +1,7 @@
 package org.jetbrains.qodana.engine.scan
 
+import org.jetbrains.qodana.core.product.Linter
+import org.jetbrains.qodana.core.product.Linters
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.exists
@@ -59,6 +61,64 @@ object ProjectDetector {
         } catch (_: Exception) {
             false
         }
+    }
+
+    private val SKIP_DIRS = setOf(".idea", ".vscode", ".git", "node_modules", "vendor", "build", "target", "__pycache__")
+
+    private val EXT_TO_LANGUAGE = mapOf(
+        "java" to "Java",
+        "kt" to "Kotlin",
+        "kts" to "Kotlin",
+        "py" to "Python",
+        "go" to "Go",
+        "js" to "JavaScript",
+        "ts" to "TypeScript",
+        "tsx" to "TypeScript",
+        "jsx" to "JavaScript",
+        "cs" to "C#",
+        "fs" to "F#",
+        "vb" to "Visual Basic .NET",
+        "php" to "PHP",
+        "rb" to "Ruby",
+        "rs" to "Rust",
+        "c" to "C",
+        "cpp" to "C++",
+        "cc" to "C++",
+        "cxx" to "C++",
+        "h" to "C",
+        "hpp" to "C++",
+    )
+
+    fun recognizeLanguages(projectDir: Path): List<String> {
+        if (!projectDir.isDirectory()) return emptyList()
+        val counts = mutableMapOf<String, Int>()
+        Files.walk(projectDir).use { stream ->
+            stream.filter { it.isRegularFile() }
+                .filter { file ->
+                    file.toAbsolutePath().none { part -> SKIP_DIRS.contains(part.toString()) }
+                }
+                .forEach { file ->
+                    val lang = EXT_TO_LANGUAGE[file.extension]
+                    if (lang != null) {
+                        counts[lang] = (counts[lang] ?: 0) + 1
+                    }
+                }
+        }
+        return counts.entries.sortedByDescending { it.value }.map { it.key }
+    }
+
+    fun detectLinter(projectDir: Path): Linter? {
+        // First try .idea/ directory
+        val ideaLanguages = readIdeaDir(projectDir)
+        val languages = ideaLanguages.ifEmpty { recognizeLanguages(projectDir) }
+        if (languages.isEmpty()) return null
+
+        // Find the first language that maps to a linter
+        for (lang in languages) {
+            val linters = Linters.LANGS_TO_LINTERS[lang]
+            if (!linters.isNullOrEmpty()) return linters.first()
+        }
+        return null
     }
 
     fun readIdeaDir(projectDir: Path): List<String> {

@@ -39,6 +39,7 @@ class PublisherAdapter : ReportPublisher {
         val params = PublisherParameters(
             reportPath = reportPath,
             reportType = PublisherReportType.SARIF,
+            analysisId = analysisId,
         )
 
         return when (val result = publisher.publish(params)) {

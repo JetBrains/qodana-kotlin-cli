@@ -28,7 +28,8 @@ object ContainerImageUtils {
     fun isCompatibleLinter(image: String): Boolean {
         if (!hasExactVersionTag(image)) return false
         val tag = image.substringAfter(":")
-        return tag.startsWith(Linters.RELEASE_VERSION)
+        return tag.startsWith(Linters.RELEASE_VERSION) ||
+            tag.startsWith(Linters.SHORT_VERSION)
     }
 
     fun selectUser(image: String, requestedUser: String): String {

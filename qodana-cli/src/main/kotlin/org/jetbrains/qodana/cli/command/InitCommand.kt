@@ -6,6 +6,7 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.path
 import org.jetbrains.qodana.core.port.Terminal
+import org.jetbrains.qodana.engine.scan.ProjectDetector
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -20,20 +21,46 @@ class InitCommand(
         .default(Path.of("."))
 
     override fun run() {
-        val yamlFile = projectDir.resolve("qodana.yaml")
-        if (Files.exists(yamlFile)) {
-            terminal.println("qodana.yaml already exists at $yamlFile")
-            return
+        val detectedLinter = ProjectDetector.detectLinter(projectDir)
+        val linterName = detectedLinter?.name ?: "jetbrains/qodana-jvm:latest"
+
+        val yamlFile = findExistingYaml(projectDir)
+        if (yamlFile != null) {
+            updateExistingYaml(yamlFile, linterName)
+        } else {
+            createNewYaml(projectDir.resolve("qodana.yaml"), linterName)
+        }
+    }
+
+    private fun findExistingYaml(dir: Path): Path? {
+        val yamlNames = listOf("qodana.yaml", "qodana.yml")
+        return yamlNames.map { dir.resolve(it) }.firstOrNull { Files.exists(it) }
+    }
+
+    private fun updateExistingYaml(yamlFile: Path, linterName: String) {
+        val content = Files.readString(yamlFile)
+        val lines = content.lines().toMutableList()
+
+        val linterIdx = lines.indexOfFirst { it.trimStart().startsWith("linter:") }
+        if (linterIdx >= 0) {
+            lines[linterIdx] = "linter: $linterName"
+        } else {
+            lines.add("linter: $linterName")
         }
 
-        val defaultYaml = """
+        Files.writeString(yamlFile, lines.joinToString("\n"))
+        terminal.println("Updated $yamlFile with linter: $linterName")
+    }
+
+    private fun createNewYaml(yamlFile: Path, linterName: String) {
+        val yaml = """
             |version: "1.0"
-            |linter: jetbrains/qodana-jvm:latest
+            |linter: $linterName
             |profile:
             |  name: qodana.recommended
         """.trimMargin()
 
-        Files.writeString(yamlFile, defaultYaml)
-        terminal.println("Created qodana.yaml at $yamlFile")
+        Files.writeString(yamlFile, yaml)
+        terminal.println("Created $yamlFile with linter: $linterName")
     }
 }

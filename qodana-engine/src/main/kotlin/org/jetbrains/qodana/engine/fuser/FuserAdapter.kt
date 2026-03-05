@@ -20,7 +20,6 @@ import java.time.Duration
 import kotlin.math.abs
 
 class FuserAdapter(
-    private val productCode: String,
     private val productVersion: String,
 ) : StatisticsReporter {
 

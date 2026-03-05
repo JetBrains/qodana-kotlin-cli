@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.coroutineScope
+import org.jetbrains.qodana.core.env.QodanaEnv
 import org.jetbrains.qodana.core.model.*
 import org.jetbrains.qodana.engine.model.*
 import org.jetbrains.qodana.engine.port.ContainerEngine
@@ -43,7 +44,7 @@ class ContainerScan(
                 exitStatus.exitCode
             }
         } finally {
-            val keepContainer = System.getenv("QODANA_CLI_CONTAINER_KEEP")?.isNotBlank() == true
+            val keepContainer = System.getenv(QodanaEnv.CLI_CONTAINER_KEEP)?.isNotBlank() == true
             if (!keepContainer) {
                 try {
                     containerEngine.remove(containerId, force = true)
@@ -122,8 +123,11 @@ class ContainerScan(
 
         val exposedPorts = if (portBindings.isNotEmpty()) listOf(5005) else emptyList()
 
+        val containerName = System.getenv(QodanaEnv.CLI_CONTAINER_NAME)
+
         return ContainerRunSpec(
             image = image,
+            name = containerName,
             mounts = mounts,
             env = env,
             resources = ResourceLimits(
