@@ -6,7 +6,7 @@ plugins {
 }
 
 application {
-    mainClass.set("com.jetbrains.qodana.clang.MainKt")
+    mainClass.set("org.jetbrains.qodana.clang.MainKt")
 }
 
 dependencies {
@@ -17,6 +17,10 @@ dependencies {
     implementation(project(":qodana-infra-fs"))
     implementation(project(":qodana-infra-sarif"))
     implementation(libs.clikt)
+    implementation(libs.jackson.databind)
+    implementation(libs.jackson.dataformat.yaml)
+    implementation(libs.jackson.module.kotlin)
+    implementation(libs.kotlinx.coroutines.core)
     implementation(libs.slf4j.simple)
 
     testImplementation(libs.kotlin.test)
