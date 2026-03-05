@@ -2,25 +2,25 @@ package org.jetbrains.qodana.cli
 
 import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.core.subcommands
-import org.jetbrains.qodana.app.cloud.CloudClient
-import org.jetbrains.qodana.app.cloud.LicenseValidator
-import org.jetbrains.qodana.app.contributors.ContributorAnalyzer
-import org.jetbrains.qodana.app.report.ReportProcessor
-import org.jetbrains.qodana.app.report.ReportPublishUseCase
-import org.jetbrains.qodana.app.scan.ContainerScan
-import org.jetbrains.qodana.app.scan.NativeScan
-import org.jetbrains.qodana.app.scan.ScanUseCase
-import org.jetbrains.qodana.app.startup.PrepareHost
+import org.jetbrains.qodana.engine.cloud.CloudClient
+import org.jetbrains.qodana.engine.cloud.LicenseValidator
+import org.jetbrains.qodana.engine.contributors.ContributorAnalyzer
+import org.jetbrains.qodana.engine.report.ReportProcessor
+import org.jetbrains.qodana.engine.report.ReportPublishUseCase
+import org.jetbrains.qodana.engine.scan.ContainerScan
+import org.jetbrains.qodana.engine.scan.NativeScan
+import org.jetbrains.qodana.engine.scan.ScanUseCase
+import org.jetbrains.qodana.engine.startup.PrepareHost
 import org.jetbrains.qodana.cli.command.*
-import org.jetbrains.qodana.infra.dockerjava.DockerJavaEngine
-import org.jetbrains.qodana.infra.fs.NioFileSystem
-import org.jetbrains.qodana.infra.gitcli.SystemGitClient
-import org.jetbrains.qodana.infra.http.OkHttpTransport
-import org.jetbrains.qodana.infra.process.SystemProcessRunner
-import org.jetbrains.qodana.infra.publisher.PublisherAdapter
-import org.jetbrains.qodana.infra.reportconverter.ReportConverterAdapter
-import org.jetbrains.qodana.infra.sarif.QodanaSarifService
-import org.jetbrains.qodana.infra.terminal.MordantTerminal
+import org.jetbrains.qodana.engine.docker.DockerJavaEngine
+import org.jetbrains.qodana.core.fs.NioFileSystem
+import org.jetbrains.qodana.engine.git.SystemGitClient
+import org.jetbrains.qodana.engine.http.OkHttpTransport
+import org.jetbrains.qodana.core.process.SystemProcessRunner
+import org.jetbrains.qodana.engine.publisher.PublisherAdapter
+import org.jetbrains.qodana.engine.reportconverter.ReportConverterAdapter
+import org.jetbrains.qodana.core.sarif.QodanaSarifService
+import org.jetbrains.qodana.core.terminal.MordantTerminal
 
 fun main(args: Array<String>) {
     val processRunner = SystemProcessRunner()

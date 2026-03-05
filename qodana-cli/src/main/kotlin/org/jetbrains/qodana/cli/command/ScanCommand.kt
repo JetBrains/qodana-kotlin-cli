@@ -8,9 +8,10 @@ import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.long
 import com.github.ajalt.clikt.parameters.types.path
 import kotlinx.coroutines.runBlocking
-import org.jetbrains.qodana.app.scan.ScanUseCase
-import org.jetbrains.qodana.core.env.CiDetector
+import org.jetbrains.qodana.engine.scan.ScanUseCase
+import org.jetbrains.qodana.engine.env.CiDetector
 import org.jetbrains.qodana.core.model.*
+import org.jetbrains.qodana.engine.model.*
 import java.nio.file.Path
 
 class ScanCommand(

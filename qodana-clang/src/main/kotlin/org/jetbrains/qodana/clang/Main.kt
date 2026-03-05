@@ -2,10 +2,10 @@ package org.jetbrains.qodana.clang
 
 import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.core.subcommands
-import org.jetbrains.qodana.infra.fs.NioFileSystem
-import org.jetbrains.qodana.infra.process.SystemProcessRunner
-import org.jetbrains.qodana.infra.sarif.QodanaSarifService
-import org.jetbrains.qodana.infra.terminal.MordantTerminal
+import org.jetbrains.qodana.core.fs.NioFileSystem
+import org.jetbrains.qodana.core.process.SystemProcessRunner
+import org.jetbrains.qodana.core.sarif.QodanaSarifService
+import org.jetbrains.qodana.core.terminal.MordantTerminal
 
 object Version {
     const val VALUE = "0.1.0-dev"

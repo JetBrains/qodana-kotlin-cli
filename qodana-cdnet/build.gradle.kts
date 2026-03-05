@@ -11,11 +11,6 @@ application {
 
 dependencies {
     implementation(project(":qodana-core"))
-    implementation(project(":qodana-app"))
-    implementation(project(":qodana-infra-process"))
-    implementation(project(":qodana-infra-terminal"))
-    implementation(project(":qodana-infra-fs"))
-    implementation(project(":qodana-infra-sarif"))
     implementation(libs.clikt)
     implementation(libs.jackson.databind)
     implementation(libs.jackson.dataformat.yaml)

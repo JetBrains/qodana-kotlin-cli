@@ -7,8 +7,8 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.path
 import kotlinx.coroutines.runBlocking
-import org.jetbrains.qodana.app.config.EffectiveConfig
-import org.jetbrains.qodana.core.port.ContainerEngine
+import org.jetbrains.qodana.engine.config.EffectiveConfig
+import org.jetbrains.qodana.engine.port.ContainerEngine
 import org.jetbrains.qodana.core.port.Terminal
 import java.nio.file.Path
 
