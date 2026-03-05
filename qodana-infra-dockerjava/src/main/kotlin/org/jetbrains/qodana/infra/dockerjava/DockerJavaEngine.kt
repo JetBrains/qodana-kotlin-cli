@@ -18,16 +18,23 @@ import kotlinx.coroutines.withContext
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
+import com.github.dockerjava.api.model.Capability
+import com.github.dockerjava.api.model.ExposedPort
+import com.github.dockerjava.api.model.Ports
 
 class DockerJavaEngine : ContainerEngine {
 
-    private val client: DockerClient by lazy { createClient() }
+    private val config: DefaultDockerClientConfig by lazy { createConfig() }
+    private val client: DockerClient by lazy { createClient(config) }
 
-    private fun createClient(): DockerClient {
+    private fun createConfig(): DefaultDockerClientConfig {
         val dockerHost = resolveDockerHost()
-        val config = DefaultDockerClientConfig.createDefaultConfigBuilder()
+        return DefaultDockerClientConfig.createDefaultConfigBuilder()
             .withDockerHost(dockerHost)
             .build()
+    }
+
+    private fun createClient(config: DefaultDockerClientConfig): DockerClient {
         val httpClient = ApacheDockerHttpClient.Builder()
             .dockerHost(config.dockerHost)
             .sslConfig(config.sslConfig)
@@ -39,8 +46,19 @@ class DockerJavaEngine : ContainerEngine {
 
     override suspend fun pull(image: String, onProgress: (String) -> Unit) = withContext(Dispatchers.IO) {
         onProgress("Pulling image $image...")
-        client.pullImageCmd(image)
-            .exec(object : ResultCallback.Adapter<PullResponseItem>() {
+        val pullCmd = client.pullImageCmd(image)
+
+        try {
+            val repoName = com.github.dockerjava.core.NameParser.resolveRepositoryName(image)
+            val authConfig = config.effectiveAuthConfig(repoName.reposName)
+            if (authConfig != null) {
+                pullCmd.withAuthConfig(authConfig)
+            }
+        } catch (_: Exception) {
+            // No auth config available — proceed without auth
+        }
+
+        pullCmd.exec(object : ResultCallback.Adapter<PullResponseItem>() {
                 override fun onNext(item: PullResponseItem) {
                     val status = buildString {
                         append(item.status ?: "")
@@ -78,7 +96,33 @@ class DockerJavaEngine : ContainerEngine {
         spec.resources.memoryBytes?.let { hostConfig.withMemory(it) }
         spec.resources.cpuCount?.let { hostConfig.withCpuCount(it.toLong()) }
 
+        if (spec.capAdd.isNotEmpty()) {
+            hostConfig.withCapAdd(*spec.capAdd.map { Capability.valueOf(it) }.toTypedArray())
+        }
+
+        if (spec.securityOpts.isNotEmpty()) {
+            hostConfig.withSecurityOpts(spec.securityOpts)
+        }
+
+        spec.networkMode?.let { hostConfig.withNetworkMode(it) }
+
+        if (spec.autoRemove) {
+            hostConfig.withAutoRemove(true)
+        }
+
+        if (spec.portBindings.isNotEmpty()) {
+            val ports = Ports()
+            spec.portBindings.forEach { (containerPort, hostPort) ->
+                ports.bind(ExposedPort.tcp(containerPort), Ports.Binding.bindPort(hostPort))
+            }
+            hostConfig.withPortBindings(ports)
+        }
+
         cmd.withHostConfig(hostConfig)
+
+        if (spec.exposedPorts.isNotEmpty()) {
+            cmd.withExposedPorts(spec.exposedPorts.map { ExposedPort.tcp(it) })
+        }
 
         if (spec.entrypoint.isNotEmpty()) {
             cmd.withEntrypoint(spec.entrypoint)
@@ -86,6 +130,16 @@ class DockerJavaEngine : ContainerEngine {
 
         if (spec.cmd.isNotEmpty()) {
             cmd.withCmd(spec.cmd)
+        }
+
+        if (spec.tty) {
+            cmd.withTty(true)
+            cmd.withAttachStdout(true)
+            cmd.withAttachStderr(true)
+        }
+
+        if (spec.labels.isNotEmpty()) {
+            cmd.withLabels(spec.labels)
         }
 
         spec.user?.let { cmd.withUser(it) }

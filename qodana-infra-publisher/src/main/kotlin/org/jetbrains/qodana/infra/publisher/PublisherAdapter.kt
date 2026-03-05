@@ -2,8 +2,11 @@ package org.jetbrains.qodana.infra.publisher
 
 import org.jetbrains.qodana.core.model.PublishResult as QodanaPublishResult
 import org.jetbrains.qodana.core.port.ReportPublisher
+import org.jetbrains.qodana.cloudclient.QDCloudClient
+import org.jetbrains.qodana.cloudclient.QDCloudEnvironment
+import org.jetbrains.qodana.cloudclient.QDCloudHttpClient
+import org.jetbrains.qodana.cloudclient.QDCloudResponse
 import org.jetbrains.qodana.cloudclient.s3.QDCloudS3Client
-import org.jetbrains.qodana.cloudclient.v1.QDCloudProjectApiV1
 import org.jetbrains.qodana.publisher.Publisher
 import org.jetbrains.qodana.publisher.PublisherParameters
 import org.jetbrains.qodana.publisher.PublishResult
@@ -19,7 +22,17 @@ class PublisherAdapter : ReportPublisher {
         token: String,
         endpoint: String,
     ): QodanaPublishResult {
-        val projectApi = createProjectApi(token, endpoint)
+        val httpClient = QDCloudHttpClient(HttpClient.newHttpClient())
+        val environment = QDCloudEnvironment(endpoint, httpClient)
+        val client = QDCloudClient(httpClient, environment)
+
+        val v1Response = client.v1()
+        val clientV1 = when (v1Response) {
+            is QDCloudResponse.Success -> v1Response.value
+            else -> return QodanaPublishResult(url = "", reportId = "", success = false)
+        }
+
+        val projectApi = clientV1.projectApi(token)
         val s3Client = QDCloudS3Client(HttpClient.newHttpClient())
         val publisher = Publisher(projectApi, s3Client)
 
@@ -45,14 +58,5 @@ class PublisherAdapter : ReportPublisher {
                 )
             }
         }
-    }
-
-    private fun createProjectApi(token: String, endpoint: String): QDCloudProjectApiV1 {
-        // TODO: Wire up QDCloudClient → v1() → project API using token + endpoint
-        // This requires constructing QDCloudHttpClient with auth token and endpoint URL
-        throw UnsupportedOperationException(
-            "QDCloudProjectApiV1 construction needs to be wired through QDCloudClient. " +
-            "See QodanaInspectionApplication.kt for reference."
-        )
     }
 }

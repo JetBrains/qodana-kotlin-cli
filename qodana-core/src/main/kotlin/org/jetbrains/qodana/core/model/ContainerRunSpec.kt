@@ -10,6 +10,14 @@ data class ContainerRunSpec(
     val user: String? = null,
     val workingDir: String? = null,
     val name: String? = null,
+    val labels: Map<String, String> = emptyMap(),
+    val capAdd: List<String> = emptyList(),
+    val securityOpts: List<String> = emptyList(),
+    val networkMode: String? = null,
+    val tty: Boolean = false,
+    val exposedPorts: List<Int> = emptyList(),
+    val portBindings: Map<Int, Int> = emptyMap(),
+    val autoRemove: Boolean = false,
 )
 
 data class MountSpec(
