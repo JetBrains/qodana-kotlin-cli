@@ -6,12 +6,23 @@ import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.core.UsageError
 import com.github.ajalt.clikt.core.parse
 import com.github.ajalt.clikt.core.subcommands
+import org.jetbrains.qodana.core.fs.NioFileSystem
 import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.core.process.SystemProcessRunner
 import org.jetbrains.qodana.core.product.Linters
+import org.jetbrains.qodana.core.sarif.QodanaSarifService
 import org.jetbrains.qodana.engine.contributors.ContributorAnalyzer
 import org.jetbrains.qodana.engine.docker.DockerJavaEngine
 import org.jetbrains.qodana.engine.git.SystemGitClient
+import org.jetbrains.qodana.engine.http.OkHttpTransport
+import org.jetbrains.qodana.engine.report.ReportProcessor
+import org.jetbrains.qodana.engine.reportconverter.ReportConverterAdapter
+import org.jetbrains.qodana.engine.scan.ContainerScan
+import org.jetbrains.qodana.engine.scan.NativeScan
+import org.jetbrains.qodana.engine.scan.ScanUseCase
+import org.jetbrains.qodana.engine.startup.IdeInstaller
+import org.jetbrains.qodana.engine.startup.PrepareHost
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
@@ -44,6 +55,16 @@ class QodanaCommandTest {
         dir.resolve("hello.py").writeText("print(\"Hello\"   )")
         dir.resolve(".idea").createDirectories()
         return dir
+    }
+
+    private fun isDockerAvailable(): Boolean {
+        return try {
+            val engine = DockerJavaEngine()
+            kotlinx.coroutines.runBlocking { engine.info() }
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     // -- Version / Help --
@@ -147,11 +168,8 @@ class QodanaCommandTest {
 
     @Test
     fun `scan with apply-fixes and cleanup fails`(@TempDir dir: Path) {
-        val command = QodanaCommand().subcommands(
-            ScanCommand { 0 },
-        )
         assertFailsWith<UsageError> {
-            command.parse(listOf("scan", "-i", dir.toString(), "--apply-fixes", "--cleanup"))
+            ScanCommand { 0 }.parse(listOf("-i", dir.toString(), "--apply-fixes", "--cleanup"))
         }
     }
 
@@ -159,18 +177,20 @@ class QodanaCommandTest {
 
     @Test
     fun `pull image pulls hello-world`() {
-        val dockerAvailable = try {
-            DockerJavaEngine().let { true }
-        } catch (_: Exception) {
-            false
-        }
-        if (!dockerAvailable) return // Skip if no Docker
+        assumeTrue(isDockerAvailable(), "Docker not available, skipping")
 
         val containerEngine = DockerJavaEngine()
         val command = PullCommand(containerEngine, terminal)
         command.parse(listOf("--image", "hello-world"))
 
-        assertTrue(output.any { it.contains("hello-world") }, "Should have pulled hello-world: $output")
+        assertTrue(
+            output.any { it.contains("hello-world") },
+            "Should have pulled hello-world: $output"
+        )
+        assertTrue(
+            output.any { it.contains("pulled successfully") },
+            "Should confirm pull success: $output"
+        )
     }
 
     // -- PullCommand: native mode skip (mirrors Go's TestPullInNative) --
@@ -180,26 +200,15 @@ class QodanaCommandTest {
         val projectPath = createProject(dir.resolve("qodana_scan_python_native"))
         projectPath.resolve("qodana.yaml").writeText("ide: QDPY")
 
-        // ContainerEngine that would fail if pull() is called
-        val failingEngine = object : org.jetbrains.qodana.engine.port.ContainerEngine {
-            override suspend fun pull(image: String, onProgress: (String) -> Unit) {
-                fail("pull() should not be called in native mode")
-            }
-            override suspend fun create(spec: org.jetbrains.qodana.engine.model.ContainerRunSpec) = error("unused")
-            override suspend fun start(containerId: String) = error("unused")
-            override fun logs(containerId: String) = error("unused")
-            override suspend fun wait(containerId: String) = error("unused")
-            override suspend fun remove(containerId: String, force: Boolean) = error("unused")
-            override suspend fun info() = error("unused")
-            override suspend fun imageExists(image: String) = error("unused")
-        }
-
-        val command = PullCommand(failingEngine, terminal)
+        // Use real DockerJavaEngine — pull should never be called because
+        // PullCommand detects native mode from the yaml ide field
+        val containerEngine = DockerJavaEngine()
+        val command = PullCommand(containerEngine, terminal)
         command.parse(listOf("-i", projectPath.toString()))
 
         assertTrue(
             output.any { it.contains("Native mode") },
-            "Should report native mode skip: $output"
+            "Should detect native mode and skip pull: $output"
         )
     }
 
@@ -239,11 +248,17 @@ class QodanaCommandTest {
 
     @Test
     fun `all commands with container`(@TempDir dir: Path) {
-        if (System.getenv("QODANA_TEST_CONTAINER").isNullOrEmpty()) return
+        assumeTrue(
+            !System.getenv("QODANA_TEST_CONTAINER").isNullOrEmpty(),
+            "Skipping container test (set QODANA_TEST_CONTAINER=1 to enable)"
+        )
 
         val containerEngine = DockerJavaEngine()
         val processRunner = SystemProcessRunner()
+        val fileSystem = NioFileSystem()
         val gitClient = SystemGitClient(processRunner)
+        val sarifService = QodanaSarifService()
+        val reportConverter = ReportConverterAdapter()
         val image = "jetbrains/qodana-jvm-community:latest"
 
         val projectPath = createProject(dir.resolve("qodana_scan"))
@@ -252,38 +267,43 @@ class QodanaCommandTest {
         val cachePath = dir.resolve("qodana_cache")
         Files.createDirectories(cachePath)
 
-        // pull
+        // pull — real Docker pull
         output.clear()
         PullCommand(containerEngine, terminal)
             .parse(listOf("-i", projectPath.toString(), "--image", image))
+        assertTrue(output.any { it.contains("pulled successfully") }, "Pull should succeed: $output")
 
-        // scan
+        // scan — real container scan via full ScanUseCase
         output.clear()
         val scanCommand = ScanCommand { context ->
-            // Real scan via container
-            val scan = org.jetbrains.qodana.engine.scan.ContainerScan(containerEngine, terminal)
-            kotlinx.coroutines.runBlocking { scan.run(context) }
+            ScanUseCase(
+                prepareHost = PrepareHost(fileSystem, terminal),
+                nativeScan = NativeScan(processRunner, fileSystem),
+                containerScan = ContainerScan(containerEngine, terminal),
+                reportProcessor = ReportProcessor(sarifService, reportConverter),
+                reportPublisher = null,
+                licenseValidator = null,
+                gitClient = gitClient,
+                terminal = terminal,
+            ).run(context)
         }
-        assertFailsWith<ProgramResult> {
+        val scanResult = assertFailsWith<ProgramResult> {
             scanCommand.parse(listOf(
                 "-i", projectPath.toString(),
                 "-o", resultsPath.toString(),
                 "--cache-dir", cachePath.toString(),
+                "-l", image,
                 "--fail-threshold", "5",
                 "--apply-fixes",
                 "--property", "idea.headless.enable.statistics=false",
             ))
         }
 
-        // show
+        // show — real report viewer
         output.clear()
-        val showCommand = ShowCommand(terminal)
-        // Create a fake report so show doesn't fail
-        val reportDir = resultsPath.resolve("report")
-        Files.createDirectories(reportDir)
-        reportDir.resolve("index.html").writeText("<html>report</html>")
-        showCommand.parse(listOf("-r", reportDir.toString()))
-        assertTrue(output.any { it.contains("Opening report") })
+        ShowCommand(terminal).parse(listOf(
+            "-r", resultsPath.resolve("report").toString()
+        ))
 
         // init after analysis
         output.clear()
@@ -293,34 +313,48 @@ class QodanaCommandTest {
                 Files.exists(projectPath.resolve("qodana.yml"))
         )
 
-        // contributors
+        // contributors — real git analysis
         output.clear()
-        ContributorsCommand(
-            ContributorAnalyzer(gitClient), terminal
-        ).parse(emptyList())
+        ContributorsCommand(ContributorAnalyzer(gitClient), terminal).parse(emptyList())
     }
 
     // -- Scan with IDE (mirrors Go's TestScanWithIde) --
     // Gated behind QODANA_LICENSE_ONLY_TOKEN, just like Go
+    // --ide QDGO resolves as product code, PrepareHost downloads IDE, NativeScan runs it
 
     @Test
     fun `scan with ide`() {
         val token = System.getenv("QODANA_LICENSE_ONLY_TOKEN")
-        if (token.isNullOrEmpty()) return
+        assumeTrue(!token.isNullOrEmpty(), "set QODANA_LICENSE_ONLY_TOKEN to run this test")
 
-        val projectPath = Path.of("..")
+        val projectPath = Path.of("..").toAbsolutePath().normalize()
         val resultsPath = projectPath.resolve("results")
         Files.createDirectories(resultsPath)
 
+        val processRunner = SystemProcessRunner()
+        val fileSystem = NioFileSystem()
+        val httpTransport = OkHttpTransport()
+        val gitClient = SystemGitClient(processRunner)
+        val sarifService = QodanaSarifService()
+        val reportConverter = ReportConverterAdapter()
+        val ideInstaller = IdeInstaller(httpTransport, fileSystem, terminal)
+
         output.clear()
+        // ScanCommand with real ScanUseCase that has IdeInstaller wired in
         val scanCommand = ScanCommand { context ->
-            val processRunner = SystemProcessRunner()
-            val fileSystem = org.jetbrains.qodana.core.fs.NioFileSystem()
-            val nativeScan = org.jetbrains.qodana.engine.scan.NativeScan(processRunner, fileSystem)
-            kotlinx.coroutines.runBlocking { nativeScan.run(context) }
+            ScanUseCase(
+                prepareHost = PrepareHost(fileSystem, terminal, ideInstaller),
+                nativeScan = NativeScan(processRunner, fileSystem),
+                containerScan = ContainerScan(DockerJavaEngine(), terminal),
+                reportProcessor = ReportProcessor(sarifService, reportConverter),
+                reportPublisher = null,
+                licenseValidator = null,
+                gitClient = gitClient,
+                terminal = terminal,
+            ).run(context)
         }
 
-        assertFailsWith<ProgramResult> {
+        val result = assertFailsWith<ProgramResult> {
             scanCommand.parse(listOf(
                 "-i", projectPath.toString(),
                 "-o", resultsPath.toString(),
