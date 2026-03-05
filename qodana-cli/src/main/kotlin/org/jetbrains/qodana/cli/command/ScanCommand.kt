@@ -8,9 +8,11 @@ import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.long
 import com.github.ajalt.clikt.parameters.types.path
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.qodana.core.product.Linters
 import org.jetbrains.qodana.engine.env.CiDetector
 import org.jetbrains.qodana.core.model.*
 import org.jetbrains.qodana.engine.model.*
+import java.nio.file.Files
 import java.nio.file.Path
 
 class ScanCommand(
@@ -29,7 +31,7 @@ class ScanCommand(
     private val reportDir by option("--report-dir", help = "Directory for HTML report").path()
 
     private val linter by option("-l", "--linter", help = "Linter to use")
-    private val ide by option("--ide", help = "Path to local IDE installation").path()
+    private val ide by option("--ide", help = "IDE product code (e.g. QDGO) or path to local IDE installation")
 
     private val volumes by option("-v", "--volume", help = "Docker volume mount").multiple()
     private val dockerEnv by option("-e", "--env", help = "Docker environment variable").multiple()
@@ -97,6 +99,43 @@ class ScanCommand(
         val actualReportDir = reportDir ?: actualResultsDir.resolve("report")
         val actualCacheDir = cacheDir ?: Path.of(System.getProperty("user.home"), ".cache", "qodana")
 
+        // Resolve --ide: product code (QDGO) vs path (/opt/ide)
+        val resolvedIdeDir: Path?
+        val resolvedLinter: String?
+        val isNative: Boolean
+        if (ide != null) {
+            val idePath = Path.of(ide!!)
+            val linterByCode = Linters.findByProductCode(ide!!)
+            if (linterByCode != null) {
+                // Product code like QDGO — PrepareHost will download
+                resolvedIdeDir = null
+                resolvedLinter = linter ?: linterByCode.name
+                isNative = true
+            } else if (Files.isDirectory(idePath)) {
+                // Actual path to IDE installation
+                resolvedIdeDir = idePath
+                resolvedLinter = linter
+                isNative = true
+            } else {
+                // Try as product code with EAP suffix stripped
+                val stripped = ide!!.removeSuffix("-EAP")
+                val linterEap = Linters.findByProductCode(stripped)
+                if (linterEap != null) {
+                    resolvedIdeDir = null
+                    resolvedLinter = linter ?: linterEap.name
+                    isNative = true
+                } else {
+                    throw com.github.ajalt.clikt.core.UsageError(
+                        "--ide value '${ide}' is not a valid product code or existing directory"
+                    )
+                }
+            }
+        } else {
+            resolvedIdeDir = null
+            resolvedLinter = linter
+            isNative = false
+        }
+
         val context = ScanContext(
             paths = ScanPaths(
                 projectDir = projectDir.toAbsolutePath(),
@@ -110,7 +149,7 @@ class ScanCommand(
                 licenseOnlyToken = System.getenv("QODANA_LICENSE_ONLY_TOKEN"),
             ),
             runtime = RuntimeContext(
-                ideDir = ide,
+                ideDir = resolvedIdeDir,
                 failThreshold = failThreshold,
                 properties = properties,
                 disableStatistics = disableStatistics,
@@ -137,7 +176,7 @@ class ScanCommand(
                 showReport = showReport,
             ),
             docker = DockerOptions(
-                image = linter,
+                image = resolvedLinter,
                 volumes = volumes,
                 envVars = envVars,
                 user = user,
@@ -145,11 +184,11 @@ class ScanCommand(
                 cpuLimit = cpuLimit,
                 skipPull = skipPull,
             ),
-            linter = linter,
+            linter = resolvedLinter,
             profile = if (profileName != null || profilePath != null) {
                 ProfileSpec(name = profileName, path = profilePath)
             } else null,
-            nativeMode = ide != null,
+            nativeMode = isNative,
         )
 
         val exitCode = runBlocking { scanRunner(context) }
