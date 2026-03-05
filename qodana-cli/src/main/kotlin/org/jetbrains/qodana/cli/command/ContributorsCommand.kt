@@ -10,7 +10,7 @@ import com.github.ajalt.clikt.parameters.types.path
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.kotlinModule
 import kotlinx.coroutines.runBlocking
-import org.jetbrains.qodana.app.contributors.ContributorAnalyzer
+import org.jetbrains.qodana.engine.contributors.ContributorAnalyzer
 import org.jetbrains.qodana.core.port.Terminal
 import java.nio.file.Files
 import java.nio.file.Path

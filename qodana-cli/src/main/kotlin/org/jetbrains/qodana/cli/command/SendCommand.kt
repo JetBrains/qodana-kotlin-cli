@@ -7,8 +7,8 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.path
 import kotlinx.coroutines.runBlocking
-import org.jetbrains.qodana.app.report.ReportPublishUseCase
-import org.jetbrains.qodana.core.model.AuthContext
+import org.jetbrains.qodana.engine.report.ReportPublishUseCase
+import org.jetbrains.qodana.engine.model.AuthContext
 import org.jetbrains.qodana.core.port.Terminal
 import java.nio.file.Path
 

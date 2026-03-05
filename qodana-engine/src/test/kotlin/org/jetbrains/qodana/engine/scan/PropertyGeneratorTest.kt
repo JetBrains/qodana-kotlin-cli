@@ -1,0 +1,107 @@
+package org.jetbrains.qodana.engine.scan
+
+import org.jetbrains.qodana.core.model.*
+import org.jetbrains.qodana.engine.model.*
+import org.junit.jupiter.api.Test
+import java.nio.file.Path
+import kotlin.test.assertContains
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+
+class PropertyGeneratorTest {
+
+    private fun testContext(
+        runtimeProperties: Map<String, String> = emptyMap(),
+        yamlProperties: Map<String, String> = emptyMap(),
+        jvmDebugPort: Int? = null,
+    ) = ScanContext(
+        paths = ScanPaths(
+            projectDir = Path.of("/project"),
+            resultsDir = Path.of("/results"),
+            cacheDir = Path.of("/cache"),
+            reportDir = Path.of("/report"),
+        ),
+        auth = AuthContext(token = null, endpoint = "https://qodana.cloud"),
+        runtime = RuntimeContext(
+            properties = runtimeProperties,
+            jvmDebugPort = jvmDebugPort,
+        ),
+        ci = CiContext(),
+        report = ReportOptions(),
+        docker = DockerOptions(),
+        yaml = if (yamlProperties.isNotEmpty()) QodanaYaml(properties = yamlProperties) else null,
+    )
+
+    @Test
+    fun `generates system path properties`() {
+        val props = PropertyGenerator.generateIdeaProperties(testContext())
+        assertContains(props, "idea.system.path=")
+        assertContains(props, "idea.config.path=")
+        assertContains(props, "idea.plugins.path=")
+        assertContains(props, "idea.log.path=")
+    }
+
+    @Test
+    fun `generates headless properties`() {
+        val props = PropertyGenerator.generateIdeaProperties(testContext())
+        assertContains(props, "idea.is.internal=false")
+        assertContains(props, "idea.headless.enable.statistics=false")
+    }
+
+    @Test
+    fun `merges yaml and runtime properties`() {
+        val props = PropertyGenerator.generateIdeaProperties(testContext(
+            yamlProperties = mapOf("yaml.prop" to "yaml-val"),
+            runtimeProperties = mapOf("runtime.prop" to "runtime-val"),
+        ))
+        assertContains(props, "yaml.prop=yaml-val")
+        assertContains(props, "runtime.prop=runtime-val")
+    }
+
+    @Test
+    fun `runtime properties override yaml on conflict`() {
+        val props = PropertyGenerator.generateIdeaProperties(testContext(
+            yamlProperties = mapOf("shared.key" to "yaml-val"),
+            runtimeProperties = mapOf("shared.key" to "runtime-wins"),
+        ))
+        assertContains(props, "shared.key=runtime-wins")
+    }
+
+    @Test
+    fun `vm options contain memory defaults`() {
+        val vm = PropertyGenerator.generateVmOptions(testContext())
+        assertContains(vm, "-Xmx2048m")
+        assertContains(vm, "-Xms256m")
+        assertContains(vm, "-XX:+UseG1GC")
+        assertContains(vm, "-XX:+HeapDumpOnOutOfMemoryError")
+    }
+
+    @Test
+    fun `vm options contain headless AWT`() {
+        val vm = PropertyGenerator.generateVmOptions(testContext())
+        assertContains(vm, "-Djava.awt.headless=true")
+    }
+
+    @Test
+    fun `vm options include debug port when set`() {
+        val vm = PropertyGenerator.generateVmOptions(testContext(jvmDebugPort = 5005))
+        assertContains(vm, "address=*:5005")
+        assertContains(vm, "jdwp")
+    }
+
+    @Test
+    fun `vm options no debug when port is null`() {
+        val vm = PropertyGenerator.generateVmOptions(testContext())
+        assertFalse(vm.contains("jdwp"))
+    }
+
+    @Test
+    fun `writeTo writes both files`() {
+        val files = mutableMapOf<String, String>()
+        PropertyGenerator.writeTo(testContext(), Path.of("/config")) { path, content ->
+            files[path.fileName.toString()] = content
+        }
+        assertTrue("idea.properties" in files)
+        assertTrue("idea64.vmoptions" in files)
+    }
+}

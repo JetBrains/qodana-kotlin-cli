@@ -2,8 +2,10 @@ package org.jetbrains.qodana.core.product
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class LintersTest {
 
@@ -35,16 +37,30 @@ class LintersTest {
     }
 
     @Test
+    fun `find by docker image with version tag`() {
+        val linter = Linters.findByDockerImage("jetbrains/qodana-jvm:2025.3")
+        assertNotNull(linter)
+        assertEquals(Linters.JVM, linter)
+    }
+
+    @Test
+    fun `find by docker image community variant`() {
+        val linter = Linters.findByDockerImage("jetbrains/qodana-jvm-community:latest")
+        assertNotNull(linter)
+        assertEquals(Linters.JVM_COMMUNITY, linter)
+    }
+
+    @Test
     fun `free linters are not paid`() {
         Linters.ALL_FREE.forEach { linter ->
-            assertEquals(false, linter.isPaid, "${linter.name} should not be paid")
+            assertFalse(linter.isPaid, "${linter.name} should not be paid")
         }
     }
 
     @Test
     fun `native linters support native`() {
         Linters.ALL_NATIVE.forEach { linter ->
-            assertEquals(true, linter.supportsNative, "${linter.name} should support native")
+            assertTrue(linter.supportsNative, "${linter.name} should support native")
         }
     }
 
@@ -53,5 +69,76 @@ class LintersTest {
         // Since IS_RELEASED is false, all images get -eap suffix
         assertEquals("jetbrains/qodana-jvm:2025.3-eap", Linters.JVM.image())
         assertEquals("jetbrains/qodana-clang:2025.3-eap", Linters.CLANG.image())
+    }
+
+    @Test
+    fun `all product codes are unique`() {
+        val codes = Linters.ALL.map { it.productCode }
+        assertEquals(codes.size, codes.distinct().size, "Product codes should be unique")
+    }
+
+    @Test
+    fun `all names are unique`() {
+        val names = Linters.ALL.map { it.name }
+        assertEquals(names.size, names.distinct().size, "Linter names should be unique")
+    }
+
+    @Test
+    fun `all docker images are unique`() {
+        val images = Linters.ALL.map { it.dockerImage }
+        assertEquals(images.size, images.distinct().size, "Docker images should be unique")
+    }
+
+    @Test
+    fun `langs to linters covers all expected languages`() {
+        val expectedLangs = listOf("Java", "Kotlin", "PHP", "Python", "JavaScript", "TypeScript", "Go", "C#", "C", "C++", "Ruby", "Rust")
+        for (lang in expectedLangs) {
+            assertTrue(Linters.LANGS_TO_LINTERS.containsKey(lang), "Missing language: $lang")
+            assertTrue(Linters.LANGS_TO_LINTERS[lang]!!.isNotEmpty(), "Empty linters for $lang")
+        }
+    }
+
+    @Test
+    fun `all free linters list`() {
+        assertTrue(Linters.ALL_FREE.contains(Linters.JVM_COMMUNITY))
+        assertTrue(Linters.ALL_FREE.contains(Linters.PYTHON_COMMUNITY))
+        assertTrue(Linters.ALL_FREE.contains(Linters.DOTNET_COMMUNITY))
+        assertTrue(Linters.ALL_FREE.contains(Linters.CLANG))
+        assertFalse(Linters.ALL_FREE.contains(Linters.JVM))
+        assertFalse(Linters.ALL_FREE.contains(Linters.DOTNET))
+    }
+
+    @Test
+    fun `release version is 2025_3`() {
+        assertEquals("2025.3", Linters.RELEASE_VERSION)
+    }
+
+    @Test
+    fun `native analyzer`() {
+        val analyzer = Linters.JVM.nativeAnalyzer()
+        assertTrue(analyzer is Analyzer.Native)
+        assertEquals(Linters.JVM, analyzer.linter)
+    }
+
+    @Test
+    fun `docker analyzer`() {
+        val analyzer = Linters.JVM.dockerAnalyzer()
+        assertTrue(analyzer is Analyzer.Docker)
+        assertEquals(Linters.JVM, analyzer.linter)
+        assertTrue((analyzer as Analyzer.Docker).image.startsWith("jetbrains/qodana-jvm:"))
+    }
+
+    @Test
+    fun `eap-only linters always get eap tag`() {
+        assertTrue(Linters.RUBY.eapOnly)
+        assertTrue(Linters.RUBY.image().contains("-eap"))
+        assertTrue(Linters.CPP.eapOnly)
+        assertTrue(Linters.CPP.image().contains("-eap"))
+    }
+
+    @Test
+    fun `dotnet linter supports fixes`() {
+        assertTrue(Linters.DOTNET.supportsFixes)
+        assertFalse(Linters.DOTNET_COMMUNITY.supportsFixes)
     }
 }
