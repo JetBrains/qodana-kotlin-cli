@@ -15,4 +15,6 @@ interface GitClient {
     suspend fun isGitRepo(workDir: Path): Boolean
     suspend fun currentBranch(workDir: Path): Result<String>
     suspend fun currentRevision(workDir: Path): Result<String>
+    suspend fun clean(workDir: Path, force: Boolean = true, directories: Boolean = true): Result<Unit>
+    suspend fun submoduleUpdate(workDir: Path, init: Boolean = true, recursive: Boolean = true): Result<Unit>
 }

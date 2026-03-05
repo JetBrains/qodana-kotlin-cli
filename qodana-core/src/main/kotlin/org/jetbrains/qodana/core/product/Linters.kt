@@ -223,7 +223,40 @@ object Linters {
         "Rust" to listOf(RUST),
     )
 
-    fun findByProductCode(code: String): Linter? = ALL.find { it.productCode == code }
-    fun findByName(name: String): Linter? = ALL.find { it.name == name }
-    fun findByDockerImage(image: String): Linter? = ALL.find { image.startsWith(it.dockerImage) }
+    fun findByProductCode(code: String): Linter? {
+        val normalized = code.removeSuffix(EAP_SUFFIX)
+        return ALL.find { it.productCode == normalized }
+    }
+
+    fun findByName(name: String): Linter? {
+        val normalized = name.removeSuffix(EAP_SUFFIX)
+        return ALL.find { it.name == normalized }
+    }
+
+    fun findByDockerImage(image: String): Linter? {
+        // Strip protocol prefixes
+        val cleaned = image
+            .removePrefix("https://")
+            .removePrefix("http://")
+        return ALL.find { cleaned.startsWith(it.dockerImage) }
+    }
+
+    fun getVersionBranch(version: String): String {
+        // "2025.3" → "253", "2024.1" → "241"
+        val parts = version.split(".")
+        if (parts.size < 2) return ""
+        val year = parts[0]
+        val minor = parts[1]
+        return if (year.length >= 4) "${year.substring(2)}$minor" else ""
+    }
+
+    fun getScriptSuffix(): String {
+        val os = System.getProperty("os.name", "").lowercase()
+        return when {
+            os.contains("win") -> ".bat"
+            else -> ".sh"
+        }
+    }
+
+    fun isRuby(linter: Linter): Boolean = linter.productCode == QDRUBY
 }

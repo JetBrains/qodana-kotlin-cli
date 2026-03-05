@@ -141,4 +141,61 @@ class LintersTest {
         assertTrue(Linters.DOTNET.supportsFixes)
         assertFalse(Linters.DOTNET_COMMUNITY.supportsFixes)
     }
+
+    @Test
+    fun `find by product code strips EAP suffix`() {
+        assertEquals(Linters.JVM, Linters.findByProductCode("QDJVM-EAP"))
+        assertEquals(Linters.DOTNET, Linters.findByProductCode("QDNET-EAP"))
+        assertEquals(Linters.CLANG, Linters.findByProductCode("QDCLC-EAP"))
+    }
+
+    @Test
+    fun `find by name strips EAP suffix`() {
+        assertEquals(Linters.JVM, Linters.findByName("qodana-jvm-EAP"))
+        assertEquals(Linters.PHP, Linters.findByName("qodana-php-EAP"))
+    }
+
+    @Test
+    fun `find by docker image strips http prefix`() {
+        val linter = Linters.findByDockerImage("https://jetbrains/qodana-jvm:latest")
+        assertNotNull(linter)
+        assertEquals(Linters.JVM, linter)
+    }
+
+    @Test
+    fun `find by docker image strips https prefix`() {
+        val linter = Linters.findByDockerImage("http://jetbrains/qodana-go:2025.3")
+        assertNotNull(linter)
+        assertEquals(Linters.GO, linter)
+    }
+
+    @Test
+    fun `getVersionBranch converts version`() {
+        assertEquals("253", Linters.getVersionBranch("2025.3"))
+        assertEquals("241", Linters.getVersionBranch("2024.1"))
+        assertEquals("232", Linters.getVersionBranch("2023.2"))
+    }
+
+    @Test
+    fun `getVersionBranch handles invalid input`() {
+        assertEquals("", Linters.getVersionBranch("invalid"))
+        assertEquals("", Linters.getVersionBranch(""))
+    }
+
+    @Test
+    fun `getScriptSuffix returns sh or bat`() {
+        val suffix = Linters.getScriptSuffix()
+        assertTrue(suffix == ".sh" || suffix == ".bat")
+    }
+
+    @Test
+    fun `isRuby returns true for ruby linter`() {
+        assertTrue(Linters.isRuby(Linters.RUBY))
+    }
+
+    @Test
+    fun `isRuby returns false for non-ruby linter`() {
+        assertFalse(Linters.isRuby(Linters.JVM))
+        assertFalse(Linters.isRuby(Linters.DOTNET))
+    }
 }

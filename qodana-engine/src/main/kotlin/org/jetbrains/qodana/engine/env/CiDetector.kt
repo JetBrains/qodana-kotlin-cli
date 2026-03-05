@@ -14,6 +14,67 @@ object CiDetector {
             ?: detectCircleCI(getEnv)
     }
 
+    fun isContainer(getEnv: (String) -> String? = System::getenv): Boolean =
+        !getEnv("QODANA_DOCKER").isNullOrEmpty()
+
+    fun isBitBucket(getEnv: (String) -> String? = System::getenv): Boolean =
+        !getEnv("BITBUCKET_PIPELINE_UUID").isNullOrEmpty()
+
+    fun isBitBucketPipe(getEnv: (String) -> String? = System::getenv): Boolean =
+        !getEnv("BITBUCKET_PIPE_STORAGE_DIR").isNullOrEmpty() ||
+            !getEnv("BITBUCKET_PIPE_SHARED_STORAGE_DIR").isNullOrEmpty()
+
+    fun isGitLab(getEnv: (String) -> String? = System::getenv): Boolean =
+        getEnv("GITLAB_CI") == "true"
+
+    fun getBitBucketRepoFullName(getEnv: (String) -> String? = System::getenv): String =
+        getEnv("BITBUCKET_REPO_FULL_NAME") ?: ""
+
+    fun getBitBucketRepoOwner(getEnv: (String) -> String? = System::getenv): String =
+        getBitBucketRepoFullName(getEnv).substringBefore("/", "")
+
+    fun getBitBucketRepoName(getEnv: (String) -> String? = System::getenv): String =
+        getBitBucketRepoFullName(getEnv).substringAfter("/", "")
+
+    fun validateBranch(branch: String, ciName: String, getEnv: (String) -> String? = System::getenv): String {
+        if (branch.isNotEmpty()) return branch
+        return when (ciName) {
+            "github-actions" -> getEnv("GITHUB_REF_NAME") ?: ""
+            "azure-pipelines" -> getEnv("BUILD_SOURCEBRANCHNAME") ?: ""
+            "jenkins" -> getEnv("GIT_BRANCH") ?: ""
+            "gitlab-ci" -> getEnv("CI_COMMIT_REF_NAME") ?: ""
+            "bitbucket" -> getEnv("BITBUCKET_BRANCH") ?: ""
+            else -> ""
+        }
+    }
+
+    fun validateRemoteUrl(remoteUrl: String, @Suppress("UNUSED_PARAMETER") ciName: String): String {
+        if (remoteUrl.isEmpty()) return ""
+        return try {
+            java.net.URI(remoteUrl)
+            if (remoteUrl.startsWith("http://") || remoteUrl.startsWith("https://") ||
+                remoteUrl.startsWith("ssh://") || remoteUrl.startsWith("git@")
+            ) remoteUrl else ""
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    fun validateJobUrl(jobUrl: String, @Suppress("UNUSED_PARAMETER") ciName: String): String {
+        if (jobUrl.isEmpty()) return ""
+        return try {
+            val uri = java.net.URI(jobUrl)
+            if (uri.scheme != null && uri.host != null) jobUrl else ""
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    fun unsetRubyVariables() {
+        System.getenv("GEM_HOME")?.let { System.clearProperty("GEM_HOME") }
+        System.getenv("BUNDLE_APP_CONFIG")?.let { System.clearProperty("BUNDLE_APP_CONFIG") }
+    }
+
     private fun detectGitHub(env: (String) -> String?): CiContext? {
         env("GITHUB_ACTIONS") ?: return null
         return CiContext(
