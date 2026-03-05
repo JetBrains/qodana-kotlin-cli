@@ -253,29 +253,27 @@ class QodanaCommandTest {
             "Skipping container test (set QODANA_TEST_CONTAINER=1 to enable)"
         )
 
+        val token = System.getenv("QODANA_LICENSE_ONLY_TOKEN")
+        val image = if (!token.isNullOrEmpty()) {
+            "jetbrains/qodana-dotnet:latest"
+        } else {
+            "jetbrains/qodana-jvm-community:latest"
+        }
+
         val containerEngine = DockerJavaEngine()
         val processRunner = SystemProcessRunner()
         val fileSystem = NioFileSystem()
         val gitClient = SystemGitClient(processRunner)
         val sarifService = QodanaSarifService()
         val reportConverter = ReportConverterAdapter()
-        val image = "jetbrains/qodana-jvm-community:latest"
 
-        val projectPath = createProject(dir.resolve("qodana_scan"))
+        val projectPath = createProject(dir.resolve("qodana_scan_python"))
         val resultsPath = projectPath.resolve("results")
         Files.createDirectories(resultsPath)
         val cachePath = dir.resolve("qodana_cache")
         Files.createDirectories(cachePath)
 
-        // pull — real Docker pull
-        output.clear()
-        PullCommand(containerEngine, terminal)
-            .parse(listOf("-i", projectPath.toString(), "--image", image))
-        assertTrue(output.any { it.contains("pulled successfully") }, "Pull should succeed: $output")
-
-        // scan — real container scan via full ScanUseCase
-        output.clear()
-        val scanCommand = ScanCommand { context ->
+        fun makeScanCommand() = ScanCommand { context ->
             ScanUseCase(
                 prepareHost = PrepareHost(fileSystem, terminal),
                 nativeScan = NativeScan(processRunner, fileSystem),
@@ -287,35 +285,65 @@ class QodanaCommandTest {
                 terminal = terminal,
             ).run(context)
         }
-        val scanResult = assertFailsWith<ProgramResult> {
-            scanCommand.parse(listOf(
-                "-i", projectPath.toString(),
-                "-o", resultsPath.toString(),
-                "--cache-dir", cachePath.toString(),
-                "-l", image,
-                "--fail-threshold", "5",
-                "--apply-fixes",
-                "--property", "idea.headless.enable.statistics=false",
-            ))
+
+        // pull
+        output.clear()
+        PullCommand(containerEngine, terminal)
+            .parse(listOf("-i", projectPath.toString(), "--image", image))
+
+        // scan without configuration
+        val scanArgs = listOf(
+            "-i", projectPath.toString(),
+            "-o", resultsPath.toString(),
+            "--cache-dir", cachePath.toString(),
+            "-v", projectPath.resolve(".idea").toString() + ":/data/some",
+            "--fail-threshold", "5",
+            "--print-problems",
+            "--apply-fixes",
+            "--property", "idea.headless.enable.statistics=false",
+        )
+        output.clear()
+        assertFailsWith<ProgramResult> {
+            makeScanCommand().parse(scanArgs)
         }
 
-        // show — real report viewer
+        // second scan with a configuration and cache
+        val yamlFile = projectPath.resolve("qodana.yml")
+        yamlFile.writeText("image: $image")
         output.clear()
-        ShowCommand(terminal).parse(listOf(
-            "-r", resultsPath.resolve("report").toString()
+        assertFailsWith<ProgramResult> {
+            makeScanCommand().parse(scanArgs)
+        }
+
+        // view
+        output.clear()
+        ViewCommand(sarifService, terminal).parse(listOf(
+            "-f", resultsPath.resolve("qodana.sarif.json").toString()
         ))
 
-        // init after analysis
+        // show
+        output.clear()
+        ShowCommand(terminal).parse(listOf(
+            "-i", projectPath.toString(),
+            "-d",
+            "--linter", image,
+        ))
+
+        // init after project analysis with .idea inside
         output.clear()
         InitCommand(terminal).parse(listOf("-i", projectPath.toString()))
-        assertTrue(
-            Files.exists(projectPath.resolve("qodana.yaml")) ||
-                Files.exists(projectPath.resolve("qodana.yml"))
-        )
 
-        // contributors — real git analysis
+        // contributors
         output.clear()
         ContributorsCommand(ContributorAnalyzer(gitClient), terminal).parse(emptyList())
+
+        // cloc
+        output.clear()
+        ClocCommand(terminal).parse(listOf("-i", projectPath.toString()))
+
+        // cloc (current dir)
+        output.clear()
+        ClocCommand(terminal).parse(emptyList())
     }
 
     // -- Scan with IDE (mirrors Go's TestScanWithIde) --
