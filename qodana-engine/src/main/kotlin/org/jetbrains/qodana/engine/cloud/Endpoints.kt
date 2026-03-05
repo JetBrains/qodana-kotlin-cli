@@ -22,8 +22,3 @@ data class ApiEndpointDescription(
     val versions: List<ApiVersionDescription> = emptyList(),
 )
 
-@JsonIgnoreProperties(ignoreUnknown = true)
-data class ApiDescriptions(
-    val api: ApiEndpointDescription = ApiEndpointDescription(),
-    val linters: ApiEndpointDescription = ApiEndpointDescription(),
-)

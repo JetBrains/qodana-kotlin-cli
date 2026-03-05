@@ -4,5 +4,9 @@ enum class ExitCode(val code: Int) {
     SUCCESS(0),
     FAIL_THRESHOLD(255),
     THRESHOLD_REACHED(2),
-    EAP_EXPIRED(7),
+    EAP_EXPIRED(7);
+
+    companion object {
+        fun fromCode(code: Int): ExitCode? = entries.find { it.code == code }
+    }
 }

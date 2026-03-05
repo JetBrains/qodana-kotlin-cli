@@ -23,15 +23,24 @@ class PullCommand(
         .path(mustExist = true)
         .default(Path.of("."))
     private val linter by option("-l", "--linter", help = "Linter image to pull")
+    private val image by option("--image", help = "Docker image to pull")
 
     override fun run() = runBlocking {
-        val image = linter
-            ?: EffectiveConfig.load(projectDir)?.let { it.image ?: it.linter }
+        val yaml = EffectiveConfig.load(projectDir)
+
+        // Native mode: if ide is set and no docker image specified, skip pull
+        if (yaml?.ide != null && linter == null && image == null) {
+            terminal.println("Native mode detected (ide: ${yaml.ide}), nothing to pull")
+            return@runBlocking
+        }
+
+        val resolvedImage = image ?: linter
+            ?: yaml?.let { it.image ?: it.linter }
             ?: run {
                 terminal.error("No linter specified. Use --linter or configure in qodana.yaml")
                 throw ProgramResult(1)
             }
 
-        containerEngine.pull(image) { terminal.println(it) }
+        containerEngine.pull(resolvedImage) { terminal.println(it) }
     }
 }

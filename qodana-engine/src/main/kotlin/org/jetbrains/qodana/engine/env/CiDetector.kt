@@ -1,5 +1,6 @@
 package org.jetbrains.qodana.engine.env
 
+import org.jetbrains.qodana.core.env.QodanaEnv
 import org.jetbrains.qodana.engine.model.CiContext
 
 object CiDetector {
@@ -14,8 +15,36 @@ object CiDetector {
             ?: detectCircleCI(getEnv)
     }
 
+    /**
+     * Extracts Qodana environment from CI context, applying overrides from
+     * QODANA_REMOTE_URL, QODANA_BRANCH, QODANA_REVISION, QODANA_JOB_URL env vars.
+     * Sets QODANA_ENV with the format "ciName:version".
+     */
+    fun extractQodanaEnvironment(
+        ci: CiContext?,
+        getEnv: (String) -> String? = System::getenv,
+    ): CiContext {
+        val base = ci ?: CiContext()
+        val ciName = base.ciName ?: "cli"
+        val branch = getEnv(QodanaEnv.BRANCH)
+            ?: validateBranch(base.branch ?: "", ciName, getEnv)
+        val revision = getEnv(QodanaEnv.REVISION) ?: base.revision
+        val remoteUrl = getEnv(QodanaEnv.REMOTE_URL)
+            ?: validateRemoteUrl(base.remoteUrl ?: "", ciName, getEnv)
+        val jobUrl = getEnv(QodanaEnv.JOB_URL)
+            ?: validateJobUrl(base.jobUrl ?: "", ciName, getEnv)
+
+        return CiContext(
+            ciName = getEnv(QodanaEnv.ENV) ?: ciName,
+            branch = branch.ifEmpty { null },
+            revision = revision,
+            remoteUrl = remoteUrl.ifEmpty { null },
+            jobUrl = jobUrl.ifEmpty { null },
+        )
+    }
+
     fun isContainer(getEnv: (String) -> String? = System::getenv): Boolean =
-        !getEnv("QODANA_DOCKER").isNullOrEmpty()
+        !getEnv(QodanaEnv.DOCKER).isNullOrEmpty()
 
     fun isBitBucket(getEnv: (String) -> String? = System::getenv): Boolean =
         !getEnv("BITBUCKET_PIPELINE_UUID").isNullOrEmpty()
@@ -48,7 +77,10 @@ object CiDetector {
         }
     }
 
-    fun validateRemoteUrl(remoteUrl: String, @Suppress("UNUSED_PARAMETER") ciName: String): String {
+    fun validateRemoteUrl(remoteUrl: String, ciName: String, getEnv: (String) -> String? = System::getenv): String {
+        if (ciName.startsWith("space")) {
+            return getSpaceRemoteUrl(getEnv)
+        }
         if (remoteUrl.isEmpty()) return ""
         return try {
             java.net.URI(remoteUrl)
@@ -60,7 +92,10 @@ object CiDetector {
         }
     }
 
-    fun validateJobUrl(jobUrl: String, @Suppress("UNUSED_PARAMETER") ciName: String): String {
+    fun validateJobUrl(jobUrl: String, ciName: String, getEnv: (String) -> String? = System::getenv): String {
+        if (ciName.startsWith("azure")) {
+            return getAzureJobUrl(getEnv)
+        }
         if (jobUrl.isEmpty()) return ""
         return try {
             val uri = java.net.URI(jobUrl)
@@ -70,9 +105,23 @@ object CiDetector {
         }
     }
 
+    private fun getSpaceRemoteUrl(getEnv: (String) -> String?): String {
+        val server = getEnv("JB_SPACE_API_URL") ?: return ""
+        val projectKey = getEnv("JB_SPACE_PROJECT_KEY") ?: ""
+        val repoName = getEnv("JB_SPACE_GIT_REPOSITORY_NAME") ?: ""
+        return "ssh://git@git.$server/$projectKey/$repoName.git"
+    }
+
+    private fun getAzureJobUrl(getEnv: (String) -> String?): String {
+        val server = getEnv("SYSTEM_TEAMFOUNDATIONCOLLECTIONURI") ?: return ""
+        val project = getEnv("SYSTEM_TEAMPROJECT") ?: ""
+        val buildId = getEnv("BUILD_BUILDID") ?: ""
+        return "${server}${project}/_build/results?buildId=${buildId}"
+    }
+
     fun unsetRubyVariables() {
-        System.getenv("GEM_HOME")?.let { System.clearProperty("GEM_HOME") }
-        System.getenv("BUNDLE_APP_CONFIG")?.let { System.clearProperty("BUNDLE_APP_CONFIG") }
+        System.getenv(QodanaEnv.GEM_HOME)?.let { System.clearProperty(QodanaEnv.GEM_HOME) }
+        System.getenv(QodanaEnv.BUNDLE_APP_CONFIG)?.let { System.clearProperty(QodanaEnv.BUNDLE_APP_CONFIG) }
     }
 
     private fun detectGitHub(env: (String) -> String?): CiContext? {

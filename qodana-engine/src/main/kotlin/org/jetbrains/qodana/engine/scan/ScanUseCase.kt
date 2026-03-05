@@ -1,6 +1,6 @@
 package org.jetbrains.qodana.engine.scan
 
-import org.jetbrains.qodana.engine.cloud.CloudClient
+import org.jetbrains.qodana.core.env.QodanaEnv
 import org.jetbrains.qodana.engine.cloud.LicenseValidator
 import org.jetbrains.qodana.engine.config.EffectiveConfig
 import org.jetbrains.qodana.engine.report.ReportProcessor
@@ -30,38 +30,58 @@ class ScanUseCase(
         val effectiveContext = EffectiveConfig.merge(yaml, context)
 
         val prepared = prepareHost.prepare(effectiveContext)
+        val effectiveContextWithIde = if (prepared.ideDir != null && effectiveContext.runtime.ideDir == null) {
+            effectiveContext.copy(runtime = effectiveContext.runtime.copy(ideDir = prepared.ideDir))
+        } else {
+            effectiveContext
+        }
 
-        if (effectiveContext.auth.hasToken && licenseValidator != null) {
-            val licenseResult = licenseValidator.validate(effectiveContext.auth.token!!)
-            if (licenseResult.isFailure) {
-                terminal.warn("License validation failed: ${licenseResult.exceptionOrNull()?.message}")
+        if (effectiveContextWithIde.auth.hasToken && licenseValidator != null) {
+            val licenseResult = licenseValidator.validate(effectiveContextWithIde.auth.token!!)
+            licenseResult.onSuccess { licenseData ->
+                System.setProperty(QodanaEnv.PROJECT_ID_HASH, licenseData.projectIdHash)
+                System.setProperty(QodanaEnv.ORGANISATION_ID_HASH, licenseData.organisationIdHash)
+            }
+            licenseResult.onFailure { e ->
+                terminal.warn("License validation failed: ${e.message}")
             }
         }
 
+        val plugins = EffectiveConfig.resolvePlugins(yaml)
+        if (plugins.isNotEmpty() && effectiveContextWithIde.nativeMode) {
+            log.info("Plugins to install: {}", plugins.map { it.id })
+        }
+
+        val dotnetConfig = EffectiveConfig.resolveDotNet(yaml)
+        if (dotnetConfig != null) {
+            log.info("DotNet configuration: solution={}, project={}", dotnetConfig.solution, dotnetConfig.project)
+        }
+
         val bootstrap = EffectiveConfig.resolveBootstrap(yaml)
-        if (bootstrap != null && effectiveContext.nativeMode) {
+        if (bootstrap != null && effectiveContextWithIde.nativeMode) {
             terminal.println("Running bootstrap: $bootstrap")
         }
 
-        validateGit(effectiveContext)
+        validateGit(effectiveContextWithIde)
 
-        val exitCode = runAnalysis(effectiveContext)
+        val exitCode = runAnalysis(effectiveContextWithIde)
 
         val processedReport = reportProcessor.process(
-            resultsDir = effectiveContext.paths.resultsDir,
-            reportDir = effectiveContext.paths.reportDir,
-            reportOptions = effectiveContext.report,
-            failThreshold = effectiveContext.runtime.failThreshold,
+            resultsDir = effectiveContextWithIde.paths.resultsDir,
+            reportDir = effectiveContextWithIde.paths.reportDir,
+            reportOptions = effectiveContextWithIde.report,
+            failThreshold = effectiveContextWithIde.runtime.failThreshold,
+            analysisExitCode = exitCode,
         )
 
         terminal.println("Analysis complete: ${processedReport.totalProblems} problems found" +
             (processedReport.baselineResult?.let { " (${it.newCount} new)" } ?: ""))
 
-        if (effectiveContext.auth.hasToken && !effectiveContext.auth.isLicenseOnly && reportPublisher != null) {
+        if (effectiveContextWithIde.auth.hasToken && !effectiveContextWithIde.auth.isLicenseOnly && reportPublisher != null) {
             val publishResult = reportPublisher.publish(
-                analysisId = effectiveContext.runtime.analysisId ?: "",
-                reportPath = effectiveContext.paths.resultsDir,
-                auth = effectiveContext.auth,
+                analysisId = effectiveContextWithIde.runtime.analysisId ?: "",
+                reportPath = effectiveContextWithIde.paths.resultsDir,
+                auth = effectiveContextWithIde.auth,
             )
             publishResult.onSuccess { result ->
                 if (result.success) {

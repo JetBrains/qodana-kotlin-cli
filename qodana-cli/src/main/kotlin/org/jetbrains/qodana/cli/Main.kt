@@ -54,7 +54,7 @@ fun main(args: Array<String>) {
     }
 
     QodanaCommand().subcommands(
-        ScanCommand(::createScanUseCase),
+        ScanCommand { context -> createScanUseCase().run(context) },
         InitCommand(terminal),
         PullCommand(containerEngine, terminal),
         ShowCommand(terminal),

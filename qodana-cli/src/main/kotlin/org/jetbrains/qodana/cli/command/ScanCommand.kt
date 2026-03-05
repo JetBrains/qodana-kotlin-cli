@@ -8,14 +8,13 @@ import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.long
 import com.github.ajalt.clikt.parameters.types.path
 import kotlinx.coroutines.runBlocking
-import org.jetbrains.qodana.engine.scan.ScanUseCase
 import org.jetbrains.qodana.engine.env.CiDetector
 import org.jetbrains.qodana.core.model.*
 import org.jetbrains.qodana.engine.model.*
 import java.nio.file.Path
 
 class ScanCommand(
-    private val scanUseCaseFactory: () -> ScanUseCase,
+    private val scanRunner: suspend (ScanContext) -> Int,
 ) : CliktCommand("scan") {
 
     override fun help(context: Context) = "Run Qodana analysis"
@@ -54,6 +53,8 @@ class ScanCommand(
     private val saveReport by option("--save-report", help = "Save HTML report").flag(default = true)
     private val showReport by option("--show-report", help = "Open report in browser").flag()
     private val codeClimate by option("--code-climate", help = "Generate Code Climate report").flag()
+    private val bitbucket by option("--code-insights", help = "Generate Bitbucket Code Insights report").flag()
+    private val fullReport by option("--full-report", help = "Generate both SARIF and JSON report").flag()
 
     private val applyFixes by option("--apply-fixes", help = "Apply code fixes").flag()
     private val cleanup by option("--cleanup", help = "Run code cleanup").flag()
@@ -69,9 +70,17 @@ class ScanCommand(
     private val clearCache by option("--clear-cache").flag()
 
     override fun run() {
+        if (applyFixes && cleanup) {
+            throw com.github.ajalt.clikt.core.UsageError(
+                "Options --apply-fixes and --cleanup are mutually exclusive"
+            )
+        }
+
         val outputFormats = buildSet {
-            add(ReportOptions.OutputFormat.SARIF)
+            if (fullReport) add(ReportOptions.OutputFormat.SARIF_AND_JSON)
+            else add(ReportOptions.OutputFormat.SARIF)
             if (codeClimate) add(ReportOptions.OutputFormat.CODE_CLIMATE)
+            if (bitbucket) add(ReportOptions.OutputFormat.BITBUCKET)
         }
 
         val properties = property.associate { prop ->
@@ -119,7 +128,7 @@ class ScanCommand(
                 coverageDir = coverageDir,
                 globalConfigDir = globalConfigDir,
             ),
-            ci = CiDetector.detect() ?: CiContext(),
+            ci = CiDetector.extractQodanaEnvironment(CiDetector.detect()),
             report = ReportOptions(
                 outputFormats = outputFormats,
                 baselinePath = baseline,
@@ -143,8 +152,7 @@ class ScanCommand(
             nativeMode = ide != null,
         )
 
-        val scanUseCase = scanUseCaseFactory()
-        val exitCode = runBlocking { scanUseCase.run(context) }
+        val exitCode = runBlocking { scanRunner(context) }
         throw ProgramResult(exitCode)
     }
 }

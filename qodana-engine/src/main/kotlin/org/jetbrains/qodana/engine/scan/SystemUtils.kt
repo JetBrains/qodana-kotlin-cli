@@ -1,9 +1,17 @@
 package org.jetbrains.qodana.engine.scan
 
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 import java.nio.file.Path
+import java.time.Duration
 import kotlin.io.path.pathString
 
 object SystemUtils {
+
+    private const val GITHUB_RELEASES_URL =
+        "https://api.github.com/repos/JetBrains/qodana-cli/releases/latest"
 
     fun isHomeDirectory(path: String): Boolean {
         val home = System.getProperty("user.home") ?: return false
@@ -34,8 +42,23 @@ object SystemUtils {
     }
 
     private fun fetchLatestVersion(): String {
-        // In production, this fetches from GitHub releases API
-        // For now, return empty to avoid network calls
-        return ""
+        return try {
+            val client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(5))
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .build()
+            val request = HttpRequest.newBuilder()
+                .uri(URI.create(GITHUB_RELEASES_URL))
+                .timeout(Duration.ofSeconds(5))
+                .header("Accept", "application/vnd.github.v3+json")
+                .GET()
+                .build()
+            val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+            if (response.statusCode() != 200) return ""
+            val tagPattern = Regex(""""tag_name"\s*:\s*"([^"]+)"""")
+            tagPattern.find(response.body())?.groupValues?.get(1) ?: ""
+        } catch (_: Exception) {
+            ""
+        }
     }
 }

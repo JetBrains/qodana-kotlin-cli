@@ -5,6 +5,7 @@ import org.jetbrains.qodana.core.port.FileSystem
 import org.jetbrains.qodana.core.port.ProcessRunner
 import org.jetbrains.qodana.core.port.SarifService
 import org.jetbrains.qodana.core.port.Terminal
+import org.jetbrains.qodana.core.port.ThirdPartyLinter
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
@@ -14,12 +15,13 @@ class ClangLinter(
     private val sarifService: SarifService,
     private val fileSystem: FileSystem,
     private val terminal: Terminal,
-) {
+) : ThirdPartyLinter {
     private val logger = LoggerFactory.getLogger(ClangLinter::class.java)
     private val compileCommands = CompileCommands(processRunner)
     private val runner = ClangRunner(processRunner, terminal)
 
-    suspend fun runAnalysis(context: ThirdPartyScanContext) {
+    override suspend fun runAnalysis(context: ThirdPartyScanContext) {
+        logger.info("Starting clang-tidy analysis for {}", context.paths.projectDir)
         val checks = ClangConfig.buildChecksArg(context.yaml)
 
         val compileCommandsPath = Path.of(
@@ -64,7 +66,9 @@ class ClangLinter(
         sarifService.write(sarifPath, report)
     }
 
-    fun mountTools(toolsDir: Path): Map<String, Path> {
+    override fun mountTools(targetPath: Path): Map<String, Path> {
+        val toolsDir = targetPath
+        logger.info("Mounting clang tools from {}", toolsDir)
         val binaryName = if (isWindows()) "clang-tidy.exe" else "clang-tidy"
 
         // Check direct path first, then bin/ subdirectory
