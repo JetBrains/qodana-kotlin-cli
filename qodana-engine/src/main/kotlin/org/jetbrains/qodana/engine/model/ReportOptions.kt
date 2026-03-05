@@ -8,6 +8,7 @@ data class ReportOptions(
     val baselineIncludeAbsent: Boolean = false,
     val saveReport: Boolean = true,
     val showReport: Boolean = false,
+    val printProblems: Boolean = false,
 ) {
     enum class OutputFormat {
         SARIF,
