@@ -1,0 +1,70 @@
+[versions]
+kotlin = "2.1.20"
+graalvm-native = "0.10.6"
+coroutines = "1.10.1"
+clikt = "5.0.3"
+mordant = "3.0.2"
+jackson = "2.18.2"
+okhttp = "4.12.0"
+docker-java = "3.4.1"
+commons-compress = "1.27.1"
+slf4j = "2.0.16"
+qodana-sarif = "0.2.8"
+qodana-publisher = "3.0.13"
+qodana-cloud-client = "0.2.12"
+fus-reporting = "77"
+fus-metadata-client = "10"
+ap-scheme-tools = "0.0.3"
+intellij-report-converter = "0.11.76.1"
+junit = "5.11.4"
+
+[libraries]
+# Kotlin
+kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+
+# CLI
+clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
+mordant = { module = "com.github.ajalt.mordant:mordant", version.ref = "mordant" }
+
+# Config
+jackson-dataformat-yaml = { module = "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml", version.ref = "jackson" }
+jackson-module-kotlin = { module = "com.fasterxml.jackson.module:jackson-module-kotlin", version.ref = "jackson" }
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+
+# HTTP
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+
+# Docker
+docker-java-core = { module = "com.github.docker-java:docker-java-core", version.ref = "docker-java" }
+docker-java-transport-httpclient5 = { module = "com.github.docker-java:docker-java-transport-httpclient5", version.ref = "docker-java" }
+
+# Qodana libraries
+qodana-sarif = { module = "com.jetbrains.qodana:qodana-sarif", version.ref = "qodana-sarif" }
+qodana-publisher = { module = "org.jetbrains.qodana:publisher", version.ref = "qodana-publisher" }
+qodana-cloud-client = { module = "org.jetbrains.qodana:qodana-cloud-kotlin-client", version.ref = "qodana-cloud-client" }
+fus-reporting-anonymization = { module = "com.jetbrains.fus.reporting:anonymization", version.ref = "fus-reporting" }
+fus-reporting-validation = { module = "com.jetbrains.fus.reporting:ap-validation", version.ref = "fus-reporting" }
+fus-reporting-client = { module = "com.jetbrains.fus.reporting:client", version.ref = "fus-reporting" }
+fus-reporting-model = { module = "com.jetbrains.fus.reporting:model", version.ref = "fus-reporting" }
+fus-reporting-scheme = { module = "com.jetbrains.fus.reporting:scheme", version.ref = "fus-reporting" }
+fus-metadata-client = { module = "com.jetbrains.fus:metadata-client", version.ref = "fus-metadata-client" }
+ap-scheme-tools = { module = "org.jetbrains.ap:ap-scheme-tools", version.ref = "ap-scheme-tools" }
+intellij-report-converter = { module = "org.jetbrains.qodana:intellij-report-converter", version.ref = "intellij-report-converter" }
+
+# Archives
+commons-compress = { module = "org.apache.commons:commons-compress", version.ref = "commons-compress" }
+
+# Logging
+slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
+
+# Testing
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+graalvm-native = { id = "org.graalvm.buildtools.native", version.ref = "graalvm-native" }
