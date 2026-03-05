@@ -66,6 +66,25 @@ class SystemGitClient(private val processRunner: ProcessRunner) : GitClient {
     override suspend fun currentRevision(workDir: Path): Result<String> =
         git(workDir, "rev-parse", "HEAD").map { it.trim() }
 
+    override suspend fun clean(workDir: Path, force: Boolean, directories: Boolean): Result<Unit> {
+        val args = buildList {
+            add("clean")
+            if (force) add("-f")
+            if (directories) add("-d")
+        }
+        return git(workDir, *args.toTypedArray()).map { }
+    }
+
+    override suspend fun submoduleUpdate(workDir: Path, init: Boolean, recursive: Boolean): Result<Unit> {
+        val args = buildList {
+            add("submodule")
+            add("update")
+            if (init) add("--init")
+            if (recursive) add("--recursive")
+        }
+        return git(workDir, *args.toTypedArray()).map { }
+    }
+
     private suspend fun git(workDir: Path, vararg args: String): Result<String> {
         val result = processRunner.run(
             ProcessSpec(

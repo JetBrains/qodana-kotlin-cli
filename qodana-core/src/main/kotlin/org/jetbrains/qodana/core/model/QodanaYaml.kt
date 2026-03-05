@@ -44,6 +44,25 @@ data class QodanaYaml(
     val hardcodedPasswords: YamlHardcodedPasswords = YamlHardcodedPasswords(),
 )
 
+fun QodanaYaml.isDotNet(): Boolean {
+    val dotnetImages = listOf("qodana-dotnet", "qodana-cdnet")
+    val dotnetIdes = listOf("QDNET", "QDNETC")
+    return dotnetImages.any { linter?.contains(it) == true } ||
+        dotnetIdes.any { ide?.equals(it, ignoreCase = true) == true }
+}
+
+fun QodanaYaml.sorted(): QodanaYaml = copy(
+    include = include.sortedBy { it.name },
+    exclude = exclude.sortedBy { it.name },
+    licenseRules = licenseRules.map {
+        it.copy(
+            keys = it.keys.sorted(),
+            allowed = it.allowed.sorted(),
+            prohibited = it.prohibited.sorted(),
+        )
+    },
+)
+
 data class YamlProfile(
     val name: String = "",
     val path: String = "",
@@ -70,7 +89,9 @@ data class YamlDotNet(
     val configuration: String? = null,
     val platform: String? = null,
     val frameworks: String? = null,
-)
+) {
+    fun isEmpty(): Boolean = solution.isNullOrEmpty() && project.isNullOrEmpty()
+}
 
 data class YamlPhp(
     val version: String? = null,

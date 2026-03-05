@@ -10,3 +10,20 @@ data class CloudEndpoints(
     @JsonProperty("CloudApiUrl")
     val cloudApiUrl: String,
 )
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class ApiVersionDescription(
+    val version: String = "",
+    val url: String = "",
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class ApiEndpointDescription(
+    val versions: List<ApiVersionDescription> = emptyList(),
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class ApiDescriptions(
+    val api: ApiEndpointDescription = ApiEndpointDescription(),
+    val linters: ApiEndpointDescription = ApiEndpointDescription(),
+)

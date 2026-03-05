@@ -6,8 +6,10 @@ import com.fasterxml.jackson.module.kotlin.kotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class QodanaYamlTest {
 
@@ -117,6 +119,77 @@ class QodanaYamlTest {
         val config = mapper.readValue<QodanaYaml>(yaml)
         assertEquals(2, config.plugins.size)
         assertEquals("com.intellij.plugins.some-plugin", config.plugins[0].id)
+    }
+
+    @Test
+    fun `isDotNet with dotnet linter`() {
+        assertTrue(QodanaYaml(linter = "jetbrains/qodana-dotnet").isDotNet())
+    }
+
+    @Test
+    fun `isDotNet with cdnet linter`() {
+        assertTrue(QodanaYaml(linter = "jetbrains/qodana-cdnet").isDotNet())
+    }
+
+    @Test
+    fun `isDotNet with QDNET ide`() {
+        assertTrue(QodanaYaml(ide = "QDNET").isDotNet())
+    }
+
+    @Test
+    fun `isDotNet with jvm linter`() {
+        assertFalse(QodanaYaml(linter = "jetbrains/qodana-jvm").isDotNet())
+    }
+
+    @Test
+    fun `isDotNet with empty yaml`() {
+        assertFalse(QodanaYaml().isDotNet())
+    }
+
+    @Test
+    fun `dotnet isEmpty true when empty`() {
+        assertTrue(YamlDotNet().isEmpty())
+    }
+
+    @Test
+    fun `dotnet isEmpty false with solution`() {
+        assertFalse(YamlDotNet(solution = "test.sln").isEmpty())
+    }
+
+    @Test
+    fun `dotnet isEmpty false with project`() {
+        assertFalse(YamlDotNet(project = "test.csproj").isEmpty())
+    }
+
+    @Test
+    fun `sorted sorts includes and excludes`() {
+        val yaml = QodanaYaml(
+            include = listOf(
+                InspectScope(name = "Zebra"),
+                InspectScope(name = "Alpha"),
+                InspectScope(name = "Beta"),
+            ),
+            exclude = listOf(
+                InspectScope(name = "Zulu"),
+                InspectScope(name = "Alpha"),
+            ),
+            licenseRules = listOf(
+                YamlLicenseRule(
+                    keys = listOf("zlib", "apache-2.0", "MIT"),
+                    allowed = listOf("GPL-3.0", "BSD-3-Clause"),
+                    prohibited = listOf("Proprietary", "Commercial"),
+                ),
+            ),
+        )
+        val sorted = yaml.sorted()
+        assertEquals("Alpha", sorted.include[0].name)
+        assertEquals("Beta", sorted.include[1].name)
+        assertEquals("Zebra", sorted.include[2].name)
+        assertEquals("Alpha", sorted.exclude[0].name)
+        assertEquals("Zulu", sorted.exclude[1].name)
+        assertEquals(listOf("MIT", "apache-2.0", "zlib"), sorted.licenseRules[0].keys)
+        assertEquals(listOf("BSD-3-Clause", "GPL-3.0"), sorted.licenseRules[0].allowed)
+        assertEquals(listOf("Commercial", "Proprietary"), sorted.licenseRules[0].prohibited)
     }
 
     @Test

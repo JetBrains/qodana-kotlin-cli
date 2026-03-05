@@ -173,4 +173,6 @@ private class FakeGitClient(
     override suspend fun fetch(workDir: Path, remote: String?, ref: String?, depth: Int?) = Result.success(Unit)
     override suspend fun isGitRepo(workDir: Path) = true
     override suspend fun branch(workDir: Path) = Result.success("main")
+    override suspend fun clean(workDir: Path, force: Boolean, directories: Boolean) = Result.success(Unit)
+    override suspend fun submoduleUpdate(workDir: Path, init: Boolean, recursive: Boolean) = Result.success(Unit)
 }

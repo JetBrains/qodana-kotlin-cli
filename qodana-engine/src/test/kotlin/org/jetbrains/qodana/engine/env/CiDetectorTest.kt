@@ -2,8 +2,10 @@ package org.jetbrains.qodana.engine.env
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class CiDetectorTest {
 
@@ -154,6 +156,107 @@ class CiDetectorTest {
         assertEquals("circle123", ci.revision)
         assertEquals("https://github.com/org/repo", ci.remoteUrl)
         assertEquals("https://circleci.com/gh/org/repo/42", ci.jobUrl)
+    }
+
+    @Test
+    fun `isContainer false when env not set`() {
+        assertFalse(CiDetector.isContainer { null })
+    }
+
+    @Test
+    fun `isContainer true when QODANA_DOCKER set`() {
+        assertTrue(CiDetector.isContainer { if (it == "QODANA_DOCKER") "true" else null })
+    }
+
+    @Test
+    fun `isBitBucket false when env not set`() {
+        assertFalse(CiDetector.isBitBucket { null })
+    }
+
+    @Test
+    fun `isBitBucket true when BITBUCKET_PIPELINE_UUID set`() {
+        assertTrue(CiDetector.isBitBucket { if (it == "BITBUCKET_PIPELINE_UUID") "{uuid}" else null })
+    }
+
+    @Test
+    fun `isBitBucketPipe with storage dir`() {
+        assertTrue(CiDetector.isBitBucketPipe { if (it == "BITBUCKET_PIPE_STORAGE_DIR") "/path" else null })
+    }
+
+    @Test
+    fun `isBitBucketPipe with shared storage dir`() {
+        assertTrue(CiDetector.isBitBucketPipe { if (it == "BITBUCKET_PIPE_SHARED_STORAGE_DIR") "/shared" else null })
+    }
+
+    @Test
+    fun `isBitBucketPipe false when neither set`() {
+        assertFalse(CiDetector.isBitBucketPipe { null })
+    }
+
+    @Test
+    fun `isGitLab true when GITLAB_CI is true`() {
+        assertTrue(CiDetector.isGitLab { if (it == "GITLAB_CI") "true" else null })
+    }
+
+    @Test
+    fun `isGitLab false when GITLAB_CI is false`() {
+        assertFalse(CiDetector.isGitLab { if (it == "GITLAB_CI") "false" else null })
+    }
+
+    @Test
+    fun `getBitBucketRepoOwner and Name`() {
+        val env = { key: String -> if (key == "BITBUCKET_REPO_FULL_NAME") "myowner/myrepo" else null }
+        assertEquals("myowner/myrepo", CiDetector.getBitBucketRepoFullName(env))
+        assertEquals("myowner", CiDetector.getBitBucketRepoOwner(env))
+        assertEquals("myrepo", CiDetector.getBitBucketRepoName(env))
+    }
+
+    @Test
+    fun `validateBranch returns branch when provided`() {
+        assertEquals("main", CiDetector.validateBranch("main", "github-actions"))
+    }
+
+    @Test
+    fun `validateBranch falls back to github env`() {
+        val env = { key: String -> if (key == "GITHUB_REF_NAME") "feature-branch" else null }
+        assertEquals("feature-branch", CiDetector.validateBranch("", "github-actions", env))
+    }
+
+    @Test
+    fun `validateBranch falls back to azure env`() {
+        val env = { key: String -> if (key == "BUILD_SOURCEBRANCHNAME") "develop" else null }
+        assertEquals("develop", CiDetector.validateBranch("", "azure-pipelines", env))
+    }
+
+    @Test
+    fun `validateBranch falls back to jenkins env`() {
+        val env = { key: String -> if (key == "GIT_BRANCH") "release" else null }
+        assertEquals("release", CiDetector.validateBranch("", "jenkins", env))
+    }
+
+    @Test
+    fun `validateRemoteUrl valid url`() {
+        assertEquals("https://github.com/org/repo", CiDetector.validateRemoteUrl("https://github.com/org/repo", "github-actions"))
+    }
+
+    @Test
+    fun `validateRemoteUrl empty`() {
+        assertEquals("", CiDetector.validateRemoteUrl("", "github-actions"))
+    }
+
+    @Test
+    fun `validateRemoteUrl invalid`() {
+        assertEquals("", CiDetector.validateRemoteUrl("not-a-url", "github-actions"))
+    }
+
+    @Test
+    fun `validateJobUrl valid`() {
+        assertEquals("https://ci.example.com/build/123", CiDetector.validateJobUrl("https://ci.example.com/build/123", "github-actions"))
+    }
+
+    @Test
+    fun `validateJobUrl invalid`() {
+        assertEquals("", CiDetector.validateJobUrl("not-valid", "jenkins"))
     }
 
     @Test
