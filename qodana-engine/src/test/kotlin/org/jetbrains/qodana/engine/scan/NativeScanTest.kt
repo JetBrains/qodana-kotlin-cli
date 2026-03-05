@@ -12,8 +12,36 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.nio.file.Path
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class NativeScanTest {
+
+    private val productInfoJson = """
+        {"version":"2025.3","buildNumber":"253.12345","productCode":"GO","versionSuffix":""}
+    """.trimIndent()
+
+    private val isMac: Boolean
+        get() {
+            val os = System.getProperty("os.name").lowercase()
+            return "mac" in os || "darwin" in os
+        }
+
+    /** Sets up the RecordingFileSystem with the goland binary and product-info.json
+     *  in the correct OS-specific paths. */
+    private fun setupIdeFiles(fs: RecordingFileSystem, ideDir: Path = Path.of("/opt/ide")) {
+        if (isMac) {
+            fs.existingFiles.add(ideDir.resolve("MacOS/goland"))
+            fs.fileContents[ideDir.resolve("Resources/product-info.json")] = productInfoJson
+        } else {
+            fs.existingFiles.add(ideDir.resolve("bin/goland"))
+            fs.fileContents[ideDir.resolve("product-info.json")] = productInfoJson
+        }
+    }
+
+    private fun expectedIdeScript(ideDir: Path = Path.of("/opt/ide")): String {
+        return if (isMac) ideDir.resolve("MacOS/goland").toString()
+        else ideDir.resolve("bin/goland").toString()
+    }
 
     @Test
     fun `run throws when ideDir is null`() = runTest {
@@ -32,8 +60,7 @@ class NativeScanTest {
         val fs = RecordingFileSystem()
         fs.fileContents[Path.of("/results/qodana.sarif.json")] = """{"exitCode": 2}"""
         fs.existingFiles.add(Path.of("/results/qodana.sarif.json"))
-        // Make inspect.sh exist
-        fs.existingFiles.add(Path.of("/opt/ide/bin/inspect.sh"))
+        setupIdeFiles(fs)
 
         val processRunner = FakeProcessRunner(exitCode = 0)
         val scan = NativeScan(processRunner, fs)
@@ -45,7 +72,7 @@ class NativeScanTest {
     @Test
     fun `run falls back to process exit code when no SARIF`() = runTest {
         val fs = RecordingFileSystem()
-        fs.existingFiles.add(Path.of("/opt/ide/bin/inspect.sh"))
+        setupIdeFiles(fs)
 
         val processRunner = FakeProcessRunner(exitCode = 42)
         val scan = NativeScan(processRunner, fs)
@@ -57,7 +84,7 @@ class NativeScanTest {
     @Test
     fun `run writes idea properties before execution`() = runTest {
         val fs = RecordingFileSystem()
-        fs.existingFiles.add(Path.of("/opt/ide/bin/inspect.sh"))
+        setupIdeFiles(fs)
 
         val processRunner = FakeProcessRunner(exitCode = 0)
         val scan = NativeScan(processRunner, fs)
@@ -69,22 +96,43 @@ class NativeScanTest {
     }
 
     @Test
-    fun `run resolves inspect script`() = runTest {
+    fun `run resolves native IDE binary`() = runTest {
         val fs = RecordingFileSystem()
-        fs.existingFiles.add(Path.of("/opt/ide/bin/inspect.sh"))
+        setupIdeFiles(fs)
 
         val processRunner = FakeProcessRunner(exitCode = 0)
         val scan = NativeScan(processRunner, fs)
 
         scan.run(testContext(ideDir = Path.of("/opt/ide")))
 
-        assertEquals("/opt/ide/bin/inspect.sh", processRunner.lastSpec?.command)
+        assertEquals(expectedIdeScript(), processRunner.lastSpec?.command)
     }
 
     @Test
-    fun `run throws when inspect script not found`() = runTest {
+    fun `run adds qodana subcommand`() = runTest {
         val fs = RecordingFileSystem()
-        // No scripts exist
+        setupIdeFiles(fs)
+
+        val processRunner = FakeProcessRunner(exitCode = 0)
+        val scan = NativeScan(processRunner, fs)
+
+        scan.run(testContext(ideDir = Path.of("/opt/ide")))
+
+        // 2025.3 is >= 242, so no "inspect" subcommand — just "qodana"
+        val args = processRunner.lastSpec?.args ?: emptyList()
+        assertEquals("qodana", args.first())
+        assertTrue("inspect" !in args)
+    }
+
+    @Test
+    fun `run throws when IDE binary not found`() = runTest {
+        val fs = RecordingFileSystem()
+        // product-info.json exists but no IDE binary
+        if (isMac) {
+            fs.fileContents[Path.of("/opt/ide/Resources/product-info.json")] = productInfoJson
+        } else {
+            fs.fileContents[Path.of("/opt/ide/product-info.json")] = productInfoJson
+        }
 
         val processRunner = FakeProcessRunner(exitCode = 0)
         val scan = NativeScan(processRunner, fs)
@@ -108,10 +156,6 @@ class NativeScanTest {
         docker = DockerOptions(),
         nativeMode = true,
     )
-
-    private fun assertTrue(value: Boolean) {
-        kotlin.test.assertTrue(value)
-    }
 }
 
 private class FakeProcessRunner(private val exitCode: Int = 0) : ProcessRunner {
