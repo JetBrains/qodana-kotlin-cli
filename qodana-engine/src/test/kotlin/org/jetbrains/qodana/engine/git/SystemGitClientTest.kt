@@ -46,6 +46,10 @@ class SystemGitClientTest {
         ProcessBuilder("git", "commit", "-m", "add $name").directory(dir.toFile()).start().waitFor()
     }
 
+    private fun gitCmd(dir: Path, vararg args: String): Int {
+        return ProcessBuilder(*args).directory(dir.toFile()).start().waitFor()
+    }
+
     @Test
     fun `isGitRepo returns true for git repo`(@TempDir dir: Path) = runTest {
         initRepo(dir)
@@ -163,5 +167,58 @@ class SystemGitClientTest {
 
         val content = Files.readString(dir.resolve("test.txt"))
         assertEquals("original", content)
+    }
+
+    @Test
+    fun `clean removes untracked files and directories`(@TempDir dir: Path) = runTest {
+        initRepo(dir)
+        commitFile(dir, "tracked.txt", "tracked")
+
+        val untrackedFile = dir.resolve("tmp.txt")
+        val untrackedDir = dir.resolve("tmp-dir")
+        Files.writeString(untrackedFile, "untracked")
+        Files.createDirectories(untrackedDir)
+        Files.writeString(untrackedDir.resolve("nested.txt"), "nested")
+
+        val result = git.clean(dir, force = true, directories = true)
+        assertTrue(result.isSuccess)
+        assertFalse(Files.exists(untrackedFile))
+        assertFalse(Files.exists(untrackedDir))
+    }
+
+    @Test
+    fun `submoduleUpdate succeeds on repo without submodules`(@TempDir dir: Path) = runTest {
+        initRepo(dir)
+        commitFile(dir, "tracked.txt", "tracked")
+
+        assertTrue(git.submoduleUpdate(dir, init = false, recursive = false).isSuccess)
+        assertTrue(git.submoduleUpdate(dir, init = true, recursive = true).isSuccess)
+    }
+
+    @Test
+    fun `fetch updates remote refs`(@TempDir dir: Path) = runTest {
+        val remoteRepo = dir.resolve("remote")
+        val cloneRepo = dir.resolve("clone")
+        Files.createDirectories(remoteRepo)
+
+        initRepo(remoteRepo)
+        commitFile(remoteRepo, "a.txt", "one")
+
+        assertEquals(0, gitCmd(dir, "git", "clone", remoteRepo.toString(), cloneRepo.toString()))
+        // Ensure cloned repo can commit as well if needed.
+        assertEquals(0, gitCmd(cloneRepo, "git", "config", "user.email", "test@test.com"))
+        assertEquals(0, gitCmd(cloneRepo, "git", "config", "user.name", "Test User"))
+
+        // New commit in remote after clone.
+        commitFile(remoteRepo, "b.txt", "two")
+        val remoteHead = git.revParse(remoteRepo, "HEAD").getOrThrow()
+
+        val fetchResult = git.fetch(cloneRepo, remote = "origin", ref = null, depth = null)
+        assertTrue(fetchResult.isSuccess)
+
+        val fetchedHead = git.revParse(cloneRepo, "origin/master").getOrElse {
+            git.revParse(cloneRepo, "origin/main").getOrThrow()
+        }
+        assertEquals(remoteHead, fetchedHead)
     }
 }
