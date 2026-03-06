@@ -359,6 +359,36 @@ class ScanCommandTest {
         assertTrue(error.message.orEmpty().contains("must be located inside repository root"))
     }
 
+    @Test
+    fun `scan derives default results and report from cache dir hierarchy`(@TempDir tmpDir: Path) {
+        val projectDir = createProject(tmpDir.resolve("project").also { Files.createDirectories(it) })
+        val cacheDir = tmpDir.resolve("custom/system/cache").also { Files.createDirectories(it) }
+        var capturedContext: ScanContext? = null
+        val command = ScanCommand(
+            scanRunner = { context ->
+                capturedContext = context
+                0
+            },
+            terminal = NoOpTerminal(),
+        )
+
+        val result = assertFailsWith<ProgramResult> {
+            command.parse(
+                listOf(
+                    "-i", projectDir.toString(),
+                    "--cache-dir", cacheDir.toString(),
+                )
+            )
+        }
+
+        assertEquals(0, result.statusCode)
+        val context = requireNotNull(capturedContext)
+        val expectedSystemDir = cacheDir.toAbsolutePath().normalize().parent.parent
+        assertEquals(cacheDir.toAbsolutePath().normalize(), context.paths.cacheDir)
+        assertEquals(expectedSystemDir, context.paths.resultsDir.parent.parent)
+        assertEquals(context.paths.resultsDir.resolve("report"), context.paths.reportDir)
+    }
+
     private fun createProject(dir: Path): Path {
         Files.writeString(dir.resolve("main.kt"), "fun main() = Unit\n")
         return dir

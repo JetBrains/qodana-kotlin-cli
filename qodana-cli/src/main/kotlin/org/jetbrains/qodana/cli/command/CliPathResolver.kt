@@ -49,10 +49,11 @@ internal object CliPathResolver {
         reportDir: Path?,
         isContainer: Boolean,
     ): CommandPaths {
+        val normalizedCacheOverride = cacheDir?.toAbsolutePath()?.normalize()
         val defaults = if (isContainer) {
             Triple(Path.of("/data/results"), Path.of("/data/cache"), Path.of("/data/results/report"))
         } else {
-            val linterDir = qodanaSystemDir().resolve(computeScanId(linterName, projectDir))
+            val linterDir = qodanaSystemDir(normalizedCacheOverride).resolve(computeScanId(linterName, projectDir))
             val defaultResults = linterDir.resolve("results")
             val defaultCache = linterDir.resolve("cache")
             val defaultReport = defaultResults.resolve("report")
@@ -60,7 +61,7 @@ internal object CliPathResolver {
         }
 
         val resolvedResults = resultsDir?.toAbsolutePath()?.normalize() ?: defaults.first
-        val resolvedCache = cacheDir?.toAbsolutePath()?.normalize() ?: defaults.second
+        val resolvedCache = normalizedCacheOverride ?: defaults.second
         val resolvedReport = reportDir?.toAbsolutePath()?.normalize() ?: defaults.third
 
         return CommandPaths(
@@ -70,7 +71,16 @@ internal object CliPathResolver {
         )
     }
 
-    private fun qodanaSystemDir(): Path {
+    private fun qodanaSystemDir(cacheDirOverride: Path?): Path {
+        if (cacheDirOverride != null) {
+            val parent = cacheDirOverride.parent
+            if (parent != null) {
+                val grandParent = parent.parent
+                if (grandParent != null) {
+                    return grandParent.toAbsolutePath().normalize()
+                }
+            }
+        }
         val home = System.getProperty("user.home") ?: "."
         val isMac = System.getProperty("os.name", "").lowercase().contains("mac")
         val userCache = if (isMac) {
