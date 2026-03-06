@@ -27,8 +27,16 @@ class ContainerScan(
             terminal.warn("You are using a non-compatible Qodana linter $image with the current CLI")
         }
 
+        val outputRenderer = TerminalStreamRenderer(terminal)
         if (!context.docker.skipPull && !context.docker.noDockerPull) {
-            containerEngine.pull(image) { terminal.println(it) }
+            containerEngine.pull(image) { progress ->
+                if (terminal.isInteractive) {
+                    outputRenderer.render("\r$progress")
+                } else {
+                    terminal.println(progress)
+                }
+            }
+            outputRenderer.ensureLineBreak()
         }
 
         val spec = buildContainerSpec(context, image)
@@ -38,13 +46,15 @@ class ContainerScan(
             containerEngine.start(containerId)
 
             coroutineScope {
-                launch {
+                val logsJob = launch {
                     containerEngine.logs(containerId)
-                        .onEach { event -> terminal.println(event.text) }
+                        .onEach { event -> outputRenderer.render(event.text) }
                         .collect()
                 }
 
                 val exitStatus = containerEngine.wait(containerId)
+                logsJob.join()
+                outputRenderer.ensureLineBreak()
 
                 if (exitStatus.oomKilled) {
                     terminal.error("Container was killed due to out-of-memory (OOM)")

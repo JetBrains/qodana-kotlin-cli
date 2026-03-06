@@ -69,6 +69,45 @@ class ContainerScanTest {
     }
 
     @Test
+    fun `scan preserves carriage return log chunks`() = runTest {
+        val ops = mutableListOf<String>()
+        val logs = flowOf(
+            LogEvent(LogSource.CONTAINER, Stream.STDOUT, "Pulling 1%\r"),
+            LogEvent(LogSource.CONTAINER, Stream.STDOUT, "Pulling 2%\r"),
+            LogEvent(LogSource.CONTAINER, Stream.STDOUT, "Pull complete\n"),
+        )
+        val engine = FakeContainerEngine(ops, exitCode = 0, logsFlow = logs)
+        val terminal = RenderRecordingTerminal()
+
+        val scan = ContainerScan(engine, terminal)
+        val exitCode = scan.run(testContext(image = "test:latest"))
+
+        assertEquals(0, exitCode)
+        assertEquals(
+            listOf("Pulling 1%\r", "Pulling 2%\r", "Pull complete\n"),
+            terminal.printed
+        )
+        assertTrue(terminal.printlnMessages.isEmpty())
+    }
+
+    @Test
+    fun `scan renders pull progress in-place for interactive terminal`() = runTest {
+        val ops = mutableListOf<String>()
+        val engine = FakeContainerEngine(
+            ops = ops,
+            exitCode = 0,
+            pullProgress = listOf("Downloading", "Extracting"),
+        )
+        val terminal = RenderRecordingTerminal(isInteractive = true)
+        val scan = ContainerScan(engine, terminal)
+
+        val exitCode = scan.run(testContext(image = "test:latest"))
+
+        assertEquals(0, exitCode)
+        assertEquals(listOf("\rDownloading", "\rExtracting"), terminal.printed)
+    }
+
+    @Test
     fun `scan mounts project, results, report, cache dirs`() = runTest {
         val engine = CapturingContainerEngine()
         val terminal = FakeTerminal()
@@ -164,11 +203,16 @@ private class FakeContainerEngine(
     private val ops: MutableList<String>,
     private val exitCode: Int = 0,
     private val oomKilled: Boolean = false,
+    private val logsFlow: Flow<LogEvent> = emptyFlow(),
+    private val pullProgress: List<String> = emptyList(),
 ) : ContainerEngine {
-    override suspend fun pull(image: String, onProgress: (String) -> Unit) { ops.add("pull") }
+    override suspend fun pull(image: String, onProgress: (String) -> Unit) {
+        ops.add("pull")
+        pullProgress.forEach(onProgress)
+    }
     override suspend fun create(spec: ContainerRunSpec): String { ops.add("create"); return "fake-id" }
     override suspend fun start(containerId: String) { ops.add("start") }
-    override fun logs(containerId: String): Flow<LogEvent> = emptyFlow()
+    override fun logs(containerId: String): Flow<LogEvent> = logsFlow
     override suspend fun wait(containerId: String): ContainerExitStatus {
         ops.add("wait")
         return ContainerExitStatus(exitCode = exitCode, oomKilled = oomKilled)
@@ -207,5 +251,33 @@ private class FakeTerminal : Terminal {
     override fun <T> spinner(message: String, action: () -> T): T = action()
     override fun prompt(message: String, default: String?): String = default ?: ""
     override fun select(message: String, choices: List<String>): String = choices.first()
+    override fun setRedactedTokens(tokens: Set<String>) {}
+}
+
+private class RenderRecordingTerminal : Terminal {
+    val printed = mutableListOf<String>()
+    val printlnMessages = mutableListOf<String>()
+    override val isInteractive: Boolean
+    override var isCi: Boolean = true
+
+    constructor(isInteractive: Boolean = false) {
+        this.isInteractive = isInteractive
+    }
+
+    override fun print(message: String) {
+        printed += message
+    }
+
+    override fun println(message: String) {
+        printlnMessages += message
+    }
+
+    override fun error(message: String) {}
+    override fun info(message: String) {}
+    override fun warn(message: String) {}
+    override fun debug(message: String) {}
+    override fun <T> spinner(message: String, action: () -> T): T = action()
+    override fun prompt(message: String, default: String?): String = default ?: ""
+    override fun select(message: String, choices: List<String>): String = choices.firstOrNull() ?: ""
     override fun setRedactedTokens(tokens: Set<String>) {}
 }

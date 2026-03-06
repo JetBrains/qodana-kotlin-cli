@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.BufferedReader
+import java.io.Reader
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.TimeUnit
@@ -31,11 +31,11 @@ class SystemProcessRunner : ProcessRunner {
         val stdout = StringBuilder()
         val stderr = StringBuilder()
 
-        val stdoutReader = process.inputStream.bufferedReader()
-        val stderrReader = process.errorStream.bufferedReader()
+        val stdoutReader = process.inputStream.reader()
+        val stderrReader = process.errorStream.reader()
 
-        val stdoutThread = Thread { stdoutReader.forEachLine { stdout.appendLine(it) } }
-        val stderrThread = Thread { stderrReader.forEachLine { stderr.appendLine(it) } }
+        val stdoutThread = Thread { readAll(stdoutReader, stdout) }
+        val stderrThread = Thread { readAll(stderrReader, stderr) }
         stdoutThread.start()
         stderrThread.start()
 
@@ -57,8 +57,8 @@ class SystemProcessRunner : ProcessRunner {
 
         ProcessResult(
             exitCode = exitCode,
-            stdout = stdout.toString().trimEnd(),
-            stderr = stderr.toString().trimEnd(),
+            stdout = stdout.toString(),
+            stderr = stderr.toString(),
         )
     }
 
@@ -91,24 +91,19 @@ private class SystemRunningProcess(
 ) : RunningProcess {
     companion object {
         private const val TIMEOUT_EXIT_CODE_PLACEHOLDER = 1000
+        private const val BUFFER_SIZE = 4096
     }
 
     override fun events(): Flow<LogEvent> = channelFlow {
-        val now = Instant.now()
-
         launch(Dispatchers.IO) {
-            process.inputStream.bufferedReader().useLines { lines ->
-                for (line in lines) {
-                    send(LogEvent(LogSource.PROCESS, Stream.STDOUT, line, now))
-                }
+            streamChunks(process.inputStream.reader()) { chunk ->
+                send(LogEvent(LogSource.PROCESS, Stream.STDOUT, chunk, Instant.now()))
             }
         }
 
         launch(Dispatchers.IO) {
-            process.errorStream.bufferedReader().useLines { lines ->
-                for (line in lines) {
-                    send(LogEvent(LogSource.PROCESS, Stream.STDERR, line, now))
-                }
+            streamChunks(process.errorStream.reader()) { chunk ->
+                send(LogEvent(LogSource.PROCESS, Stream.STDERR, chunk, Instant.now()))
             }
         }
     }
@@ -131,6 +126,41 @@ private class SystemRunningProcess(
         process.destroy()
         if (process.isAlive) {
             process.destroyForcibly()
+        }
+    }
+
+    private suspend fun streamChunks(
+        reader: Reader,
+        sink: suspend (String) -> Unit,
+    ) = withContext(Dispatchers.IO) {
+        reader.use {
+            val buffer = CharArray(BUFFER_SIZE)
+            while (true) {
+                val read = it.read(buffer)
+                if (read < 0) {
+                    break
+                }
+                if (read == 0) {
+                    continue
+                }
+                sink(String(buffer, 0, read))
+            }
+        }
+    }
+}
+
+private fun readAll(reader: Reader, output: StringBuilder) {
+    reader.use {
+        val buffer = CharArray(4096)
+        while (true) {
+            val read = it.read(buffer)
+            if (read < 0) {
+                break
+            }
+            if (read == 0) {
+                continue
+            }
+            output.append(buffer, 0, read)
         }
     }
 }
