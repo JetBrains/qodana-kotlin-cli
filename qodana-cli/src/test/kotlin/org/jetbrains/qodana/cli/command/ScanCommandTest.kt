@@ -292,6 +292,50 @@ class ScanCommandTest {
         assertEquals(org.jetbrains.qodana.engine.model.AnalysisMode.CONTAINER, context.analysisMode)
     }
 
+    @Test
+    fun `scan fails when yaml contains both linter and ide`(@TempDir tmpDir: Path) {
+        val projectDir = createProject(tmpDir)
+        Files.writeString(
+            projectDir.resolve("qodana.yaml"),
+            """
+            linter: qodana-jvm
+            ide: QDJVM
+            """.trimIndent(),
+        )
+        val command = ScanCommand(
+            scanRunner = { 0 },
+            terminal = NoOpTerminal(),
+        )
+
+        val error = assertFailsWith<UsageError> {
+            command.parse(listOf("-i", projectDir.toString()))
+        }
+
+        assertTrue(error.message.orEmpty().contains("both `linter:`"))
+    }
+
+    @Test
+    fun `scan fails when yaml contains both image and ide`(@TempDir tmpDir: Path) {
+        val projectDir = createProject(tmpDir)
+        Files.writeString(
+            projectDir.resolve("qodana.yaml"),
+            """
+            image: jetbrains/qodana-jvm:2025.3
+            ide: QDJVM
+            """.trimIndent(),
+        )
+        val command = ScanCommand(
+            scanRunner = { 0 },
+            terminal = NoOpTerminal(),
+        )
+
+        val error = assertFailsWith<UsageError> {
+            command.parse(listOf("-i", projectDir.toString()))
+        }
+
+        assertTrue(error.message.orEmpty().contains("both `image:`"))
+    }
+
     private fun createProject(dir: Path): Path {
         Files.writeString(dir.resolve("main.kt"), "fun main() = Unit\n")
         return dir

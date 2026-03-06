@@ -385,6 +385,22 @@ class ScanCommand(
     private fun resolveAnalyzer(yaml: QodanaYaml?, projectDir: Path): AnalyzerResolution {
         val explicitWithinDocker = parseWithinDocker(withinDocker)
         val yamlWithinDocker = parseWithinDocker(yaml?.withinDocker)
+        val yamlIde = yaml?.ide?.takeIf { it.isNotBlank() }
+        val yamlLinter = yaml?.linter?.takeIf { it.isNotBlank() }
+        val yamlImage = yaml?.image?.takeIf { it.isNotBlank() }
+
+        if (yamlLinter != null && yamlIde != null) {
+            throw UsageError(
+                "You have both `linter:` ($yamlLinter) and `ide:` ($yamlIde) fields set in qodana.yaml. " +
+                    "Modify the configuration file to keep one of them"
+            )
+        }
+        if (yamlImage != null && yamlIde != null) {
+            throw UsageError(
+                "You have both `image:` ($yamlImage) and `ide:` ($yamlIde) fields set in qodana.yaml. " +
+                    "Modify the configuration file to keep one of them"
+            )
+        }
 
         ide?.let { ideValue ->
             val linterByCode = Linters.findByProductCode(ideValue.removeSuffix(Linters.EAP_SUFFIX))
@@ -417,9 +433,6 @@ class ScanCommand(
                 ideDir = null,
             )
         }
-
-        val yamlImage = yaml?.image
-        val yamlLinter = yaml?.linter
 
         val chosenLinter = linter ?: yamlLinter
         if (chosenLinter != null) {
