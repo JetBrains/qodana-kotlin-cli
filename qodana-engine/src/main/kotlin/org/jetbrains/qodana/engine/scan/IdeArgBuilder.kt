@@ -21,7 +21,7 @@ object IdeArgBuilder {
             add(it)
         }
 
-        if (context.docker.image != null && context.report.saveReport) {
+        if (context.analysisMode == org.jetbrains.qodana.engine.model.AnalysisMode.CONTAINER && context.report.saveReport) {
             add("--save-report")
         }
 
@@ -168,11 +168,6 @@ object IdeArgBuilder {
                     context.runtime.clangCompileCommands?.let { addAll(listOf("--compile-commands", it)) }
                     context.runtime.clangArgs?.let { addAll(listOf("--clang-args", it)) }
                 }
-            }
-        } else if (product != null && product.is251orNewer()) {
-            context.runtime.effectiveConfigDir?.let {
-                add("--config-dir")
-                add(it.toString())
             }
         }
     }

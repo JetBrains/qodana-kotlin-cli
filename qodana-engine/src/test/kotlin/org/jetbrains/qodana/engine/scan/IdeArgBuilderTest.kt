@@ -180,14 +180,23 @@ class IdeArgBuilderTest {
     }
 
     @Test
-    fun `native mode on 251+ includes config-dir`() {
+    fun `native mode does not include save-report even when docker image is present`() {
+        val context = nativeContext().copy(
+            docker = DockerOptions(image = "jetbrains/qodana-jvm:latest"),
+            report = ReportOptions(saveReport = true),
+        )
+        val args = IdeArgBuilder.build(context, product253)
+        assertFalse(args.contains("--save-report"), "Native args must not include --save-report: $args")
+    }
+
+    @Test
+    fun `native mode on 251+ does not include config-dir`() {
         val context = nativeContext().copy(
             runtime = RuntimeContext(effectiveConfigDir = Path.of("/tmp/config"))
         )
         val args = IdeArgBuilder.build(context, product253)
         val idx = args.indexOf("--config-dir")
-        assertTrue(idx >= 0, "Expected --config-dir for 251+ native: $args")
-        assertEquals("/tmp/config", args[idx + 1])
+        assertEquals(-1, idx, "Native args must not include --config-dir: $args")
     }
 
     // --- helpers ---
