@@ -160,7 +160,7 @@ class DockerJavaEngine : ContainerEngine {
                     StreamType.STDERR -> Stream.STDERR
                     else -> Stream.STDOUT
                 }
-                val text = String(frame.payload).trimEnd('\n', '\r')
+                val text = String(frame.payload)
                 if (text.isNotEmpty()) {
                     trySend(
                         LogEvent(

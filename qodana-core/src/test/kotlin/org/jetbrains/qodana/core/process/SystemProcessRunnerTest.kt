@@ -79,6 +79,20 @@ class SystemProcessRunnerTest {
     }
 
     @Test
+    fun `start preserves carriage returns in output chunks`() = runTest(timeout = 10.seconds) {
+        val process = runner.start(ProcessSpec(
+            command = "sh",
+            args = listOf("-c", "printf 'step1\\rstep2\\rdone\\n'"),
+        ))
+        val events = process.events().toList()
+        val exitCode = process.awaitExit()
+
+        assertEquals(0, exitCode)
+        assertTrue(events.any { it.text.contains('\r') }, "Expected carriage returns in emitted chunks")
+        assertTrue(events.joinToString("") { it.text }.contains("done"))
+    }
+
+    @Test
     fun `run command that does not exist returns non-zero or throws`() = runTest {
         try {
             val result = runner.run(ProcessSpec(

@@ -75,12 +75,13 @@ class NativeScan(
         )
 
         val process = processRunner.start(spec)
+        val outputRenderer = terminal?.let { TerminalStreamRenderer(it) }
 
         process.events()
             .onEach { event ->
                 // Match Go behavior: native analyzer output is streamed to CLI in real time.
-                if (terminal != null) {
-                    terminal.println(event.text)
+                if (outputRenderer != null) {
+                    outputRenderer.render(event.text)
                     log.debug("[IDE][{}] {}", event.stream, event.text)
                 } else {
                     when (event.stream) {
@@ -90,6 +91,7 @@ class NativeScan(
                 }
             }
             .collect()
+        outputRenderer?.ensureLineBreak()
 
         val processExitCode = process.awaitExit()
         log.info("IDE process exited with code {}", processExitCode)

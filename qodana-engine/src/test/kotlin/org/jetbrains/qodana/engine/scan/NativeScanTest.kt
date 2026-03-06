@@ -176,6 +176,29 @@ class NativeScanTest {
     }
 
     @Test
+    fun `run preserves carriage return chunks in native output`() = runTest {
+        val fs = RecordingFileSystem()
+        setupIdeFiles(fs)
+        val terminal = NativeOutputTerminal()
+        val processRunner = FakeProcessRunner(
+            exitCode = 0,
+            events = listOf(
+                LogEvent(LogSource.PROCESS, Stream.STDOUT, "progress 1%\r"),
+                LogEvent(LogSource.PROCESS, Stream.STDOUT, "progress 2%\r"),
+                LogEvent(LogSource.PROCESS, Stream.STDOUT, "done\n"),
+            )
+        )
+        val scan = NativeScan(processRunner, fs, terminal)
+
+        val result = scan.run(testContext(ideDir = Path.of("/opt/ide")))
+        assertEquals(0, result)
+        assertEquals(
+            listOf("progress 1%\r", "progress 2%\r", "done\n"),
+            terminal.lines
+        )
+    }
+
+    @Test
     fun `run throws when IDE binary not found`() = runTest {
         val fs = RecordingFileSystem()
         // product-info.json exists but no IDE binary
