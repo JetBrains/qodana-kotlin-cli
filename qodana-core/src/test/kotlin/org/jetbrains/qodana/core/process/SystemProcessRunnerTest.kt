@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.qodana.core.model.ProcessSpec
 import org.junit.jupiter.api.Test
+import java.time.Duration
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -98,5 +99,29 @@ class SystemProcessRunnerTest {
         ))
         assertEquals(0, result.exitCode)
         assertTrue(result.stdout.lines().size >= 3)
+    }
+
+    @Test
+    fun `run returns timeout placeholder on timeout`() = runTest {
+        val result = runner.run(
+            ProcessSpec(
+                command = "sh",
+                args = listOf("-c", "sleep 2"),
+                timeout = Duration.ofMillis(100),
+            )
+        )
+        assertEquals(1000, result.exitCode)
+    }
+
+    @Test
+    fun `start returns timeout placeholder on timeout`() = runTest {
+        val process = runner.start(
+            ProcessSpec(
+                command = "sh",
+                args = listOf("-c", "sleep 2"),
+                timeout = Duration.ofMillis(100),
+            )
+        )
+        assertEquals(1000, process.awaitExit())
     }
 }

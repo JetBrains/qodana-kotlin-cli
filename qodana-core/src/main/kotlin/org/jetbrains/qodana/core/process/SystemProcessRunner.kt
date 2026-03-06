@@ -12,11 +12,16 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import java.io.BufferedReader
+import java.time.Duration
 import java.time.Instant
+import java.util.concurrent.TimeUnit
 
 class SystemProcessRunner : ProcessRunner {
+    companion object {
+        // Matches Go CLI timeout placeholder behavior.
+        private const val TIMEOUT_EXIT_CODE_PLACEHOLDER = 1000
+    }
 
     override suspend fun run(spec: ProcessSpec): ProcessResult = withContext(Dispatchers.IO) {
         val process = buildProcess(spec)
@@ -39,7 +44,7 @@ class SystemProcessRunner : ProcessRunner {
             val completed = process.waitFor(timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS)
             if (!completed) {
                 process.destroyForcibly()
-                -1
+                TIMEOUT_EXIT_CODE_PLACEHOLDER
             } else {
                 process.exitValue()
             }
@@ -63,7 +68,7 @@ class SystemProcessRunner : ProcessRunner {
                 .redirectErrorStream(false)
                 .start()
         }
-        return SystemRunningProcess(process)
+        return SystemRunningProcess(process, spec.timeout)
     }
 
     private fun buildProcess(spec: ProcessSpec): ProcessBuilder {
@@ -80,7 +85,13 @@ class SystemProcessRunner : ProcessRunner {
     }
 }
 
-private class SystemRunningProcess(private val process: Process) : RunningProcess {
+private class SystemRunningProcess(
+    private val process: Process,
+    private val timeout: Duration?,
+) : RunningProcess {
+    companion object {
+        private const val TIMEOUT_EXIT_CODE_PLACEHOLDER = 1000
+    }
 
     override fun events(): Flow<LogEvent> = channelFlow {
         val now = Instant.now()
@@ -103,7 +114,17 @@ private class SystemRunningProcess(private val process: Process) : RunningProces
     }
 
     override suspend fun awaitExit(): Int = withContext(Dispatchers.IO) {
-        process.waitFor()
+        if (timeout == null) {
+            process.waitFor()
+        } else {
+            val finished = process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)
+            if (finished) {
+                process.exitValue()
+            } else {
+                terminate()
+                TIMEOUT_EXIT_CODE_PLACEHOLDER
+            }
+        }
     }
 
     override fun terminate() {
