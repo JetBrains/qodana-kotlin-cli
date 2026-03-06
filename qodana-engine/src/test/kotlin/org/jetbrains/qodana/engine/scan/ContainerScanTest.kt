@@ -179,7 +179,7 @@ class ContainerScanTest {
         val containerPaths = spec.mounts.map { it.containerPath }
         assertTrue("/data/project" in containerPaths, "Should mount project dir")
         assertTrue("/data/results" in containerPaths, "Should mount results dir")
-        assertTrue("/data/report" in containerPaths, "Should mount report dir")
+        assertTrue("/data/results/report" in containerPaths, "Should mount report dir")
         assertTrue("/data/cache" in containerPaths, "Should mount cache dir")
     }
 

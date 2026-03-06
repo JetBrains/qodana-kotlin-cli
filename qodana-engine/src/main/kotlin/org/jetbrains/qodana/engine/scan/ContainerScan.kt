@@ -159,7 +159,7 @@ class ContainerScan(
             ))
             add(MountSpec(
                 hostPath = context.paths.reportDir.toString(),
-                containerPath = "/data/report",
+                containerPath = "/data/results/report",
             ))
             add(MountSpec(
                 hostPath = context.paths.cacheDir.toString(),
