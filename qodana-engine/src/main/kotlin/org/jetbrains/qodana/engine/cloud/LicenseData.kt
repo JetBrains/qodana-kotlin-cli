@@ -1,20 +1,22 @@
 package org.jetbrains.qodana.engine.cloud
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonProperty
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class LicenseData(
     @JsonProperty("licenseId")
-    val licenseId: String,
+    val licenseId: String = "",
     @JsonProperty("licenseKey")
-    val licenseKey: String,
+    val licenseKey: String = "",
     @JsonProperty("expirationDate")
-    val expirationDate: String,
+    val expirationDate: String = "",
     @JsonProperty("projectIdHash")
-    val projectIdHash: String,
-    @JsonProperty("organisationIdHash")
-    val organisationIdHash: String,
+    val projectIdHash: String = "",
+    @JsonProperty("organizationIdHash")
+    @JsonAlias("organisationIdHash")
+    val organisationIdHash: String = "",
     @JsonProperty("licensePlan")
-    val licensePlan: String,
+    val licensePlan: String = "",
 )

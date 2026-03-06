@@ -106,4 +106,37 @@ class LicenseDataTest {
 
         assertEquals(original, deserialized)
     }
+
+    @Test
+    fun `supports organizationIdHash spelling`() {
+        val json = """
+            {
+                "licenseId": "id",
+                "licenseKey": "key",
+                "expirationDate": "2026-12-31",
+                "projectIdHash": "ph",
+                "organizationIdHash": "org-us",
+                "licensePlan": "ULTIMATE"
+            }
+        """.trimIndent()
+
+        val data = mapper.readValue<LicenseData>(json)
+        assertEquals("org-us", data.organisationIdHash)
+    }
+
+    @Test
+    fun `missing optional hashes default to empty strings`() {
+        val json = """
+            {
+                "licenseId": "id",
+                "licenseKey": "key",
+                "expirationDate": "2026-12-31",
+                "licensePlan": "ULTIMATE"
+            }
+        """.trimIndent()
+
+        val data = mapper.readValue<LicenseData>(json)
+        assertEquals("", data.projectIdHash)
+        assertEquals("", data.organisationIdHash)
+    }
 }

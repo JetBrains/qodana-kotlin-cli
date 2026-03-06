@@ -51,9 +51,22 @@ class InitCommandTest {
         )
         val http = InitFakeHttpTransport(
             mapOf(
-                "https://qodana.cloud/api/config.json" to HttpResponse(
+                "https://qodana.cloud/api/versions" to HttpResponse(
                     200,
-                    """{"LintersApiUrl":"https://linters.api","CloudApiUrl":"https://cloud.api"}"""
+                    """
+                        {
+                          "api": {
+                            "versions": [
+                              {"version":"1.1","url":"https://cloud.api"}
+                            ]
+                          },
+                          "linters": {
+                            "versions": [
+                              {"version":"1.0","url":"https://linters.api"}
+                            ]
+                          }
+                        }
+                    """.trimIndent()
                 ),
                 "https://cloud.api/projects" to HttpResponse(401, "unauthorized")
             )

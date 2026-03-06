@@ -24,12 +24,25 @@ class LicenseValidatorTest {
         }
     """.trimIndent()
 
-    private val endpointsJson = """{"LintersApiUrl":"https://linters.api","CloudApiUrl":"https://cloud.api"}"""
+    private val endpointsJson = """
+        {
+          "api": {
+            "versions": [
+              {"version":"1.1","url":"https://cloud.api"}
+            ]
+          },
+          "linters": {
+            "versions": [
+              {"version":"1.0","url":"https://linters.api"}
+            ]
+          }
+        }
+    """.trimIndent()
 
     @Test
     fun `validate returns license data on success`() = runTest {
         val http = LicenseFakeHttp(mapOf(
-            "https://qodana.cloud/api/config.json" to HttpResponse(200, endpointsJson),
+            "https://qodana.cloud/api/versions" to HttpResponse(200, endpointsJson),
             "https://linters.api/linters/license-key" to HttpResponse(200, validLicenseJson),
         ))
         val cloudClient = CloudClient(http, endpoint = "https://qodana.cloud", token = "t", maxRetries = 1, cooldownMs = 0)
@@ -47,7 +60,7 @@ class LicenseValidatorTest {
     @Test
     fun `validate returns auth error on 401`() = runTest {
         val http = LicenseFakeHttp(mapOf(
-            "https://qodana.cloud/api/config.json" to HttpResponse(200, endpointsJson),
+            "https://qodana.cloud/api/versions" to HttpResponse(200, endpointsJson),
             "https://linters.api/linters/license-key" to HttpResponse(401, "Unauthorized"),
         ))
         val cloudClient = CloudClient(http, endpoint = "https://qodana.cloud", token = "t", maxRetries = 1, cooldownMs = 0)
@@ -63,7 +76,7 @@ class LicenseValidatorTest {
     @Test
     fun `validate returns auth error on 404`() = runTest {
         val http = LicenseFakeHttp(mapOf(
-            "https://qodana.cloud/api/config.json" to HttpResponse(200, endpointsJson),
+            "https://qodana.cloud/api/versions" to HttpResponse(200, endpointsJson),
             "https://linters.api/linters/license-key" to HttpResponse(404, "Not Found"),
         ))
         val cloudClient = CloudClient(http, endpoint = "https://qodana.cloud", token = "t", maxRetries = 1, cooldownMs = 0)
@@ -79,7 +92,7 @@ class LicenseValidatorTest {
     @Test
     fun `validate returns network error on 500`() = runTest {
         val http = LicenseFakeHttp(mapOf(
-            "https://qodana.cloud/api/config.json" to HttpResponse(200, endpointsJson),
+            "https://qodana.cloud/api/versions" to HttpResponse(200, endpointsJson),
             "https://linters.api/linters/license-key" to HttpResponse(500, "Server Error"),
         ))
         val cloudClient = CloudClient(http, endpoint = "https://qodana.cloud", token = "t", maxRetries = 1, cooldownMs = 0)
@@ -95,7 +108,7 @@ class LicenseValidatorTest {
     @Test
     fun `validate fails when endpoints fetch fails`() = runTest {
         val http = LicenseFakeHttp(mapOf(
-            "https://qodana.cloud/api/config.json" to HttpResponse(500, "Server Error"),
+            "https://qodana.cloud/api/versions" to HttpResponse(500, "Server Error"),
         ))
         val cloudClient = CloudClient(http, endpoint = "https://qodana.cloud", token = "t", maxRetries = 1, cooldownMs = 0)
         val validator = LicenseValidator(http, cloudClient)

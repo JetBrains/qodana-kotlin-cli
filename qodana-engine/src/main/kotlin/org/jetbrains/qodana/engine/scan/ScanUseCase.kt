@@ -54,8 +54,11 @@ class ScanUseCase(
             effectiveContext
         }
 
-        if (effectiveContextWithIde.auth.hasToken && licenseValidator != null) {
-            val licenseResult = licenseValidator.validate(effectiveContextWithIde.auth.token!!)
+        val validationToken = effectiveContextWithIde.auth.token
+            ?.takeIf { it.isNotBlank() }
+            ?: effectiveContextWithIde.auth.licenseOnlyToken?.takeIf { it.isNotBlank() }
+        if (!validationToken.isNullOrBlank() && licenseValidator != null) {
+            val licenseResult = licenseValidator.validate(validationToken)
             licenseResult.onSuccess { licenseData ->
                 System.setProperty(QodanaEnv.PROJECT_ID_HASH, licenseData.projectIdHash)
                 System.setProperty(QodanaEnv.ORGANISATION_ID_HASH, licenseData.organisationIdHash)

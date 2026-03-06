@@ -20,6 +20,7 @@ class CloudClient(
         const val DEFAULT_RETRIES = 3
         const val DEFAULT_COOLDOWN_MS = 30_000L
         const val DEFAULT_TIMEOUT_MS = 30_000L
+        private const val VERSIONS_URI = "/api/versions"
     }
 
     private val mapper: ObjectMapper = ObjectMapper()
@@ -31,7 +32,7 @@ class CloudClient(
     )
 
     suspend fun fetchEndpoints(): Result<CloudEndpoints> {
-        val url = "${endpoint.trimEnd('/')}/api/config.json"
+        val url = "${endpoint.trimEnd('/')}$VERSIONS_URI"
         return executeWithRetries(url) { requestUrl ->
             val response = http.get(requestUrl)
             if (!response.isSuccess) {
@@ -41,7 +42,28 @@ class CloudClient(
                     )
                 )
             }
-            Result.success(mapper.readValue<CloudEndpoints>(response.body))
+
+            val descriptions = mapper.readValue<ApiDescriptions>(response.body)
+            val cloudApiUrl = selectSupportedVersion(descriptions.api.versions)
+            if (cloudApiUrl.isBlank()) {
+                return@executeWithRetries Result.failure(
+                    ApiVersionMismatchError("cloud", extractVersions(descriptions.api.versions))
+                )
+            }
+
+            val lintersApiUrl = selectSupportedVersion(descriptions.linters.versions)
+            if (lintersApiUrl.isBlank()) {
+                return@executeWithRetries Result.failure(
+                    ApiVersionMismatchError("linters", extractVersions(descriptions.linters.versions))
+                )
+            }
+
+            Result.success(
+                CloudEndpoints(
+                    lintersApiUrl = lintersApiUrl,
+                    cloudApiUrl = cloudApiUrl,
+                )
+            )
         }
     }
 

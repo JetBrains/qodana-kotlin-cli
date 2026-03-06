@@ -14,7 +14,20 @@ import kotlin.test.assertTrue
 
 class LicenseSetupTest {
 
-    private val endpointsJson = """{"LintersApiUrl":"https://linters.api","CloudApiUrl":"https://cloud.api"}"""
+    private val endpointsJson = """
+        {
+          "api": {
+            "versions": [
+              {"version":"1.1","url":"https://cloud.api"}
+            ]
+          },
+          "linters": {
+            "versions": [
+              {"version":"1.0","url":"https://linters.api"}
+            ]
+          }
+        }
+    """.trimIndent()
 
     private fun validLicenseJson(plan: String = "ULTIMATE_PLUS") = """
         {
@@ -29,7 +42,7 @@ class LicenseSetupTest {
 
     private fun fakeValidator(licenseJson: String): LicenseValidator {
         val http = SetupFakeHttp(mapOf(
-            "https://qodana.cloud/api/config.json" to HttpResponse(200, endpointsJson),
+            "https://qodana.cloud/api/versions" to HttpResponse(200, endpointsJson),
             "https://linters.api/linters/license-key" to HttpResponse(200, licenseJson),
         ))
         val cloudClient = CloudClient(http, endpoint = "https://qodana.cloud", token = "t", maxRetries = 1, cooldownMs = 0)
@@ -38,7 +51,7 @@ class LicenseSetupTest {
 
     private fun failingValidator(statusCode: Int): LicenseValidator {
         val http = SetupFakeHttp(mapOf(
-            "https://qodana.cloud/api/config.json" to HttpResponse(200, endpointsJson),
+            "https://qodana.cloud/api/versions" to HttpResponse(200, endpointsJson),
             "https://linters.api/linters/license-key" to HttpResponse(statusCode, "error"),
         ))
         val cloudClient = CloudClient(http, endpoint = "https://qodana.cloud", token = "t", maxRetries = 1, cooldownMs = 0)
