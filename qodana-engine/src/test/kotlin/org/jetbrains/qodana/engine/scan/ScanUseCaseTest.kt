@@ -112,7 +112,23 @@ class ScanUseCaseTest {
     private fun buildCloudClient(): CloudClient {
         val http = object : HttpTransport {
             override suspend fun get(url: String, headers: Map<String, String>) =
-                HttpResponse(200, """{"LintersApiUrl":"https://linters.example.com","CloudApiUrl":"https://cloud.example.com"}""")
+                HttpResponse(
+                    200,
+                    """
+                        {
+                          "api": {
+                            "versions": [
+                              {"version":"1.1","url":"https://cloud.example.com"}
+                            ]
+                          },
+                          "linters": {
+                            "versions": [
+                              {"version":"1.0","url":"https://linters.example.com"}
+                            ]
+                          }
+                        }
+                    """.trimIndent()
+                )
             override suspend fun post(url: String, body: ByteArray, contentType: String, headers: Map<String, String>) =
                 HttpResponse(200, "{}")
             override suspend fun download(url: String, target: Path, headers: Map<String, String>) {}
@@ -231,6 +247,26 @@ class ScanUseCaseTest {
         useCase.run(buildContext(nativeMode = true, token = "test-token-123"))
 
         assertTrue(recordingLicenseHttp.getCalled, "licenseValidator should have made an HTTP call to validate the license")
+    }
+
+    @Test
+    fun `license validation called when only license token present`() = runTest {
+        recordingLicenseHttp.responseBody = """{
+            "licenseId": "test",
+            "licenseKey": "key",
+            "expirationDate": "2099-01-01",
+            "projectIdHash": "hash1",
+            "organisationIdHash": "hash2",
+            "licensePlan": "ULTIMATE_PLUS"
+        }"""
+
+        val useCase = buildScanUseCase()
+        useCase.run(buildContext(nativeMode = true, token = null, licenseOnlyToken = "license-only-token"))
+
+        assertTrue(
+            recordingLicenseHttp.getCalled,
+            "licenseValidator should have made an HTTP call when license-only token is present"
+        )
     }
 
     @Test

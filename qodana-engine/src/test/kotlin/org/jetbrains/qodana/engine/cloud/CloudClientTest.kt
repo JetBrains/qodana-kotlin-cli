@@ -14,9 +14,12 @@ class CloudClientTest {
     @Test
     fun `fetchEndpoints parses response`() = runTest {
         val http = FakeHttp(mapOf(
-            "https://qodana.cloud/api/config.json" to HttpResponse(
+            "https://qodana.cloud/api/versions" to HttpResponse(
                 200,
-                """{"LintersApiUrl":"https://linters.api","CloudApiUrl":"https://cloud.api"}"""
+                versionsResponse(
+                    apiVersions = listOf("1.1" to "https://cloud.api"),
+                    lintersVersions = listOf("1.0" to "https://linters.api"),
+                )
             )
         ))
         val client = CloudClient(http, endpoint = "https://qodana.cloud", token = "t", maxRetries = 1, cooldownMs = 0)
@@ -30,9 +33,12 @@ class CloudClientTest {
     @Test
     fun `fetchEndpoints trims trailing slash from endpoint`() = runTest {
         val http = FakeHttp(mapOf(
-            "https://qodana.cloud/api/config.json" to HttpResponse(
+            "https://qodana.cloud/api/versions" to HttpResponse(
                 200,
-                """{"LintersApiUrl":"https://l","CloudApiUrl":"https://c"}"""
+                versionsResponse(
+                    apiVersions = listOf("1.1" to "https://c"),
+                    lintersVersions = listOf("1.0" to "https://l"),
+                )
             )
         ))
         val client = CloudClient(http, endpoint = "https://qodana.cloud/", token = "t", maxRetries = 1, cooldownMs = 0)
@@ -43,7 +49,7 @@ class CloudClientTest {
     @Test
     fun `fetchEndpoints returns failure on HTTP error`() = runTest {
         val http = FakeHttp(mapOf(
-            "https://qodana.cloud/api/config.json" to HttpResponse(500, "Server Error")
+            "https://qodana.cloud/api/versions" to HttpResponse(500, "Server Error")
         ))
         val client = CloudClient(http, endpoint = "https://qodana.cloud", token = "t", maxRetries = 1, cooldownMs = 0)
 
@@ -84,7 +90,13 @@ class CloudClientTest {
             override suspend fun get(url: String, headers: Map<String, String>): HttpResponse {
                 callCount++
                 return if (callCount == 1) HttpResponse(500, "error")
-                else HttpResponse(200, """{"LintersApiUrl":"l","CloudApiUrl":"c"}""")
+                else HttpResponse(
+                    200,
+                    versionsResponse(
+                        apiVersions = listOf("1.1" to "c"),
+                        lintersVersions = listOf("1.0" to "l"),
+                    )
+                )
             }
         }
         val client = CloudClient(http, endpoint = "https://qodana.cloud", token = "t", maxRetries = 3, cooldownMs = 0)
@@ -93,6 +105,42 @@ class CloudClientTest {
         assertTrue(result.isSuccess)
         assertEquals(2, callCount)
     }
+
+    @Test
+    fun `fetchEndpoints returns mismatch when supported cloud version is missing`() = runTest {
+        val http = FakeHttp(
+            mapOf(
+                "https://qodana.cloud/api/versions" to HttpResponse(
+                    200,
+                    versionsResponse(
+                        apiVersions = listOf("2.0" to "https://cloud.v2"),
+                        lintersVersions = listOf("1.0" to "https://linters.v1"),
+                    )
+                )
+            )
+        )
+        val client = CloudClient(http, endpoint = "https://qodana.cloud", token = "t", maxRetries = 1, cooldownMs = 0)
+
+        val result = client.fetchEndpoints()
+        assertTrue(result.isFailure)
+        val error = result.exceptionOrNull()
+        assertTrue(error is ApiVersionMismatchError)
+        assertEquals("cloud", (error as ApiVersionMismatchError).apiKind)
+        assertEquals(listOf("2.0"), error.supportedVersions)
+    }
+}
+
+private fun versionsResponse(
+    apiVersions: List<Pair<String, String>>,
+    lintersVersions: List<Pair<String, String>>,
+): String {
+    val api = apiVersions.joinToString(",") { (version, url) ->
+        """{"version":"$version","url":"$url"}"""
+    }
+    val linters = lintersVersions.joinToString(",") { (version, url) ->
+        """{"version":"$version","url":"$url"}"""
+    }
+    return """{"api":{"versions":[$api]},"linters":{"versions":[$linters]}}"""
 }
 
 private open class FakeHttp(private val responses: Map<String, HttpResponse>) : HttpTransport {

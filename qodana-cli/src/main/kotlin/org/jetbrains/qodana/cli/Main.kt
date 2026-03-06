@@ -124,7 +124,8 @@ fun main(args: Array<String>) {
     }
 
     fun createScanUseCase(): ScanUseCase {
-        val token = System.getenv("QODANA_TOKEN")
+        val token = System.getenv(QodanaEnv.TOKEN)?.takeIf { it.isNotBlank() }
+            ?: System.getenv(QodanaEnv.LICENSE_ONLY_TOKEN)?.takeIf { it.isNotBlank() }
         val cloudClient = if (!token.isNullOrBlank()) {
             CloudClient(httpTransport, token = token)
         } else null
