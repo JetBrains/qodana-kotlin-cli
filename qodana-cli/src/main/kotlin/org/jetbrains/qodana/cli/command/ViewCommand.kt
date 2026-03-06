@@ -4,6 +4,8 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
+import com.jetbrains.qodana.sarif.model.Result
+import com.jetbrains.qodana.sarif.model.SarifReport
 import org.jetbrains.qodana.core.port.SarifService
 import org.jetbrains.qodana.core.port.Terminal
 
@@ -17,32 +19,41 @@ class ViewCommand(
     private val sarifFile by option("-f", "--sarif-file", help = "Path to the SARIF file")
         .default("qodana.sarif.json")
 
-    @Suppress("UNCHECKED_CAST")
     override fun run() {
-        val report = sarifService.read(java.nio.file.Path.of(sarifFile)) as? Map<String, Any> ?: return
-        val runs = report["runs"] as? List<Map<String, Any>> ?: return
+        val report = sarifService.read(java.nio.file.Path.of(sarifFile)) as? SarifReport ?: return
+        val runs = report.runs ?: emptyList()
 
         terminal.println("")
-        var problemCount = 0
+        var newProblems = 0
         for (run in runs) {
-            val results = run["results"] as? List<Map<String, Any>> ?: continue
+            val results = run.results ?: continue
             for (result in results) {
-                val ruleId = result["ruleId"] as? String ?: "unknown"
-                val message = (result["message"] as? Map<String, Any>)?.get("text") as? String ?: ""
-                val locations = result["locations"] as? List<Map<String, Any>>
-                val location = locations?.firstOrNull()
-                val physicalLocation = (location?.get("physicalLocation") as? Map<String, Any>)
-                val artifactLocation = (physicalLocation?.get("artifactLocation") as? Map<String, Any>)
-                val uri = artifactLocation?.get("uri") as? String ?: ""
-                val region = physicalLocation?.get("region") as? Map<String, Any>
-                val line = (region?.get("startLine") as? Number)?.toInt()
+                val baselineState = result.baselineState
+                if (baselineState == null || baselineState == Result.BaselineState.NEW) {
+                    newProblems++
+                }
+                if (result.locations.isNullOrEmpty() || baselineState == Result.BaselineState.UNCHANGED) {
+                    continue
+                }
+                val ruleId = result.ruleId ?: "unknown"
+                val message = result.message?.text ?: ""
+                val physicalLocation = result.locations?.firstOrNull()?.physicalLocation
+                val uri = physicalLocation?.artifactLocation?.uri ?: ""
+                val line = physicalLocation?.region?.startLine
 
                 val loc = if (uri.isNotEmpty() && line != null) "$uri:$line" else uri
                 terminal.println("  $ruleId: $message ($loc)")
-                problemCount++
             }
         }
         terminal.println("")
-        terminal.println("Found $problemCount problems")
+        terminal.println(problemsFoundMessage(newProblems))
+    }
+
+    private fun problemsFoundMessage(newProblems: Int): String {
+        return when (newProblems) {
+            0 -> "It seems all right 👌 No new problems found according to the checks applied"
+            1 -> "Found 1 new problem according to the checks applied"
+            else -> "Found $newProblems new problems according to the checks applied"
+        }
     }
 }

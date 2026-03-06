@@ -17,6 +17,7 @@ dependencies {
     implementation(libs.jackson.module.kotlin)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.okhttp)
+    implementation(libs.qodana.sarif)
     implementation(libs.slf4j.simple)
 
     testImplementation(libs.kotlin.test)

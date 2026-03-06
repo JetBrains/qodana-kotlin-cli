@@ -1,163 +1,205 @@
 package org.jetbrains.qodana.cli.command
 
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
+import com.fasterxml.jackson.module.kotlin.kotlinModule
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
 import com.github.ajalt.clikt.core.ProgramResult
+import com.github.ajalt.clikt.core.UsageError
 import com.github.ajalt.clikt.parameters.options.*
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.long
 import com.github.ajalt.clikt.parameters.types.path
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.qodana.core.env.QodanaEnv
+import org.jetbrains.qodana.core.model.QodanaYaml
+import org.jetbrains.qodana.core.model.ScanPaths
 import org.jetbrains.qodana.core.product.Linters
 import org.jetbrains.qodana.engine.env.CiDetector
 import org.jetbrains.qodana.core.model.*
 import org.jetbrains.qodana.engine.model.*
 import java.nio.file.Files
 import java.nio.file.Path
+import java.security.MessageDigest
+import java.util.UUID
 
 class ScanCommand(
     private val scanRunner: suspend (ScanContext) -> Int,
 ) : CliktCommand("scan") {
 
-    override fun help(context: Context) = "Run Qodana analysis"
+    override fun help(context: Context) = "Scan project with Qodana"
 
-    private val projectDir by option("-i", "--project-dir", help = "Root directory of the project")
+    private val linter by option("-l", "--linter", help = "Defines the linter to be used for analysis")
+    private val withinDocker by option("--within-docker", help = "Set true/false for container mode")
+    private val image by option("--image", help = "Defines image to use for analysis execution")
+    private val ide by option("--ide", help = "Run Qodana without a container")
+
+    private val projectDir by option("-i", "--project-dir", help = "Root directory of the inspected project")
         .path(mustExist = true)
         .default(Path.of("."))
-    private val resultsDir by option("-o", "--results-dir", help = "Directory to save results")
+    private val repositoryRoot by option("--repository-root", help = "Path to repository root")
+        .path(mustExist = true)
+    private val resultsDir by option("-o", "--results-dir", help = "Override results directory")
         .path()
-        .default(Path.of("./results"))
-    private val cacheDir by option("--cache-dir", help = "Directory for caches").path()
-    private val reportDir by option("--report-dir", help = "Directory for HTML report").path()
+    private val cacheDir by option("--cache-dir", help = "Override cache directory")
+        .path()
+    private val reportDir by option("-r", "--report-dir", help = "Override report directory")
+        .path()
 
-    private val linter by option("-l", "--linter", help = "Linter to use")
-    private val ide by option("--ide", help = "IDE product code (e.g. QDGO) or path to local IDE installation")
+    private val printProblems by option("--print-problems", help = "Print all found problems in CLI output")
+        .flag()
+    private val codeClimate by option("--code-climate", help = "Generate Code Climate report")
+        .flag(default = CiDetector.isGitLab())
+    private val bitbucketInsights by option("--bitbucket-insights", "--code-insights", help = "Send BitBucket Code Insights")
+        .flag(default = CiDetector.isBitBucket())
+    private val clearCache by option("--clear-cache", help = "Clear local Qodana cache before analysis")
+        .flag()
+    private val showReport by option("-w", "--show-report", help = "Serve HTML report")
+        .flag()
+    private val port by option("--port", help = "Deprecated, use --show-report-port")
+        .int()
+    private val showReportPort by option("--show-report-port", help = "Port to serve report")
+        .int()
 
-    private val volumes by option("-v", "--volume", help = "Docker volume mount").multiple()
-    private val dockerEnv by option("-e", "--env", help = "Docker environment variable").multiple()
-    private val user by option("-u", "--user", help = "Docker user")
-    private val skipPull by option("--skip-pull", help = "Skip Docker image pull").flag()
-    private val memory by option("--memory", help = "Docker memory limit in bytes").long()
-    private val cpuLimit by option("--cpu", help = "Docker CPU count").int()
+    private val configName by option("--config", help = "Custom configuration file instead of qodana.yaml")
 
-    private val profileName by option("--profile-name", help = "Inspection profile name")
-    private val profilePath by option("--profile-path", help = "Inspection profile path")
+    private val analysisId by option("-a", "--analysis-id", help = "Unique report identifier")
+        .default(UUID.randomUUID().toString())
+    private val baseline by option("-b", "--baseline", help = "Path to SARIF baseline")
+        .path()
+    private val baselineIncludeAbsent by option("--baseline-include-absent", help = "Include absent baseline results")
+        .flag()
+    private val fullHistory by option("--full-history", help = "Run analysis through full commit history")
+        .flag()
+    private val commit by option("--commit", help = "Base commit for incremental analysis")
+    private val failThreshold by option("--fail-threshold", help = "Problems threshold to fail the run")
+        .int()
 
-    private val diffStart by option("--diff-start", help = "Git start revision")
-    private val diffEnd by option("--diff-end", help = "Git end revision")
-    private val onlyDirectory by option("--only-directory", help = "Only analyze this directory")
-    private val fullHistory by option("--full-history", help = "Analyze full git history").flag()
+    private val disableSanity by option("--disable-sanity", help = "Skip sanity profile inspections")
+        .flag()
+    private val sourceDirectory by option("--source-directory", help = "Deprecated, use --only-directory")
+    private val onlyDirectory by option("-d", "--only-directory", help = "Directory inside project to inspect")
 
-    private val baseline by option("-b", "--baseline", help = "Baseline SARIF file").path()
-    private val baselineIncludeAbsent by option("--baseline-include-absent").flag()
-    private val failThreshold by option("--fail-threshold", help = "Fail threshold").int()
+    private val profileName by option("-n", "--profile-name", help = "Profile name")
+    private val profilePath by option("-p", "--profile-path", help = "Path to profile file")
+    private val runPromo by option("--run-promo", help = "Enable/disable promo profile")
+    private val script by option("--script", help = "Override run scenario")
+        .default("default")
+    private val coverageDir by option("--coverage-dir", help = "Directory with coverage data")
+        .path()
 
-    private val saveReport by option("--save-report", help = "Save HTML report").flag(default = true)
-    private val showReport by option("--show-report", help = "Open report in browser").flag()
-    private val codeClimate by option("--code-climate", help = "Generate Code Climate report").flag()
-    private val bitbucket by option("--code-insights", help = "Generate Bitbucket Code Insights report").flag()
-    private val fullReport by option("--full-report", help = "Generate both SARIF and JSON report").flag()
+    private val applyFixes by option("--apply-fixes", help = "Apply quick-fixes")
+        .flag()
+    private val cleanup by option("--cleanup", help = "Run project cleanup")
+        .flag()
+    private val fixesStrategy by option("--fixes-strategy", help = "Deprecated, use --apply-fixes/--cleanup")
 
-    private val applyFixes by option("--apply-fixes", help = "Apply code fixes").flag()
-    private val cleanup by option("--cleanup", help = "Run code cleanup").flag()
-    private val fixesStrategy by option("--fixes-strategy", help = "Fixes strategy")
-    private val script by option("--script", help = "Analysis script name")
+    private val property by option("--property", help = "JVM property in key=value format")
+        .multiple()
+    private val saveReport by option("-s", "--save-report", help = "Generate HTML report")
+        .flag(default = true)
 
-    private val property by option("--property", "-P", help = "JVM property (key=value)").multiple()
-    private val analysisId by option("--analysis-id", help = "Analysis ID")
-    private val coverageDir by option("--coverage-dir", help = "Coverage data directory").path()
-    private val globalConfigDir by option("--global-config-dir", help = "Global config directory").path()
-    private val jvmDebugPort by option("--jvm-debug-port", help = "JVM debug port").int()
-    private val printProblems by option("--print-problems", help = "Print problems to stdout").flag()
-    private val disableStatistics by option("--disable-statistics").flag()
-    private val clearCache by option("--clear-cache").flag()
+    private val timeoutMs by option("--timeout", help = "Analysis timeout in milliseconds")
+        .long()
+        .default(-1L)
+    private val timeoutExitCode by option("--timeout-exit-code", help = "Exit code used when timeout is reached")
+        .int()
+        .default(1)
+
+    private val diffStart by option("--diff-start", help = "Commit to start diff run from")
+    private val diffEnd by option("--diff-end", help = "Commit to end diff run on")
+    private val forceLocalChangesScript by option("--force-local-changes-script", help = "Force local-changes scenario")
+        .flag()
+    private val reverse by option("--reverse", help = "Force reverse scoped analysis")
+        .flag()
+
+    private val jvmDebugPort by option("--jvm-debug-port", help = "Enable JVM remote debug")
+        .int()
+
+    private val noStatistics by option("--no-statistics", help = "Disable anonymous statistics")
+        .flag()
+    private val clangCompileCommands by option("--compile-commands", help = "Path to compile_commands.json")
+        .default("./build/compile_commands.json")
+    private val clangArgs by option("--clang-args", help = "Additional clang arguments")
+    private val cdnetSolution by option("--solution", help = "Relative path to .sln file")
+    private val cdnetProject by option("--project", help = "Relative path to project file")
+    private val cdnetConfiguration by option("--configuration", help = "Build configuration")
+    private val cdnetPlatform by option("--platform", help = "Build platform")
+    private val cdnetNoBuild by option("--no-build", help = "Skip build for cdnet")
+        .flag()
+
+    private val env by option("-e", "--env", help = "Additional env variables for container runs")
+        .multiple()
+    private val volumes by option("-v", "--volume", help = "Additional volumes for container runs")
+        .multiple()
+    private val user by option("-u", "--user", help = "Override user inside container")
+        .default("auto")
+    private val skipPull by option("--skip-pull", help = "Skip pulling linter container")
+        .flag()
+
+    private val globalConfigDir by option("--global-config-dir", help = "Path to global config dir")
+        .path(mustExist = true)
+    private val globalConfigId by option("--global-config-id", help = "Global configuration ID")
 
     override fun run() {
-        if (applyFixes && cleanup) {
-            throw com.github.ajalt.clikt.core.UsageError(
-                "Options --apply-fixes and --cleanup are mutually exclusive"
+        validateFlags()
+        if (forceLocalChangesScript || script == "local-changes") {
+            echo(
+                "Warning: Using local-changes script is deprecated, please switch to other mechanisms of incremental analysis. " +
+                    "Further information - https://www.jetbrains.com/help/qodana/analyze-pr.html"
             )
         }
 
+        val absProjectDir = projectDir.toAbsolutePath().normalize()
+        validateProjectDir(absProjectDir)
+
+        val yaml = loadQodanaYaml(absProjectDir, configName)
+        val analyzer = resolveAnalyzer(yaml, absProjectDir)
+
+        val startHash = resolveStartHash(commit, diffStart)
+        val scenario = ScanContextUtils.determineRunScenario(
+            fullHistory = fullHistory,
+            script = effectiveScript(),
+            startHash = startHash,
+            forceLocalChanges = forceLocalChangesScript,
+            isContainer = analyzer.analysisMode == AnalysisMode.CONTAINER,
+            reversePrAnalysis = reverse,
+        )
+
+        val resolvedRepositoryRoot = repositoryRoot?.toAbsolutePath()?.normalize()
+            ?: detectRepositoryRoot(absProjectDir)
+        val paths = resolvePaths(
+            projectDir = absProjectDir,
+            repositoryRoot = resolvedRepositoryRoot,
+            linterName = analyzer.linterName ?: analyzer.image ?: "qodana",
+            isContainer = CiDetector.isContainer(),
+        )
+
         val outputFormats = buildSet {
-            if (fullReport) add(ReportOptions.OutputFormat.SARIF_AND_JSON)
-            else add(ReportOptions.OutputFormat.SARIF)
+            add(ReportOptions.OutputFormat.SARIF)
             if (codeClimate) add(ReportOptions.OutputFormat.CODE_CLIMATE)
-            if (bitbucket) add(ReportOptions.OutputFormat.BITBUCKET)
+            if (bitbucketInsights) add(ReportOptions.OutputFormat.BITBUCKET)
         }
-
-        val properties = property.associate { prop ->
-            val parts = prop.split("=", limit = 2)
-            parts[0] to (parts.getOrNull(1) ?: "")
-        }
-
-        val envVars = dockerEnv.associate { env ->
-            val parts = env.split("=", limit = 2)
-            parts[0] to (parts.getOrNull(1) ?: "")
-        }
-
-        val actualResultsDir = resultsDir
-        val actualReportDir = reportDir ?: actualResultsDir.resolve("report")
-        val actualCacheDir = cacheDir ?: Path.of(System.getProperty("user.home"), ".cache", "qodana")
-
-        // Resolve --ide: product code (QDGO) vs path (/opt/ide)
-        val resolvedIdeDir: Path?
-        val resolvedLinter: String?
-        val isNative: Boolean
-        if (ide != null) {
-            val idePath = Path.of(ide!!)
-            val linterByCode = Linters.findByProductCode(ide!!)
-            if (linterByCode != null) {
-                // Product code like QDGO — PrepareHost will download
-                resolvedIdeDir = null
-                resolvedLinter = linter ?: linterByCode.name
-                isNative = true
-            } else if (Files.isDirectory(idePath)) {
-                // Actual path to IDE installation
-                resolvedIdeDir = idePath
-                resolvedLinter = linter
-                isNative = true
-            } else {
-                // Try as product code with EAP suffix stripped
-                val stripped = ide!!.removeSuffix("-EAP")
-                val linterEap = Linters.findByProductCode(stripped)
-                if (linterEap != null) {
-                    resolvedIdeDir = null
-                    resolvedLinter = linter ?: linterEap.name
-                    isNative = true
-                } else {
-                    throw com.github.ajalt.clikt.core.UsageError(
-                        "--ide value '${ide}' is not a valid product code or existing directory"
-                    )
-                }
-            }
-        } else {
-            resolvedIdeDir = null
-            isNative = false
-            // Auto-detect linter: check yaml first, then project detection (like Go's Compute)
-            resolvedLinter = linter ?: resolveImageFromYaml(projectDir) ?: run {
-                val detected = org.jetbrains.qodana.engine.scan.ProjectDetector.detectLinter(projectDir)
-                detected?.name
-            }
-        }
+        val (parsedProperties, parsedPropertyFlags) = ScanContextUtils.parsePropertiesAndFlags(property)
 
         val context = ScanContext(
-            paths = ScanPaths(
-                projectDir = projectDir.toAbsolutePath(),
-                resultsDir = actualResultsDir.toAbsolutePath(),
-                cacheDir = actualCacheDir.toAbsolutePath(),
-                reportDir = actualReportDir.toAbsolutePath(),
-            ),
+            paths = paths,
             auth = AuthContext(
-                token = System.getenv("QODANA_TOKEN"),
-                endpoint = System.getenv("QODANA_ENDPOINT") ?: "https://qodana.cloud",
-                licenseOnlyToken = System.getenv("QODANA_LICENSE_ONLY_TOKEN"),
+                token = System.getenv(QodanaEnv.TOKEN),
+                endpoint = System.getenv(QodanaEnv.ENDPOINT) ?: QodanaEnv.DEFAULT_ENDPOINT,
+                licenseOnlyToken = System.getenv(QodanaEnv.LICENSE_ONLY_TOKEN),
             ),
             runtime = RuntimeContext(
-                ideDir = resolvedIdeDir,
+                ideDir = analyzer.ideDir,
+                timeout = ScanContextUtils.getAnalysisTimeout(timeoutMs),
+                timeoutExitCode = timeoutExitCode,
+                envVars = parseKeyValueOptions(env),
+                properties = parsedProperties,
+                propertyFlags = parsedPropertyFlags,
                 failThreshold = failThreshold,
-                properties = properties,
-                disableStatistics = disableStatistics,
+                disableStatistics = noStatistics,
+                noStatistics = noStatistics,
                 forceFullHistory = fullHistory,
                 clearCache = clearCache,
                 analysisId = analysisId,
@@ -165,12 +207,29 @@ class ScanCommand(
                 applyFixes = applyFixes,
                 cleanup = cleanup,
                 fixesStrategy = fixesStrategy,
-                script = script ?: "default",
-                diffStart = diffStart,
+                disableSanity = disableSanity,
+                runPromo = runPromo,
+                script = effectiveScript(),
+                commit = commit,
+                diffStart = startHash,
                 diffEnd = diffEnd,
-                onlyDirectory = onlyDirectory,
+                forceLocalChangesScript = forceLocalChangesScript,
+                reversePrAnalysis = reverse,
+                onlyDirectory = onlyDirectory ?: sourceDirectory,
                 coverageDir = coverageDir,
                 globalConfigDir = globalConfigDir,
+                globalConfigId = globalConfigId,
+                effectiveConfigDir = null,
+                customConfigName = configName,
+                showReportPort = showReportPort,
+                deprecatedPort = port,
+                clangCompileCommands = clangCompileCommands,
+                clangArgs = clangArgs,
+                cdnetSolution = cdnetSolution,
+                cdnetProject = cdnetProject,
+                cdnetConfiguration = cdnetConfiguration,
+                cdnetPlatform = cdnetPlatform,
+                cdnetNoBuild = cdnetNoBuild,
             ),
             ci = CiDetector.extractQodanaEnvironment(CiDetector.detect()),
             report = ReportOptions(
@@ -182,37 +241,304 @@ class ScanCommand(
                 printProblems = printProblems,
             ),
             docker = DockerOptions(
-                image = resolvedLinter,
+                image = analyzer.image,
                 volumes = volumes,
-                envVars = envVars,
-                user = user,
-                memoryLimit = memory,
-                cpuLimit = cpuLimit,
+                envVars = parseKeyValueOptions(env),
+                user = if (user == "auto") null else user,
                 skipPull = skipPull,
             ),
-            linter = resolvedLinter,
-            profile = if (profileName != null || profilePath != null) {
-                ProfileSpec(name = profileName, path = profilePath)
-            } else null,
-            nativeMode = isNative,
+            linter = analyzer.linterName,
+            profile = ProfileSpec(name = profileName, path = profilePath),
+            yaml = yaml,
+            scenario = scenario,
+            nativeMode = analyzer.analysisMode == AnalysisMode.NATIVE,
+            analysisMode = analyzer.analysisMode,
         )
 
         val exitCode = runBlocking { scanRunner(context) }
         throw ProgramResult(exitCode)
     }
 
-    private fun resolveImageFromYaml(projectDir: Path): String? {
-        val yamlNames = listOf("qodana.yaml", "qodana.yml")
-        val yamlFile = yamlNames.map { projectDir.resolve(it) }.firstOrNull { Files.exists(it) } ?: return null
+    private fun validateFlags() {
+        if (applyFixes && cleanup) {
+            throw UsageError("Options --apply-fixes and --cleanup are mutually exclusive")
+        }
+        if (profileName != null && profilePath != null) {
+            throw UsageError("Options --profile-name and --profile-path are mutually exclusive")
+        }
+        if (sourceDirectory != null && onlyDirectory != null) {
+            throw UsageError("Options --source-directory and --only-directory are mutually exclusive")
+        }
+        if (script != "default" && (forceLocalChangesScript || fullHistory)) {
+            throw UsageError("Options --script, --force-local-changes-script and --full-history are mutually exclusive")
+        }
+        if (commit != null && script != "default") {
+            throw UsageError("Options --commit and --script are mutually exclusive")
+        }
+        if (commit != null && diffStart != null) {
+            throw UsageError("Options --commit and --diff-start are mutually exclusive")
+        }
+        if (script != "default" && diffStart != null) {
+            throw UsageError("Options --script and --diff-start are mutually exclusive")
+        }
+        if ((globalConfigDir == null) xor (globalConfigId == null)) {
+            throw UsageError("--global-config-dir and --global-config-id must be specified together")
+        }
+        if (linter != null && ide != null) {
+            throw UsageError("Options --linter and --ide are mutually exclusive")
+        }
+        if (image != null && ide != null) {
+            throw UsageError("Options --image and --ide are mutually exclusive")
+        }
+        if (ide != null && skipPull) {
+            throw UsageError("Options --skip-pull and --ide are mutually exclusive")
+        }
+        if (ide != null && volumes.isNotEmpty()) {
+            throw UsageError("Options --volume and --ide are mutually exclusive")
+        }
+        if (ide != null && env.isNotEmpty()) {
+            throw UsageError("Options --env and --ide are mutually exclusive")
+        }
+        if (ide != null && user != "auto") {
+            throw UsageError("Options --user and --ide are mutually exclusive")
+        }
+        val wd = withinDocker?.trim()?.lowercase()
+        if (wd != null && wd.isNotEmpty() && wd != "true" && wd != "false") {
+            throw UsageError("Wrong value for --within-docker: $withinDocker. Use true/false")
+        }
+    }
+
+    private fun validateProjectDir(dir: Path) {
+        if (org.jetbrains.qodana.engine.scan.SystemUtils.isHomeDirectory(dir.toString())) {
+            echo("Warning: Project directory ($dir) is the home directory")
+        }
+        val hasFiles = Files.walk(dir).use { stream ->
+            stream.anyMatch { it != dir && Files.isRegularFile(it) }
+        }
+        if (!hasFiles) {
+            throw UsageError("No files to check with Qodana found in $dir")
+        }
+    }
+
+    private fun effectiveScript(): String {
+        return script
+    }
+
+    private fun resolveStartHash(commit: String?, diffStart: String?): String? {
+        return when {
+            commit == diffStart -> commit
+            commit == null -> diffStart
+            diffStart == null -> commit
+            else -> throw UsageError("Conflicting CLI arguments: --commit=$commit --diff-start=$diffStart")
+        }
+    }
+
+    private fun resolveAnalyzer(yaml: QodanaYaml?, projectDir: Path): AnalyzerResolution {
+        val explicitWithinDocker = parseWithinDocker(withinDocker)
+        val yamlWithinDocker = parseWithinDocker(yaml?.withinDocker)
+
+        ide?.let { ideValue ->
+            val linterByCode = Linters.findByProductCode(ideValue.removeSuffix(Linters.EAP_SUFFIX))
+            if (linterByCode != null) {
+                return AnalyzerResolution(
+                    analysisMode = AnalysisMode.NATIVE,
+                    linterName = linter ?: linterByCode.name,
+                    image = null,
+                    ideDir = null,
+                )
+            }
+            val idePath = Path.of(ideValue)
+            if (Files.isDirectory(idePath)) {
+                return AnalyzerResolution(
+                    analysisMode = AnalysisMode.NATIVE,
+                    linterName = linter,
+                    image = null,
+                    ideDir = idePath.toAbsolutePath().normalize(),
+                )
+            }
+            throw UsageError("--ide value '$ideValue' is not a valid product code or existing directory")
+        }
+
+        image?.let { imageValue ->
+            val linterByImage = Linters.findByDockerImage(imageValue)
+            return AnalyzerResolution(
+                analysisMode = AnalysisMode.CONTAINER,
+                linterName = linter ?: linterByImage?.name ?: imageValue,
+                image = imageValue,
+                ideDir = null,
+            )
+        }
+
+        val yamlImage = yaml?.image
+        val yamlLinter = yaml?.linter
+
+        val chosenLinter = linter ?: yamlLinter
+        if (chosenLinter != null) {
+            // Legacy compatibility: image could be passed via --linter
+            if (chosenLinter.contains("/") && Linters.findByName(chosenLinter) == null) {
+                if (explicitWithinDocker == false || yamlWithinDocker == false) {
+                    throw UsageError("Image-like --linter value requires container mode")
+                }
+                return AnalyzerResolution(
+                    analysisMode = AnalysisMode.CONTAINER,
+                    linterName = Linters.findByDockerImage(chosenLinter)?.name ?: chosenLinter,
+                    image = chosenLinter,
+                    ideDir = null,
+                )
+            }
+
+            val resolved = Linters.findByName(chosenLinter)
+            val useContainer = explicitWithinDocker ?: yamlWithinDocker ?: true
+            if (useContainer) {
+                return AnalyzerResolution(
+                    analysisMode = AnalysisMode.CONTAINER,
+                    linterName = resolved?.name ?: chosenLinter,
+                    image = yamlImage ?: resolved?.image() ?: chosenLinter,
+                    ideDir = null,
+                )
+            }
+            return AnalyzerResolution(
+                analysisMode = AnalysisMode.NATIVE,
+                linterName = resolved?.name ?: chosenLinter,
+                image = null,
+                ideDir = null,
+            )
+        }
+
+        if (!yamlImage.isNullOrBlank()) {
+            val linterByImage = Linters.findByDockerImage(yamlImage)
+            return AnalyzerResolution(
+                analysisMode = AnalysisMode.CONTAINER,
+                linterName = linterByImage?.name ?: yamlImage,
+                image = yamlImage,
+                ideDir = null,
+            )
+        }
+
+        val detectedLinter = org.jetbrains.qodana.engine.scan.ProjectDetector.detectLinter(projectDir)
+        if (detectedLinter != null) {
+            return AnalyzerResolution(
+                analysisMode = AnalysisMode.CONTAINER,
+                linterName = detectedLinter.name,
+                image = detectedLinter.image(),
+                ideDir = null,
+            )
+        }
+
+        return AnalyzerResolution(
+            analysisMode = AnalysisMode.CONTAINER,
+            linterName = Linters.JVM.name,
+            image = Linters.JVM.image(),
+            ideDir = null,
+        )
+    }
+
+    private fun resolvePaths(
+        projectDir: Path,
+        repositoryRoot: Path,
+        linterName: String,
+        isContainer: Boolean,
+    ): ScanPaths {
+        val defaultPaths = if (isContainer) {
+            Triple(Path.of("/data/results"), Path.of("/data/cache"), Path.of("/data/results/report"))
+        } else {
+            val linterDir = qodanaSystemDir().resolve(computeScanId(linterName, projectDir))
+            val defaultResults = linterDir.resolve("results")
+            val defaultCache = linterDir.resolve("cache")
+            val defaultReport = defaultResults.resolve("report")
+            Triple(defaultResults, defaultCache, defaultReport)
+        }
+
+        val actualResultsDir = resultsDir?.toAbsolutePath()?.normalize() ?: defaultPaths.first
+        val actualCacheDir = cacheDir?.toAbsolutePath()?.normalize() ?: defaultPaths.second
+        val actualReportDir = reportDir?.toAbsolutePath()?.normalize() ?: defaultPaths.third
+
+        return ScanPaths(
+            projectDir = projectDir,
+            repositoryRoot = repositoryRoot,
+            resultsDir = actualResultsDir,
+            cacheDir = actualCacheDir,
+            reportDir = actualReportDir,
+        )
+    }
+
+    private fun qodanaSystemDir(): Path {
+        val home = System.getProperty("user.home") ?: "."
+        val isMac = System.getProperty("os.name", "").lowercase().contains("mac")
+        val userCache = if (isMac) {
+            Path.of(home, "Library", "Caches")
+        } else {
+            Path.of(home, ".cache")
+        }
+        return userCache.resolve("JetBrains").resolve("Qodana")
+    }
+
+    private fun computeScanId(linterName: String, projectDir: Path): String {
+        val linterHash = sha256(linterName).take(8)
+        val projectHash = sha256(projectDir.toString()).take(8)
+        return "$linterHash-$projectHash"
+    }
+
+    private fun sha256(text: String): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val hash = digest.digest(text.toByteArray())
+        return hash.joinToString("") { "%02x".format(it) }
+    }
+
+    private fun parseWithinDocker(value: String?): Boolean? {
+        val normalized = value?.trim()?.lowercase() ?: return null
+        if (normalized.isEmpty()) return null
+        return when (normalized) {
+            "true" -> true
+            "false" -> false
+            else -> throw UsageError("Wrong value for --within-docker: $value. Use true/false")
+        }
+    }
+
+    private fun parseKeyValueOptions(values: List<String>): Map<String, String> {
+        return values.associate { entry ->
+            val parts = entry.split("=", limit = 2)
+            parts[0] to (parts.getOrNull(1) ?: "")
+        }
+    }
+
+    private fun loadQodanaYaml(projectDir: Path, customConfigName: String?): QodanaYaml? {
+        val yamlPath = when {
+            !customConfigName.isNullOrBlank() -> projectDir.resolve(customConfigName)
+            Files.exists(projectDir.resolve("qodana.yaml")) -> projectDir.resolve("qodana.yaml")
+            Files.exists(projectDir.resolve("qodana.yml")) -> projectDir.resolve("qodana.yml")
+            else -> null
+        } ?: return null
+
         return try {
-            val mapper = com.fasterxml.jackson.dataformat.yaml.YAMLMapper.builder()
-                .addModule(com.fasterxml.jackson.module.kotlin.kotlinModule())
-                .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            YAMLMapper.builder()
+                .addModule(kotlinModule())
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                 .build()
-            val yaml = mapper.readValue(yamlFile.toFile(), org.jetbrains.qodana.core.model.QodanaYaml::class.java)
-            yaml.image ?: yaml.linter
+                .readValue(yamlPath.toFile(), QodanaYaml::class.java)
         } catch (_: Exception) {
             null
         }
     }
+
+    private fun detectRepositoryRoot(projectDir: Path): Path {
+        return runCatching {
+            val process = ProcessBuilder("git", "-C", projectDir.toString(), "rev-parse", "--show-toplevel")
+                .redirectErrorStream(true)
+                .start()
+            val output = process.inputStream.bufferedReader().readText().trim()
+            if (process.waitFor() == 0 && output.isNotEmpty()) {
+                Path.of(output).toAbsolutePath().normalize()
+            } else {
+                projectDir
+            }
+        }.getOrElse { projectDir }
+    }
+
+    private data class AnalyzerResolution(
+        val analysisMode: AnalysisMode,
+        val linterName: String?,
+        val image: String?,
+        val ideDir: Path?,
+    )
 }
