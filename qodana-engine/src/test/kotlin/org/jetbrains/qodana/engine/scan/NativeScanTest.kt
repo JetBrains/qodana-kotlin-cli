@@ -161,8 +161,8 @@ class NativeScanTest {
         val processRunner = FakeProcessRunner(
             exitCode = 0,
             events = listOf(
-                LogEvent(LogSource.PROCESS, Stream.STDOUT, "native stdout line"),
-                LogEvent(LogSource.PROCESS, Stream.STDERR, "native stderr line"),
+                LogEvent(LogSource.PROCESS, Stream.STDOUT, "native stdout line\n"),
+                LogEvent(LogSource.PROCESS, Stream.STDERR, "native stderr line\n"),
             )
         )
         val scan = NativeScan(processRunner, fs, terminal)
@@ -193,7 +193,7 @@ class NativeScanTest {
         val result = scan.run(testContext(ideDir = Path.of("/opt/ide")))
         assertEquals(0, result)
         assertEquals(
-            listOf("progress 1%\r", "progress 2%\r", "done\n"),
+            listOf("progress 1%\r", "progress 2%\r", "done"),
             terminal.lines
         )
     }

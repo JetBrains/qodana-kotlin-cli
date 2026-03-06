@@ -48,8 +48,21 @@ class TerminalStreamRendererTest {
         renderer.render("progress 1%\r")
         renderer.render("done\n")
 
-        assertEquals(listOf("progress 1%\r", "done\n"), terminal.printed)
-        assertEquals(emptyList(), terminal.printlnMessages)
+        assertEquals(listOf("progress 1%\r"), terminal.printed)
+        assertEquals(listOf("done"), terminal.printlnMessages)
+    }
+
+    @Test
+    fun `non interactive plain output is emitted line by line`() {
+        val terminal = RendererRecordingTerminal(isInteractive = false)
+        val renderer = TerminalStreamRenderer(terminal)
+
+        renderer.render("line 1\nline")
+        renderer.render(" 2\nline 3")
+        renderer.ensureLineBreak()
+
+        assertEquals(emptyList(), terminal.printed)
+        assertEquals(listOf("line 1", "line 2", "line 3"), terminal.printlnMessages)
     }
 }
 
