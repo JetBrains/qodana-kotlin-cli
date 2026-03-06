@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.io.path.createDirectories
+import kotlin.io.path.writeText
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -126,5 +128,78 @@ class NioFileSystemTest {
         Files.createDirectories(nested.parent)
         fs.write(nested, "deep content")
         assertEquals("deep content", fs.read(nested))
+    }
+
+    @Test
+    fun `extractArchive extracts tar gz contents`(@TempDir dir: Path) {
+        assumeTar()
+
+        val sourceDir = dir.resolve("source").createDirectories()
+        sourceDir.resolve("nested").createDirectories()
+        sourceDir.resolve("nested/file.txt").writeText("hello")
+
+        val archive = dir.resolve("archive.tar.gz")
+        val createArchive = ProcessBuilder(
+            "tar",
+            "-czf",
+            archive.toString(),
+            "-C",
+            sourceDir.toString(),
+            ".",
+        ).start()
+        assertEquals(0, createArchive.waitFor(), "tar should create archive")
+
+        val target = dir.resolve("extracted")
+        fs.extractArchive(archive, target)
+
+        assertTrue(Files.exists(target.resolve("nested/file.txt")))
+        assertEquals("hello", Files.readString(target.resolve("nested/file.txt")).trim())
+    }
+
+    @Test
+    fun `extractArchive replaces existing target directory`(@TempDir dir: Path) {
+        assumeTar()
+
+        val sourceDir = dir.resolve("source").createDirectories()
+        sourceDir.resolve("file.txt").writeText("fresh")
+        val archive = dir.resolve("archive.tar.gz")
+        assertEquals(
+            0,
+            ProcessBuilder("tar", "-czf", archive.toString(), "-C", sourceDir.toString(), ".")
+                .start()
+                .waitFor(),
+        )
+
+        val target = dir.resolve("target").createDirectories()
+        target.resolve("old.txt").writeText("old")
+
+        fs.extractArchive(archive, target)
+
+        assertFalse(Files.exists(target.resolve("old.txt")))
+        assertEquals("fresh", Files.readString(target.resolve("file.txt")).trim())
+    }
+
+    @Test
+    fun `extractArchive fails on invalid archive`(@TempDir dir: Path) {
+        assumeTar()
+
+        val invalidArchive = dir.resolve("invalid.tar.gz")
+        Files.writeString(invalidArchive, "not-an-archive")
+        val target = dir.resolve("target")
+
+        var failed = false
+        try {
+            fs.extractArchive(invalidArchive, target)
+        } catch (_: RuntimeException) {
+            failed = true
+        }
+        assertTrue(failed, "extractArchive should fail for invalid archive")
+    }
+
+    private fun assumeTar() {
+        val process = ProcessBuilder("tar", "--version")
+            .redirectErrorStream(true)
+            .start()
+        org.junit.jupiter.api.Assumptions.assumeTrue(process.waitFor() == 0, "tar is not available")
     }
 }
