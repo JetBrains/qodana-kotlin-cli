@@ -1,5 +1,6 @@
 package org.jetbrains.qodana.engine.env
 
+import org.jetbrains.qodana.core.env.QodanaEnv
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -270,5 +271,63 @@ class CiDetectorTest {
         val ci = CiDetector.detect { env[it] }
         assertNotNull(ci)
         assertEquals("github-actions", ci.ciName)
+    }
+
+    @Test
+    fun `extractQodanaEnvironment applies explicit overrides`() {
+        val env = mapOf(
+            QodanaEnv.ENV to "custom-ci",
+            QodanaEnv.BRANCH to "override-branch",
+            QodanaEnv.REVISION to "override-revision",
+            QodanaEnv.REMOTE_URL to "https://example.com/custom/repo",
+            QodanaEnv.JOB_URL to "https://ci.example.com/custom/job/1",
+        )
+        val base = org.jetbrains.qodana.engine.model.CiContext(
+            ciName = "github-actions",
+            branch = "main",
+            revision = "sha1",
+            remoteUrl = "https://github.com/org/repo",
+            jobUrl = "https://github.com/org/repo/actions/runs/1",
+        )
+
+        val extracted = CiDetector.extractQodanaEnvironment(base) { env[it] }
+
+        assertEquals("custom-ci", extracted.ciName)
+        assertEquals("override-branch", extracted.branch)
+        assertEquals("override-revision", extracted.revision)
+        assertEquals("https://example.com/custom/repo", extracted.remoteUrl)
+        assertEquals("https://ci.example.com/custom/job/1", extracted.jobUrl)
+    }
+
+    @Test
+    fun `extractQodanaEnvironment normalizes invalid urls and falls back branch`() {
+        val env = mapOf(
+            "GITHUB_REF_NAME" to "fallback-branch",
+        )
+        val base = org.jetbrains.qodana.engine.model.CiContext(
+            ciName = "github-actions",
+            branch = "",
+            revision = "sha1",
+            remoteUrl = "not-a-url",
+            jobUrl = "not-a-url",
+        )
+
+        val extracted = CiDetector.extractQodanaEnvironment(base) { env[it] }
+
+        assertEquals("github-actions", extracted.ciName)
+        assertEquals("fallback-branch", extracted.branch)
+        assertNull(extracted.remoteUrl)
+        assertNull(extracted.jobUrl)
+    }
+
+    @Test
+    fun `unsetRubyVariables clears ruby system properties`() {
+        System.setProperty(QodanaEnv.GEM_HOME, "/tmp/gem-home")
+        System.setProperty(QodanaEnv.BUNDLE_APP_CONFIG, "/tmp/bundle-config")
+
+        CiDetector.unsetRubyVariables()
+
+        assertNull(System.getProperty(QodanaEnv.GEM_HOME))
+        assertNull(System.getProperty(QodanaEnv.BUNDLE_APP_CONFIG))
     }
 }

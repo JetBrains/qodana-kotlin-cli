@@ -120,8 +120,8 @@ object CiDetector {
     }
 
     fun unsetRubyVariables() {
-        System.getenv(QodanaEnv.GEM_HOME)?.let { System.clearProperty(QodanaEnv.GEM_HOME) }
-        System.getenv(QodanaEnv.BUNDLE_APP_CONFIG)?.let { System.clearProperty(QodanaEnv.BUNDLE_APP_CONFIG) }
+        System.clearProperty(QodanaEnv.GEM_HOME)
+        System.clearProperty(QodanaEnv.BUNDLE_APP_CONFIG)
     }
 
     private fun detectGitHub(env: (String) -> String?): CiContext? {
