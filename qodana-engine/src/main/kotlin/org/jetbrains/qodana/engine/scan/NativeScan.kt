@@ -7,6 +7,7 @@ import org.jetbrains.qodana.core.model.ProcessSpec
 import org.jetbrains.qodana.core.model.Stream
 import org.jetbrains.qodana.core.port.FileSystem
 import org.jetbrains.qodana.core.port.ProcessRunner
+import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.core.product.Linters
 import org.jetbrains.qodana.core.product.IntellijLinterProperties
 import org.jetbrains.qodana.engine.env.CiDetector
@@ -28,6 +29,7 @@ import java.nio.file.Path
 class NativeScan(
     private val processRunner: ProcessRunner,
     private val fileSystem: FileSystem,
+    private val terminal: Terminal? = null,
 ) {
 
     private val log = LoggerFactory.getLogger(NativeScan::class.java)
@@ -76,9 +78,15 @@ class NativeScan(
 
         process.events()
             .onEach { event ->
-                when (event.stream) {
-                    Stream.STDOUT -> log.info("[IDE] {}", event.text)
-                    Stream.STDERR -> log.warn("[IDE] {}", event.text)
+                // Match Go behavior: native analyzer output is streamed to CLI in real time.
+                if (terminal != null) {
+                    terminal.println(event.text)
+                    log.debug("[IDE][{}] {}", event.stream, event.text)
+                } else {
+                    when (event.stream) {
+                        Stream.STDOUT -> log.info("[IDE] {}", event.text)
+                        Stream.STDERR -> log.warn("[IDE] {}", event.text)
+                    }
                 }
             }
             .collect()
