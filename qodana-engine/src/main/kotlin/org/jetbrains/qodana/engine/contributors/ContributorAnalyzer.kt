@@ -1,6 +1,7 @@
 package org.jetbrains.qodana.engine.contributors
 
 import org.jetbrains.qodana.engine.port.GitClient
+import java.nio.file.Files
 import java.nio.file.Path
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -82,10 +83,11 @@ class ContributorAnalyzer(private val gitClient: GitClient) {
     private suspend fun collectCommits(repoDir: Path, cutoffDate: LocalDate?): List<ParsedCommit> {
         val logOutput = gitClient.log(repoDir, LOG_FORMAT, allBranches = true).getOrElse { return emptyList() }
         val project = resolveProjectName(repoDir)
+        val mailmap = loadMailmap(repoDir)
 
         return logOutput.lines()
             .filter { it.isNotBlank() }
-            .mapNotNull { line -> parseLine(line, project) }
+            .mapNotNull { line -> parseLine(line, project, mailmap) }
             .filter { commit ->
                 if (cutoffDate == null) return@filter true
                 try {
@@ -112,7 +114,11 @@ class ContributorAnalyzer(private val gitClient: GitClient) {
             .substringAfterLast('/')
     }
 
-    private fun parseLine(line: String, project: String): ParsedCommit? {
+    private fun parseLine(
+        line: String,
+        project: String,
+        mailmap: List<MailmapRule>,
+    ): ParsedCommit? {
         val parts = line.split(FIELD_SEPARATOR)
         if (parts.size < 4) return null
 
@@ -124,13 +130,83 @@ class ContributorAnalyzer(private val gitClient: GitClient) {
         val authorId = email.ifBlank { username }
         if (authorId.isBlank()) return null
 
-        return ParsedCommit(
+        val parsed = ParsedCommit(
             email = email,
             username = username,
             sha = sha,
             date = date,
             authorId = authorId,
             project = project,
+        )
+
+        return applyMailmap(parsed, mailmap)
+    }
+
+    private fun loadMailmap(repoDir: Path): List<MailmapRule> {
+        val mailmapPath = repoDir.resolve(".mailmap")
+        if (!Files.exists(mailmapPath) || !Files.isRegularFile(mailmapPath)) {
+            return emptyList()
+        }
+        return runCatching {
+            Files.readAllLines(mailmapPath)
+                .mapNotNull(::parseMailmapRule)
+        }.getOrDefault(emptyList())
+    }
+
+    private fun parseMailmapRule(rawLine: String): MailmapRule? {
+        val line = rawLine.trim()
+        if (line.isEmpty() || line.startsWith("#")) return null
+
+        val pairRegex = Regex("""([^<]*)<([^>]+)>""")
+        val pairs = pairRegex.findAll(line)
+            .map { match ->
+                NameEmailPair(
+                    name = match.groupValues[1].trim().ifBlank { null },
+                    email = match.groupValues[2].trim().ifBlank { null },
+                )
+            }
+            .toList()
+
+        if (pairs.isEmpty()) return null
+
+        val canonical = pairs[0]
+        val old = if (pairs.size >= 2) pairs[1] else NameEmailPair(
+            name = null,
+            email = canonical.email,
+        )
+
+        if (old.email.isNullOrBlank()) return null
+
+        return MailmapRule(
+            canonicalName = canonical.name,
+            canonicalEmail = canonical.email,
+            oldName = old.name,
+            oldEmail = old.email,
+        )
+    }
+
+    private fun applyMailmap(commit: ParsedCommit, rules: List<MailmapRule>): ParsedCommit {
+        if (rules.isEmpty()) return commit
+
+        val exactRule = rules.firstOrNull {
+            it.oldEmail.equals(commit.email, ignoreCase = true) &&
+                !it.oldName.isNullOrBlank() &&
+                it.oldName.equals(commit.username, ignoreCase = true)
+        }
+        val fallbackRule = rules.firstOrNull {
+            it.oldEmail.equals(commit.email, ignoreCase = true) &&
+                it.oldName.isNullOrBlank()
+        }
+        val rule = exactRule ?: fallbackRule ?: return commit
+
+        val normalizedEmail = rule.canonicalEmail?.takeIf { it.isNotBlank() } ?: commit.email
+        val normalizedName = rule.canonicalName?.takeIf { it.isNotBlank() } ?: commit.username
+        val normalizedAuthorId = normalizedEmail.ifBlank { normalizedName }
+
+        return commit.copy(
+            email = normalizedEmail,
+            username = normalizedName,
+            authorId = normalizedAuthorId,
         )
     }
 
@@ -152,5 +228,17 @@ class ContributorAnalyzer(private val gitClient: GitClient) {
         val date: String,
         val authorId: String,
         val project: String,
+    )
+
+    private data class MailmapRule(
+        val canonicalName: String?,
+        val canonicalEmail: String?,
+        val oldName: String?,
+        val oldEmail: String?,
+    )
+
+    private data class NameEmailPair(
+        val name: String?,
+        val email: String?,
     )
 }
