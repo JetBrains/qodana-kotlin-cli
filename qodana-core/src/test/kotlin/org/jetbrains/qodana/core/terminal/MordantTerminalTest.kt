@@ -24,14 +24,16 @@ class MordantTerminalTest {
     fun `setRedactedTokens stores tokens`() {
         val terminal = MordantTerminal()
         terminal.setRedactedTokens(setOf("secret123", "token456"))
-        // Redaction is tested indirectly - the terminal should not crash
+
+        assertEquals(setOf("secret123", "token456"), redactedTokens(terminal))
     }
 
     @Test
     fun `setRedactedTokens ignores blank tokens`() {
         val terminal = MordantTerminal()
         terminal.setRedactedTokens(setOf("", "  ", "valid-token"))
-        // Should not crash on blank tokens
+
+        assertEquals(setOf("valid-token"), redactedTokens(terminal))
     }
 
     @Test
@@ -61,14 +63,24 @@ class MordantTerminalTest {
     }
 
     @Test
-    fun `redaction works via print methods`() {
+    fun `redaction masks configured tokens`() {
         val terminal = MordantTerminal()
-        terminal.setRedactedTokens(setOf("secret-value"))
-        // These should not throw and should redact internally
-        terminal.println("Token is secret-value")
-        terminal.error("Token is secret-value")
-        terminal.warn("Token is secret-value")
-        terminal.info("Token is secret-value")
-        terminal.debug("Token is secret-value")
+        terminal.setRedactedTokens(setOf("secret-value", "api-key"))
+
+        val redacted = redact(terminal, "Token is secret-value, key is api-key")
+        assertEquals("Token is ***, key is ***", redacted)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun redactedTokens(terminal: MordantTerminal): Set<String> {
+        val field = MordantTerminal::class.java.getDeclaredField("redactedTokens")
+        field.isAccessible = true
+        return field.get(terminal) as Set<String>
+    }
+
+    private fun redact(terminal: MordantTerminal, message: String): String {
+        val method = MordantTerminal::class.java.getDeclaredMethod("redact", String::class.java)
+        method.isAccessible = true
+        return method.invoke(terminal, message) as String
     }
 }
