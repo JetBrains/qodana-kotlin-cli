@@ -29,14 +29,17 @@ class ContainerScan(
 
         val outputRenderer = TerminalStreamRenderer(terminal)
         if (!context.docker.skipPull && !context.docker.noDockerPull) {
-            containerEngine.pull(image) { progress ->
-                if (terminal.isInteractive) {
-                    outputRenderer.render("\r$progress")
-                } else {
-                    terminal.println(progress)
+            try {
+                containerEngine.pull(image) { progress ->
+                    if (terminal.isInteractive) {
+                        outputRenderer.renderInPlace(progress)
+                    } else {
+                        terminal.println(progress)
+                    }
                 }
+            } finally {
+                outputRenderer.ensureLineBreak()
             }
-            outputRenderer.ensureLineBreak()
         }
 
         val spec = buildContainerSpec(context, image)
@@ -63,6 +66,7 @@ class ContainerScan(
                 exitStatus.exitCode
             }
         } finally {
+            outputRenderer.ensureLineBreak()
             val keepContainer = System.getenv(QodanaEnv.CLI_CONTAINER_KEEP)?.isNotBlank() == true
             if (!keepContainer) {
                 try {

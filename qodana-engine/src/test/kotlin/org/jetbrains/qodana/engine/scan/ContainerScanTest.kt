@@ -91,7 +91,7 @@ class ContainerScanTest {
     }
 
     @Test
-    fun `scan renders pull progress in-place for interactive terminal`() = runTest {
+    fun `scan renders pull progress in place for interactive terminal`() = runTest {
         val ops = mutableListOf<String>()
         val engine = FakeContainerEngine(
             ops = ops,
@@ -104,7 +104,29 @@ class ContainerScanTest {
         val exitCode = scan.run(testContext(image = "test:latest"))
 
         assertEquals(0, exitCode)
-        assertEquals(listOf("\rDownloading", "\rExtracting"), terminal.printed)
+        assertEquals(
+            listOf("\r\u001B[2KDownloading", "\r\u001B[2KExtracting"),
+            terminal.printed,
+        )
+        assertEquals(listOf(""), terminal.printlnMessages)
+    }
+
+    @Test
+    fun `scan renders pull progress as lines for non interactive terminal`() = runTest {
+        val ops = mutableListOf<String>()
+        val engine = FakeContainerEngine(
+            ops = ops,
+            exitCode = 0,
+            pullProgress = listOf("Downloading", "Extracting"),
+        )
+        val terminal = RenderRecordingTerminal(isInteractive = false)
+        val scan = ContainerScan(engine, terminal)
+
+        val exitCode = scan.run(testContext(image = "test:latest"))
+
+        assertEquals(0, exitCode)
+        assertTrue(terminal.printed.isEmpty())
+        assertEquals(listOf("Downloading", "Extracting"), terminal.printlnMessages)
     }
 
     @Test
