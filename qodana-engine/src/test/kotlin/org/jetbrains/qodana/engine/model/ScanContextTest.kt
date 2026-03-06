@@ -31,7 +31,7 @@ class ScanContextTest {
         assertNull(ctx.profile)
         assertNull(ctx.yaml)
         assertEquals(RunScenario.Default, ctx.scenario)
-        assertFalse(ctx.nativeMode)
+        assertEquals(DockerLauncherExecutionProfile, ctx.executionProfile)
     }
 
     @Test

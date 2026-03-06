@@ -213,7 +213,7 @@ class IdeArgBuilderTest {
         ci = CiContext(),
         report = ReportOptions(),
         docker = DockerOptions(),
-        nativeMode = true,
+        executionProfile = NativeExecutionProfile,
     )
 
     private fun containerContext() = ScanContext(
@@ -228,6 +228,6 @@ class IdeArgBuilderTest {
         ci = CiContext(),
         report = ReportOptions(),
         docker = DockerOptions(image = "jetbrains/qodana-jvm:latest"),
-        nativeMode = false,
+        executionProfile = DockerLauncherExecutionProfile,
     )
 }

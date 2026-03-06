@@ -185,7 +185,7 @@ class ScanUseCaseTest {
             ci = CiContext(),
             report = ReportOptions(saveReport = false),
             docker = DockerOptions(image = "jetbrains/qodana:latest"),
-            nativeMode = nativeMode,
+            executionProfile = if (nativeMode) NativeExecutionProfile else DockerLauncherExecutionProfile,
         )
     }
 
@@ -206,6 +206,22 @@ class ScanUseCaseTest {
         useCase.run(buildContext(nativeMode = false))
 
         assertTrue(recordingContainerEngine.created, "containerScan should have invoked the container engine")
+        assertFalse(recordingProcessRunner.started, "nativeScan should NOT have been invoked")
+    }
+
+    @Test
+    fun `in docker profile delegates to container pipeline and skips bootstrap`() = runTest {
+        val useCase = buildScanUseCase()
+        val base = buildContext(nativeMode = false)
+        val context = base.copy(
+            executionProfile = InDockerExecutionProfile,
+            runtime = base.runtime.copy(bootstrap = "__definitely_missing_bootstrap_command__"),
+        )
+
+        val result = useCase.run(context)
+
+        assertEquals(ExitCode.SUCCESS.code, result)
+        assertTrue(recordingContainerEngine.created, "containerScan should have been used for in-docker profile")
         assertFalse(recordingProcessRunner.started, "nativeScan should NOT have been invoked")
     }
 

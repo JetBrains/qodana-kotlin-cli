@@ -3,6 +3,7 @@ package org.jetbrains.qodana.cli.command
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.core.parse
 import org.jetbrains.qodana.core.port.Terminal
+import org.jetbrains.qodana.engine.env.RuntimeEnvironment
 import org.jetbrains.qodana.engine.model.PublishResult
 import org.jetbrains.qodana.engine.port.HttpResponse
 import org.jetbrains.qodana.engine.port.HttpTransport
@@ -60,7 +61,7 @@ class SendCommandTest {
             getEnv = { key -> env[key] },
             tokenStore = SendFixedTokenStore("stored-token"),
             httpTransport = http,
-            isContainer = { false },
+            runtimeEnvironmentDetector = { RuntimeEnvironment.HOST },
         ).parse(
             listOf("-i", projectDir.toString(), "-o", resultsDir.toString())
         )
@@ -106,7 +107,7 @@ class SendCommandTest {
             getEnv = { _ -> null },
             tokenStore = SendFixedTokenStore("stored-token"),
             httpTransport = http,
-            isContainer = { false },
+            runtimeEnvironmentDetector = { RuntimeEnvironment.HOST },
         ).parse(
             listOf("-i", projectDir.toString(), "-o", resultsDir.toString())
         )
@@ -155,7 +156,7 @@ class SendCommandTest {
                 getEnv = { key -> env[key] },
                 tokenStore = SendFixedTokenStore(null),
                 httpTransport = http,
-                isContainer = { false },
+                runtimeEnvironmentDetector = { RuntimeEnvironment.HOST },
             ).parse(
                 listOf("-i", projectDir.toString(), "-o", resultsDir.toString())
             )
