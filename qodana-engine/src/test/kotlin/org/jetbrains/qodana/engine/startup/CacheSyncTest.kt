@@ -2,6 +2,7 @@ package org.jetbrains.qodana.engine.startup
 
 import org.jetbrains.qodana.core.port.FileSystem
 import org.jetbrains.qodana.core.port.Terminal
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
@@ -98,6 +99,28 @@ class CacheSyncTest {
 
         // Existing should still be there, nothing copied
         assertTrue(Files.exists(projectDir.resolve(".idea").resolve("uncached.xml")))
+    }
+
+    @Test
+    fun `syncIdeaCache skips symlinks`(@TempDir tmpDir: Path) {
+        val cacheDir = tmpDir.resolve("cache")
+        val projectDir = tmpDir.resolve("project")
+        Files.createDirectories(cacheDir.resolve(".idea"))
+        Files.writeString(cacheDir.resolve(".idea").resolve("cached.xml"), "cached")
+
+        val symlink = cacheDir.resolve(".idea").resolve("linked.xml")
+        runCatching {
+            Files.createSymbolicLink(symlink, cacheDir.resolve(".idea").resolve("cached.xml"))
+        }.onFailure {
+            assumeTrue(false, "Symlink creation is not available in this environment")
+        }
+        Files.createDirectories(projectDir)
+
+        val sync = CacheSync(realFs(), terminal)
+        sync.syncIdeaCache(cacheDir, projectDir)
+
+        assertTrue(Files.exists(projectDir.resolve(".idea").resolve("cached.xml")))
+        assertFalse(Files.exists(projectDir.resolve(".idea").resolve("linked.xml")))
     }
 
     @Test

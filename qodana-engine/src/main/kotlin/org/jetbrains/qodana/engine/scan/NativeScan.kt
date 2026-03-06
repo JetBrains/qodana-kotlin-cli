@@ -12,6 +12,7 @@ import org.jetbrains.qodana.core.product.Linters
 import org.jetbrains.qodana.core.product.IntellijLinterProperties
 import org.jetbrains.qodana.engine.env.CiDetector
 import org.jetbrains.qodana.engine.model.ScanContext
+import org.jetbrains.qodana.engine.startup.CacheSync
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
 
@@ -56,47 +57,53 @@ class NativeScan(
 
         val configDir = context.paths.cacheDir.resolve("idea-config")
         fileSystem.createDirectories(configDir)
+        val cacheSync = CacheSync(fileSystem, CACHE_SYNC_TERMINAL)
+        syncCacheBeforeAnalysis(cacheSync, context, product, configDir)
 
         installPlugins(context, product, configDir)
 
-        // Write VM options
-        val runEnv = writeProperties(context, product, configDir)
+        try {
+            // Write VM options
+            val runEnv = writeProperties(context, product, configDir)
 
-        // Build IDE command — matches Go's getIdeRunCommand()
-        val args = getIdeRunCommand(product, context)
-        log.info("Starting native IDE scan: {}", args.joinToString(" "))
+            // Build IDE command — matches Go's getIdeRunCommand()
+            val args = getIdeRunCommand(product, context)
+            log.info("Starting native IDE scan: {}", args.joinToString(" "))
 
-        val spec = ProcessSpec(
-            command = args[0],
-            args = args.drop(1),
-            workDir = context.paths.projectDir,
-            timeout = context.runtime.timeout,
-            env = runEnv,
-        )
+            val spec = ProcessSpec(
+                command = args[0],
+                args = args.drop(1),
+                workDir = context.paths.projectDir,
+                timeout = context.runtime.timeout,
+                env = runEnv,
+            )
 
-        val process = processRunner.start(spec)
-        val outputRenderer = terminal?.let { TerminalStreamRenderer(it) }
+            val process = processRunner.start(spec)
+            val outputRenderer = terminal?.let { TerminalStreamRenderer(it) }
 
-        process.events()
-            .onEach { event ->
-                // Match Go behavior: native analyzer output is streamed to CLI in real time.
-                if (outputRenderer != null) {
-                    outputRenderer.render(event.text)
-                    log.debug("[IDE][{}] {}", event.stream, event.text)
-                } else {
-                    when (event.stream) {
-                        Stream.STDOUT -> log.info("[IDE] {}", event.text)
-                        Stream.STDERR -> log.warn("[IDE] {}", event.text)
+            process.events()
+                .onEach { event ->
+                    // Match Go behavior: native analyzer output is streamed to CLI in real time.
+                    if (outputRenderer != null) {
+                        outputRenderer.render(event.text)
+                        log.debug("[IDE][{}] {}", event.stream, event.text)
+                    } else {
+                        when (event.stream) {
+                            Stream.STDOUT -> log.info("[IDE] {}", event.text)
+                            Stream.STDERR -> log.warn("[IDE] {}", event.text)
+                        }
                     }
                 }
-            }
-            .collect()
-        outputRenderer?.ensureLineBreak()
+                .collect()
+            outputRenderer?.ensureLineBreak()
 
-        val processExitCode = process.awaitExit()
-        log.info("IDE process exited with code {}", processExitCode)
+            val processExitCode = process.awaitExit()
+            log.info("IDE process exited with code {}", processExitCode)
 
-        return readIdeExitCode(context.paths.resultsDir, processExitCode)
+            return readIdeExitCode(context.paths.resultsDir, processExitCode)
+        } finally {
+            syncCacheAfterAnalysis(cacheSync, context, product, configDir)
+        }
     }
 
     private suspend fun installPlugins(context: ScanContext, product: IdeProduct, configDir: Path) {
@@ -167,6 +174,52 @@ class NativeScan(
         return context.runtime.envVars + (linterProperties.vmOptionsEnv to vmOptionsPath.toString())
     }
 
+    private fun syncCacheBeforeAnalysis(
+        cacheSync: CacheSync,
+        context: ScanContext,
+        product: IdeProduct,
+        configDir: Path,
+    ) {
+        runCatching {
+            cacheSync.syncIdeaCache(context.paths.cacheDir, context.paths.projectDir, overwrite = false)
+        }.onFailure {
+            log.warn("Failed to sync IDE cache before analysis: {}", it.message)
+        }
+        runCatching {
+            cacheSync.syncConfigCache(
+                confDirPath = configDir,
+                cacheDir = context.paths.cacheDir,
+                versionBranch = product.getVersionBranch(),
+                fromCache = true,
+            )
+        }.onFailure {
+            log.warn("Failed to sync config cache before analysis: {}", it.message)
+        }
+    }
+
+    private fun syncCacheAfterAnalysis(
+        cacheSync: CacheSync,
+        context: ScanContext,
+        product: IdeProduct,
+        configDir: Path,
+    ) {
+        runCatching {
+            cacheSync.syncIdeaCache(context.paths.projectDir, context.paths.cacheDir, overwrite = true)
+        }.onFailure {
+            log.warn("Failed to sync IDE cache after analysis: {}", it.message)
+        }
+        runCatching {
+            cacheSync.syncConfigCache(
+                confDirPath = configDir,
+                cacheDir = context.paths.cacheDir,
+                versionBranch = product.getVersionBranch(),
+                fromCache = false,
+            )
+        }.onFailure {
+            log.warn("Failed to sync config cache after analysis: {}", it.message)
+        }
+    }
+
     private fun readIdeExitCode(resultsDir: Path, processExitCode: Int): Int {
         if (processExitCode != 0) {
             log.info("IDE process exited with non-zero code {}; SARIF exit code is ignored", processExitCode)
@@ -203,5 +256,19 @@ class NativeScan(
     companion object {
         private const val SARIF_FILENAME = "qodana.sarif.json"
         private val EXIT_CODE_PATTERN = Regex(""""exitCode"\s*:\s*(\d+)""")
+        private val CACHE_SYNC_TERMINAL = object : Terminal {
+            override val isInteractive: Boolean = false
+            override var isCi: Boolean = false
+            override fun print(message: String) {}
+            override fun println(message: String) {}
+            override fun error(message: String) {}
+            override fun info(message: String) {}
+            override fun warn(message: String) {}
+            override fun debug(message: String) {}
+            override fun <T> spinner(message: String, action: () -> T): T = action()
+            override fun prompt(message: String, default: String?): String = default ?: ""
+            override fun select(message: String, choices: List<String>): String = choices.firstOrNull() ?: ""
+            override fun setRedactedTokens(tokens: Set<String>) {}
+        }
     }
 }
