@@ -134,7 +134,7 @@ fun main(args: Array<String>) {
 
         return ScanUseCase(
             prepareHost = PrepareHost(fileSystem, terminal, ideInstaller),
-            nativeScan = NativeScan(processRunner, fileSystem),
+            nativeScan = NativeScan(processRunner, fileSystem, terminal),
             containerScan = ContainerScan(containerEngine, terminal),
             reportProcessor = ReportProcessor(sarifService, reportConverter),
             reportPublisher = reportPublishUseCase,

@@ -1,13 +1,14 @@
 package org.jetbrains.qodana.engine.scan
 
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.qodana.core.model.*
 import org.jetbrains.qodana.engine.model.*
 import org.jetbrains.qodana.core.port.FileSystem
 import org.jetbrains.qodana.core.port.ProcessRunner
 import org.jetbrains.qodana.core.port.RunningProcess
+import org.jetbrains.qodana.core.port.Terminal
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import java.nio.file.Path
@@ -153,6 +154,28 @@ class NativeScanTest {
     }
 
     @Test
+    fun `run forwards native process output to terminal`() = runTest {
+        val fs = RecordingFileSystem()
+        setupIdeFiles(fs)
+        val terminal = NativeOutputTerminal()
+        val processRunner = FakeProcessRunner(
+            exitCode = 0,
+            events = listOf(
+                LogEvent(LogSource.PROCESS, Stream.STDOUT, "native stdout line"),
+                LogEvent(LogSource.PROCESS, Stream.STDERR, "native stderr line"),
+            )
+        )
+        val scan = NativeScan(processRunner, fs, terminal)
+
+        val result = scan.run(testContext(ideDir = Path.of("/opt/ide")))
+        assertEquals(0, result)
+        assertEquals(
+            listOf("native stdout line", "native stderr line"),
+            terminal.lines
+        )
+    }
+
+    @Test
     fun `run throws when IDE binary not found`() = runTest {
         val fs = RecordingFileSystem()
         // product-info.json exists but no IDE binary
@@ -217,7 +240,10 @@ class NativeScanTest {
     )
 }
 
-private class FakeProcessRunner(private val exitCode: Int = 0) : ProcessRunner {
+private class FakeProcessRunner(
+    private val exitCode: Int = 0,
+    private val events: List<LogEvent> = emptyList(),
+) : ProcessRunner {
     var lastSpec: ProcessSpec? = null
     val runSpecs = mutableListOf<ProcessSpec>()
 
@@ -230,11 +256,28 @@ private class FakeProcessRunner(private val exitCode: Int = 0) : ProcessRunner {
     override suspend fun start(spec: ProcessSpec): RunningProcess {
         lastSpec = spec
         return object : RunningProcess {
-            override fun events(): Flow<LogEvent> = emptyFlow()
+            override fun events(): Flow<LogEvent> = events.asFlow()
             override suspend fun awaitExit(): Int = exitCode
             override fun terminate() {}
         }
     }
+}
+
+private class NativeOutputTerminal : Terminal {
+    val lines = mutableListOf<String>()
+
+    override fun print(message: String) { lines.add(message) }
+    override fun println(message: String) { lines.add(message) }
+    override fun error(message: String) { lines.add(message) }
+    override fun info(message: String) { lines.add(message) }
+    override fun warn(message: String) { lines.add(message) }
+    override fun debug(message: String) { lines.add(message) }
+    override fun <T> spinner(message: String, action: () -> T): T = action()
+    override fun prompt(message: String, default: String?): String = default ?: ""
+    override fun select(message: String, choices: List<String>): String = choices.firstOrNull() ?: ""
+    override val isInteractive: Boolean = false
+    override var isCi: Boolean = false
+    override fun setRedactedTokens(tokens: Set<String>) {}
 }
 
 private class RecordingFileSystem : FileSystem {
