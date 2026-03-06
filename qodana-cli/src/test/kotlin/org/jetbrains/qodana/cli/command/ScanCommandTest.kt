@@ -94,6 +94,66 @@ class ScanCommandTest {
     }
 
     @Test
+    fun `interactive mode prompts and opens report when confirmed`(@TempDir tmpDir: Path) {
+        val projectDir = createProject(tmpDir)
+        val reportDisplay = RecordingReportDisplay()
+        val terminal = RecordingTerminal(isInteractive = true, selection = "Yes")
+        val command = ScanCommand(
+            scanRunner = { 0 },
+            terminal = terminal,
+            scanReportDisplay = reportDisplay,
+        )
+
+        val result = assertFailsWith<ProgramResult> {
+            command.parse(listOf("-i", projectDir.toString()))
+        }
+
+        assertEquals(0, result.statusCode)
+        assertEquals(1, terminal.selectCallCount)
+        assertEquals(1, reportDisplay.calls.size)
+    }
+
+    @Test
+    fun `interactive mode does not open report when declined`(@TempDir tmpDir: Path) {
+        val projectDir = createProject(tmpDir)
+        val reportDisplay = RecordingReportDisplay()
+        val terminal = RecordingTerminal(isInteractive = true, selection = "No")
+        val command = ScanCommand(
+            scanRunner = { 0 },
+            terminal = terminal,
+            scanReportDisplay = reportDisplay,
+        )
+
+        val result = assertFailsWith<ProgramResult> {
+            command.parse(listOf("-i", projectDir.toString()))
+        }
+
+        assertEquals(0, result.statusCode)
+        assertEquals(1, terminal.selectCallCount)
+        assertTrue(reportDisplay.calls.isEmpty())
+    }
+
+    @Test
+    fun `explicit show report bypasses interactive prompt`(@TempDir tmpDir: Path) {
+        val projectDir = createProject(tmpDir)
+        val reportDisplay = RecordingReportDisplay()
+        val terminal = RecordingTerminal(isInteractive = true, selection = "No")
+        val command = ScanCommand(
+            scanRunner = { 0 },
+            terminal = terminal,
+            scanReportDisplay = reportDisplay,
+        )
+
+        val result = assertFailsWith<ProgramResult> {
+            command.parse(listOf("-i", projectDir.toString(), "--show-report"))
+        }
+
+        assertEquals(0, result.statusCode)
+        assertEquals(0, terminal.selectCallCount)
+        assertEquals(1, reportDisplay.calls.size)
+    }
+
+    @Test
     fun `show report failure changes exit code when scan succeeded`(@TempDir tmpDir: Path) {
         val projectDir = createProject(tmpDir)
         val reportDisplay = RecordingReportDisplay(exitCode = 17)
@@ -189,6 +249,27 @@ private class NoOpTerminal : Terminal {
     override fun <T> spinner(message: String, action: () -> T): T = action()
     override fun prompt(message: String, default: String?): String = default ?: ""
     override fun select(message: String, choices: List<String>): String = choices.first()
+    override fun setRedactedTokens(tokens: Set<String>) {}
+}
+
+private class RecordingTerminal(
+    override val isInteractive: Boolean,
+    private val selection: String = "Yes",
+) : Terminal {
+    override var isCi: Boolean = false
+    var selectCallCount: Int = 0
+    override fun print(message: String) {}
+    override fun println(message: String) {}
+    override fun error(message: String) {}
+    override fun info(message: String) {}
+    override fun warn(message: String) {}
+    override fun debug(message: String) {}
+    override fun <T> spinner(message: String, action: () -> T): T = action()
+    override fun prompt(message: String, default: String?): String = default ?: ""
+    override fun select(message: String, choices: List<String>): String {
+        selectCallCount++
+        return selection
+    }
     override fun setRedactedTokens(tokens: Set<String>) {}
 }
 

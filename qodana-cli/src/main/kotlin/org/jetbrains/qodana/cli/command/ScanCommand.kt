@@ -272,7 +272,15 @@ class ScanCommand(
         )
 
         var exitCode = runBlocking { scanRunner(context) }
-        if (showReport) {
+        val shouldShowReport = when {
+            showReport -> true
+            terminal.isInteractive -> terminal.select(
+                "Do you want to open the latest report",
+                listOf("Yes", "No"),
+            ) == "Yes"
+            else -> false
+        }
+        if (shouldShowReport) {
             val reportDisplay = scanReportDisplay ?: ScanReportDisplay { resultsDir, reportDir, port ->
                 ReportDisplay.showReport(
                     terminal = terminal,
@@ -291,6 +299,11 @@ class ScanCommand(
                 terminal.error("Failed to show report")
                 exitCode = showReportExitCode
             }
+        } else if (!showReport && terminal.isInteractive && !CiDetector.isContainer()) {
+            terminal.warn(
+                "To view the Qodana report later, run qodana show in the current directory " +
+                    "or add --show-report flag to qodana scan"
+            )
         }
         throw ProgramResult(exitCode)
     }
