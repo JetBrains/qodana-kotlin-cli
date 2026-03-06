@@ -24,14 +24,18 @@ object SystemUtils {
         }
     }
 
-    fun getScanStages(): List<String> = listOf(
-        "Preparing Qodana Docker images",
-        "Starting the IDE",
-        "Opening the project",
-        "Running the analysis",
-        "Generating the report",
-        "Preparing the report",
-    )
+    fun getScanStages(): List<String> {
+        val stages = listOf(
+            "Preparing Qodana Docker images",
+            "Starting the analysis engine",
+            "Opening the project",
+            "Configuring the project",
+            "Analyzing the project",
+            "Preparing the report",
+        )
+        val total = stages.size + 1
+        return stages.mapIndexed { index, stage -> "[${index + 1}/$total] $stage" }
+    }
 
     fun checkForUpdates(currentVersion: String, getLatestVersion: () -> String = ::fetchLatestVersion): String? {
         if (currentVersion == "dev" || currentVersion.contains("nightly")) return null

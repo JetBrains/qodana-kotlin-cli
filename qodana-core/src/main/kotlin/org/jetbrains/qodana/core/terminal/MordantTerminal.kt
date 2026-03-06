@@ -81,6 +81,44 @@ class MordantTerminal : Terminal {
         }
     }
 
+    override suspend fun <T> spinnerWithUpdates(message: String, action: suspend (Terminal.SpinnerHandle) -> T): T {
+        val redactedMessage = redact(message)
+        if (!isInteractive) {
+            terminal.println("$redactedMessage...")
+            return action(Terminal.SpinnerHandle { })
+        }
+
+        val definition = progressBarContextLayout<String>(
+            spacing = 1,
+            alignColumns = false,
+            align = TextAlign.LEFT,
+        ) {
+            progressSpinner(Spinner.Lines())
+            progressText(align = TextAlign.LEFT) { context }
+            progressText(fps = 5, align = TextAlign.LEFT) {
+                val elapsedSeconds = calculateTimeElapsed()?.inWholeSeconds ?: 0
+                "(${elapsedSeconds}s)"
+            }
+        }
+        val progress = definition.animateOnThread(
+            terminal = terminal,
+            context = "$redactedMessage...",
+            total = null,
+            clearWhenFinished = true,
+        )
+        val future = progress.execute()
+        val handle = Terminal.SpinnerHandle { updated ->
+            progress.update { context = "${redact(updated)}..." }
+        }
+
+        return try {
+            action(handle)
+        } finally {
+            progress.stop()
+            future.cancel(true)
+        }
+    }
+
     override fun prompt(message: String, default: String?): String {
         val suffix = if (default != null) " [$default]" else ""
         terminal.print("$message$suffix: ")

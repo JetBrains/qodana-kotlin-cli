@@ -42,9 +42,26 @@ class ContainerScan(
             }
         }
 
+        val scanStages = SystemUtils.getScanStages()
+        if (terminal.isInteractive) {
+            return terminal.spinnerWithUpdates(scanStages[0]) { spinner ->
+                runContainerScan(context, image, scanStages, spinner)
+            }
+        }
+        return runContainerScan(context, image, scanStages, null)
+    }
+
+    private suspend fun runContainerScan(
+        context: ScanContext,
+        image: String,
+        scanStages: List<String>,
+        spinner: Terminal.SpinnerHandle?,
+    ): Int {
         val outputRenderer = TerminalStreamRenderer(terminal)
+        spinner?.update(scanStages[1])
         val spec = buildContainerSpec(context, image)
         val containerId = containerEngine.create(spec)
+        val stageTracker = ScanStageTracker(scanStages) { stage -> spinner?.update(stage) }
 
         return try {
             containerEngine.start(containerId)
@@ -52,8 +69,12 @@ class ContainerScan(
             coroutineScope {
                 val logsJob = launch {
                     containerEngine.logs(containerId)
-                        .onEach { event -> outputRenderer.render(event.text) }
+                        .onEach { event ->
+                            stageTracker.onChunk(event.text)
+                            outputRenderer.render(event.text)
+                        }
                         .collect()
+                    stageTracker.flush()
                 }
 
                 val exitStatus = containerEngine.wait(containerId)
@@ -76,6 +97,53 @@ class ContainerScan(
                     // best effort cleanup
                 }
             }
+        }
+    }
+
+    private class ScanStageTracker(
+        private val scanStages: List<String>,
+        private val update: (String) -> Unit,
+    ) {
+        private val buffer = StringBuilder()
+        private var stageIndex = 1
+
+        fun onChunk(chunk: String) {
+            if (chunk.isEmpty()) return
+            buffer.append(chunk)
+            consumeLines(flushRemainder = false)
+        }
+
+        fun flush() {
+            consumeLines(flushRemainder = true)
+        }
+
+        private fun consumeLines(flushRemainder: Boolean) {
+            while (true) {
+                val lineBreak = buffer.indexOf("\n")
+                if (lineBreak < 0) break
+                val line = buffer.substring(0, lineBreak).trimEnd('\r')
+                processLine(line)
+                buffer.delete(0, lineBreak + 1)
+            }
+            if (flushRemainder && buffer.isNotEmpty()) {
+                processLine(buffer.toString().trimEnd('\r'))
+                buffer.clear()
+            }
+        }
+
+        private fun processLine(line: String) {
+            when {
+                line.contains("Starting up") -> advanceTo(2)
+                line.contains("The Project opening stage completed in") -> advanceTo(3)
+                line.contains("The Project configuration stage completed in") -> advanceTo(4)
+                line.contains("Detailed summary") -> advanceTo(5)
+            }
+        }
+
+        private fun advanceTo(targetIndex: Int) {
+            if (targetIndex <= stageIndex || targetIndex !in scanStages.indices) return
+            stageIndex = targetIndex
+            update(scanStages[targetIndex])
         }
     }
 
