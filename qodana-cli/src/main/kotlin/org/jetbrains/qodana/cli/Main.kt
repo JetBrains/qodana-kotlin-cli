@@ -150,7 +150,10 @@ fun main(args: Array<String>) {
     val normalizedArgs = normalizeRootArgs(args)
 
     QodanaCommand().subcommands(
-        ScanCommand { context -> createScanUseCase().run(context) },
+        ScanCommand(
+            scanRunner = { context -> createScanUseCase().run(context) },
+            terminal = terminal,
+        ),
         InitCommand(terminal),
         PullCommand(containerEngine, terminal),
         ShowCommand(terminal),

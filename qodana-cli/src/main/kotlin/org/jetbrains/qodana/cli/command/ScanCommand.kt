@@ -15,16 +15,26 @@ import kotlinx.coroutines.runBlocking
 import org.jetbrains.qodana.core.env.QodanaEnv
 import org.jetbrains.qodana.core.model.QodanaYaml
 import org.jetbrains.qodana.core.model.ScanPaths
+import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.core.product.Linters
+import org.jetbrains.qodana.core.terminal.MordantTerminal
 import org.jetbrains.qodana.engine.env.CiDetector
 import org.jetbrains.qodana.core.model.*
 import org.jetbrains.qodana.engine.model.*
+import org.jetbrains.qodana.engine.scan.ReportPort
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.UUID
 
+fun interface ScanReportDisplay {
+    fun show(resultsDir: Path, reportDir: Path, port: Int): Int
+}
+
 class ScanCommand(
+    private val terminal: Terminal = MordantTerminal(),
+    private val scanReportDisplay: ScanReportDisplay? = null,
     private val scanRunner: suspend (ScanContext) -> Int,
 ) : CliktCommand("scan") {
 
@@ -175,6 +185,12 @@ class ScanCommand(
             linterName = analyzer.linterName ?: analyzer.image ?: "qodana",
             isContainer = CiDetector.isContainer(),
         )
+        val effectiveConfigDir = prepareEffectiveConfigDir(
+            analysisMode = analyzer.analysisMode,
+            projectDir = absProjectDir,
+            cacheDir = paths.cacheDir,
+            customConfigName = configName,
+        )
 
         val outputFormats = buildSet {
             add(ReportOptions.OutputFormat.SARIF)
@@ -219,7 +235,7 @@ class ScanCommand(
                 coverageDir = coverageDir,
                 globalConfigDir = globalConfigDir,
                 globalConfigId = globalConfigId,
-                effectiveConfigDir = null,
+                effectiveConfigDir = effectiveConfigDir,
                 customConfigName = configName,
                 showReportPort = showReportPort,
                 deprecatedPort = port,
@@ -255,7 +271,27 @@ class ScanCommand(
             analysisMode = analyzer.analysisMode,
         )
 
-        val exitCode = runBlocking { scanRunner(context) }
+        var exitCode = runBlocking { scanRunner(context) }
+        if (showReport) {
+            val reportDisplay = scanReportDisplay ?: ScanReportDisplay { resultsDir, reportDir, port ->
+                ReportDisplay.showReport(
+                    terminal = terminal,
+                    resultsDir = resultsDir,
+                    reportDir = reportDir,
+                    port = port,
+                )
+            }
+            val resolvedPort = ReportPort.getShowReportPort(showReportPort = showReportPort, port = port)
+            val showReportExitCode = reportDisplay.show(
+                resultsDir = context.paths.resultsDir,
+                reportDir = context.paths.reportDir,
+                port = resolvedPort,
+            )
+            if (exitCode == 0 && showReportExitCode != 0) {
+                terminal.error("Failed to show report")
+                exitCode = showReportExitCode
+            }
+        }
         throw ProgramResult(exitCode)
     }
 
@@ -503,12 +539,7 @@ class ScanCommand(
     }
 
     private fun loadQodanaYaml(projectDir: Path, customConfigName: String?): QodanaYaml? {
-        val yamlPath = when {
-            !customConfigName.isNullOrBlank() -> projectDir.resolve(customConfigName)
-            Files.exists(projectDir.resolve("qodana.yaml")) -> projectDir.resolve("qodana.yaml")
-            Files.exists(projectDir.resolve("qodana.yml")) -> projectDir.resolve("qodana.yml")
-            else -> null
-        } ?: return null
+        val yamlPath = resolveQodanaYamlPath(projectDir, customConfigName) ?: return null
 
         return try {
             YAMLMapper.builder()
@@ -519,6 +550,39 @@ class ScanCommand(
         } catch (_: Exception) {
             null
         }
+    }
+
+    private fun resolveQodanaYamlPath(projectDir: Path, customConfigName: String?): Path? {
+        return when {
+            !customConfigName.isNullOrBlank() -> projectDir.resolve(customConfigName)
+            Files.exists(projectDir.resolve("qodana.yaml")) -> projectDir.resolve("qodana.yaml")
+            Files.exists(projectDir.resolve("qodana.yml")) -> projectDir.resolve("qodana.yml")
+            else -> null
+        }
+    }
+
+    private fun prepareEffectiveConfigDir(
+        analysisMode: AnalysisMode,
+        projectDir: Path,
+        cacheDir: Path,
+        customConfigName: String?,
+    ): Path? {
+        if (analysisMode != AnalysisMode.NATIVE) return null
+
+        val effectiveDir = cacheDir.resolve("effective-config")
+        runCatching {
+            Files.createDirectories(effectiveDir)
+            val yamlPath = resolveQodanaYamlPath(projectDir, customConfigName)
+            if (yamlPath != null && Files.exists(yamlPath) && Files.isRegularFile(yamlPath)) {
+                val targetYaml = effectiveDir.resolve("qodana.yaml")
+                if (yamlPath.toAbsolutePath().normalize() != targetYaml.toAbsolutePath().normalize()) {
+                    Files.copy(yamlPath, targetYaml, StandardCopyOption.REPLACE_EXISTING)
+                }
+            }
+        }.onFailure { error ->
+            terminal.warn("Failed to prepare effective configuration directory: ${error.message}")
+        }
+        return effectiveDir
     }
 
     private fun detectRepositoryRoot(projectDir: Path): Path {
