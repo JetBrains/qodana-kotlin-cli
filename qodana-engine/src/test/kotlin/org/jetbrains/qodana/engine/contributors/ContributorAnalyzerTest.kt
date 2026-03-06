@@ -3,6 +3,8 @@ package org.jetbrains.qodana.engine.contributors
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.qodana.engine.port.GitClient
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -152,6 +154,60 @@ class ContributorAnalyzerTest {
 
         assertEquals(1, report.total)
         assertEquals("real@example.com", report.contributors.first().author.email)
+    }
+
+    @Test
+    fun `analyze applies mailmap and merges contributors`(@TempDir repoDir: Path) = runTest {
+        Files.writeString(
+            repoDir.resolve(".mailmap"),
+            """
+            John Doe <john@canonical.com> <john@old.com>
+            John Doe <john@canonical.com> <john@new.com>
+            John Doe <john@canonical.com> J. Doe <jdoe@personal.com>
+            """.trimIndent(),
+        )
+
+        val git = FakeGitClient(
+            logOutput = """
+                john@old.com||John Doe||abc1||2026-03-01 10:00:00 +0000
+                john@new.com||John Doe||abc2||2026-03-02 10:00:00 +0000
+                jdoe@personal.com||J. Doe||abc3||2026-03-03 10:00:00 +0000
+                jane@company.com||Jane Smith||abc4||2026-03-04 10:00:00 +0000
+            """.trimIndent(),
+            remoteUrl = "https://github.com/user/project.git",
+        )
+        val analyzer = ContributorAnalyzer(git)
+
+        val report = analyzer.analyze(listOf(repoDir), days = 365)
+
+        assertEquals(2, report.total)
+        val john = report.contributors.find { it.author.email == "john@canonical.com" }!!
+        assertEquals(3, john.count)
+        assertEquals("John Doe", john.author.username)
+    }
+
+    @Test
+    fun `analyze applies mailmap canonical name for same email`(@TempDir repoDir: Path) = runTest {
+        Files.writeString(
+            repoDir.resolve(".mailmap"),
+            "Robert Smith <bob@example.com>\n",
+        )
+
+        val git = FakeGitClient(
+            logOutput = """
+                bob@example.com||bobby||abc1||2026-03-01 10:00:00 +0000
+                bob@example.com||Bob||abc2||2026-03-02 10:00:00 +0000
+            """.trimIndent(),
+            remoteUrl = "https://github.com/user/project.git",
+        )
+        val analyzer = ContributorAnalyzer(git)
+
+        val report = analyzer.analyze(listOf(repoDir), days = 365)
+
+        assertEquals(1, report.total)
+        assertEquals(2, report.contributors.first().count)
+        assertEquals("Robert Smith", report.contributors.first().author.username)
+        assertEquals("bob@example.com", report.contributors.first().author.email)
     }
 }
 
