@@ -1,6 +1,7 @@
 package org.jetbrains.qodana.engine.scan
 
 import org.jetbrains.qodana.engine.model.ScanContext
+import org.jetbrains.qodana.engine.startup.DeviceId
 import java.nio.file.Path
 
 /**
@@ -30,6 +31,23 @@ object PropertyGenerator {
 
         // Suppress class-not-found warnings in headless mode
         appendProperty("idea.required.plugins.id", "")
+
+        val deviceIdSalt = DeviceId.getDeviceIdSalt(remoteUrl = context.ci.remoteUrl ?: "")
+        appendProperty("idea.headless.statistics.device.id", deviceIdSalt.deviceId)
+        appendProperty("idea.headless.statistics.salt", deviceIdSalt.salt)
+
+        context.runtime.analysisId
+            ?.takeIf { it.isNotBlank() }
+            ?.let { appendProperty("qodana.automation.guid", it) }
+
+        context.runtime.coverageDir?.let { appendProperty("qodana.coverage.input", it) }
+
+        val relativeToRepositoryRoot = runCatching {
+            context.paths.repositoryRoot.relativize(context.paths.projectDir).toString()
+        }.getOrNull()
+        if (!relativeToRepositoryRoot.isNullOrBlank() && relativeToRepositoryRoot != ".") {
+            appendProperty("qodana.path.to.project.dir.from.project.root", relativeToRepositoryRoot)
+        }
 
         // Merge user-supplied properties (from CLI --property or qodana.yaml)
         val yamlProps = context.yaml?.properties.orEmpty()
