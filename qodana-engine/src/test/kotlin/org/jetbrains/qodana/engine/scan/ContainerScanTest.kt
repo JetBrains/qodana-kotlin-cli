@@ -105,7 +105,7 @@ class ContainerScanTest {
 
         assertEquals(0, exitCode)
         assertEquals(
-            listOf("\r\u001B[2KDownloading", "\r\u001B[2KExtracting"),
+            listOf("\rDownloading", "\r           \rExtracting"),
             terminal.printed,
         )
         assertEquals(listOf(""), terminal.printlnMessages)

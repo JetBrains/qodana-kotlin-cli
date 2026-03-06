@@ -9,28 +9,32 @@ import org.jetbrains.qodana.core.port.Terminal
 internal class TerminalStreamRenderer(
     private val terminal: Terminal,
 ) {
-    companion object {
-        private const val CLEAR_LINE_PREFIX = "\r\u001B[2K"
-    }
-
     private var lineEnded = true
+    private var currentColumn = 0
+    private var lineWidth = 0
 
     fun render(chunk: String) {
         if (chunk.isEmpty()) {
             return
         }
-        val rendered = if (terminal.isInteractive) {
-            chunk.replace("\r", CLEAR_LINE_PREFIX)
-        } else {
-            chunk
+        terminal.print(chunk)
+        if (!terminal.isInteractive) {
+            lineEnded = chunk.endsWith('\n')
+            return
         }
-        terminal.print(rendered)
-        lineEnded = chunk.endsWith('\n') || chunk.endsWith('\r')
+        updateLineState(chunk)
     }
 
     fun renderInPlace(text: String) {
         if (terminal.isInteractive) {
-            terminal.print("$CLEAR_LINE_PREFIX$text")
+            val clear = if (lineWidth > 0) {
+                "\r${" ".repeat(lineWidth)}\r"
+            } else {
+                "\r"
+            }
+            terminal.print("$clear$text")
+            currentColumn = text.length
+            lineWidth = text.length
             lineEnded = false
             return
         }
@@ -45,6 +49,31 @@ internal class TerminalStreamRenderer(
         if (!lineEnded) {
             terminal.println("")
             lineEnded = true
+            currentColumn = 0
+            lineWidth = 0
+        }
+    }
+
+    private fun updateLineState(chunk: String) {
+        for (ch in chunk) {
+            when (ch) {
+                '\n' -> {
+                    currentColumn = 0
+                    lineWidth = 0
+                    lineEnded = true
+                }
+                '\r' -> {
+                    currentColumn = 0
+                    lineEnded = false
+                }
+                else -> {
+                    currentColumn += 1
+                    if (currentColumn > lineWidth) {
+                        lineWidth = currentColumn
+                    }
+                    lineEnded = false
+                }
+            }
         }
     }
 }

@@ -15,7 +15,8 @@ class MordantTerminal : Terminal {
         get() = terminal.info.interactive && !isCi
 
     override fun print(message: String) {
-        terminal.print(redact(message))
+        // Use raw print so control sequences (\r, ANSI clear line) survive for progress rendering.
+        terminal.rawPrint(redact(message))
     }
 
     override fun println(message: String) {

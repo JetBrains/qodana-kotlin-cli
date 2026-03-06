@@ -7,27 +7,36 @@ import kotlin.test.assertEquals
 class TerminalStreamRendererTest {
 
     @Test
-    fun `interactive render clears line before carriage return chunks`() {
+    fun `interactive render preserves carriage return chunks`() {
         val terminal = RendererRecordingTerminal(isInteractive = true)
         val renderer = TerminalStreamRenderer(terminal)
 
         renderer.render("Downloading 10%\rDownloading 20%\r")
 
         assertEquals(
-            listOf("Downloading 10%\r\u001B[2KDownloading 20%\r\u001B[2K"),
+            listOf("Downloading 10%\rDownloading 20%\r"),
             terminal.printed,
         )
     }
 
     @Test
-    fun `render in place emits clear line prefix and ensureLineBreak terminates line`() {
+    fun `render in place clears previous content without ansi sequences`() {
         val terminal = RendererRecordingTerminal(isInteractive = true)
         val renderer = TerminalStreamRenderer(terminal)
+        val first = "Pulling image jetbrains/qodana-jvm:2025.3-eap..."
+        val second = "Downloading 42/100"
 
-        renderer.renderInPlace("Downloading 42/100")
+        renderer.renderInPlace(first)
+        renderer.renderInPlace(second)
         renderer.ensureLineBreak()
 
-        assertEquals(listOf("\r\u001B[2KDownloading 42/100"), terminal.printed)
+        assertEquals(
+            listOf(
+                "\r$first",
+                "\r${" ".repeat(first.length)}\r$second",
+            ),
+            terminal.printed,
+        )
         assertEquals(listOf(""), terminal.printlnMessages)
     }
 
