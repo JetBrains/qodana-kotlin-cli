@@ -3,6 +3,7 @@ package org.jetbrains.qodana.core.model
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -92,7 +93,7 @@ class ThirdPartyScanContextTest {
     }
 
     @Test
-    fun `properties are independent copies via data class`() {
+    fun `properties reflect source list updates`() {
         val props = mutableListOf("a=1", "b=2")
         val ctx = ThirdPartyScanContext(
             paths = testPaths(),
@@ -102,10 +103,11 @@ class ThirdPartyScanContextTest {
             properties = props,
         )
 
-        // Mutating the original list should not affect the context
+        assertEquals(listOf("a=1", "b=2"), ctx.properties)
+
+        // ThirdPartyScanContext keeps the same list instance reference.
         props.add("c=3")
-        // Data class stores reference, but caller should not mutate
-        assertEquals(3, props.size) // original mutated
+        assertEquals(listOf("a=1", "b=2", "c=3"), ctx.properties)
     }
 
     @Test
@@ -121,9 +123,5 @@ class ThirdPartyScanContextTest {
         assertTrue(updated.noBuild)
         assertEquals("app.sln", updated.solutionPath)
         assertFalse(ctx.noBuild) // original unchanged
-    }
-
-    private fun assertFalse(condition: Boolean) {
-        kotlin.test.assertFalse(condition)
     }
 }
