@@ -1,5 +1,6 @@
 package org.jetbrains.qodana.cdnet
 
+import org.jetbrains.qodana.core.env.QodanaEnv
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
 import java.nio.file.Path
@@ -12,21 +13,25 @@ object NugetConfig {
     private const val QODANA_NUGET_PASSWORD = "QODANA_NUGET_PASSWORD"
     private const val QODANA_NUGET_NAME = "QODANA_NUGET_NAME"
 
-    fun isNeeded(): Boolean {
-        return System.getenv(QODANA_NUGET_URL)?.isNotBlank() == true
-            && System.getenv(QODANA_NUGET_USER)?.isNotBlank() == true
-            && System.getenv(QODANA_NUGET_PASSWORD)?.isNotBlank() == true
+    fun isNeeded(getEnv: (String) -> String? = System::getenv): Boolean {
+        return getEnv(QodanaEnv.DOCKER)?.isNotBlank() == true
+            && getEnv(QODANA_NUGET_URL)?.isNotBlank() == true
+            && getEnv(QODANA_NUGET_USER)?.isNotBlank() == true
+            && getEnv(QODANA_NUGET_PASSWORD)?.isNotBlank() == true
     }
 
-    fun prepare(homeDir: Path) {
+    fun prepare(
+        homeDir: Path,
+        getEnv: (String) -> String? = System::getenv,
+    ) {
         val nugetDir = homeDir.resolve(".nuget").resolve("NuGet")
         Files.createDirectories(nugetDir)
 
         val configPath = nugetDir.resolve("NuGet.Config")
-        val sourceName = System.getenv(QODANA_NUGET_NAME)?.takeIf { it.isNotBlank() } ?: "qodana"
-        val url = System.getenv(QODANA_NUGET_URL)
-        val user = System.getenv(QODANA_NUGET_USER)
-        val password = System.getenv(QODANA_NUGET_PASSWORD)
+        val sourceName = getEnv(QODANA_NUGET_NAME)?.takeIf { it.isNotBlank() } ?: "qodana"
+        val url = getEnv(QODANA_NUGET_URL)
+        val user = getEnv(QODANA_NUGET_USER)
+        val password = getEnv(QODANA_NUGET_PASSWORD)
 
         val config = """
             |<?xml version="1.0" encoding="utf-8"?>
@@ -48,10 +53,16 @@ object NugetConfig {
         Files.writeString(configPath, config)
     }
 
-    fun unsetVariables() {
-        // Note: System.getenv() returns an unmodifiable map in Java
-        // We can't actually unset env vars in the JVM, but we can clear them
-        // for child processes by not passing them in ProcessSpec.env
+    fun unsetVariables(): Map<String, String> {
+        // The JVM cannot mutate process-level environment variables in place.
+        // Returning explicit empty overrides lets child processes run without
+        // inherited private NuGet credentials.
         logger.debug("NuGet variables should not be passed to child processes")
+        return mapOf(
+            QODANA_NUGET_URL to "",
+            QODANA_NUGET_USER to "",
+            QODANA_NUGET_PASSWORD to "",
+            QODANA_NUGET_NAME to "",
+        )
     }
 }
