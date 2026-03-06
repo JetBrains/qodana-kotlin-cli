@@ -336,6 +336,29 @@ class ScanCommandTest {
         assertTrue(error.message.orEmpty().contains("both `image:`"))
     }
 
+    @Test
+    fun `scan fails when repository root does not contain project directory`(@TempDir tmpDir: Path) {
+        val projectDir = tmpDir.resolve("project").also { Files.createDirectories(it) }
+        Files.writeString(projectDir.resolve("main.kt"), "fun main() = Unit\n")
+        val unrelatedRepositoryRoot = tmpDir.resolve("repo").also { Files.createDirectories(it) }
+
+        val command = ScanCommand(
+            scanRunner = { 0 },
+            terminal = NoOpTerminal(),
+        )
+
+        val error = assertFailsWith<UsageError> {
+            command.parse(
+                listOf(
+                    "-i", projectDir.toString(),
+                    "--repository-root", unrelatedRepositoryRoot.toString(),
+                )
+            )
+        }
+
+        assertTrue(error.message.orEmpty().contains("must be located inside repository root"))
+    }
+
     private fun createProject(dir: Path): Path {
         Files.writeString(dir.resolve("main.kt"), "fun main() = Unit\n")
         return dir
