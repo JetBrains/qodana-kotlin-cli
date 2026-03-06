@@ -14,20 +14,10 @@ data class ScanContext(
     val profile: ProfileSpec? = null,
     val yaml: QodanaYaml? = null,
     val scenario: RunScenario = RunScenario.Default,
-    val nativeMode: Boolean = false,
-    val analysisMode: AnalysisMode = AnalysisMode.from(nativeMode),
+    val executionProfile: ExecutionProfile = DockerLauncherExecutionProfile,
 )
 
 data class ProfileSpec(
     val name: String? = null,
     val path: String? = null,
 )
-
-enum class AnalysisMode {
-    NATIVE,
-    CONTAINER;
-
-    companion object {
-        fun from(nativeMode: Boolean): AnalysisMode = if (nativeMode) NATIVE else CONTAINER
-    }
-}

@@ -16,7 +16,6 @@ import org.jetbrains.qodana.engine.report.SarifUtils
 import org.jetbrains.qodana.engine.report.SarifVersioning
 import org.jetbrains.qodana.engine.startup.PrepareHost
 import org.jetbrains.qodana.core.model.ExitCode
-import org.jetbrains.qodana.engine.model.AnalysisMode
 import org.jetbrains.qodana.engine.model.RunScenario
 import org.jetbrains.qodana.engine.model.ScanContext
 import org.jetbrains.qodana.engine.model.ScanContextUtils
@@ -40,9 +39,10 @@ class ScanUseCase(
     private val terminal: Terminal,
 ) {
     private val log = LoggerFactory.getLogger(ScanUseCase::class.java)
-    private val analysisRunners: Map<AnalysisMode, suspend (ScanContext) -> Int> = mapOf(
-        AnalysisMode.NATIVE to nativeScan::run,
-        AnalysisMode.CONTAINER to containerScan::run,
+    private val pipelineFactory = ScanExecutionPipelineFactory(
+        nativePipeline = NativeScanExecutionPipeline(prepareHost, nativeScan),
+        inDockerPipeline = InDockerScanExecutionPipeline(prepareHost, containerScan),
+        dockerLauncherPipeline = DockerLauncherScanExecutionPipeline(prepareHost, containerScan),
     )
 
     suspend fun run(context: ScanContext): Int {
@@ -52,7 +52,8 @@ class ScanUseCase(
         )
         val effectiveContext = EffectiveConfig.merge(yaml, context)
 
-        val prepared = prepareHost.prepare(effectiveContext)
+        val pipeline = pipelineFactory.create(effectiveContext.executionProfile)
+        val prepared = pipeline.prepare(effectiveContext)
         val effectiveContextWithIde = if (prepared.ideDir != null && effectiveContext.runtime.ideDir == null) {
             effectiveContext.copy(runtime = effectiveContext.runtime.copy(ideDir = prepared.ideDir))
         } else {
@@ -79,7 +80,7 @@ class ScanUseCase(
         }
 
         val contextForAnalysis = prepareScenarioContext(effectiveContextWithIde)
-        val bootstrapExitCode = runBootstrapIfNeeded(contextForAnalysis)
+        val bootstrapExitCode = runBootstrapIfNeeded(contextForAnalysis, pipeline)
         if (bootstrapExitCode != 0) {
             return bootstrapExitCode
         }
@@ -174,8 +175,8 @@ class ScanUseCase(
         }
     }
 
-    private fun runBootstrapIfNeeded(context: ScanContext): Int {
-        if (context.analysisMode != AnalysisMode.NATIVE) {
+    private fun runBootstrapIfNeeded(context: ScanContext, pipeline: BaseScanExecutionPipeline): Int {
+        if (!pipeline.canRunBootstrap(context)) {
             return 0
         }
         if (ScanContextUtils.isScopedScenario(context.scenario)) {
@@ -317,7 +318,8 @@ class ScanUseCase(
     }
 
     private suspend fun runSingleAnalysis(context: ScanContext): Int {
-        return analysisRunners.getValue(context.analysisMode).invoke(context)
+        val pipeline = pipelineFactory.create(context.executionProfile)
+        return pipeline.runAnalysis(context)
     }
 
     private suspend fun runScoped(context: ScanContext, scenario: RunScenario.Scoped): Int {
