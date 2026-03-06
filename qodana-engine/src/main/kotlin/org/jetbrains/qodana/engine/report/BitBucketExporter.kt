@@ -13,16 +13,19 @@ import java.net.URI
 class BitBucketExporter(
     private val sarifService: SarifService,
     private val http: HttpTransport,
+    private val getEnv: (String) -> String? = System::getenv,
 ) {
     companion object {
         private const val SARIF_FILENAME = "qodana.sarif.json"
         private const val MAX_ANNOTATIONS_PER_REQUEST = 100
         private const val MAX_ANNOTATIONS_TOTAL = 1000
         private const val DEFAULT_CLOUD_API = "https://api.bitbucket.org/2.0"
+        private const val PIPELINES_CLOUD_API = "http://api.bitbucket.org/2.0"
         private const val DEFAULT_REPORT_TITLE = "Qodana Analysis"
         private const val BITBUCKET_REPORTER = "JetBrains Qodana"
         private const val BITBUCKET_LOGO_URL = "https://avatars.githubusercontent.com/u/139879315"
         private const val ANNOTATION_TYPE = "CODE_SMELL"
+        private const val BITBUCKET_PIPELINE_UUID = "BITBUCKET_PIPELINE_UUID"
 
         private val BITBUCKET_SEVERITY = mapOf(
             "error" to "HIGH",
@@ -197,6 +200,11 @@ class BitBucketExporter(
     }
 
     private fun resolveApiBaseUrl(rawUrl: String): String {
+        if (isBitBucketPipeline()) {
+            // In BitBucket Pipelines, the API is reached via local proxy with api.bitbucket.org URL.
+            return PIPELINES_CLOUD_API
+        }
+
         val value = rawUrl.trim()
         if (value.isBlank()) return DEFAULT_CLOUD_API
 
@@ -217,5 +225,9 @@ class BitBucketExporter(
             path.contains("/rest/api/") -> "$scheme://$hostAndPort$path"
             else -> "$scheme://$hostAndPort/rest/api/1.0"
         }
+    }
+
+    private fun isBitBucketPipeline(): Boolean {
+        return !getEnv(BITBUCKET_PIPELINE_UUID).isNullOrBlank()
     }
 }
