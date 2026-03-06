@@ -11,6 +11,7 @@ application {
 
 dependencies {
     implementation(project(":qodana-core"))
+    implementation(project(":qodana-engine"))
     implementation(libs.clikt)
     implementation(libs.jackson.databind)
     implementation(libs.jackson.dataformat.yaml)
