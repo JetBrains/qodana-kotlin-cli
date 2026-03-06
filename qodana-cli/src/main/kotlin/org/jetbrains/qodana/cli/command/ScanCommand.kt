@@ -177,8 +177,9 @@ class ScanCommand(
             reversePrAnalysis = reverse,
         )
 
-        val resolvedRepositoryRoot = repositoryRoot?.toAbsolutePath()?.normalize()
+        val requestedRepositoryRoot = repositoryRoot?.toAbsolutePath()?.normalize()
             ?: detectRepositoryRoot(absProjectDir)
+        val resolvedRepositoryRoot = normalizeRepositoryRoot(absProjectDir, requestedRepositoryRoot)
         val paths = resolvePaths(
             projectDir = absProjectDir,
             repositoryRoot = resolvedRepositoryRoot,
@@ -627,6 +628,32 @@ class ScanCommand(
                 projectDir
             }
         }.getOrElse { projectDir }
+    }
+
+    private fun normalizeRepositoryRoot(projectDir: Path, repositoryRoot: Path): Path {
+        val normalizedProjectDir = normalizePath(projectDir)
+        val normalizedRepositoryRoot = normalizePath(repositoryRoot)
+
+        var current: Path? = normalizedProjectDir
+        while (current != null) {
+            val matches = runCatching { Files.isSameFile(current, normalizedRepositoryRoot) }
+                .getOrDefault(false)
+            if (matches) {
+                return current
+            }
+            current = current.parent
+        }
+
+        throw UsageError(
+            "The project directory must be located inside repository root. " +
+                "Please, specify correct --repository-root argument. " +
+                "ProjectDir: $normalizedProjectDir. RepositoryRoot: $normalizedRepositoryRoot."
+        )
+    }
+
+    private fun normalizePath(path: Path): Path {
+        return runCatching { path.toRealPath().normalize() }
+            .getOrElse { path.toAbsolutePath().normalize() }
     }
 
     private data class AnalyzerResolution(
