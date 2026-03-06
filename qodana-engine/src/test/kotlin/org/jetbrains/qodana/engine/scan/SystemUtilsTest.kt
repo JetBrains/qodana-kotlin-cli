@@ -37,8 +37,9 @@ class SystemUtilsTest {
     fun `getScanStages has 6 stages`() {
         val stages = SystemUtils.getScanStages()
         assertEquals(6, stages.size)
-        assertTrue(stages[0].contains("Docker"))
-        assertTrue(stages[5].contains("report"))
+        assertEquals("[1/7] Preparing Qodana Docker images", stages[0])
+        assertEquals("[2/7] Starting the analysis engine", stages[1])
+        assertEquals("[6/7] Preparing the report", stages[5])
     }
 
     @Test

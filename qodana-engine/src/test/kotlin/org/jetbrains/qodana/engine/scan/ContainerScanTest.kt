@@ -12,6 +12,7 @@ import org.jetbrains.qodana.engine.port.EngineType
 import org.jetbrains.qodana.core.port.Terminal
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -106,7 +107,17 @@ class ContainerScanTest {
         assertEquals(0, exitCode)
         assertTrue(terminal.printed.isEmpty())
         assertTrue(terminal.printlnMessages.isEmpty())
-        assertEquals(listOf("Pulling the image test:latest"), terminal.spinnerMessages)
+        assertContentEquals(
+            listOf(
+                "Pulling the image test:latest",
+                "[1/7] Preparing Qodana Docker images",
+            ),
+            terminal.spinnerMessages
+        )
+        assertContentEquals(
+            listOf("[2/7] Starting the analysis engine"),
+            terminal.spinnerUpdates
+        )
     }
 
     @Test
@@ -125,6 +136,38 @@ class ContainerScanTest {
         assertEquals(0, exitCode)
         assertTrue(terminal.printed.isEmpty())
         assertEquals(listOf("Pulling the image test:latest..."), terminal.printlnMessages)
+    }
+
+    @Test
+    fun `scan updates interactive stage progress from logs`() = runTest {
+        val ops = mutableListOf<String>()
+        val logs = flowOf(
+            LogEvent(LogSource.CONTAINER, Stream.STDOUT, "Starting up\n"),
+            LogEvent(LogSource.CONTAINER, Stream.STDOUT, "The Project opening stage completed in 1s\n"),
+            LogEvent(LogSource.CONTAINER, Stream.STDOUT, "The Project configuration stage completed in 2s\n"),
+            LogEvent(LogSource.CONTAINER, Stream.STDOUT, "Detailed summary\n"),
+        )
+        val engine = FakeContainerEngine(ops = ops, exitCode = 0, logsFlow = logs)
+        val terminal = RenderRecordingTerminal(isInteractive = true)
+        val scan = ContainerScan(engine, terminal)
+
+        val exitCode = scan.run(testContext(image = "test:latest", skipPull = true))
+
+        assertEquals(0, exitCode)
+        assertContentEquals(
+            listOf("[1/7] Preparing Qodana Docker images"),
+            terminal.spinnerMessages
+        )
+        assertContentEquals(
+            listOf(
+                "[2/7] Starting the analysis engine",
+                "[3/7] Opening the project",
+                "[4/7] Configuring the project",
+                "[5/7] Analyzing the project",
+                "[6/7] Preparing the report",
+            ),
+            terminal.spinnerUpdates
+        )
     }
 
     @Test
@@ -278,6 +321,7 @@ private class RenderRecordingTerminal : Terminal {
     val printed = mutableListOf<String>()
     val printlnMessages = mutableListOf<String>()
     val spinnerMessages = mutableListOf<String>()
+    val spinnerUpdates = mutableListOf<String>()
     override val isInteractive: Boolean
     override var isCi: Boolean = true
 
@@ -300,6 +344,11 @@ private class RenderRecordingTerminal : Terminal {
     override fun <T> spinner(message: String, action: () -> T): T {
         spinnerMessages += message
         return action()
+    }
+
+    override suspend fun <T> spinnerWithUpdates(message: String, action: suspend (Terminal.SpinnerHandle) -> T): T {
+        spinnerMessages += message
+        return action(Terminal.SpinnerHandle { spinnerUpdates += it })
     }
     override fun prompt(message: String, default: String?): String = default ?: ""
     override fun select(message: String, choices: List<String>): String = choices.firstOrNull() ?: ""
