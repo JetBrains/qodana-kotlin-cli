@@ -84,11 +84,8 @@ class ContainerScanTest {
         val exitCode = scan.run(testContext(image = "test:latest", skipPull = true))
 
         assertEquals(0, exitCode)
-        assertEquals(
-            listOf("Pulling 1%\r", "Pulling 2%\r", "Pull complete\n"),
-            terminal.printed
-        )
-        assertTrue(terminal.printlnMessages.isEmpty())
+        assertEquals(listOf("Pulling 1%\r", "Pulling 2%\r"), terminal.printed)
+        assertEquals(listOf("Pull complete"), terminal.printlnMessages)
     }
 
     @Test

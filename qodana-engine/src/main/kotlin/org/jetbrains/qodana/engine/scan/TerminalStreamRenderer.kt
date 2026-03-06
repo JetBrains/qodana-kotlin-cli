@@ -12,16 +12,19 @@ internal class TerminalStreamRenderer(
     private var lineEnded = true
     private var currentColumn = 0
     private var lineWidth = 0
+    private val nonInteractiveBuffer = StringBuilder()
 
     fun render(chunk: String) {
         if (chunk.isEmpty()) {
             return
         }
-        terminal.print(chunk)
+
         if (!terminal.isInteractive) {
-            lineEnded = chunk.endsWith('\n')
+            renderNonInteractive(chunk)
             return
         }
+
+        terminal.print(chunk)
         updateLineState(chunk)
     }
 
@@ -44,6 +47,7 @@ internal class TerminalStreamRenderer(
 
     fun ensureLineBreak() {
         if (!terminal.isInteractive) {
+            flushNonInteractiveBuffer()
             return
         }
         if (!lineEnded) {
@@ -75,5 +79,46 @@ internal class TerminalStreamRenderer(
                 }
             }
         }
+    }
+
+    private fun renderNonInteractive(chunk: String) {
+        // Preserve control-driven in-place updates (for example '\r' based progress),
+        // but emit plain output line-by-line for stable CI logs.
+        if (containsControlRewrite(chunk)) {
+            flushNonInteractiveBuffer()
+            terminal.print(chunk)
+            lineEnded = chunk.endsWith('\n')
+            return
+        }
+
+        nonInteractiveBuffer.append(chunk)
+        emitBufferedLines()
+    }
+
+    private fun emitBufferedLines() {
+        while (true) {
+            val newline = nonInteractiveBuffer.indexOf("\n")
+            if (newline < 0) break
+            val line = nonInteractiveBuffer.substring(0, newline).trimEnd('\r')
+            terminal.println(line)
+            nonInteractiveBuffer.delete(0, newline + 1)
+            lineEnded = true
+        }
+        if (nonInteractiveBuffer.isNotEmpty()) {
+            lineEnded = false
+        }
+    }
+
+    private fun flushNonInteractiveBuffer() {
+        emitBufferedLines()
+        if (nonInteractiveBuffer.isNotEmpty()) {
+            terminal.println(nonInteractiveBuffer.toString())
+            nonInteractiveBuffer.clear()
+            lineEnded = true
+        }
+    }
+
+    private fun containsControlRewrite(chunk: String): Boolean {
+        return chunk.indexOf('\r') >= 0 || chunk.indexOf('\u001B') >= 0
     }
 }
