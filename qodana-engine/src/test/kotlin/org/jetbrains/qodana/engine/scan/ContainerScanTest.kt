@@ -51,7 +51,7 @@ class ContainerScanTest {
         val terminal = FakeTerminal()
 
         val scan = ContainerScan(engine, terminal)
-        val exitCode = scan.run(testContext(image = "test:latest"))
+        val exitCode = scan.run(testContext(image = "test:latest", skipPull = true))
 
         assertEquals(255, exitCode)
     }
@@ -80,7 +80,7 @@ class ContainerScanTest {
         val terminal = RenderRecordingTerminal()
 
         val scan = ContainerScan(engine, terminal)
-        val exitCode = scan.run(testContext(image = "test:latest"))
+        val exitCode = scan.run(testContext(image = "test:latest", skipPull = true))
 
         assertEquals(0, exitCode)
         assertEquals(
@@ -91,7 +91,7 @@ class ContainerScanTest {
     }
 
     @Test
-    fun `scan renders pull progress in place for interactive terminal`() = runTest {
+    fun `scan uses spinner for pull in interactive terminal`() = runTest {
         val ops = mutableListOf<String>()
         val engine = FakeContainerEngine(
             ops = ops,
@@ -104,15 +104,13 @@ class ContainerScanTest {
         val exitCode = scan.run(testContext(image = "test:latest"))
 
         assertEquals(0, exitCode)
-        assertEquals(
-            listOf("\rDownloading", "\r           \rExtracting"),
-            terminal.printed,
-        )
-        assertEquals(listOf(""), terminal.printlnMessages)
+        assertTrue(terminal.printed.isEmpty())
+        assertTrue(terminal.printlnMessages.isEmpty())
+        assertEquals(listOf("Pulling the image test:latest"), terminal.spinnerMessages)
     }
 
     @Test
-    fun `scan renders pull progress as lines for non interactive terminal`() = runTest {
+    fun `scan prints pull phase line in non interactive terminal`() = runTest {
         val ops = mutableListOf<String>()
         val engine = FakeContainerEngine(
             ops = ops,
@@ -126,7 +124,7 @@ class ContainerScanTest {
 
         assertEquals(0, exitCode)
         assertTrue(terminal.printed.isEmpty())
-        assertEquals(listOf("Downloading", "Extracting"), terminal.printlnMessages)
+        assertEquals(listOf("Pulling the image test:latest..."), terminal.printlnMessages)
     }
 
     @Test
@@ -279,6 +277,7 @@ private class FakeTerminal : Terminal {
 private class RenderRecordingTerminal : Terminal {
     val printed = mutableListOf<String>()
     val printlnMessages = mutableListOf<String>()
+    val spinnerMessages = mutableListOf<String>()
     override val isInteractive: Boolean
     override var isCi: Boolean = true
 
@@ -298,7 +297,10 @@ private class RenderRecordingTerminal : Terminal {
     override fun info(message: String) {}
     override fun warn(message: String) {}
     override fun debug(message: String) {}
-    override fun <T> spinner(message: String, action: () -> T): T = action()
+    override fun <T> spinner(message: String, action: () -> T): T {
+        spinnerMessages += message
+        return action()
+    }
     override fun prompt(message: String, default: String?): String = default ?: ""
     override fun select(message: String, choices: List<String>): String = choices.firstOrNull() ?: ""
     override fun setRedactedTokens(tokens: Set<String>) {}

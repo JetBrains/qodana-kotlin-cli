@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runBlocking
 import org.jetbrains.qodana.core.env.QodanaEnv
 import org.jetbrains.qodana.core.model.*
 import org.jetbrains.qodana.engine.model.*
@@ -27,21 +28,21 @@ class ContainerScan(
             terminal.warn("You are using a non-compatible Qodana linter $image with the current CLI")
         }
 
-        val outputRenderer = TerminalStreamRenderer(terminal)
         if (!context.docker.skipPull && !context.docker.noDockerPull) {
-            try {
-                containerEngine.pull(image) { progress ->
-                    if (terminal.isInteractive) {
-                        outputRenderer.renderInPlace(progress)
-                    } else {
-                        terminal.println(progress)
+            val pullMessage = "Pulling the image $image"
+            if (terminal.isInteractive) {
+                terminal.spinner(pullMessage) {
+                    runBlocking {
+                        containerEngine.pull(image) { _ -> }
                     }
                 }
-            } finally {
-                outputRenderer.ensureLineBreak()
+            } else {
+                terminal.println("$pullMessage...")
+                containerEngine.pull(image) { _ -> }
             }
         }
 
+        val outputRenderer = TerminalStreamRenderer(terminal)
         val spec = buildContainerSpec(context, image)
         val containerId = containerEngine.create(spec)
 

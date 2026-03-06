@@ -1,8 +1,15 @@
 package org.jetbrains.qodana.core.terminal
 
+import com.github.ajalt.mordant.animation.progress.animateOnThread
+import com.github.ajalt.mordant.animation.progress.execute
+import com.github.ajalt.mordant.rendering.TextAlign
 import com.github.ajalt.mordant.terminal.Terminal as MTerminal
 import com.github.ajalt.mordant.rendering.TextColors
-import com.github.ajalt.mordant.rendering.TextStyles
+import com.github.ajalt.mordant.widgets.Spinner
+import com.github.ajalt.mordant.widgets.progress.progressBarContextLayout
+import com.github.ajalt.mordant.widgets.progress.spinner as progressSpinner
+import com.github.ajalt.mordant.widgets.progress.text as progressText
+import com.github.ajalt.mordant.widgets.progress.timeElapsed as progressTimeElapsed
 import org.jetbrains.qodana.core.port.Terminal
 
 class MordantTerminal : Terminal {
@@ -40,15 +47,35 @@ class MordantTerminal : Terminal {
     }
 
     override fun <T> spinner(message: String, action: () -> T): T {
-        // In CI mode or non-interactive, just print the message and run
+        val redactedMessage = redact(message)
         if (!isInteractive) {
-            terminal.println(message)
+            terminal.println("$redactedMessage...")
             return action()
         }
-        terminal.print("$message... ")
-        val result = action()
-        terminal.println("done")
-        return result
+
+        val definition = progressBarContextLayout<String>(
+            spacing = 1,
+            alignColumns = false,
+            align = TextAlign.LEFT,
+        ) {
+            progressSpinner(Spinner.Lines())
+            progressText(align = TextAlign.LEFT) { context }
+            progressTimeElapsed(compact = true)
+        }
+        val progress = definition.animateOnThread(
+            terminal = terminal,
+            context = "$redactedMessage...",
+            total = null,
+            clearWhenFinished = true,
+        )
+        val future = progress.execute()
+
+        return try {
+            action()
+        } finally {
+            progress.stop()
+            future.cancel(true)
+        }
     }
 
     override fun prompt(message: String, default: String?): String {
