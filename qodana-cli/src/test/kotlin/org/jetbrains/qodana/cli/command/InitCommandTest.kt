@@ -3,6 +3,7 @@ package org.jetbrains.qodana.cli.command
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.core.parse
 import org.jetbrains.qodana.core.port.Terminal
+import org.jetbrains.qodana.engine.env.RuntimeEnvironment
 import org.jetbrains.qodana.engine.port.HttpResponse
 import org.jetbrains.qodana.engine.port.HttpTransport
 import org.jetbrains.qodana.engine.port.MultipartPart
@@ -29,7 +30,7 @@ class InitCommandTest {
                 getEnv = { _ -> null },
                 tokenStore = InitFixedTokenStore(null),
                 httpTransport = InitFakeHttpTransport(emptyMap()),
-                isContainer = { false },
+                runtimeEnvironmentDetector = { RuntimeEnvironment.HOST },
             ).parse(listOf("-i", projectDir.toString()))
         }
 
@@ -78,7 +79,7 @@ class InitCommandTest {
                 getEnv = { key -> env[key] },
                 tokenStore = InitFixedTokenStore(null),
                 httpTransport = http,
-                isContainer = { false },
+                runtimeEnvironmentDetector = { RuntimeEnvironment.HOST },
             ).parse(listOf("-i", projectDir.toString()))
         }
 
@@ -113,7 +114,7 @@ class InitCommandTest {
             getEnv = { _ -> null },
             tokenStore = InitFixedTokenStore(null),
             httpTransport = InitFakeHttpTransport(emptyMap()),
-            isContainer = { false },
+            runtimeEnvironmentDetector = { RuntimeEnvironment.HOST },
         ).parse(listOf("-i", projectDir.toString()))
 
         val updatedYaml = Files.readString(projectDir.resolve("qodana.yaml"))

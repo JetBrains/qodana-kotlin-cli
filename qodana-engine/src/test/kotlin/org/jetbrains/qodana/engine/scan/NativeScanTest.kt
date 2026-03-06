@@ -259,7 +259,7 @@ class NativeScanTest {
         report = ReportOptions(),
         docker = DockerOptions(),
         yaml = yaml,
-        nativeMode = true,
+        executionProfile = NativeExecutionProfile,
     )
 }
 

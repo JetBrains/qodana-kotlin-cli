@@ -290,7 +290,7 @@ class ScanCommandTest {
         val context = requireNotNull(capturedContext)
         assertEquals("qodana-go", context.linter)
         assertEquals("jetbrains/qodana-go:2025.2", context.docker.image)
-        assertEquals(org.jetbrains.qodana.engine.model.AnalysisMode.CONTAINER, context.analysisMode)
+        assertEquals(org.jetbrains.qodana.engine.model.DockerLauncherExecutionProfile, context.executionProfile)
     }
 
     @Test
@@ -418,7 +418,7 @@ class ScanCommandTest {
 
         assertEquals(0, result.statusCode)
         val context = requireNotNull(capturedContext)
-        assertEquals(org.jetbrains.qodana.engine.model.AnalysisMode.NATIVE, context.analysisMode)
+        assertEquals(org.jetbrains.qodana.engine.model.NativeExecutionProfile, context.executionProfile)
         assertEquals(distDir.toAbsolutePath().normalize(), context.runtime.ideDir)
     }
 
