@@ -44,7 +44,7 @@ object CiDetector {
     }
 
     fun isContainer(getEnv: (String) -> String? = System::getenv): Boolean =
-        !getEnv(QodanaEnv.DOCKER).isNullOrEmpty()
+        RuntimeEnvironmentDetector.detect(getEnv) == RuntimeEnvironment.IN_DOCKER
 
     fun isBitBucket(getEnv: (String) -> String? = System::getenv): Boolean =
         !getEnv("BITBUCKET_PIPELINE_UUID").isNullOrEmpty()
