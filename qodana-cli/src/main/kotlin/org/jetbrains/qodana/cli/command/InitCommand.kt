@@ -16,7 +16,8 @@ import org.jetbrains.qodana.engine.cloud.CloudClient
 import org.jetbrains.qodana.engine.cloud.LicenseToken
 import org.jetbrains.qodana.engine.cloud.parseProjectName
 import org.jetbrains.qodana.engine.cloud.parseRawUrl
-import org.jetbrains.qodana.engine.env.CiDetector
+import org.jetbrains.qodana.engine.env.RuntimeEnvironment
+import org.jetbrains.qodana.engine.env.RuntimeEnvironmentDetector
 import org.jetbrains.qodana.engine.http.OkHttpTransport
 import org.jetbrains.qodana.engine.port.HttpTransport
 import org.jetbrains.qodana.engine.port.TokenStore
@@ -31,7 +32,7 @@ class InitCommand(
     private val getEnv: (String) -> String? = System::getenv,
     private val tokenStore: TokenStore = FileTokenStore(),
     private val httpTransport: HttpTransport = OkHttpTransport(),
-    private val isContainer: () -> Boolean = CiDetector::isContainer,
+    private val runtimeEnvironmentDetector: () -> RuntimeEnvironment = { RuntimeEnvironmentDetector.detect() },
 ) : CliktCommand("init") {
 
     override fun help(context: Context) = "Configure a Qodana project by creating a qodana.yaml file"
@@ -256,7 +257,7 @@ class InitCommand(
             throw ProgramResult(1)
         }
 
-        if (!isContainer()) {
+        if (runtimeEnvironmentDetector() == RuntimeEnvironment.HOST) {
             terminal.println("Linked $cloudRoot project: $projectName")
         }
     }

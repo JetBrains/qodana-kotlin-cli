@@ -28,6 +28,8 @@ import org.jetbrains.qodana.core.sarif.QodanaSarifService
 import org.jetbrains.qodana.core.terminal.MordantTerminal
 import org.jetbrains.qodana.core.env.QodanaEnv
 import org.jetbrains.qodana.engine.env.CiDetector
+import org.jetbrains.qodana.engine.env.RuntimeEnvironment
+import org.jetbrains.qodana.engine.env.RuntimeEnvironmentDetector
 
 private val ROOT_COMMANDS = setOf(
     "scan",
@@ -108,15 +110,15 @@ fun main(args: Array<String>) {
     val reportPublishUseCase = ReportPublishUseCase(publisher)
     val contributorAnalyzer = ContributorAnalyzer(gitClient)
 
-    val isContainer = !System.getenv(QodanaEnv.DOCKER).isNullOrBlank()
+    val runtimeEnvironment = RuntimeEnvironmentDetector.detect()
     val isCi = CiDetector.detect() != null
     terminal.isCi = isCi
 
-    if (!isContainer && isRunningAsRoot()) {
+    if (runtimeEnvironment == RuntimeEnvironment.HOST && isRunningAsRoot()) {
         terminal.warn("Running the tool as root is dangerous: please run it as a regular user")
     }
 
-    if (shouldCheckUpdates(args, isContainer, isCi)) {
+    if (shouldCheckUpdates(args, runtimeEnvironment == RuntimeEnvironment.IN_DOCKER, isCi)) {
         val latest = SystemUtils.checkForUpdates(QodanaCommand.VERSION)
         if (latest != null) {
             terminal.warn("New version of qodana CLI is available: $latest. See https://jb.gg/qodana-cli/update")
