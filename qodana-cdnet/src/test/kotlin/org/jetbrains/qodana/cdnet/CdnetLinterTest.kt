@@ -132,6 +132,7 @@ class CdnetLinterTest {
 
     @Test
     fun `runAnalysis calls processRunner with computed args`(@TempDir tmpDir: Path) = runTest {
+        capturedSpecs.clear()
         val cltPath = tmpDir.resolve("inspectcode.dll")
         Files.createFile(cltPath)
 
@@ -170,5 +171,14 @@ class CdnetLinterTest {
         assertTrue(spec.args.contains("inspectcode"))
         assertTrue(spec.args.contains("App.sln"))
         assertEquals(paths.projectDir, spec.workDir)
+        assertEquals(
+            mapOf(
+                "QODANA_NUGET_URL" to "",
+                "QODANA_NUGET_USER" to "",
+                "QODANA_NUGET_PASSWORD" to "",
+                "QODANA_NUGET_NAME" to "",
+            ),
+            spec.env,
+        )
     }
 }

@@ -26,13 +26,14 @@ class CdnetLinter(
             logger.info("Preparing NuGet config in {}", homeDir)
             NugetConfig.prepare(homeDir)
         }
-        NugetConfig.unsetVariables()
+        val envOverrides = NugetConfig.unsetVariables()
 
         terminal.println("Running ReSharper InspectCode...")
 
         val result = processRunner.run(ProcessSpec(
             command = args[0],  // "dotnet"
             args = args.drop(1),
+            env = envOverrides,
             workDir = context.paths.projectDir,
         ))
 
