@@ -2,6 +2,7 @@ package org.jetbrains.qodana.engine.scan
 
 import org.jetbrains.qodana.core.model.*
 import org.jetbrains.qodana.engine.model.*
+import org.jetbrains.qodana.engine.startup.DeviceId
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
 import kotlin.test.assertContains
@@ -14,9 +15,14 @@ class PropertyGeneratorTest {
         runtimeProperties: Map<String, String> = emptyMap(),
         yamlProperties: Map<String, String> = emptyMap(),
         jvmDebugPort: Int? = null,
+        analysisId: String? = null,
+        coverageDir: Path? = null,
+        repositoryRoot: Path = Path.of("/project"),
+        ciRemoteUrl: String? = null,
     ) = ScanContext(
         paths = ScanPaths(
             projectDir = Path.of("/project"),
+            repositoryRoot = repositoryRoot,
             resultsDir = Path.of("/results"),
             cacheDir = Path.of("/cache"),
             reportDir = Path.of("/report"),
@@ -25,8 +31,10 @@ class PropertyGeneratorTest {
         runtime = RuntimeContext(
             properties = runtimeProperties,
             jvmDebugPort = jvmDebugPort,
+            analysisId = analysisId,
+            coverageDir = coverageDir,
         ),
-        ci = CiContext(),
+        ci = CiContext(remoteUrl = ciRemoteUrl),
         report = ReportOptions(),
         docker = DockerOptions(),
         yaml = if (yamlProperties.isNotEmpty()) QodanaYaml(properties = yamlProperties) else null,
@@ -65,6 +73,34 @@ class PropertyGeneratorTest {
             runtimeProperties = mapOf("shared.key" to "runtime-wins"),
         ))
         assertContains(props, "shared.key=runtime-wins")
+    }
+
+    @Test
+    fun `device id and salt are generated from remote url`() {
+        val props = PropertyGenerator.generateIdeaProperties(testContext(ciRemoteUrl = "https://github.com/acme/repo.git"))
+        val expected = DeviceId.getDeviceIdSalt(remoteUrl = "https://github.com/acme/repo.git")
+        assertContains(props, "idea.headless.statistics.device.id=${expected.deviceId}")
+        assertContains(props, "idea.headless.statistics.salt=${expected.salt}")
+    }
+
+    @Test
+    fun `analysis and coverage properties are included when configured`() {
+        val props = PropertyGenerator.generateIdeaProperties(
+            testContext(
+                analysisId = "analysis-guid-123",
+                coverageDir = Path.of("/project/.qodana/code-coverage"),
+            )
+        )
+        assertContains(props, "qodana.automation.guid=analysis-guid-123")
+        assertContains(props, "qodana.coverage.input=/project/.qodana/code-coverage")
+    }
+
+    @Test
+    fun `project path relative to repository root is included`() {
+        val props = PropertyGenerator.generateIdeaProperties(
+            testContext(repositoryRoot = Path.of("/"))
+        )
+        assertContains(props, "qodana.path.to.project.dir.from.project.root=project")
     }
 
     @Test
