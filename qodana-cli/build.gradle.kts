@@ -7,6 +7,9 @@ plugins {
 
 application {
     mainClass.set("org.jetbrains.qodana.cli.MainKt")
+    applicationDefaultJvmArgs = listOf(
+        "--enable-native-access=ALL-UNNAMED"
+    )
 }
 
 dependencies {
