@@ -423,32 +423,36 @@ class ScanCommand(
 
         val chosenLinter = linter ?: yamlLinter
         if (chosenLinter != null) {
-            // Legacy compatibility: image could be passed via --linter
-            if (chosenLinter.contains("/") && Linters.findByName(chosenLinter) == null) {
-                if (explicitWithinDocker == false || yamlWithinDocker == false) {
-                    throw UsageError("Image-like --linter value requires container mode")
+            val resolved = Linters.findByName(chosenLinter)
+            if (resolved == null) {
+                val linterByImage = Linters.findByDockerImage(chosenLinter)
+                if (linterByImage != null) {
+                    terminal.warn("Linter $chosenLinter has image value, please use --image param")
+                    return AnalyzerResolution(
+                        analysisMode = AnalysisMode.CONTAINER,
+                        linterName = linterByImage.name,
+                        image = chosenLinter,
+                        ideDir = null,
+                    )
                 }
-                return AnalyzerResolution(
-                    analysisMode = AnalysisMode.CONTAINER,
-                    linterName = Linters.findByDockerImage(chosenLinter)?.name ?: chosenLinter,
-                    image = chosenLinter,
-                    ideDir = null,
+                throw UsageError(
+                    "Unrecognized '--linter' value '$chosenLinter'. " +
+                        "Hint: If the provided value is a custom docker image, please use '--image' instead."
                 )
             }
 
-            val resolved = Linters.findByName(chosenLinter)
             val useContainer = explicitWithinDocker ?: yamlWithinDocker ?: true
             if (useContainer) {
                 return AnalyzerResolution(
                     analysisMode = AnalysisMode.CONTAINER,
-                    linterName = resolved?.name ?: chosenLinter,
-                    image = yamlImage ?: resolved?.image() ?: chosenLinter,
+                    linterName = resolved.name,
+                    image = yamlImage ?: resolved.image(),
                     ideDir = null,
                 )
             }
             return AnalyzerResolution(
                 analysisMode = AnalysisMode.NATIVE,
-                linterName = resolved?.name ?: chosenLinter,
+                linterName = resolved.name,
                 image = null,
                 ideDir = null,
             )

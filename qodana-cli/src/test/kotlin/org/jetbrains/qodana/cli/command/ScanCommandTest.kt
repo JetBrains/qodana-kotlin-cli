@@ -1,6 +1,7 @@
 package org.jetbrains.qodana.cli.command
 
 import com.github.ajalt.clikt.core.ProgramResult
+import com.github.ajalt.clikt.core.UsageError
 import com.github.ajalt.clikt.core.parse
 import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.engine.model.ScanContext
@@ -229,6 +230,66 @@ class ScanCommandTest {
 
         assertEquals(0, result.statusCode)
         assertEquals(null, requireNotNull(capturedContext).runtime.effectiveConfigDir)
+    }
+
+    @Test
+    fun `scan fails for unknown cli linter`(@TempDir tmpDir: Path) {
+        val projectDir = createProject(tmpDir)
+        val command = ScanCommand(
+            scanRunner = { 0 },
+            terminal = NoOpTerminal(),
+        )
+
+        val error = assertFailsWith<UsageError> {
+            command.parse(listOf("-i", projectDir.toString(), "--linter", "super-linter"))
+        }
+
+        assertTrue(error.message.orEmpty().contains("Unrecognized '--linter' value"))
+    }
+
+    @Test
+    fun `scan fails for unknown yaml linter`(@TempDir tmpDir: Path) {
+        val projectDir = createProject(tmpDir)
+        Files.writeString(projectDir.resolve("qodana.yaml"), "linter: super-linter\n")
+        val command = ScanCommand(
+            scanRunner = { 0 },
+            terminal = NoOpTerminal(),
+        )
+
+        val error = assertFailsWith<UsageError> {
+            command.parse(listOf("-i", projectDir.toString()))
+        }
+
+        assertTrue(error.message.orEmpty().contains("Unrecognized '--linter' value"))
+    }
+
+    @Test
+    fun `scan accepts legacy image in linter parameter even with within docker false`(@TempDir tmpDir: Path) {
+        val projectDir = createProject(tmpDir)
+        var capturedContext: ScanContext? = null
+        val command = ScanCommand(
+            scanRunner = { context ->
+                capturedContext = context
+                0
+            },
+            terminal = NoOpTerminal(),
+        )
+
+        val result = assertFailsWith<ProgramResult> {
+            command.parse(
+                listOf(
+                    "-i", projectDir.toString(),
+                    "--linter", "jetbrains/qodana-go:2025.2",
+                    "--within-docker", "false",
+                )
+            )
+        }
+
+        assertEquals(0, result.statusCode)
+        val context = requireNotNull(capturedContext)
+        assertEquals("qodana-go", context.linter)
+        assertEquals("jetbrains/qodana-go:2025.2", context.docker.image)
+        assertEquals(org.jetbrains.qodana.engine.model.AnalysisMode.CONTAINER, context.analysisMode)
     }
 
     private fun createProject(dir: Path): Path {
