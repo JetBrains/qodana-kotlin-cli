@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import com.fasterxml.jackson.module.kotlin.kotlinModule
 import org.jetbrains.qodana.core.model.QodanaYaml
+import org.jetbrains.qodana.engine.env.RuntimeEnvironment
 import org.jetbrains.qodana.engine.scan.ProjectDetector
 import java.nio.file.Files
 import java.nio.file.Path
@@ -47,10 +48,10 @@ internal object CliPathResolver {
         resultsDir: Path?,
         cacheDir: Path?,
         reportDir: Path?,
-        isContainer: Boolean,
+        runtimeEnvironment: RuntimeEnvironment,
     ): CommandPaths {
         val normalizedCacheOverride = cacheDir?.toAbsolutePath()?.normalize()
-        val defaults = if (isContainer) {
+        val defaults = if (runtimeEnvironment == RuntimeEnvironment.IN_DOCKER) {
             Triple(Path.of("/data/results"), Path.of("/data/cache"), Path.of("/data/results/report"))
         } else {
             val linterDir = qodanaSystemDir(normalizedCacheOverride).resolve(computeScanId(linterName, projectDir))

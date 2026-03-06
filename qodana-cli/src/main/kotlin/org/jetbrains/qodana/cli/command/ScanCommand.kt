@@ -19,6 +19,7 @@ import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.core.product.Linters
 import org.jetbrains.qodana.core.terminal.MordantTerminal
 import org.jetbrains.qodana.engine.env.CiDetector
+import org.jetbrains.qodana.engine.env.RuntimeEnvironment
 import org.jetbrains.qodana.core.model.*
 import org.jetbrains.qodana.engine.model.*
 import org.jetbrains.qodana.engine.scan.ReportPort
@@ -167,6 +168,7 @@ class ScanCommand(
 
         val yaml = loadQodanaYaml(absProjectDir, configName)
         val analyzer = resolveAnalyzer(yaml, absProjectDir)
+        val executionProfile = ExecutionProfileResolver().resolve(analyzer.requestedTarget)
 
         val startHash = resolveStartHash(commit, diffStart)
         val scenario = ScanContextUtils.determineRunScenario(
@@ -174,7 +176,7 @@ class ScanCommand(
             script = effectiveScript(),
             startHash = startHash,
             forceLocalChanges = forceLocalChangesScript,
-            isContainer = analyzer.analysisMode == AnalysisMode.CONTAINER,
+            isContainer = executionProfile.analysisRuntime == ExecutionProfile.AnalysisRuntime.CONTAINER,
             reversePrAnalysis = reverse,
         )
 
@@ -185,10 +187,10 @@ class ScanCommand(
             projectDir = absProjectDir,
             repositoryRoot = resolvedRepositoryRoot,
             linterName = analyzer.linterName ?: analyzer.image ?: "qodana",
-            isContainer = CiDetector.isContainer(),
+            pathLayout = executionProfile.pathLayout,
         )
         val effectiveConfigDir = prepareEffectiveConfigDir(
-            analysisMode = analyzer.analysisMode,
+            executionProfile = executionProfile,
             projectDir = absProjectDir,
             cacheDir = paths.cacheDir,
             customConfigName = configName,
@@ -269,8 +271,7 @@ class ScanCommand(
             profile = ProfileSpec(name = profileName, path = profilePath),
             yaml = yaml,
             scenario = scenario,
-            nativeMode = analyzer.analysisMode == AnalysisMode.NATIVE,
-            analysisMode = analyzer.analysisMode,
+            executionProfile = executionProfile,
         )
 
         var exitCode = runBlocking { scanRunner(context) }
@@ -301,7 +302,7 @@ class ScanCommand(
                 terminal.error("Failed to show report")
                 exitCode = showReportExitCode
             }
-        } else if (!showReport && terminal.isInteractive && !CiDetector.isContainer()) {
+        } else if (!showReport && terminal.isInteractive && executionProfile.runtimeEnvironment == RuntimeEnvironment.HOST) {
             terminal.warn(
                 "To view the Qodana report later, run qodana show in the current directory " +
                     "or add --show-report flag to qodana scan"
@@ -395,7 +396,7 @@ class ScanCommand(
             val distPath = Path.of(distOverride).toAbsolutePath().normalize()
             validateDistOverride(distPath)
             return AnalyzerResolution(
-                analysisMode = AnalysisMode.NATIVE,
+                requestedTarget = RequestedExecutionTarget.NATIVE,
                 linterName = null,
                 image = null,
                 ideDir = distPath,
@@ -419,7 +420,7 @@ class ScanCommand(
             val linterByCode = Linters.findByProductCode(ideValue.removeSuffix(Linters.EAP_SUFFIX))
             if (linterByCode != null) {
                 return AnalyzerResolution(
-                    analysisMode = AnalysisMode.NATIVE,
+                    requestedTarget = RequestedExecutionTarget.NATIVE,
                     linterName = linter ?: linterByCode.name,
                     image = null,
                     ideDir = null,
@@ -428,7 +429,7 @@ class ScanCommand(
             val idePath = Path.of(ideValue)
             if (Files.isDirectory(idePath)) {
                 return AnalyzerResolution(
-                    analysisMode = AnalysisMode.NATIVE,
+                    requestedTarget = RequestedExecutionTarget.NATIVE,
                     linterName = linter,
                     image = null,
                     ideDir = idePath.toAbsolutePath().normalize(),
@@ -440,7 +441,7 @@ class ScanCommand(
         image?.let { imageValue ->
             val linterByImage = Linters.findByDockerImage(imageValue)
             return AnalyzerResolution(
-                analysisMode = AnalysisMode.CONTAINER,
+                requestedTarget = RequestedExecutionTarget.CONTAINER,
                 linterName = linter ?: linterByImage?.name ?: imageValue,
                 image = imageValue,
                 ideDir = null,
@@ -455,7 +456,7 @@ class ScanCommand(
                 if (linterByImage != null) {
                     terminal.warn("Linter $chosenLinter has image value, please use --image param")
                     return AnalyzerResolution(
-                        analysisMode = AnalysisMode.CONTAINER,
+                        requestedTarget = RequestedExecutionTarget.CONTAINER,
                         linterName = linterByImage.name,
                         image = chosenLinter,
                         ideDir = null,
@@ -470,14 +471,14 @@ class ScanCommand(
             val useContainer = explicitWithinDocker ?: yamlWithinDocker ?: true
             if (useContainer) {
                 return AnalyzerResolution(
-                    analysisMode = AnalysisMode.CONTAINER,
+                    requestedTarget = RequestedExecutionTarget.CONTAINER,
                     linterName = resolved.name,
                     image = yamlImage ?: resolved.image(),
                     ideDir = null,
                 )
             }
             return AnalyzerResolution(
-                analysisMode = AnalysisMode.NATIVE,
+                requestedTarget = RequestedExecutionTarget.NATIVE,
                 linterName = resolved.name,
                 image = null,
                 ideDir = null,
@@ -487,7 +488,7 @@ class ScanCommand(
         if (!yamlImage.isNullOrBlank()) {
             val linterByImage = Linters.findByDockerImage(yamlImage)
             return AnalyzerResolution(
-                analysisMode = AnalysisMode.CONTAINER,
+                requestedTarget = RequestedExecutionTarget.CONTAINER,
                 linterName = linterByImage?.name ?: yamlImage,
                 image = yamlImage,
                 ideDir = null,
@@ -497,7 +498,7 @@ class ScanCommand(
         val detectedLinter = org.jetbrains.qodana.engine.scan.ProjectDetector.detectLinter(projectDir)
         if (detectedLinter != null) {
             return AnalyzerResolution(
-                analysisMode = AnalysisMode.CONTAINER,
+                requestedTarget = RequestedExecutionTarget.CONTAINER,
                 linterName = detectedLinter.name,
                 image = detectedLinter.image(),
                 ideDir = null,
@@ -505,7 +506,7 @@ class ScanCommand(
         }
 
         return AnalyzerResolution(
-            analysisMode = AnalysisMode.CONTAINER,
+            requestedTarget = RequestedExecutionTarget.CONTAINER,
             linterName = Linters.JVM.name,
             image = Linters.JVM.image(),
             ideDir = null,
@@ -516,10 +517,10 @@ class ScanCommand(
         projectDir: Path,
         repositoryRoot: Path,
         linterName: String,
-        isContainer: Boolean,
+        pathLayout: ExecutionProfile.PathLayout,
     ): ScanPaths {
         val normalizedCacheOverride = cacheDir?.toAbsolutePath()?.normalize()
-        val defaultPaths = if (isContainer) {
+        val defaultPaths = if (pathLayout == ExecutionProfile.PathLayout.IN_DOCKER) {
             Triple(Path.of("/data/results"), Path.of("/data/cache"), Path.of("/data/results/report"))
         } else {
             val linterDir = qodanaSystemDir(normalizedCacheOverride).resolve(computeScanId(linterName, projectDir))
@@ -615,12 +616,12 @@ class ScanCommand(
     }
 
     private fun prepareEffectiveConfigDir(
-        analysisMode: AnalysisMode,
+        executionProfile: ExecutionProfile,
         projectDir: Path,
         cacheDir: Path,
         customConfigName: String?,
     ): Path? {
-        if (analysisMode != AnalysisMode.NATIVE) return null
+        if (executionProfile.kind != ExecutionProfile.Kind.NATIVE) return null
 
         val effectiveDir = cacheDir.resolve("effective-config")
         runCatching {
@@ -694,7 +695,7 @@ class ScanCommand(
     }
 
     private data class AnalyzerResolution(
-        val analysisMode: AnalysisMode,
+        val requestedTarget: RequestedExecutionTarget,
         val linterName: String?,
         val image: String?,
         val ideDir: Path?,

@@ -12,7 +12,8 @@ import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.engine.cloud.CloudClient
 import org.jetbrains.qodana.engine.cloud.parseProjectName
 import org.jetbrains.qodana.engine.cloud.parseRawUrl
-import org.jetbrains.qodana.engine.env.CiDetector
+import org.jetbrains.qodana.engine.env.RuntimeEnvironment
+import org.jetbrains.qodana.engine.env.RuntimeEnvironmentDetector
 import org.jetbrains.qodana.engine.http.OkHttpTransport
 import org.jetbrains.qodana.engine.model.AuthContext
 import org.jetbrains.qodana.engine.port.HttpTransport
@@ -28,7 +29,7 @@ class SendCommand(
     private val getEnv: (String) -> String? = System::getenv,
     private val tokenStore: TokenStore = FileTokenStore(),
     private val httpTransport: HttpTransport = OkHttpTransport(),
-    private val isContainer: () -> Boolean = CiDetector::isContainer,
+    private val runtimeEnvironmentDetector: () -> RuntimeEnvironment = { RuntimeEnvironmentDetector.detect() },
 ) : CliktCommand("send") {
 
     override fun help(context: Context) = "Send Qodana report to Qodana Cloud"
@@ -62,7 +63,7 @@ class SendCommand(
             resultsDir = resultsDir,
             cacheDir = null,
             reportDir = reportDir,
-            isContainer = isContainer(),
+            runtimeEnvironment = runtimeEnvironmentDetector(),
         )
 
         val auth = AuthContext(
@@ -149,7 +150,7 @@ class SendCommand(
             throw ProgramResult(1)
         }
 
-        if (!isContainer()) {
+        if (runtimeEnvironmentDetector() == RuntimeEnvironment.HOST) {
             terminal.println("Linked $cloudRoot project: $projectName")
         }
     }

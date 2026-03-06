@@ -8,8 +8,8 @@ import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
-import org.jetbrains.qodana.engine.env.CiDetector
 import org.jetbrains.qodana.core.port.Terminal
+import org.jetbrains.qodana.engine.env.RuntimeEnvironmentDetector
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -39,7 +39,7 @@ class ShowCommand(
             resultsDir = resultsDir,
             cacheDir = null,
             reportDir = reportDir,
-            isContainer = CiDetector.isContainer(),
+            runtimeEnvironment = RuntimeEnvironmentDetector.detect(),
         )
         val dir = resolvedPaths.reportDir
 
