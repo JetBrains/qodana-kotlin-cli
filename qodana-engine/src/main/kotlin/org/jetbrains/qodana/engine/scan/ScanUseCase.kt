@@ -1,7 +1,9 @@
 package org.jetbrains.qodana.engine.scan
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ObjectNode
 import org.jetbrains.qodana.core.env.QodanaEnv
+import org.jetbrains.qodana.core.product.Linters
 import org.jetbrains.qodana.engine.cloud.LicenseValidator
 import org.jetbrains.qodana.engine.config.EffectiveConfig
 import org.jetbrains.qodana.engine.fs.FileUtils
@@ -10,6 +12,8 @@ import org.jetbrains.qodana.engine.report.ReportProcessor
 import org.jetbrains.qodana.engine.report.ReportPublishUseCase
 import org.jetbrains.qodana.engine.report.BitBucketExporter
 import org.jetbrains.qodana.engine.report.CodeClimateExporter
+import org.jetbrains.qodana.engine.report.SarifUtils
+import org.jetbrains.qodana.engine.report.SarifVersioning
 import org.jetbrains.qodana.engine.startup.PrepareHost
 import org.jetbrains.qodana.core.model.ExitCode
 import org.jetbrains.qodana.engine.model.AnalysisMode
@@ -17,6 +21,7 @@ import org.jetbrains.qodana.engine.model.RunScenario
 import org.jetbrains.qodana.engine.model.ScanContext
 import org.jetbrains.qodana.engine.model.ScanContextUtils
 import org.jetbrains.qodana.engine.port.GitClient
+import org.jetbrains.qodana.engine.startup.DeviceId
 import org.jetbrains.qodana.core.port.Terminal
 import org.slf4j.LoggerFactory
 import java.nio.file.Files
@@ -81,6 +86,7 @@ class ScanUseCase(
         validateGit(contextForAnalysis)
 
         val exitCode = runAnalysis(contextForAnalysis)
+        enrichSarifMetadata(contextForAnalysis)
         handleSpecialExitCode(exitCode, contextForAnalysis)?.let { mapped ->
             return mapped
         }
@@ -185,6 +191,91 @@ class ScanUseCase(
             terminal.error("Bootstrap failed with exit code $exitCode")
         }
         return exitCode
+    }
+
+    private suspend fun enrichSarifMetadata(context: ScanContext) {
+        val sarifPath = context.paths.resultsDir.resolve(SARIF_FILENAME)
+        if (!Files.exists(sarifPath)) return
+
+        val root = runCatching {
+            JSON_MAPPER.readTree(Files.readString(sarifPath))
+        }.getOrElse { error ->
+            terminal.warn("Failed to read SARIF for metadata enrichment: ${error.message}")
+            return
+        }
+
+        val runs = root.path("runs")
+        if (!runs.isArray || runs.size() == 0) return
+        val runNode = runs[0] as? ObjectNode ?: return
+
+        val versionDetails = runCatching {
+            SarifVersioning(gitClient).getVersionDetails(
+                projectDir = context.paths.projectDir,
+                envRemoteUrl = context.ci.remoteUrl,
+                envBranch = context.ci.branch,
+                envRevision = context.ci.revision,
+            )
+        }.getOrElse { error ->
+            terminal.debug("Failed to resolve version control details: ${error.message}")
+            org.jetbrains.qodana.engine.report.VersionControlDetails()
+        }
+
+        val remoteUrl = versionDetails.repositoryUri.ifBlank { context.ci.remoteUrl.orEmpty() }
+        val deviceId = DeviceId.getDeviceIdSalt(remoteUrl = remoteUrl).deviceId
+        val runProperties = (runNode.get("properties") as? ObjectNode) ?: JSON_MAPPER.createObjectNode().also {
+            runNode.set<ObjectNode>("properties", it)
+        }
+        runProperties.put("deviceId", deviceId)
+
+        if (versionDetails.repositoryUri.isNotBlank() ||
+            versionDetails.branch.isNotBlank() ||
+            versionDetails.revisionId.isNotBlank()
+        ) {
+            val versionNode = JSON_MAPPER.createObjectNode().apply {
+                put("repositoryUri", versionDetails.repositoryUri)
+                put("branch", versionDetails.branch)
+                put("revisionId", versionDetails.revisionId)
+                set<ObjectNode>(
+                    "properties",
+                    JSON_MAPPER.createObjectNode().apply {
+                        put("repoUrl", versionDetails.repositoryUri)
+                        put("vcsType", "Git")
+                        put("lastAuthorName", versionDetails.lastAuthorName)
+                        put("lastAuthorEmail", versionDetails.lastAuthorEmail)
+                    },
+                )
+            }
+            val provenance = JSON_MAPPER.createArrayNode()
+            provenance.add(versionNode)
+            runNode.set<ObjectNode>("versionControlProvenance", provenance)
+        }
+
+        val automationNode = (runNode.get("automationDetails") as? ObjectNode) ?: JSON_MAPPER.createObjectNode()
+        if (automationNode.path("guid").asText().isBlank()) {
+            automationNode.put("guid", SarifUtils.runGuid())
+        }
+        if (automationNode.path("id").asText().isBlank()) {
+            val productCode = context.linter
+                ?.let { Linters.findByName(it)?.productCode }
+                ?: context.linter
+                ?: "qodana"
+            automationNode.put("id", SarifUtils.reportId(productCode))
+        }
+        val automationProperties = (automationNode.get("properties") as? ObjectNode) ?: JSON_MAPPER.createObjectNode()
+        val jobUrl = context.ci.jobUrl ?: SarifUtils.jobUrl()
+        if (jobUrl.isNotBlank()) {
+            automationProperties.put("jobUrl", jobUrl)
+        }
+        if (automationProperties.size() > 0) {
+            automationNode.set<ObjectNode>("properties", automationProperties)
+        }
+        runNode.set<ObjectNode>("automationDetails", automationNode)
+
+        runCatching {
+            Files.writeString(sarifPath, JSON_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root))
+        }.onFailure { error ->
+            terminal.warn("Failed to write SARIF metadata: ${error.message}")
+        }
     }
 
     private suspend fun prepareScenarioContext(context: ScanContext): ScanContext {

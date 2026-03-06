@@ -1,6 +1,7 @@
 package org.jetbrains.qodana.engine.scan
 
 import com.jetbrains.qodana.sarif.SarifUtil
+import com.fasterxml.jackson.databind.ObjectMapper
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
@@ -303,6 +304,39 @@ class ScanUseCaseTest {
         assertEquals(ExitCode.SUCCESS.code, result)
         val command = recordingContainerEngine.lastSpec?.cmd ?: emptyList()
         assertEquals("custom-script", scriptArg(command))
+    }
+
+    @Test
+    fun `analysis enriches sarif with automation and vcs metadata`() = runTest {
+        val gitClient = RecordingGitClient(currentRevision = "abc123")
+        val useCase = buildScanUseCase(gitClient = gitClient)
+        val context = buildContext(nativeMode = true).copy(
+            ci = CiContext(
+                remoteUrl = "https://example.com/repo.git",
+                branch = "main",
+                revision = "abc123",
+                jobUrl = "https://ci.example/job/42",
+            ),
+            linter = "qodana-jvm",
+        )
+
+        val result = useCase.run(context)
+
+        assertEquals(ExitCode.SUCCESS.code, result)
+        val root = ObjectMapper().readTree(Files.readString(resultsDir.resolve("qodana.sarif.json")))
+        val run = root.path("runs").path(0)
+        assertTrue(run.path("properties").path("deviceId").asText().isNotBlank())
+        assertTrue(run.path("automationDetails").path("guid").asText().isNotBlank())
+        assertEquals(
+            "https://ci.example/job/42",
+            run.path("automationDetails").path("properties").path("jobUrl").asText()
+        )
+        assertEquals(
+            "https://example.com/repo.git",
+            run.path("versionControlProvenance").path(0).path("repositoryUri").asText()
+        )
+        assertEquals("main", run.path("versionControlProvenance").path(0).path("branch").asText())
+        assertEquals("abc123", run.path("versionControlProvenance").path(0).path("revisionId").asText())
     }
 
     @Test
