@@ -275,6 +275,25 @@ class BitBucketExporterTest {
         )
         val selfHostedBase = "https://bitbucket.example.com/rest/api/1.0/repositories/myworkspace/myrepo/commit/deadbeef/reports"
         assertEquals("$selfHostedBase/custom-report", selfHostedHttp.posts[0].url)
+
+        val pipelineHttp = RecordingHttp()
+        val pipelineEnv = mapOf("BITBUCKET_PIPELINE_UUID" to "{1234-uuid}")
+        val pipelineExporter = BitBucketExporter(
+            sarifService = BitBucketFakeSarifService(),
+            http = pipelineHttp,
+            getEnv = { key -> pipelineEnv[key] },
+        )
+        pipelineExporter.export(
+            resultsDir = dir,
+            bitbucketUrl = "https://bitbucket.example.com/scm/PROJ/repo",
+            workspace = "myworkspace",
+            repoSlug = "myrepo",
+            commitHash = "deadbeef",
+            token = "tok",
+            reportId = "custom-report",
+        )
+        val pipelineBase = "http://api.bitbucket.org/2.0/repositories/myworkspace/myrepo/commit/deadbeef/reports"
+        assertEquals("$pipelineBase/custom-report", pipelineHttp.posts[0].url)
     }
 }
 
