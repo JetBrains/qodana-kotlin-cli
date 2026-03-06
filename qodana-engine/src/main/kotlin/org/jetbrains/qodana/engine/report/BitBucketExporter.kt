@@ -2,9 +2,13 @@ package org.jetbrains.qodana.engine.report
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.kotlinModule
+import com.jetbrains.qodana.sarif.model.Result
+import com.jetbrains.qodana.sarif.model.SarifReport
+import org.jetbrains.qodana.engine.cloud.getReportUrl
 import org.jetbrains.qodana.engine.port.HttpTransport
 import org.jetbrains.qodana.core.port.SarifService
 import java.nio.file.Path
+import java.net.URI
 
 class BitBucketExporter(
     private val sarifService: SarifService,
@@ -13,6 +17,23 @@ class BitBucketExporter(
     companion object {
         private const val SARIF_FILENAME = "qodana.sarif.json"
         private const val MAX_ANNOTATIONS_PER_REQUEST = 100
+        private const val MAX_ANNOTATIONS_TOTAL = 1000
+        private const val DEFAULT_CLOUD_API = "https://api.bitbucket.org/2.0"
+        private const val DEFAULT_REPORT_TITLE = "Qodana Analysis"
+        private const val BITBUCKET_REPORTER = "JetBrains Qodana"
+        private const val BITBUCKET_LOGO_URL = "https://avatars.githubusercontent.com/u/139879315"
+        private const val ANNOTATION_TYPE = "CODE_SMELL"
+
+        private val BITBUCKET_SEVERITY = mapOf(
+            "error" to "HIGH",
+            "warning" to "MEDIUM",
+            "note" to "LOW",
+            "critical" to "HIGH",
+            "high" to "HIGH",
+            "moderate" to "MEDIUM",
+            "low" to "LOW",
+            "info" to "INFO",
+        )
     }
 
     private val mapper: ObjectMapper = ObjectMapper()
@@ -26,15 +47,28 @@ class BitBucketExporter(
         commitHash: String,
         token: String,
         reportId: String = "qodana",
-        reportTitle: String = "Qodana Analysis",
+        reportTitle: String = DEFAULT_REPORT_TITLE,
     ) {
         val sarifPath = resultsDir.resolve(SARIF_FILENAME)
-        val report = sarifService.read(sarifPath)
-        val annotations = convertToAnnotations(report)
+        val report = sarifService.read(sarifPath) as? SarifReport ?: return
+        val reportLink = getReportUrl(resultsDir.toString()).ifBlank { "" }
+        val annotations = convertToAnnotations(report, reportLink).take(MAX_ANNOTATIONS_TOTAL)
+        val effectiveTitle = if (reportTitle == DEFAULT_REPORT_TITLE) {
+            resolveToolName(report)
+        } else {
+            reportTitle
+        }
 
-        val baseUrl = "${bitbucketUrl.trimEnd('/')}/2.0/repositories/$workspace/$repoSlug/commit/$commitHash/reports"
+        val baseUrl = "${resolveApiBaseUrl(bitbucketUrl)}/repositories/$workspace/$repoSlug/commit/$commitHash/reports"
 
-        createReport(baseUrl, token, reportId, reportTitle, annotations.size)
+        createReport(
+            baseUrl = baseUrl,
+            token = token,
+            reportId = reportId,
+            reportTitle = effectiveTitle,
+            totalAnnotations = annotations.size,
+            reportLink = reportLink,
+        )
         postAnnotations(baseUrl, token, reportId, annotations)
     }
 
@@ -44,12 +78,15 @@ class BitBucketExporter(
         reportId: String,
         reportTitle: String,
         totalAnnotations: Int,
+        reportLink: String,
     ) {
         val body = mapper.writeValueAsBytes(mapOf(
             "title" to reportTitle,
-            "details" to "Qodana found $totalAnnotations issue(s)",
+            "details" to problemsFoundMessage(totalAnnotations),
             "report_type" to "BUG",
-            "reporter" to "Qodana",
+            "reporter" to BITBUCKET_REPORTER,
+            "logo_url" to BITBUCKET_LOGO_URL,
+            "link" to reportLink,
             "result" to if (totalAnnotations == 0) "PASSED" else "FAILED",
         ))
 
@@ -84,47 +121,101 @@ class BitBucketExporter(
         "Authorization" to "Bearer $token",
     )
 
-    @Suppress("UNCHECKED_CAST")
-    private fun convertToAnnotations(report: Any): List<Map<String, Any>> {
-        val runs = (report as? Map<String, Any>)?.get("runs") as? List<Map<String, Any>>
-            ?: return emptyList()
+    private fun convertToAnnotations(report: SarifReport, reportLink: String): List<Map<String, Any>> {
+        val annotations = mutableListOf<Map<String, Any>>()
 
-        return runs.flatMap { run ->
-            val results = run["results"] as? List<Map<String, Any>> ?: emptyList()
-            results.mapIndexedNotNull { index, result -> convertResult(result, index) }
+        for (run in report.runs ?: emptyList()) {
+            val ruleDescriptions = (run.tool?.extensions ?: emptySet())
+                .flatMap { component -> component.rules ?: emptyList() }
+                .associate { rule -> rule.id to (rule.shortDescription?.text ?: "") }
+
+            for (result in run.results ?: emptyList()) {
+                if (result.locations.isNullOrEmpty() || result.baselineState == Result.BaselineState.UNCHANGED) {
+                    continue
+                }
+                val annotation = convertResult(result, ruleDescriptions[result.ruleId] ?: "", reportLink)
+                if (annotation != null) {
+                    annotations += annotation
+                }
+            }
         }
+
+        return annotations
     }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun convertResult(result: Map<String, Any>, index: Int): Map<String, Any>? {
-        val ruleId = result["ruleId"] as? String ?: return null
-        val message = (result["message"] as? Map<String, Any>)?.get("text") as? String ?: ""
-        val locations = result["locations"] as? List<Map<String, Any>> ?: emptyList()
-        val location = locations.firstOrNull()
-        val physicalLocation = location?.get("physicalLocation") as? Map<String, Any>
-        val artifactLocation = physicalLocation?.get("artifactLocation") as? Map<String, Any>
-        val region = physicalLocation?.get("region") as? Map<String, Any>
-
-        val path = artifactLocation?.get("uri") as? String ?: ""
-        val line = (region?.get("startLine") as? Number)?.toInt() ?: 1
-
-        val severity = mapSeverity(result["level"] as? String)
+    private fun convertResult(result: Result, ruleDescription: String, reportLink: String): Map<String, Any>? {
+        val ruleId = result.ruleId ?: return null
+        val message = result.message?.text ?: ""
+        val location = result.locations?.firstOrNull()?.physicalLocation
+        val fingerprint = readFingerprint(result)
+            ?: throw IllegalStateException("failed to get fingerprint from result: $result")
+        val path = location?.artifactLocation?.uri ?: ""
+        val line = location?.region?.startLine ?: 0
+        val severity = mapSeverity(resolveSeverity(result))
 
         return buildMap {
-            put("external_id", "qodana-$index")
-            put("title", ruleId)
-            put("annotation_type", "BUG")
-            put("summary", message)
+            put("external_id", fingerprint)
+            put("annotation_type", ANNOTATION_TYPE)
+            put("summary", "$ruleId: $message")
+            put("details", ruleDescription)
             put("severity", severity)
             put("path", path)
             put("line", line)
+            put("link", reportLink)
         }
     }
 
-    private fun mapSeverity(level: String?): String = when (level) {
-        "error" -> "CRITICAL"
-        "warning" -> "HIGH"
-        "note" -> "MEDIUM"
-        else -> "LOW"
+    private fun resolveSeverity(result: Result): String {
+        val qodanaSeverity = result.properties?.get("qodanaSeverity") as? String
+        if (!qodanaSeverity.isNullOrBlank()) {
+            return qodanaSeverity.lowercase()
+        }
+        return result.level?.value() ?: "note"
+    }
+
+    private fun mapSeverity(severity: String): String {
+        return BITBUCKET_SEVERITY[severity] ?: "LOW"
+    }
+
+    private fun readFingerprint(result: Result): String? {
+        val partialFingerprints = result.partialFingerprints ?: return null
+        return partialFingerprints.getLastValue("equalIndicator")
+    }
+
+    private fun resolveToolName(report: SarifReport): String {
+        val firstRun = report.runs?.firstOrNull()
+        val toolName = firstRun?.tool?.driver?.fullName ?: ""
+        return "$toolName "
+    }
+
+    private fun problemsFoundMessage(count: Int): String {
+        return when (count) {
+            0 -> "It seems all right 👌 No new problems found according to the checks applied"
+            1 -> "Found 1 new problem according to the checks applied"
+            else -> "Found $count new problems according to the checks applied"
+        }
+    }
+
+    private fun resolveApiBaseUrl(rawUrl: String): String {
+        val value = rawUrl.trim()
+        if (value.isBlank()) return DEFAULT_CLOUD_API
+
+        val normalized = if ("://" in value) value else "https://$value"
+        val uri = runCatching { URI(normalized) }.getOrNull() ?: return DEFAULT_CLOUD_API
+
+        val scheme = uri.scheme ?: "https"
+        val host = uri.host?.lowercase() ?: return DEFAULT_CLOUD_API
+        val hostAndPort = if (uri.port > 0) "$host:${uri.port}" else host
+        val path = (uri.path ?: "").trimEnd('/')
+
+        return when {
+            host == "bitbucket.org" -> DEFAULT_CLOUD_API
+            host == "api.bitbucket.org" -> {
+                if (path.endsWith("/2.0")) "$scheme://$hostAndPort$path"
+                else "$scheme://$hostAndPort/2.0"
+            }
+            path.contains("/rest/api/") -> "$scheme://$hostAndPort$path"
+            else -> "$scheme://$hostAndPort/rest/api/1.0"
+        }
     }
 }

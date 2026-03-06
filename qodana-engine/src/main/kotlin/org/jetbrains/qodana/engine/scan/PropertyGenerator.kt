@@ -57,6 +57,12 @@ object PropertyGenerator {
         context.runtime.jvmDebugPort?.let { port ->
             appendLine("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:$port")
         }
+
+        for (flag in context.runtime.propertyFlags) {
+            if (flag.isNotBlank()) {
+                appendLine(flag)
+            }
+        }
     }
 
     /**

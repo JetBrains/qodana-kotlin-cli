@@ -8,6 +8,7 @@ import org.jetbrains.qodana.core.model.Stream
 import org.jetbrains.qodana.core.port.FileSystem
 import org.jetbrains.qodana.core.port.ProcessRunner
 import org.jetbrains.qodana.core.product.Linters
+import org.jetbrains.qodana.core.product.IntellijLinterProperties
 import org.jetbrains.qodana.engine.env.CiDetector
 import org.jetbrains.qodana.engine.model.ScanContext
 import org.slf4j.LoggerFactory
@@ -51,8 +52,13 @@ class NativeScan(
             CiDetector.unsetRubyVariables()
         }
 
+        val configDir = context.paths.cacheDir.resolve("idea-config")
+        fileSystem.createDirectories(configDir)
+
+        installPlugins(context, product, configDir)
+
         // Write VM options
-        writeProperties(context, product)
+        val runEnv = writeProperties(context, product, configDir)
 
         // Build IDE command — matches Go's getIdeRunCommand()
         val args = getIdeRunCommand(product, context)
@@ -63,7 +69,7 @@ class NativeScan(
             args = args.drop(1),
             workDir = context.paths.projectDir,
             timeout = context.runtime.timeout,
-            env = context.runtime.envVars,
+            env = runEnv,
         )
 
         val process = processRunner.start(spec)
@@ -83,6 +89,44 @@ class NativeScan(
         return readIdeExitCode(context.paths.resultsDir, processExitCode)
     }
 
+    private suspend fun installPlugins(context: ScanContext, product: IdeProduct, configDir: Path) {
+        val plugins = context.yaml?.plugins ?: emptyList()
+        if (plugins.isEmpty()) return
+        val installVmOptionsPath = configDir.resolve("install_plugins.vmoptions")
+        fileSystem.write(installVmOptionsPath, generateInstallPluginsVmOptions(context, product, configDir))
+        val installEnv = buildVmOptionsEnv(context, product, installVmOptionsPath)
+        for (plugin in plugins) {
+            if (plugin.id.isBlank()) continue
+            log.info("Installing plugin {}", plugin.id)
+            val result = processRunner.run(
+                ProcessSpec(
+                    command = product.ideScript,
+                    args = listOf("installPlugins", plugin.id),
+                    workDir = context.paths.projectDir,
+                    timeout = context.runtime.timeout,
+                    env = installEnv,
+                )
+            )
+            if (!result.isSuccess) {
+                throw IllegalStateException("Failed to install plugin ${plugin.id}: ${result.stderr}")
+            }
+        }
+    }
+
+    private fun generateInstallPluginsVmOptions(context: ScanContext, product: IdeProduct, configDir: Path): String {
+        val lines = listOf(
+            "-Didea.config.path=$configDir",
+            "-Didea.system.path=${context.paths.cacheDir.resolve("idea-system")}",
+            "-Didea.plugins.path=${context.paths.cacheDir.resolve("idea-plugins")}",
+            "-Didea.log.path=${context.paths.resultsDir.resolve("log")}",
+            "-Didea.headless.enable.statistics=false",
+            "-Dqodana.application=true",
+            "-Dintellij.platform.load.app.info.from.resources=true",
+            "-Dqodana.build.number=${product.ideCode}-${product.build}",
+        )
+        return lines.joinToString(separator = "\n")
+    }
+
     /**
      * Matches Go's `getIdeRunCommand()`:
      * `[ideScript] [inspect] qodana <args> <projectDir> <resultsDir>`
@@ -98,26 +142,27 @@ class NativeScan(
         add(context.paths.resultsDir.toString())
     }
 
-    private fun writeProperties(context: ScanContext, product: IdeProduct) {
-        val configDir = context.paths.cacheDir.resolve("idea-config")
-        fileSystem.createDirectories(configDir)
-
+    private fun writeProperties(context: ScanContext, product: IdeProduct, configDir: Path): Map<String, String> {
         PropertyGenerator.writeTo(context, configDir) { path, content ->
             fileSystem.write(path, content)
         }
-
-        // Set VM options env var like Go does
-        val linterProps = context.linter?.let { Linters.findByName(it) }
-            ?.let { org.jetbrains.qodana.core.product.IntellijLinterProperties.findByLinter(it) }
-        if (linterProps != null) {
-            val vmOptionsPath = configDir.resolve("idea64.vmoptions").toString()
-            System.setProperty(linterProps.vmOptionsEnv, vmOptionsPath)
-        }
-
         log.debug("Wrote IDE property files to {}", configDir)
+        return buildVmOptionsEnv(context, product, configDir.resolve("idea64.vmoptions"))
+    }
+
+    private fun buildVmOptionsEnv(context: ScanContext, product: IdeProduct, vmOptionsPath: Path): Map<String, String> {
+        val linterProperties = context.linter?.let { Linters.findByName(it) }?.let { IntellijLinterProperties.findByLinter(it) }
+            ?: IntellijLinterProperties.findByProductInfoCode(product.ideCode)
+            ?: return context.runtime.envVars
+        return context.runtime.envVars + (linterProperties.vmOptionsEnv to vmOptionsPath.toString())
     }
 
     private fun readIdeExitCode(resultsDir: Path, processExitCode: Int): Int {
+        if (processExitCode != 0) {
+            log.info("IDE process exited with non-zero code {}; SARIF exit code is ignored", processExitCode)
+            return processExitCode
+        }
+
         val sarifPath = resultsDir.resolve(SARIF_FILENAME)
         if (!fileSystem.exists(sarifPath)) {
             log.debug("No SARIF file at {}; using process exit code {}", sarifPath, processExitCode)
@@ -129,6 +174,10 @@ class NativeScan(
             val match = EXIT_CODE_PATTERN.find(content)
             if (match != null) {
                 val sarifExitCode = match.groupValues[1].toInt()
+                if (sarifExitCode < 0 || sarifExitCode > 255) {
+                    log.warn("Wrong exitCode in SARIF: {}. Falling back to 1", sarifExitCode)
+                    return 1
+                }
                 log.info("SARIF exit code: {} (process exit code was {})", sarifExitCode, processExitCode)
                 sarifExitCode
             } else {

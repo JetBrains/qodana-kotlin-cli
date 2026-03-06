@@ -12,26 +12,28 @@ import org.jetbrains.qodana.engine.model.ScanContext
  * [NativeScan.getIdeRunCommand].
  */
 object IdeArgBuilder {
+    private const val CONTAINER_REPOSITORY_ROOT = "/data/project"
+    private const val CONTAINER_GLOBAL_CONFIG_DIR = "/data/config"
 
     fun build(context: ScanContext, product: IdeProduct? = null): List<String> = buildList {
-        // --config (effective configuration dir)
-        context.runtime.effectiveConfigDir?.let {
+        context.runtime.customConfigName?.takeIf { it.isNotBlank() }?.let {
             add("--config")
-            add(it.toString())
+            add(it)
         }
 
-        // --save-report (container only)
         if (context.docker.image != null && context.report.saveReport) {
             add("--save-report")
         }
 
-        // --only-directory
         context.runtime.onlyDirectory?.let {
             add("--only-directory")
             add(it)
         }
 
-        // --profile-name / --profile-path
+        if (context.runtime.disableSanity) {
+            add("--disable-sanity")
+        }
+
         context.profile?.let { profile ->
             profile.name?.let {
                 add("--profile-name")
@@ -43,13 +45,11 @@ object IdeArgBuilder {
             }
         }
 
-        // --run-promo
-        context.yaml?.runPromoInspections?.let {
+        (context.runtime.runPromo ?: context.yaml?.runPromoInspections)?.let {
             add("--run-promo")
             add(it)
         }
 
-        // --script (only if non-default)
         context.runtime.script.let {
             if (it.isNotEmpty() && it != "default") {
                 add("--script")
@@ -57,7 +57,6 @@ object IdeArgBuilder {
             }
         }
 
-        // --baseline / --baseline-include-absent / --fail-threshold
         context.report.baselinePath?.let {
             add("--baseline")
             add(it.toString())
@@ -70,8 +69,7 @@ object IdeArgBuilder {
             add(it.toString())
         }
 
-        // Fixes — matches Go: only for native mode on 233+ or container mode
-        val isNative = !context.nativeMode.not()
+        val isNative = context.analysisMode == org.jetbrains.qodana.engine.model.AnalysisMode.NATIVE
         if (product != null && product.is233orNewer() && isNative) {
             if (context.runtime.applyFixes) {
                 add("--apply-fixes")
@@ -93,8 +91,17 @@ object IdeArgBuilder {
             }
         }
 
-        // Container-specific args
-        if (!context.nativeMode) {
+        if (context.analysisMode == org.jetbrains.qodana.engine.model.AnalysisMode.CONTAINER) {
+            val relativeProjectDir = runCatching {
+                context.paths.repositoryRoot.relativize(context.paths.projectDir).toString()
+            }.getOrDefault("")
+            if (relativeProjectDir.isNotBlank() && relativeProjectDir != ".") {
+                add("--project-dir")
+                add("$CONTAINER_REPOSITORY_ROOT/$relativeProjectDir")
+                add("--repository-root")
+                add(CONTAINER_REPOSITORY_ROOT)
+            }
+
             context.runtime.diffStart?.let {
                 if (context.runtime.script == "default") {
                     add("--diff-start")
@@ -106,6 +113,10 @@ object IdeArgBuilder {
                     add("--diff-end")
                     add(it)
                 }
+            }
+
+            if (context.runtime.forceLocalChangesScript && context.runtime.script == "default") {
+                add("--force-local-changes-script")
             }
 
             context.runtime.analysisId?.let {
@@ -124,7 +135,11 @@ object IdeArgBuilder {
             }
             context.runtime.globalConfigDir?.let {
                 add("--global-config-dir")
-                add(it.toString())
+                add(CONTAINER_GLOBAL_CONFIG_DIR)
+            }
+            context.runtime.globalConfigId?.let {
+                add("--global-config-id")
+                add(it)
             }
             if (context.report.outputFormats.any { it == ReportOptions.OutputFormat.CODE_CLIMATE }) {
                 add("--code-climate")
@@ -132,8 +147,29 @@ object IdeArgBuilder {
             context.runtime.properties.forEach { (key, value) ->
                 add("--property=$key=$value")
             }
+            context.runtime.propertyFlags.forEach { flag ->
+                add("--property=$flag")
+            }
+
+            if (context.runtime.noStatistics) {
+                add("--no-statistics")
+            }
+
+            when (context.linter) {
+                "qodana-cdnet", "qodana-dotnet" -> {
+                    context.runtime.cdnetSolution?.let { addAll(listOf("--solution", it)) }
+                    context.runtime.cdnetProject?.let { addAll(listOf("--project", it)) }
+                    context.runtime.cdnetConfiguration?.let { addAll(listOf("--configuration", it)) }
+                    context.runtime.cdnetPlatform?.let { addAll(listOf("--platform", it)) }
+                    if (context.runtime.cdnetNoBuild) add("--no-build")
+                }
+
+                "qodana-clang", "qodana-cpp" -> {
+                    context.runtime.clangCompileCommands?.let { addAll(listOf("--compile-commands", it)) }
+                    context.runtime.clangArgs?.let { addAll(listOf("--clang-args", it)) }
+                }
+            }
         } else if (product != null && product.is251orNewer()) {
-            // Native mode on 251+: --config-dir
             context.runtime.effectiveConfigDir?.let {
                 add("--config-dir")
                 add(it.toString())

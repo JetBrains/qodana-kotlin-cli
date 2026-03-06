@@ -48,12 +48,15 @@ class ContributorAnalyzer(private val gitClient: GitClient) {
         days: Int,
         excludeBots: Boolean = true,
     ): ContributorsReport {
-        val cutoffDate = LocalDate.now().minusDays(days.toLong())
+        val cutoffDate = if (days > 0) LocalDate.now().minusDays(days.toLong()) else null
         val allCommits = repoDirs.flatMap { repoDir ->
             collectCommits(repoDir, cutoffDate)
         }
 
-        val filtered = if (excludeBots) allCommits.filter { !isBot(it) } else allCommits
+        val withoutQodanaBot = allCommits.filterNot { commit ->
+            commit.email.equals("qodana-support@jetbrains.com", ignoreCase = true)
+        }
+        val filtered = if (excludeBots) withoutQodanaBot.filter { !isBot(it) } else withoutQodanaBot
 
         val grouped = filtered.groupBy { it.authorId }
 
@@ -76,14 +79,15 @@ class ContributorAnalyzer(private val gitClient: GitClient) {
         )
     }
 
-    private suspend fun collectCommits(repoDir: Path, cutoffDate: LocalDate): List<ParsedCommit> {
-        val logOutput = gitClient.log(repoDir, LOG_FORMAT).getOrElse { return emptyList() }
+    private suspend fun collectCommits(repoDir: Path, cutoffDate: LocalDate?): List<ParsedCommit> {
+        val logOutput = gitClient.log(repoDir, LOG_FORMAT, allBranches = true).getOrElse { return emptyList() }
         val project = resolveProjectName(repoDir)
 
         return logOutput.lines()
             .filter { it.isNotBlank() }
             .mapNotNull { line -> parseLine(line, project) }
             .filter { commit ->
+                if (cutoffDate == null) return@filter true
                 try {
                     val commitDate = LocalDate.parse(
                         commit.date.substringBefore(" "),

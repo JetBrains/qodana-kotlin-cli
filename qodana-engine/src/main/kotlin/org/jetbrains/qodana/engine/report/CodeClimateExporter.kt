@@ -2,6 +2,8 @@ package org.jetbrains.qodana.engine.report
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.kotlinModule
+import com.jetbrains.qodana.sarif.model.Result
+import com.jetbrains.qodana.sarif.model.SarifReport
 import org.jetbrains.qodana.core.port.SarifService
 import java.nio.file.Path
 
@@ -10,7 +12,18 @@ class CodeClimateExporter(
 ) {
     companion object {
         private const val SARIF_FILENAME = "qodana.sarif.json"
-        private const val CODE_CLIMATE_FILENAME = "code-climate.json"
+        private const val CODE_CLIMATE_FILENAME = "gl-code-quality-report.json"
+
+        private val CODE_CLIMATE_SEVERITY = mapOf(
+            "error" to "critical",
+            "warning" to "major",
+            "note" to "minor",
+            "critical" to "blocker",
+            "high" to "critical",
+            "moderate" to "major",
+            "low" to "minor",
+            "info" to "info",
+        )
     }
 
     private val mapper: ObjectMapper = ObjectMapper()
@@ -18,45 +31,37 @@ class CodeClimateExporter(
 
     fun export(resultsDir: Path) {
         val sarifPath = resultsDir.resolve(SARIF_FILENAME)
-        val report = sarifService.read(sarifPath)
+        val report = sarifService.read(sarifPath) as? SarifReport ?: return
         val issues = convertToCodeClimate(report)
         val outputPath = resultsDir.resolve(CODE_CLIMATE_FILENAME)
         mapper.writerWithDefaultPrettyPrinter().writeValue(outputPath.toFile(), issues)
     }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun convertToCodeClimate(report: Any): List<Map<String, Any>> {
-        val runs = (report as? Map<String, Any>)?.get("runs") as? List<Map<String, Any>>
-            ?: return emptyList()
-
-        return runs.flatMap { run ->
-            val results = run["results"] as? List<Map<String, Any>> ?: emptyList()
-            results.mapNotNull { result -> convertResult(result) }
+    private fun convertToCodeClimate(report: SarifReport): List<Map<String, Any>> {
+        return (report.runs ?: emptyList()).flatMap { run ->
+            (run.results ?: emptyList())
+                .filter { result ->
+                    !result.locations.isNullOrEmpty() && result.baselineState != Result.BaselineState.UNCHANGED
+                }
+                .mapNotNull { result -> convertResult(result) }
         }
     }
 
-    @Suppress("UNCHECKED_CAST")
-    private fun convertResult(result: Map<String, Any>): Map<String, Any>? {
-        val ruleId = result["ruleId"] as? String ?: return null
-        val message = (result["message"] as? Map<String, Any>)?.get("text") as? String ?: ""
-        val locations = result["locations"] as? List<Map<String, Any>> ?: emptyList()
-        val location = locations.firstOrNull()
-        val physicalLocation = (location?.get("physicalLocation") as? Map<String, Any>)
-        val artifactLocation = physicalLocation?.get("artifactLocation") as? Map<String, Any>
-        val region = physicalLocation?.get("region") as? Map<String, Any>
-
-        val path = artifactLocation?.get("uri") as? String ?: ""
-        val line = (region?.get("startLine") as? Number)?.toInt() ?: 1
-
-        val severity = mapSeverity(result["level"] as? String)
+    private fun convertResult(result: Result): Map<String, Any>? {
+        val ruleId = result.ruleId ?: return null
+        val message = result.message?.text ?: ""
+        val location = result.locations?.firstOrNull()?.physicalLocation
+        val path = location?.artifactLocation?.uri ?: ""
+        val line = location?.region?.startLine ?: 0
+        val severity = mapSeverity(resolveSeverity(result))
+        val fingerprint = readFingerprint(result)
+            ?: throw IllegalStateException("failed to get fingerprint from result: $result")
 
         return buildMap {
-            put("type", "issue")
             put("check_name", ruleId)
             put("description", message)
+            put("fingerprint", fingerprint)
             put("severity", severity)
-            put("categories", listOf("Bug Risk"))
-            put("fingerprint", buildFingerprint(ruleId, path, line))
             put("location", mapOf(
                 "path" to path,
                 "lines" to mapOf("begin" to line),
@@ -64,15 +69,20 @@ class CodeClimateExporter(
         }
     }
 
-    private fun mapSeverity(level: String?): String = when (level) {
-        "error" -> "critical"
-        "warning" -> "major"
-        "note" -> "minor"
-        else -> "info"
+    private fun resolveSeverity(result: Result): String {
+        val qodanaSeverity = result.properties?.get("qodanaSeverity") as? String
+        if (!qodanaSeverity.isNullOrBlank()) {
+            return qodanaSeverity.lowercase()
+        }
+        return result.level?.value() ?: "note"
     }
 
-    private fun buildFingerprint(ruleId: String, path: String, line: Int): String {
-        val raw = "$ruleId:$path:$line"
-        return raw.hashCode().toUInt().toString(16).padStart(8, '0')
+    private fun mapSeverity(severity: String): String {
+        return CODE_CLIMATE_SEVERITY[severity] ?: ""
+    }
+
+    private fun readFingerprint(result: Result): String? {
+        val partialFingerprints = result.partialFingerprints ?: return null
+        return partialFingerprints.getLastValue("equalIndicator")
     }
 }

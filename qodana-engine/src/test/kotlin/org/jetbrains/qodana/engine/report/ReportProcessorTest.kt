@@ -1,11 +1,14 @@
 package org.jetbrains.qodana.engine.report
 
+import com.jetbrains.qodana.sarif.SarifUtil
+import com.jetbrains.qodana.sarif.model.SarifReport
 import org.jetbrains.qodana.core.model.BaselineResult
 import org.jetbrains.qodana.core.model.ExitCode
 import org.jetbrains.qodana.engine.model.ReportOptions
 import org.jetbrains.qodana.engine.port.ReportConverter
 import org.jetbrains.qodana.core.port.SarifService
 import org.junit.jupiter.api.Test
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -26,11 +29,11 @@ class ReportProcessorTest {
         )
 
         assertEquals(0, result.totalProblems)
-        assertEquals(ExitCode.SUCCESS, result.exitCode)
+        assertEquals(ExitCode.SUCCESS.code, result.exitCode)
     }
 
     @Test
-    fun `problems without threshold returns THRESHOLD_REACHED`() {
+    fun `problems without threshold returns SUCCESS`() {
         val sarif = FakeSarifService(problemCount = 5)
         val converter = FakeReportConverter()
         val processor = ReportProcessor(sarif, converter)
@@ -42,11 +45,11 @@ class ReportProcessorTest {
         )
 
         assertEquals(5, result.totalProblems)
-        assertEquals(ExitCode.THRESHOLD_REACHED, result.exitCode)
+        assertEquals(ExitCode.SUCCESS.code, result.exitCode)
     }
 
     @Test
-    fun `problems below failThreshold returns THRESHOLD_REACHED`() {
+    fun `problems below failThreshold returns SUCCESS`() {
         val sarif = FakeSarifService(problemCount = 3)
         val converter = FakeReportConverter()
         val processor = ReportProcessor(sarif, converter)
@@ -58,7 +61,7 @@ class ReportProcessorTest {
             failThreshold = 10,
         )
 
-        assertEquals(ExitCode.THRESHOLD_REACHED, result.exitCode)
+        assertEquals(ExitCode.SUCCESS.code, result.exitCode)
     }
 
     @Test
@@ -74,7 +77,7 @@ class ReportProcessorTest {
             failThreshold = 10,
         )
 
-        assertEquals(ExitCode.FAIL_THRESHOLD, result.exitCode)
+        assertEquals(ExitCode.FAIL_THRESHOLD.code, result.exitCode)
     }
 
     @Test
@@ -94,7 +97,7 @@ class ReportProcessorTest {
 
         assertEquals(10, result.totalProblems)
         assertEquals(0, result.newProblems)
-        assertEquals(ExitCode.SUCCESS, result.exitCode)
+        assertEquals(ExitCode.SUCCESS.code, result.exitCode)
         assertNotNull(result.baselineResult)
     }
 
@@ -149,9 +152,10 @@ private class FakeSarifService(
     private val problemCount: Int = 0,
     private val baselineResult: BaselineResult? = null,
 ) : SarifService {
+    private val report: SarifReport = createSarifReport(problemCount)
+
     override fun read(path: Path): Any {
-        val results = (1..problemCount).map { mapOf("ruleId" to "R$it", "message" to mapOf("text" to "msg")) }
-        return mapOf("runs" to listOf(mapOf("results" to results)))
+        return report
     }
 
     override fun write(path: Path, report: Any) {}
@@ -163,6 +167,31 @@ private class FakeSarifService(
     }
 
     override fun normalizePaths(reportPath: Path, projectDir: Path) {}
+
+    private fun createSarifReport(problemCount: Int): SarifReport {
+        val resultsJson = (1..problemCount).joinToString(",") { index ->
+            """{"ruleId":"R$index","message":{"text":"msg$index"}}"""
+        }
+        val sarifJson = """
+            {
+              "version": "2.1.0",
+              "runs": [
+                {
+                  "tool": {"driver": {"name": "Qodana", "version": "1"}},
+                  "results": [ $resultsJson ]
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val tempFile = Files.createTempFile("report-processor-test-", ".sarif.json")
+        return try {
+            Files.writeString(tempFile, sarifJson)
+            SarifUtil.readReport(tempFile)
+        } finally {
+            Files.deleteIfExists(tempFile)
+        }
+    }
 }
 
 private class FakeReportConverter : ReportConverter {
