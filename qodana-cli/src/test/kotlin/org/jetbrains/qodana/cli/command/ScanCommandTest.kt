@@ -3,6 +3,7 @@ package org.jetbrains.qodana.cli.command
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.core.UsageError
 import com.github.ajalt.clikt.core.parse
+import org.jetbrains.qodana.core.env.QodanaEnv
 import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.engine.model.ScanContext
 import org.junit.jupiter.api.Test
@@ -387,6 +388,55 @@ class ScanCommandTest {
         assertEquals(cacheDir.toAbsolutePath().normalize(), context.paths.cacheDir)
         assertEquals(expectedSystemDir, context.paths.resultsDir.parent.parent)
         assertEquals(context.paths.resultsDir.resolve("report"), context.paths.reportDir)
+    }
+
+    @Test
+    fun `scan uses QODANA_DIST override before CLI analyzer options`(@TempDir tmpDir: Path) {
+        val projectDir = createProject(tmpDir.resolve("project").also { Files.createDirectories(it) })
+        val distDir = tmpDir.resolve("dist").also { Files.createDirectories(it) }
+        val isMac = System.getProperty("os.name", "").lowercase().contains("mac")
+        val productInfoDir = if (isMac) distDir.resolve("Resources").also { Files.createDirectories(it) } else distDir
+        Files.writeString(productInfoDir.resolve("product-info.json"), """{"productCode":"GO"}""")
+        var capturedContext: ScanContext? = null
+        val command = ScanCommand(
+            envOverrides = mapOf(QodanaEnv.DIST to distDir.toString()),
+            scanRunner = { context ->
+                capturedContext = context
+                0
+            },
+            terminal = NoOpTerminal(),
+        )
+
+        val result = assertFailsWith<ProgramResult> {
+            command.parse(
+                listOf(
+                    "-i", projectDir.toString(),
+                    "--linter", "qodana-jvm",
+                )
+            )
+        }
+
+        assertEquals(0, result.statusCode)
+        val context = requireNotNull(capturedContext)
+        assertEquals(org.jetbrains.qodana.engine.model.AnalysisMode.NATIVE, context.analysisMode)
+        assertEquals(distDir.toAbsolutePath().normalize(), context.runtime.ideDir)
+    }
+
+    @Test
+    fun `scan fails when QODANA_DIST points to invalid distribution`(@TempDir tmpDir: Path) {
+        val projectDir = createProject(tmpDir.resolve("project").also { Files.createDirectories(it) })
+        val invalidDist = tmpDir.resolve("invalid-dist").also { Files.createDirectories(it) }
+        val command = ScanCommand(
+            envOverrides = mapOf(QodanaEnv.DIST to invalidDist.toString()),
+            scanRunner = { 0 },
+            terminal = NoOpTerminal(),
+        )
+
+        val error = assertFailsWith<UsageError> {
+            command.parse(listOf("-i", projectDir.toString()))
+        }
+
+        assertTrue(error.message.orEmpty().contains("doesn't point to valid distribution"))
     }
 
     private fun createProject(dir: Path): Path {
