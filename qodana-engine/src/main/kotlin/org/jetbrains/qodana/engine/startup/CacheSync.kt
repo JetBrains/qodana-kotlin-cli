@@ -3,6 +3,7 @@ package org.jetbrains.qodana.engine.startup
 import org.jetbrains.qodana.core.port.FileSystem
 import org.jetbrains.qodana.core.port.Terminal
 import java.nio.file.Path
+import java.nio.file.Files
 
 class CacheSync(
     private val fileSystem: FileSystem,
@@ -20,7 +21,7 @@ class CacheSync(
             return
         }
         terminal.debug("Sync IDE cache from: $src to: $dst")
-        fileSystem.copy(src, dst)
+        copyDirectoryRecursively(sourceDir = src, targetDir = dst, overwrite = overwrite)
     }
 
     fun syncConfigCache(
@@ -52,6 +53,31 @@ class CacheSync(
     fun writeFileIfNew(path: Path, content: String) {
         if (!fileSystem.exists(path)) {
             fileSystem.write(path, content)
+        }
+    }
+
+    private fun copyDirectoryRecursively(sourceDir: Path, targetDir: Path, overwrite: Boolean) {
+        val paths = fileSystem.walk(sourceDir).sortedBy { it.nameCount }
+        for (source in paths) {
+            if (Files.isSymbolicLink(source)) {
+                continue
+            }
+
+            val relative = sourceDir.relativize(source).toString()
+            val target = if (relative.isBlank()) targetDir else targetDir.resolve(relative)
+
+            if (Files.isDirectory(source)) {
+                fileSystem.createDirectories(target)
+                continue
+            }
+
+            target.parent?.let { fileSystem.createDirectories(it) }
+            if (overwrite && fileSystem.exists(target)) {
+                fileSystem.delete(target)
+            } else if (!overwrite && fileSystem.exists(target)) {
+                continue
+            }
+            fileSystem.copy(source, target)
         }
     }
 }
