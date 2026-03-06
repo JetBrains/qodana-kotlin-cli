@@ -117,6 +117,13 @@ class IdeArgBuilderTest {
         assertFalse(args.contains("--script"))
     }
 
+    @Test
+    fun `blank custom config name is ignored`() {
+        val context = nativeContext().copy(runtime = RuntimeContext(customConfigName = ""))
+        val args = IdeArgBuilder.build(context)
+        assertFalse(args.contains("--config"))
+    }
+
     // --- Container-specific args ---
 
     @Test
@@ -186,7 +193,12 @@ class IdeArgBuilderTest {
     // --- helpers ---
 
     private fun nativeContext() = ScanContext(
-        paths = ScanPaths(Path.of("/project"), Path.of("/results"), Path.of("/cache"), Path.of("/report")),
+        paths = ScanPaths(
+            projectDir = Path.of("/project"),
+            resultsDir = Path.of("/results"),
+            cacheDir = Path.of("/cache"),
+            reportDir = Path.of("/report"),
+        ),
         auth = AuthContext(token = null, endpoint = "https://qodana.cloud"),
         runtime = RuntimeContext(),
         ci = CiContext(),
@@ -196,7 +208,12 @@ class IdeArgBuilderTest {
     )
 
     private fun containerContext() = ScanContext(
-        paths = ScanPaths(Path.of("/project"), Path.of("/results"), Path.of("/cache"), Path.of("/report")),
+        paths = ScanPaths(
+            projectDir = Path.of("/project"),
+            resultsDir = Path.of("/results"),
+            cacheDir = Path.of("/cache"),
+            reportDir = Path.of("/report"),
+        ),
         auth = AuthContext(token = null, endpoint = "https://qodana.cloud"),
         runtime = RuntimeContext(),
         ci = CiContext(),

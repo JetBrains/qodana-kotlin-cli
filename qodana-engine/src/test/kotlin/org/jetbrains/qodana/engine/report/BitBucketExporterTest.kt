@@ -2,6 +2,7 @@ package org.jetbrains.qodana.engine.report
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.kotlinModule
+import com.jetbrains.qodana.sarif.SarifUtil
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.qodana.core.model.BaselineResult
 import org.jetbrains.qodana.core.port.SarifService
@@ -23,18 +24,29 @@ class BitBucketExporterTest {
         {
           "version": "2.1.0",
           "runs": [{
-            "tool": {"driver": {"name": "Qodana", "version": "1"}},
+            "tool": {
+              "driver": {"name": "Qodana", "fullName": "Qodana for JVM", "version": "1"},
+              "extensions": [{
+                "name": "rules",
+                "rules": [
+                  {"id": "TEST001", "shortDescription": {"text": "Rule 1 detail"}},
+                  {"id": "TEST002", "shortDescription": {"text": "Rule 2 detail"}}
+                ]
+              }]
+            },
             "results": [
               {
                 "ruleId": "TEST001",
                 "level": "error",
                 "message": {"text": "Found issue"},
+                "partialFingerprints": {"equalIndicator/v2": "fp-1"},
                 "locations": [{"physicalLocation": {"artifactLocation": {"uri": "src/Main.kt"}, "region": {"startLine": 10}}}]
               },
               {
                 "ruleId": "TEST002",
                 "level": "warning",
                 "message": {"text": "Another issue"},
+                "partialFingerprints": {"equalIndicator/v2": "fp-2"},
                 "locations": [{"physicalLocation": {"artifactLocation": {"uri": "src/Util.kt"}, "region": {"startLine": 5}}}]
               }
             ]
@@ -54,11 +66,10 @@ class BitBucketExporterTest {
 
     @Test
     fun `export with results posts report and annotations`(@TempDir dir: Path) = runTest {
-        val sarifPath = dir.resolve("qodana.sarif.json")
-        Files.writeString(sarifPath, sarifWithTwoResults)
+        Files.writeString(dir.resolve("qodana.sarif.json"), sarifWithTwoResults)
 
         val http = RecordingHttp()
-        val exporter = BitBucketExporter(BitBucketFakeSarifService(sarifPath), http)
+        val exporter = BitBucketExporter(BitBucketFakeSarifService(), http)
 
         exporter.export(
             resultsDir = dir,
@@ -71,26 +82,30 @@ class BitBucketExporterTest {
 
         assertEquals(2, http.posts.size, "Expected 1 report POST + 1 annotations POST")
 
-        // First POST: create report
-        val reportPost = http.posts[0]
-        val reportBody = mapper.readValue(reportPost.body, Map::class.java)
+        val reportBody = mapper.readValue(http.posts[0].body, Map::class.java)
         assertEquals("FAILED", reportBody["result"])
-        assertTrue(reportPost.url.endsWith("/reports/qodana"))
+        assertEquals("JetBrains Qodana", reportBody["reporter"])
+        assertEquals("Found 2 new problems according to the checks applied", reportBody["details"])
+        assertEquals("Qodana for JVM ", reportBody["title"])
+        assertTrue(http.posts[0].url.endsWith("/reports/qodana"))
 
-        // Second POST: annotations
-        val annotationsPost = http.posts[1]
-        val annotations = mapper.readValue(annotationsPost.body, List::class.java)
+        @Suppress("UNCHECKED_CAST")
+        val annotations = mapper.readValue(http.posts[1].body, List::class.java) as List<Map<String, Any>>
         assertEquals(2, annotations.size)
-        assertTrue(annotationsPost.url.endsWith("/reports/qodana/annotations"))
+        assertTrue(http.posts[1].url.endsWith("/reports/qodana/annotations"))
+        assertEquals("CODE_SMELL", annotations[0]["annotation_type"])
+        assertEquals("fp-1", annotations[0]["external_id"])
+        assertEquals("TEST001: Found issue", annotations[0]["summary"])
+        assertEquals("Rule 1 detail", annotations[0]["details"])
+        assertEquals("HIGH", annotations[0]["severity"])
     }
 
     @Test
     fun `export with no results posts PASSED report`(@TempDir dir: Path) = runTest {
-        val sarifPath = dir.resolve("qodana.sarif.json")
-        Files.writeString(sarifPath, sarifEmpty)
+        Files.writeString(dir.resolve("qodana.sarif.json"), sarifEmpty)
 
         val http = RecordingHttp()
-        val exporter = BitBucketExporter(BitBucketFakeSarifService(sarifPath), http)
+        val exporter = BitBucketExporter(BitBucketFakeSarifService(), http)
 
         exporter.export(
             resultsDir = dir,
@@ -105,30 +120,31 @@ class BitBucketExporterTest {
 
         val reportBody = mapper.readValue(http.posts[0].body, Map::class.java)
         assertEquals("PASSED", reportBody["result"])
+        assertEquals("It seems all right 👌 No new problems found according to the checks applied", reportBody["details"])
     }
 
     @Test
-    fun `severity mapping`(@TempDir dir: Path) = runTest {
+    fun `severity mapping uses qodanaSeverity and sarif level`(@TempDir dir: Path) = runTest {
         val sarif = """
             {
               "version": "2.1.0",
               "runs": [{
                 "tool": {"driver": {"name": "Qodana", "version": "1"}},
                 "results": [
-                  {"ruleId": "R1", "level": "error",   "message": {"text": "m"}, "locations": [{"physicalLocation": {"artifactLocation": {"uri": "f"}, "region": {"startLine": 1}}}]},
-                  {"ruleId": "R2", "level": "warning", "message": {"text": "m"}, "locations": [{"physicalLocation": {"artifactLocation": {"uri": "f"}, "region": {"startLine": 2}}}]},
-                  {"ruleId": "R3", "level": "note",    "message": {"text": "m"}, "locations": [{"physicalLocation": {"artifactLocation": {"uri": "f"}, "region": {"startLine": 3}}}]},
-                  {"ruleId": "R4", "level": "none",    "message": {"text": "m"}, "locations": [{"physicalLocation": {"artifactLocation": {"uri": "f"}, "region": {"startLine": 4}}}]}
+                  {"ruleId": "R1", "level": "error",   "message": {"text": "m"}, "partialFingerprints": {"equalIndicator/v2": "f1"}, "locations": [{"physicalLocation": {"artifactLocation": {"uri": "f"}, "region": {"startLine": 1}}}]},
+                  {"ruleId": "R2", "level": "warning", "message": {"text": "m"}, "partialFingerprints": {"equalIndicator/v2": "f2"}, "locations": [{"physicalLocation": {"artifactLocation": {"uri": "f"}, "region": {"startLine": 2}}}]},
+                  {"ruleId": "R3", "level": "note",    "message": {"text": "m"}, "partialFingerprints": {"equalIndicator/v2": "f3"}, "locations": [{"physicalLocation": {"artifactLocation": {"uri": "f"}, "region": {"startLine": 3}}}]},
+                  {"ruleId": "R4", "level": "note",    "message": {"text": "m"}, "properties": {"qodanaSeverity": "info"}, "partialFingerprints": {"equalIndicator/v2": "f4"}, "locations": [{"physicalLocation": {"artifactLocation": {"uri": "f"}, "region": {"startLine": 4}}}]},
+                  {"ruleId": "R5", "level": "warning", "message": {"text": "m"}, "properties": {"qodanaSeverity": "critical"}, "partialFingerprints": {"equalIndicator/v2": "f5"}, "locations": [{"physicalLocation": {"artifactLocation": {"uri": "f"}, "region": {"startLine": 5}}}]}
                 ]
               }]
             }
         """.trimIndent()
 
-        val sarifPath = dir.resolve("qodana.sarif.json")
-        Files.writeString(sarifPath, sarif)
+        Files.writeString(dir.resolve("qodana.sarif.json"), sarif)
 
         val http = RecordingHttp()
-        val exporter = BitBucketExporter(BitBucketFakeSarifService(sarifPath), http)
+        val exporter = BitBucketExporter(BitBucketFakeSarifService(), http)
 
         exporter.export(
             resultsDir = dir,
@@ -139,34 +155,31 @@ class BitBucketExporterTest {
             token = "tok",
         )
 
-        // Annotations are in the second POST
         @Suppress("UNCHECKED_CAST")
         val annotations = mapper.readValue(http.posts[1].body, List::class.java) as List<Map<String, Any>>
         val severities = annotations.map { it["severity"] }
-        assertEquals(listOf("CRITICAL", "HIGH", "MEDIUM", "LOW"), severities)
+        assertEquals(listOf("HIGH", "MEDIUM", "LOW", "INFO", "HIGH"), severities)
     }
 
     @Test
-    fun `annotations are batched in chunks of 100`(@TempDir dir: Path) = runTest {
-        val results = (1..150).map { i ->
-            """{"ruleId": "R$i", "level": "warning", "message": {"text": "issue $i"}, "locations": [{"physicalLocation": {"artifactLocation": {"uri": "file$i.kt"}, "region": {"startLine": $i}}}]}"""
-        }.joinToString(",\n")
-
+    fun `export skips unchanged and results without locations`(@TempDir dir: Path) = runTest {
         val sarif = """
             {
               "version": "2.1.0",
               "runs": [{
                 "tool": {"driver": {"name": "Qodana", "version": "1"}},
-                "results": [$results]
+                "results": [
+                  {"ruleId": "R1", "level": "error", "message": {"text": "a"}, "partialFingerprints": {"equalIndicator/v2": "f1"}, "locations": [{"physicalLocation": {"artifactLocation": {"uri": "f"}, "region": {"startLine": 1}}}]},
+                  {"ruleId": "R2", "level": "error", "baselineState": "unchanged", "message": {"text": "b"}, "partialFingerprints": {"equalIndicator/v2": "f2"}, "locations": [{"physicalLocation": {"artifactLocation": {"uri": "f"}, "region": {"startLine": 2}}}]},
+                  {"ruleId": "R3", "level": "error", "message": {"text": "c"}, "partialFingerprints": {"equalIndicator/v2": "f3"}, "locations": []}
+                ]
               }]
             }
         """.trimIndent()
-
-        val sarifPath = dir.resolve("qodana.sarif.json")
-        Files.writeString(sarifPath, sarif)
+        Files.writeString(dir.resolve("qodana.sarif.json"), sarif)
 
         val http = RecordingHttp()
-        val exporter = BitBucketExporter(BitBucketFakeSarifService(sarifPath), http)
+        val exporter = BitBucketExporter(BitBucketFakeSarifService(), http)
 
         exporter.export(
             resultsDir = dir,
@@ -177,22 +190,45 @@ class BitBucketExporterTest {
             token = "tok",
         )
 
-        // 1 report POST + 2 annotation POSTs (100 + 50)
-        assertEquals(3, http.posts.size, "Expected 1 report POST + 2 annotation batch POSTs")
+        @Suppress("UNCHECKED_CAST")
+        val annotations = mapper.readValue(http.posts[1].body, List::class.java) as List<Map<String, Any>>
+        assertEquals(1, annotations.size)
+        assertEquals("f1", annotations[0]["external_id"])
+    }
 
-        val batch1 = mapper.readValue(http.posts[1].body, List::class.java)
-        val batch2 = mapper.readValue(http.posts[2].body, List::class.java)
-        assertEquals(100, batch1.size)
-        assertEquals(50, batch2.size)
+    @Test
+    fun `annotations are capped to 1000 and batched by 100`(@TempDir dir: Path) = runTest {
+        val results = (1..1200).joinToString(",") { i ->
+            """{"ruleId":"R$i","level":"warning","message":{"text":"issue $i"},"partialFingerprints":{"equalIndicator/v2":"fp-$i"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"file$i.kt"},"region":{"startLine":$i}}}]}"""
+        }
+        val sarif = """{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Qodana","version":"1"}},"results":[$results]}]}"""
+        Files.writeString(dir.resolve("qodana.sarif.json"), sarif)
+
+        val http = RecordingHttp()
+        val exporter = BitBucketExporter(BitBucketFakeSarifService(), http)
+
+        exporter.export(
+            resultsDir = dir,
+            bitbucketUrl = "https://api.bitbucket.org",
+            workspace = "ws",
+            repoSlug = "repo",
+            commitHash = "hash",
+            token = "tok",
+        )
+
+        assertEquals(11, http.posts.size, "1 report + 10 annotation requests")
+        for (i in 1..10) {
+            val batch = mapper.readValue(http.posts[i].body, List::class.java)
+            assertEquals(100, batch.size)
+        }
     }
 
     @Test
     fun `auth header is Bearer token`(@TempDir dir: Path) = runTest {
-        val sarifPath = dir.resolve("qodana.sarif.json")
-        Files.writeString(sarifPath, sarifWithTwoResults)
+        Files.writeString(dir.resolve("qodana.sarif.json"), sarifWithTwoResults)
 
         val http = RecordingHttp()
-        val exporter = BitBucketExporter(BitBucketFakeSarifService(sarifPath), http)
+        val exporter = BitBucketExporter(BitBucketFakeSarifService(), http)
 
         exporter.export(
             resultsDir = dir,
@@ -209,33 +245,41 @@ class BitBucketExporterTest {
     }
 
     @Test
-    fun `URL construction`(@TempDir dir: Path) = runTest {
-        val sarifPath = dir.resolve("qodana.sarif.json")
-        Files.writeString(sarifPath, sarifWithTwoResults)
+    fun `URL construction supports cloud and self-hosted base urls`(@TempDir dir: Path) = runTest {
+        Files.writeString(dir.resolve("qodana.sarif.json"), sarifWithTwoResults)
 
-        val http = RecordingHttp()
-        val exporter = BitBucketExporter(BitBucketFakeSarifService(sarifPath), http)
-
+        val cloudHttp = RecordingHttp()
+        val exporter = BitBucketExporter(BitBucketFakeSarifService(), cloudHttp)
         exporter.export(
             resultsDir = dir,
-            bitbucketUrl = "https://api.bitbucket.org",
+            bitbucketUrl = "https://bitbucket.org/myworkspace/myrepo",
             workspace = "myworkspace",
             repoSlug = "myrepo",
             commitHash = "deadbeef",
             token = "tok",
             reportId = "custom-report",
         )
+        val cloudBase = "https://api.bitbucket.org/2.0/repositories/myworkspace/myrepo/commit/deadbeef/reports"
+        assertEquals("$cloudBase/custom-report", cloudHttp.posts[0].url)
 
-        val expectedBase = "https://api.bitbucket.org/2.0/repositories/myworkspace/myrepo/commit/deadbeef/reports"
-        assertEquals("$expectedBase/custom-report", http.posts[0].url)
-        assertEquals("$expectedBase/custom-report/annotations", http.posts[1].url)
+        val selfHostedHttp = RecordingHttp()
+        val selfHostedExporter = BitBucketExporter(BitBucketFakeSarifService(), selfHostedHttp)
+        selfHostedExporter.export(
+            resultsDir = dir,
+            bitbucketUrl = "https://bitbucket.example.com/scm/PROJ/repo",
+            workspace = "myworkspace",
+            repoSlug = "myrepo",
+            commitHash = "deadbeef",
+            token = "tok",
+            reportId = "custom-report",
+        )
+        val selfHostedBase = "https://bitbucket.example.com/rest/api/1.0/repositories/myworkspace/myrepo/commit/deadbeef/reports"
+        assertEquals("$selfHostedBase/custom-report", selfHostedHttp.posts[0].url)
     }
 }
 
-private class BitBucketFakeSarifService(private val sarifPath: Path) : SarifService {
-    private val mapper = ObjectMapper().registerModule(kotlinModule())
-
-    override fun read(path: Path): Any = mapper.readValue(sarifPath.toFile(), Map::class.java)
+private class BitBucketFakeSarifService : SarifService {
+    override fun read(path: Path): Any = SarifUtil.readReport(path)
     override fun write(path: Path, report: Any) {}
     override fun merge(reports: List<Path>, output: Path) {}
     override fun baselineCompare(report: Path, baseline: Path, includeAbsent: Boolean) =

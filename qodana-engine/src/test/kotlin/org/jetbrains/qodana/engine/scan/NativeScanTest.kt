@@ -70,6 +70,34 @@ class NativeScanTest {
     }
 
     @Test
+    fun `non-zero process exit takes precedence over SARIF exit code`() = runTest {
+        val fs = RecordingFileSystem()
+        fs.fileContents[Path.of("/results/qodana.sarif.json")] = """{"exitCode": 0}"""
+        fs.existingFiles.add(Path.of("/results/qodana.sarif.json"))
+        setupIdeFiles(fs)
+
+        val processRunner = FakeProcessRunner(exitCode = 13)
+        val scan = NativeScan(processRunner, fs)
+
+        val result = scan.run(testContext(ideDir = Path.of("/opt/ide")))
+        assertEquals(13, result)
+    }
+
+    @Test
+    fun `invalid SARIF exit code is normalized to 1`() = runTest {
+        val fs = RecordingFileSystem()
+        fs.fileContents[Path.of("/results/qodana.sarif.json")] = """{"exitCode": 256}"""
+        fs.existingFiles.add(Path.of("/results/qodana.sarif.json"))
+        setupIdeFiles(fs)
+
+        val processRunner = FakeProcessRunner(exitCode = 0)
+        val scan = NativeScan(processRunner, fs)
+
+        val result = scan.run(testContext(ideDir = Path.of("/opt/ide")))
+        assertEquals(1, result)
+    }
+
+    @Test
     fun `run falls back to process exit code when no SARIF`() = runTest {
         val fs = RecordingFileSystem()
         setupIdeFiles(fs)
@@ -142,7 +170,37 @@ class NativeScanTest {
         }
     }
 
-    private fun testContext(ideDir: Path? = Path.of("/opt/ide")) = ScanContext(
+    @Test
+    fun `install plugins uses dedicated install vm options`() = runTest {
+        val fs = RecordingFileSystem()
+        setupIdeFiles(fs)
+        fs.fileContents[Path.of("/results/qodana.sarif.json")] = """{"exitCode": 0}"""
+        fs.existingFiles.add(Path.of("/results/qodana.sarif.json"))
+
+        val processRunner = FakeProcessRunner(exitCode = 0)
+        val scan = NativeScan(processRunner, fs)
+        val context = testContext(
+            ideDir = Path.of("/opt/ide"),
+            yaml = QodanaYaml(plugins = listOf(YamlPlugin(id = "com.example.plugin"))),
+        )
+
+        scan.run(context)
+
+        assertEquals(1, processRunner.runSpecs.size)
+        assertEquals(listOf("installPlugins", "com.example.plugin"), processRunner.runSpecs.single().args)
+        val installVmOptionsPath = Path.of("/cache/idea-config/install_plugins.vmoptions")
+        val installVmOptions = fs.writtenFiles[installVmOptionsPath]
+        assertTrue(installVmOptions != null, "install_plugins.vmoptions should be written")
+        assertTrue(installVmOptions!!.contains("-Didea.config.path=/cache/idea-config"))
+        assertTrue(installVmOptions.contains("-Didea.system.path=/cache/idea-system"))
+        assertTrue(installVmOptions.contains("-Didea.plugins.path=/cache/idea-plugins"))
+        assertTrue(processRunner.runSpecs.single().env.values.contains(installVmOptionsPath.toString()))
+    }
+
+    private fun testContext(
+        ideDir: Path? = Path.of("/opt/ide"),
+        yaml: QodanaYaml? = null,
+    ) = ScanContext(
         paths = ScanPaths(
             projectDir = Path.of("/project"),
             resultsDir = Path.of("/results"),
@@ -154,15 +212,18 @@ class NativeScanTest {
         ci = CiContext(),
         report = ReportOptions(),
         docker = DockerOptions(),
+        yaml = yaml,
         nativeMode = true,
     )
 }
 
 private class FakeProcessRunner(private val exitCode: Int = 0) : ProcessRunner {
     var lastSpec: ProcessSpec? = null
+    val runSpecs = mutableListOf<ProcessSpec>()
 
     override suspend fun run(spec: ProcessSpec): ProcessResult {
         lastSpec = spec
+        runSpecs += spec
         return ProcessResult(exitCode = exitCode, stdout = "", stderr = "")
     }
 

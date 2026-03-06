@@ -18,7 +18,12 @@ class SarifVersioningTest {
         override suspend fun revParse(workDir: Path, ref: String) = Result.success(revision)
         override suspend fun checkout(workDir: Path, ref: String) = Result.success(Unit)
         override suspend fun diff(workDir: Path, startRef: String?, endRef: String?) = Result.success("")
-        override suspend fun log(workDir: Path, format: String, maxCount: Int?): Result<String> {
+        override suspend fun log(
+            workDir: Path,
+            format: String,
+            maxCount: Int?,
+            allBranches: Boolean,
+        ): Result<String> {
             return when (format) {
                 "%an" -> Result.success(authorName)
                 "%ae" -> Result.success(authorEmail)
@@ -117,7 +122,12 @@ class SarifVersioningTest {
             override suspend fun revParse(workDir: Path, ref: String) = Result.failure<String>(Exception("fail"))
             override suspend fun checkout(workDir: Path, ref: String) = Result.failure<Unit>(Exception("fail"))
             override suspend fun diff(workDir: Path, startRef: String?, endRef: String?) = Result.failure<String>(Exception("fail"))
-            override suspend fun log(workDir: Path, format: String, maxCount: Int?) = Result.failure<String>(Exception("fail"))
+            override suspend fun log(
+                workDir: Path,
+                format: String,
+                maxCount: Int?,
+                allBranches: Boolean,
+            ) = Result.failure<String>(Exception("fail"))
             override suspend fun branch(workDir: Path) = Result.failure<String>(Exception("fail"))
             override suspend fun remoteUrl(workDir: Path) = Result.failure<String>(Exception("fail"))
             override suspend fun reset(workDir: Path, ref: String, hard: Boolean) = Result.failure<Unit>(Exception("fail"))

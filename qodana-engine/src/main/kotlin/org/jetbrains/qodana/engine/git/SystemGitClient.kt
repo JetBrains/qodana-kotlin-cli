@@ -23,9 +23,10 @@ class SystemGitClient(private val processRunner: ProcessRunner) : GitClient {
         return git(workDir, *args.toTypedArray())
     }
 
-    override suspend fun log(workDir: Path, format: String, maxCount: Int?): Result<String> {
+    override suspend fun log(workDir: Path, format: String, maxCount: Int?, allBranches: Boolean): Result<String> {
         val args = buildList {
             add("log")
+            if (allBranches) add("--all")
             add("--format=$format")
             maxCount?.let { add("--max-count=$it") }
         }

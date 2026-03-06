@@ -1,5 +1,6 @@
 package org.jetbrains.qodana.engine.scan
 
+import com.jetbrains.qodana.sarif.SarifUtil
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
@@ -21,6 +22,7 @@ import org.jetbrains.qodana.engine.port.HttpTransport
 import org.jetbrains.qodana.engine.port.MultipartPart
 import org.jetbrains.qodana.engine.port.ReportConverter
 import org.jetbrains.qodana.engine.port.ReportPublisher
+import org.jetbrains.qodana.engine.port.GitClient
 import org.jetbrains.qodana.engine.report.ReportProcessor
 import org.jetbrains.qodana.engine.report.ReportPublishUseCase
 import org.jetbrains.qodana.engine.startup.PrepareHost
@@ -132,6 +134,7 @@ class ScanUseCaseTest {
         reportProcessor: ReportProcessor = buildReportProcessor(),
         licenseValidator: LicenseValidator? = buildLicenseValidator(),
         reportPublisher: ReportPublishUseCase? = buildReportPublishUseCase(),
+        gitClient: GitClient? = null,
     ): ScanUseCase {
         val fs = StubFileSystem()
         val prepareHost = PrepareHost(fs, fakeTerminal)
@@ -142,7 +145,9 @@ class ScanUseCaseTest {
             reportProcessor = reportProcessor,
             reportPublisher = reportPublisher,
             licenseValidator = licenseValidator,
-            gitClient = null,
+            codeClimateExporter = null,
+            bitBucketExporter = null,
+            gitClient = gitClient,
             terminal = fakeTerminal,
         )
     }
@@ -189,7 +194,7 @@ class ScanUseCaseTest {
 
     @Test
     fun `returns report processor exit code`() = runTest {
-        // Write a SARIF file with 2 problems so ReportProcessor returns THRESHOLD_REACHED
+        // Write a SARIF file with 2 problems; without fail-threshold this should still be SUCCESS
         val sarifContent = """
             {
               "runs": [
@@ -207,8 +212,7 @@ class ScanUseCaseTest {
         val useCase = buildScanUseCase()
         val result = useCase.run(buildContext(nativeMode = true))
 
-        // 2 problems found, no failThreshold => THRESHOLD_REACHED (code 2)
-        assertEquals(ExitCode.THRESHOLD_REACHED.code, result)
+        assertEquals(ExitCode.SUCCESS.code, result)
     }
 
     @Test
@@ -248,6 +252,144 @@ class ScanUseCaseTest {
         assertFalse(recordingPublisher.called, "report should NOT be published for a license-only token")
     }
 
+    @Test
+    fun `preloaded yaml in context is used for effective config`() = runTest {
+        val useCase = buildScanUseCase()
+        val baseContext = buildContext(nativeMode = false)
+        val context = baseContext.copy(
+            yaml = QodanaYaml(
+                script = YamlScript(name = "custom-script"),
+            ),
+        )
+
+        val result = useCase.run(context)
+
+        assertEquals(ExitCode.SUCCESS.code, result)
+        val command = recordingContainerEngine.lastSpec?.cmd ?: emptyList()
+        assertEquals("custom-script", scriptArg(command))
+    }
+
+    @Test
+    fun `scoped scenario runs staged analysis with scoped scripts and stage properties`() = runTest {
+        val gitClient = RecordingGitClient(
+            diffOutput = "src/Main.kt\n",
+            currentRevision = "endHash",
+        )
+        val useCase = buildScanUseCase(gitClient = gitClient)
+        val baseContext = buildContext(nativeMode = false)
+        val context = baseContext.copy(
+            scenario = RunScenario.Scoped(targetBranch = "startHash"),
+            runtime = baseContext.runtime.copy(diffStart = "startHash", diffEnd = "endHash"),
+        )
+
+        val result = useCase.run(context)
+
+        assertEquals(ExitCode.SUCCESS.code, result)
+        assertEquals(listOf("startHash", "endHash"), gitClient.checkoutRefs)
+        assertEquals(2, recordingContainerEngine.createdSpecs.size)
+
+        val firstCommand = recordingContainerEngine.createdSpecs[0].cmd
+        val secondCommand = recordingContainerEngine.createdSpecs[1].cmd
+        val firstScript = scriptArg(firstCommand)
+        val secondScript = scriptArg(secondCommand)
+        assertTrue(firstScript?.startsWith("scoped:") == true)
+        assertEquals(firstScript, secondScript)
+        assertTrue(firstCommand.contains("--property=-Dqodana.skip.result=true"))
+        assertTrue(firstCommand.contains("--property=-Dqodana.skip.coverage.computation=true"))
+        assertTrue(secondCommand.contains("--property=-Dqodana.skip.preamble=true"))
+        assertTrue(secondCommand.contains("--property=-Didea.headless.enable.statistics=false"))
+        assertTrue(secondCommand.contains("--property=-Dqodana.skip.coverage.issues.reporting=true"))
+        assertTrue(secondCommand.any { it.startsWith("--property=-Dqodana.scoped.baseline.path=") })
+    }
+
+    @Test
+    fun `reverse-scoped scenario with fixes runs three stages`() = runTest {
+        val gitClient = RecordingGitClient(
+            diffOutput = "src/Main.kt\n",
+            currentRevision = "endHash",
+        )
+        recordingContainerEngine.onCreate = { spec, callIndex ->
+            val resultsDir = Path.of(spec.mounts.first { it.containerPath == "/data/results" }.hostPath)
+            // "true" means stage was skipped, so we continue to the next stage.
+            writeShortSarif(resultsDir, skipped = callIndex <= 2)
+        }
+        val useCase = buildScanUseCase(gitClient = gitClient)
+        val baseContext = buildContext(nativeMode = false)
+        val context = baseContext.copy(
+            scenario = RunScenario.ReverseScoped(targetBranch = "startHash"),
+            runtime = baseContext.runtime.copy(
+                diffStart = "startHash",
+                diffEnd = "endHash",
+                applyFixes = true,
+            ),
+        )
+
+        val result = useCase.run(context)
+
+        assertEquals(ExitCode.SUCCESS.code, result)
+        assertEquals(listOf("endHash", "startHash", "endHash"), gitClient.checkoutRefs)
+        assertEquals(3, recordingContainerEngine.createdSpecs.size)
+
+        val firstCommand = recordingContainerEngine.createdSpecs[0].cmd
+        val secondCommand = recordingContainerEngine.createdSpecs[1].cmd
+        val thirdCommand = recordingContainerEngine.createdSpecs[2].cmd
+        val firstScript = scriptArg(firstCommand)
+        val secondScript = scriptArg(secondCommand)
+        val thirdScript = scriptArg(thirdCommand)
+        assertTrue(firstScript?.startsWith("reverse-scoped:NEW,") == true)
+        assertTrue(secondScript?.startsWith("reverse-scoped:OLD,") == true)
+        assertTrue(thirdScript?.startsWith("reverse-scoped:FIXES,") == true)
+        assertTrue(secondScript?.endsWith("reduced-scope.json") == true)
+        assertTrue(thirdScript?.endsWith("reduced-scope.json") == true)
+
+        assertTrue(firstCommand.any { it.startsWith("--property=-Dqodana.reduced.scope.path=") })
+        assertTrue(secondCommand.contains("--property=-Dqodana.skip.result.strategy=FIXABLE"))
+        assertTrue(secondCommand.any { it.startsWith("--property=-Dqodana.scoped.baseline.path=") })
+        assertTrue(thirdCommand.contains("--property=-Dqodana.skip.result.strategy=NEVER"))
+        assertTrue(thirdCommand.any { it.startsWith("--property=-Dqodana.scoped.baseline.path=") })
+    }
+
+    @Test
+    fun `reverse-scoped stops after new stage when result is not skipped`() = runTest {
+        val gitClient = RecordingGitClient(
+            diffOutput = "src/Main.kt\n",
+            currentRevision = "endHash",
+        )
+        recordingContainerEngine.onCreate = { spec, _ ->
+            val resultsDir = Path.of(spec.mounts.first { it.containerPath == "/data/results" }.hostPath)
+            writeShortSarif(resultsDir, skipped = false)
+        }
+        val useCase = buildScanUseCase(gitClient = gitClient)
+        val baseContext = buildContext(nativeMode = false)
+        val context = baseContext.copy(
+            scenario = RunScenario.ReverseScoped(targetBranch = "startHash"),
+            runtime = baseContext.runtime.copy(diffStart = "startHash", diffEnd = "endHash"),
+        )
+
+        val result = useCase.run(context)
+
+        assertEquals(ExitCode.SUCCESS.code, result)
+        assertEquals(listOf("endHash"), gitClient.checkoutRefs)
+        assertEquals(1, recordingContainerEngine.createdSpecs.size)
+    }
+
+    private fun scriptArg(command: List<String>): String? {
+        val scriptFlagIndex = command.indexOf("--script")
+        return if (scriptFlagIndex >= 0 && scriptFlagIndex + 1 < command.size) {
+            command[scriptFlagIndex + 1]
+        } else {
+            null
+        }
+    }
+
+    private fun writeShortSarif(resultsDir: Path, skipped: Boolean) {
+        Files.createDirectories(resultsDir)
+        Files.writeString(
+            resultsDir.resolve("qodana-short.sarif.json"),
+            """{"runs":[{"invocations":[{"properties":{"qodana.result.skipped":$skipped}}]}]}""",
+        )
+    }
+
     // ----------------------------------------------------------------
     // Fakes & Recording Doubles
     // ----------------------------------------------------------------
@@ -276,11 +418,15 @@ class ScanUseCaseTest {
     private class RecordingContainerEngine : ContainerEngine {
         var created = false
         var lastSpec: ContainerRunSpec? = null
+        val createdSpecs = mutableListOf<ContainerRunSpec>()
+        var onCreate: ((ContainerRunSpec, Int) -> Unit)? = null
 
         override suspend fun pull(image: String, onProgress: (String) -> Unit) {}
         override suspend fun create(spec: ContainerRunSpec): String {
             created = true
             lastSpec = spec
+            createdSpecs += spec
+            onCreate?.invoke(spec, createdSpecs.size)
             return "fake-container-id"
         }
 
@@ -318,6 +464,42 @@ class ScanUseCaseTest {
             called = true
             return PublishResult(url = "https://example.com/report", reportId = "test-id", success = true)
         }
+    }
+
+    private class RecordingGitClient(
+        private val diffOutput: String = "src/Main.kt\n",
+        private val currentRevision: String = "HEAD",
+    ) : GitClient {
+        val checkoutRefs = mutableListOf<String>()
+        val revParseRefs = mutableListOf<String>()
+
+        override suspend fun revParse(workDir: Path, ref: String): Result<String> {
+            revParseRefs += ref
+            return Result.success(ref)
+        }
+
+        override suspend fun checkout(workDir: Path, ref: String): Result<Unit> {
+            checkoutRefs += ref
+            return Result.success(Unit)
+        }
+
+        override suspend fun diff(workDir: Path, startRef: String?, endRef: String?): Result<String> {
+            return Result.success(diffOutput)
+        }
+
+        override suspend fun log(workDir: Path, format: String, maxCount: Int?, allBranches: Boolean): Result<String> {
+            return Result.success("")
+        }
+
+        override suspend fun branch(workDir: Path): Result<String> = Result.success("main")
+        override suspend fun remoteUrl(workDir: Path): Result<String> = Result.success("https://example.com/repo.git")
+        override suspend fun reset(workDir: Path, ref: String, hard: Boolean): Result<Unit> = Result.success(Unit)
+        override suspend fun fetch(workDir: Path, remote: String?, ref: String?, depth: Int?): Result<Unit> = Result.success(Unit)
+        override suspend fun isGitRepo(workDir: Path): Boolean = true
+        override suspend fun currentBranch(workDir: Path): Result<String> = Result.success("main")
+        override suspend fun currentRevision(workDir: Path): Result<String> = Result.success(currentRevision)
+        override suspend fun clean(workDir: Path, force: Boolean, directories: Boolean): Result<Unit> = Result.success(Unit)
+        override suspend fun submoduleUpdate(workDir: Path, init: Boolean, recursive: Boolean): Result<Unit> = Result.success(Unit)
     }
 
     /**
@@ -365,10 +547,8 @@ class ScanUseCaseTest {
     }
 
     private class ScanFakeSarifService : SarifService {
-        @Suppress("UNCHECKED_CAST")
         override fun read(path: Path): Any {
-            val mapper = com.fasterxml.jackson.databind.ObjectMapper()
-            return mapper.readValue(path.toFile(), Map::class.java) as Map<String, Any>
+            return SarifUtil.readReport(path)
         }
 
         override fun write(path: Path, report: Any) {}

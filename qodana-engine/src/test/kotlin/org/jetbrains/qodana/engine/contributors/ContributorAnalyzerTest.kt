@@ -164,7 +164,12 @@ private class FakeGitClient(
     override suspend fun revParse(workDir: Path, ref: String) = Result.success("abc")
     override suspend fun checkout(workDir: Path, ref: String) = Result.success(Unit)
     override suspend fun diff(workDir: Path, startRef: String?, endRef: String?) = Result.success("")
-    override suspend fun log(workDir: Path, format: String, maxCount: Int?): Result<String> {
+    override suspend fun log(
+        workDir: Path,
+        format: String,
+        maxCount: Int?,
+        allBranches: Boolean,
+    ): Result<String> {
         return if (logOutput != null) Result.success(logOutput)
         else Result.failure(RuntimeException("git not available"))
     }

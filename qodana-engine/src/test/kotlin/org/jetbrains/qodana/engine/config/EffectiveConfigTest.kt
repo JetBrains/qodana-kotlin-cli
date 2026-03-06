@@ -2,10 +2,37 @@ package org.jetbrains.qodana.engine.config
 
 import org.jetbrains.qodana.core.model.*
 import org.jetbrains.qodana.engine.model.*
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.*
 
 class EffectiveConfigTest {
+
+    // --- load()/resolveYamlPath() tests ---
+
+    @Test
+    fun `load uses custom config path relative to project dir`(@TempDir projectDir: Path) {
+        val customDir = projectDir.resolve("configs")
+        Files.createDirectories(customDir)
+        val customYaml = customDir.resolve("custom.yaml")
+        Files.writeString(customYaml, "version: \"1.0\"\nprofile:\n  name: \"Custom\"")
+        Files.writeString(projectDir.resolve("qodana.yaml"), "version: \"1.0\"\nprofile:\n  name: \"Default\"")
+
+        val yaml = EffectiveConfig.load(projectDir, customConfigName = "configs/custom.yaml")
+
+        assertNotNull(yaml)
+        assertEquals("Custom", yaml.profile.name)
+    }
+
+    @Test
+    fun `load does not fallback to default yaml when explicit custom config is missing`(@TempDir projectDir: Path) {
+        Files.writeString(projectDir.resolve("qodana.yaml"), "version: \"1.0\"\nprofile:\n  name: \"Default\"")
+
+        val yaml = EffectiveConfig.load(projectDir, customConfigName = "missing.yaml")
+
+        assertNull(yaml)
+    }
 
     // --- parse() tests ---
 
@@ -161,7 +188,12 @@ class EffectiveConfigTest {
     // --- helper ---
 
     private fun minimalContext() = ScanContext(
-        paths = ScanPaths(Path.of("/project"), Path.of("/results"), Path.of("/cache"), Path.of("/report")),
+        paths = ScanPaths(
+            projectDir = Path.of("/project"),
+            resultsDir = Path.of("/results"),
+            cacheDir = Path.of("/cache"),
+            reportDir = Path.of("/report"),
+        ),
         auth = AuthContext(token = null, endpoint = "https://qodana.cloud"),
         runtime = RuntimeContext(),
         ci = CiContext(),

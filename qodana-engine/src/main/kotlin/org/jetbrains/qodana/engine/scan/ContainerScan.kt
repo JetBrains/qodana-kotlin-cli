@@ -18,6 +18,15 @@ class ContainerScan(
         val image = context.docker.image
             ?: throw IllegalStateException("No Docker image specified for container scan")
 
+        if (ContainerImageUtils.isUnofficialLinter(image)) {
+            terminal.warn("You are using an unofficial Qodana linter: $image")
+        }
+        if (!ContainerImageUtils.hasExactVersionTag(image)) {
+            terminal.warn("You are running a Qodana linter without an exact version tag: $image")
+        } else if (!ContainerImageUtils.isCompatibleLinter(image)) {
+            terminal.warn("You are using a non-compatible Qodana linter $image with the current CLI")
+        }
+
         if (!context.docker.skipPull && !context.docker.noDockerPull) {
             containerEngine.pull(image) { terminal.println(it) }
         }
@@ -58,9 +67,8 @@ class ContainerScan(
     private fun buildContainerSpec(context: ScanContext, image: String): ContainerRunSpec {
         val mounts = buildList {
             add(MountSpec(
-                hostPath = context.paths.projectDir.toString(),
+                hostPath = context.paths.repositoryRoot.toString(),
                 containerPath = "/data/project",
-                readOnly = true,
             ))
             add(MountSpec(
                 hostPath = context.paths.resultsDir.toString(),
@@ -124,6 +132,9 @@ class ContainerScan(
         val exposedPorts = if (portBindings.isNotEmpty()) listOf(5005) else emptyList()
 
         val containerName = System.getenv(QodanaEnv.CLI_CONTAINER_NAME)
+        val resolvedUser = ContainerImageUtils.selectUser(image, context.docker.user ?: "auto")
+            .ifBlank { null }
+        val cmd = IdeArgBuilder.build(context)
 
         return ContainerRunSpec(
             image = image,
@@ -134,7 +145,8 @@ class ContainerScan(
                 memoryBytes = context.docker.memoryLimit,
                 cpuCount = context.docker.cpuLimit,
             ),
-            user = context.docker.user,
+            user = resolvedUser,
+            cmd = cmd,
             capAdd = capAdd,
             securityOpts = securityOpts,
             portBindings = portBindings,
