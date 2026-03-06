@@ -6,6 +6,8 @@ import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.core.UsageError
 import com.github.ajalt.clikt.core.parse
 import com.github.ajalt.clikt.core.subcommands
+import kotlinx.coroutines.flow.Flow
+import org.jetbrains.qodana.core.model.LogEvent
 import org.jetbrains.qodana.core.fs.NioFileSystem
 import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.core.process.SystemProcessRunner
@@ -15,6 +17,10 @@ import org.jetbrains.qodana.engine.contributors.ContributorAnalyzer
 import org.jetbrains.qodana.engine.docker.DockerJavaEngine
 import org.jetbrains.qodana.engine.git.SystemGitClient
 import org.jetbrains.qodana.engine.http.OkHttpTransport
+import org.jetbrains.qodana.engine.model.ContainerExitStatus
+import org.jetbrains.qodana.engine.model.ContainerRunSpec
+import org.jetbrains.qodana.engine.port.ContainerEngine
+import org.jetbrains.qodana.engine.port.ContainerEngineInfo
 import org.jetbrains.qodana.engine.port.TokenStore
 import org.jetbrains.qodana.engine.report.ReportProcessor
 import org.jetbrains.qodana.engine.reportconverter.ReportConverterAdapter
@@ -266,6 +272,7 @@ class QodanaCommandTest {
             !System.getenv("QODANA_TEST_CONTAINER").isNullOrEmpty(),
             "Skipping container test (set QODANA_TEST_CONTAINER=1 to enable)"
         )
+        assumeTrue(isDockerAvailable(), "Docker not available, skipping")
 
         val token = System.getenv("QODANA_LICENSE_ONLY_TOKEN")
         val image = if (!token.isNullOrEmpty()) {
@@ -274,7 +281,7 @@ class QodanaCommandTest {
             "jetbrains/qodana-jvm-community:latest"
         }
 
-        val containerEngine = DockerJavaEngine()
+        val containerEngine = ImageTrackingContainerEngine(DockerJavaEngine())
         val processRunner = SystemProcessRunner()
         val fileSystem = NioFileSystem()
         val gitClient = SystemGitClient(processRunner)
@@ -319,17 +326,30 @@ class QodanaCommandTest {
             "--property", "idea.headless.enable.statistics=false",
         )
         output.clear()
-        assertFailsWith<ProgramResult> {
+        val firstScan = assertFailsWith<ProgramResult> {
             makeScanCommand().parse(scanArgs)
         }
+        assertEquals(0, firstScan.statusCode, "First container scan should succeed")
+        assertTrue(Files.exists(resultsPath.resolve("qodana.sarif.json")), "First scan should produce SARIF")
 
         // second scan with a configuration and cache
         val yamlFile = projectPath.resolve("qodana.yml")
         yamlFile.writeText("image: $image")
         output.clear()
-        assertFailsWith<ProgramResult> {
+        val secondScan = assertFailsWith<ProgramResult> {
             makeScanCommand().parse(scanArgs)
         }
+        assertEquals(0, secondScan.statusCode, "Second container scan should succeed")
+        assertTrue(Files.exists(resultsPath.resolve("qodana.sarif.json")), "Second scan should produce SARIF")
+
+        assertTrue(
+            containerEngine.pulledImages.contains(image),
+            "Expected explicit pull for $image, got pulls: ${containerEngine.pulledImages}"
+        )
+        assertTrue(
+            containerEngine.createdImages.contains(image),
+            "Expected scan to launch configured image $image, got: ${containerEngine.createdImages}"
+        )
 
         // view
         output.clear()
@@ -345,8 +365,11 @@ class QodanaCommandTest {
                 "-d",
                 "--linter", image,
             ))
-        } catch (_: ProgramResult) {
-            // Show can return non-zero when report artifacts are not ready in this synthetic integration flow.
+        } catch (e: ProgramResult) {
+            // Go opens the computed directory without existence checks.
+            // Kotlin validates the path first and may return 1 when defaults
+            // do not point at the explicit scan output directory.
+            assertEquals(1, e.statusCode)
         }
 
         // init after project analysis with .idea inside
@@ -437,5 +460,46 @@ class QodanaCommandTest {
             }
             assertTrue(ideInstalled, "IDE should have been downloaded: ${e.message}")
         }
+    }
+}
+
+private class ImageTrackingContainerEngine(
+    private val delegate: ContainerEngine,
+) : ContainerEngine {
+    val pulledImages = mutableListOf<String>()
+    val createdImages = mutableListOf<String>()
+
+    override suspend fun pull(image: String, onProgress: (String) -> Unit) {
+        pulledImages.add(image)
+        delegate.pull(image, onProgress)
+    }
+
+    override suspend fun create(spec: ContainerRunSpec): String {
+        createdImages.add(spec.image)
+        return delegate.create(spec)
+    }
+
+    override suspend fun start(containerId: String) {
+        delegate.start(containerId)
+    }
+
+    override fun logs(containerId: String): Flow<LogEvent> {
+        return delegate.logs(containerId)
+    }
+
+    override suspend fun wait(containerId: String): ContainerExitStatus {
+        return delegate.wait(containerId)
+    }
+
+    override suspend fun remove(containerId: String, force: Boolean) {
+        delegate.remove(containerId, force)
+    }
+
+    override suspend fun info(): ContainerEngineInfo {
+        return delegate.info()
+    }
+
+    override suspend fun imageExists(image: String): Boolean {
+        return delegate.imageExists(image)
     }
 }
