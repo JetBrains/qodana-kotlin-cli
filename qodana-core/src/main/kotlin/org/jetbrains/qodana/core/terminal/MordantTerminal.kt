@@ -6,10 +6,10 @@ import com.github.ajalt.mordant.rendering.TextAlign
 import com.github.ajalt.mordant.terminal.Terminal as MTerminal
 import com.github.ajalt.mordant.rendering.TextColors
 import com.github.ajalt.mordant.widgets.Spinner
+import com.github.ajalt.mordant.widgets.progress.calculateTimeElapsed
 import com.github.ajalt.mordant.widgets.progress.progressBarContextLayout
 import com.github.ajalt.mordant.widgets.progress.spinner as progressSpinner
 import com.github.ajalt.mordant.widgets.progress.text as progressText
-import com.github.ajalt.mordant.widgets.progress.timeElapsed as progressTimeElapsed
 import org.jetbrains.qodana.core.port.Terminal
 
 class MordantTerminal : Terminal {
@@ -60,7 +60,10 @@ class MordantTerminal : Terminal {
         ) {
             progressSpinner(Spinner.Lines())
             progressText(align = TextAlign.LEFT) { context }
-            progressTimeElapsed(compact = true)
+            progressText(fps = 5, align = TextAlign.LEFT) {
+                val elapsedSeconds = calculateTimeElapsed()?.inWholeSeconds ?: 0
+                "(${elapsedSeconds}s)"
+            }
         }
         val progress = definition.animateOnThread(
             terminal = terminal,
