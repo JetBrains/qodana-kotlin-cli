@@ -35,6 +35,7 @@ fun interface ScanReportDisplay {
 class ScanCommand(
     private val terminal: Terminal = MordantTerminal(),
     private val scanReportDisplay: ScanReportDisplay? = null,
+    private val envOverrides: Map<String, String> = emptyMap(),
     private val scanRunner: suspend (ScanContext) -> Int,
 ) : CliktCommand("scan") {
 
@@ -389,6 +390,17 @@ class ScanCommand(
         val yamlIde = yaml?.ide?.takeIf { it.isNotBlank() }
         val yamlLinter = yaml?.linter?.takeIf { it.isNotBlank() }
         val yamlImage = yaml?.image?.takeIf { it.isNotBlank() }
+        val distOverride = readEnv(QodanaEnv.DIST)?.trim().orEmpty()
+        if (distOverride.isNotEmpty()) {
+            val distPath = Path.of(distOverride).toAbsolutePath().normalize()
+            validateDistOverride(distPath)
+            return AnalyzerResolution(
+                analysisMode = AnalysisMode.NATIVE,
+                linterName = null,
+                image = null,
+                ideDir = distPath,
+            )
+        }
 
         if (yamlLinter != null && yamlIde != null) {
             throw UsageError(
@@ -664,6 +676,21 @@ class ScanCommand(
     private fun normalizePath(path: Path): Path {
         return runCatching { path.toRealPath().normalize() }
             .getOrElse { path.toAbsolutePath().normalize() }
+    }
+
+    private fun validateDistOverride(distPath: Path) {
+        if (!Files.isDirectory(distPath)) {
+            throw UsageError("Env ${QodanaEnv.DIST} doesn't point to valid distribution: $distPath")
+        }
+        val os = System.getProperty("os.name", "").lowercase()
+        val productInfoDir = if (os.contains("mac")) distPath.resolve("Resources") else distPath
+        if (!Files.isRegularFile(productInfoDir.resolve("product-info.json"))) {
+            throw UsageError("Env ${QodanaEnv.DIST} doesn't point to valid distribution: $distPath")
+        }
+    }
+
+    private fun readEnv(key: String): String? {
+        return envOverrides[key] ?: System.getenv(key)
     }
 
     private data class AnalyzerResolution(
