@@ -7,6 +7,7 @@ import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.versionOption
+import org.jetbrains.qodana.cli.BuildInfo
 
 class QodanaCommand : CliktCommand("qodana") {
 
@@ -38,8 +39,11 @@ class QodanaCommand : CliktCommand("qodana") {
     companion object {
         const val SYSTEM_DISABLE_UPDATE_CHECKS = "qodana.disableUpdateChecks"
         private val VALID_LOG_LEVELS = setOf("trace", "debug", "info", "warn", "error")
+        // The build embeds the version into BuildInfo.VERSION via a generated source
+        // file (see qodana-cli/build.gradle.kts). System property / env-var overrides
+        // remain supported for local development and tests that don't go through Gradle.
         val VERSION: String = System.getProperty("qodana.version")
             ?: System.getenv("QODANA_VERSION")
-            ?: "dev"
+            ?: BuildInfo.VERSION
     }
 }

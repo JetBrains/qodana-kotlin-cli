@@ -16,9 +16,12 @@ import org.jetbrains.qodana.core.port.Terminal
 import java.nio.file.Path
 
 class ContributorsCommand(
-    private val contributorAnalyzer: ContributorAnalyzer,
+    private val contributorAnalyzer: () -> ContributorAnalyzer,
     private val terminal: Terminal,
 ) : CliktCommand("contributors") {
+
+    constructor(contributorAnalyzer: ContributorAnalyzer, terminal: Terminal) :
+        this({ contributorAnalyzer }, terminal)
 
     override fun help(context: Context) = "Count active contributors in the project"
 
@@ -30,7 +33,7 @@ class ContributorsCommand(
 
     override fun run() = runBlocking {
         val repos = projectDirs.ifEmpty { listOf(Path.of(".")) }
-        val report = contributorAnalyzer.analyze(
+        val report = contributorAnalyzer().analyze(
             repoDirs = repos,
             days = days,
             excludeBots = false,

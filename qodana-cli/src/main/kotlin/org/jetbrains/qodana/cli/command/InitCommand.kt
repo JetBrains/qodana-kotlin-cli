@@ -30,10 +30,27 @@ import kotlin.io.path.extension
 class InitCommand(
     private val terminal: Terminal,
     private val getEnv: (String) -> String? = System::getenv,
-    private val tokenStore: TokenStore = FileTokenStore(),
-    private val httpTransport: HttpTransport = OkHttpTransport(),
+    private val tokenStore: () -> TokenStore = { FileTokenStore() },
+    private val httpTransport: () -> HttpTransport = { OkHttpTransport() },
     private val runtimeEnvironmentDetector: () -> RuntimeEnvironment = { RuntimeEnvironmentDetector.detect() },
 ) : CliktCommand("init") {
+
+    // Secondary constructor for tests passing concrete instances. tokenStore and
+    // httpTransport are required (no defaults) so this overload is unambiguous
+    // against the primary's lazy form.
+    constructor(
+        terminal: Terminal,
+        getEnv: (String) -> String?,
+        tokenStore: TokenStore,
+        httpTransport: HttpTransport,
+        runtimeEnvironmentDetector: () -> RuntimeEnvironment = { RuntimeEnvironmentDetector.detect() },
+    ) : this(
+        terminal = terminal,
+        getEnv = getEnv,
+        tokenStore = { tokenStore },
+        httpTransport = { httpTransport },
+        runtimeEnvironmentDetector = runtimeEnvironmentDetector,
+    )
 
     override fun help(context: Context) = "Configure a Qodana project by creating a qodana.yaml file"
 
@@ -203,7 +220,7 @@ class InitCommand(
             return envToken
         }
 
-        val storedToken = runCatching { tokenStore.load(QodanaEnv.TOKEN)?.trim() }
+        val storedToken = runCatching { tokenStore().load(QodanaEnv.TOKEN)?.trim() }
             .getOrNull()
             .orEmpty()
         if (storedToken.isNotEmpty()) {
@@ -221,15 +238,16 @@ class InitCommand(
             return null
         }
 
-        runCatching { tokenStore.save(QodanaEnv.TOKEN, token) }
+        runCatching { tokenStore().save(QodanaEnv.TOKEN, token) }
             .onFailure { terminal.warn("Failed to save credentials: ${it.message}") }
         return token
     }
 
     private suspend fun validateTokenOrExit(token: String) {
+        val http = httpTransport()
         val cloudRoot = cloudRootEndpoint()
         val cloudClient = CloudClient(
-            http = httpTransport,
+            http = http,
             endpoint = cloudRoot,
             token = token,
         )
@@ -240,7 +258,7 @@ class InitCommand(
         }
 
         val response = runCatching {
-            httpTransport.get(
+            http.get(
                 "${endpoints.cloudApiUrl.trimEnd('/')}/projects",
                 headers = mapOf("Authorization" to "Bearer $token"),
             )

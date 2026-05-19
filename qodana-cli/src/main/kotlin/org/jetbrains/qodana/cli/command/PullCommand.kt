@@ -14,9 +14,11 @@ import org.jetbrains.qodana.core.port.Terminal
 import java.nio.file.Path
 
 class PullCommand(
-    private val containerEngine: ContainerEngine,
+    private val containerEngine: () -> ContainerEngine,
     private val terminal: Terminal,
 ) : CliktCommand("pull") {
+
+    constructor(containerEngine: ContainerEngine, terminal: Terminal) : this({ containerEngine }, terminal)
 
     override fun help(context: Context) = "Pull the Qodana Docker image"
 
@@ -69,7 +71,7 @@ class PullCommand(
                 throw ProgramResult(1)
             }
 
-        containerEngine.pull(resolvedImage) { terminal.println(it) }
+        containerEngine().pull(resolvedImage) { terminal.println(it) }
     }
 
     private fun resolveImageFromLinter(linterValue: String?): String? {

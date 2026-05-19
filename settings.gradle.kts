@@ -6,6 +6,13 @@ pluginManagement {
     }
 }
 
+// Allows Gradle's toolchain machinery to auto-download a GraalVM CE JDK matching
+// the per-module `JvmVendorSpec.GRAAL_VM` toolchain pin when the developer's
+// JAVA_HOME doesn't already point at one. See CONTRIBUTING.md for the pin.
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
+
 @Suppress("UnstableApiUsage")
 dependencyResolutionManagement {
     repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS

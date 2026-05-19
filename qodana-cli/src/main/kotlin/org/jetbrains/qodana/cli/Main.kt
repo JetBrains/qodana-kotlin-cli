@@ -98,17 +98,23 @@ private fun isRunningAsRoot(): Boolean {
 }
 
 fun main(args: Array<String>) {
+    // Eager: lightweight; needed for root checks below.
     val processRunner = SystemProcessRunner()
     val gitClient = SystemGitClient(processRunner)
-    val httpTransport = OkHttpTransport()
-    val containerEngine = DockerJavaEngine()
-    val sarifService = QodanaSarifService()
-    val reportConverter = ReportConverterAdapter()
-    val fileSystem = NioFileSystem()
     val terminal = MordantTerminal()
-    val publisher = PublisherAdapter()
-    val reportPublishUseCase = ReportPublishUseCase(publisher)
-    val contributorAnalyzer = ContributorAnalyzer(gitClient)
+
+    // Lazy: heavy constructors that pull large class graphs (Jackson, OkHttp, docker-java,
+    // intellij-report-converter, qodana-publisher). Keeping these lazy means `qodana --help`
+    // and `qodana --version` don't drag the full dependency surface into the native image's
+    // startup path.
+    val httpTransport: OkHttpTransport by lazy { OkHttpTransport() }
+    val containerEngine: DockerJavaEngine by lazy { DockerJavaEngine() }
+    val sarifService: QodanaSarifService by lazy { QodanaSarifService() }
+    val reportConverter: ReportConverterAdapter by lazy { ReportConverterAdapter() }
+    val fileSystem: NioFileSystem by lazy { NioFileSystem() }
+    val publisher: PublisherAdapter by lazy { PublisherAdapter() }
+    val reportPublishUseCase: ReportPublishUseCase by lazy { ReportPublishUseCase(publisher) }
+    val contributorAnalyzer: ContributorAnalyzer by lazy { ContributorAnalyzer(gitClient) }
 
     val runtimeEnvironment = RuntimeEnvironmentDetector.detect()
     val isCi = CiDetector.detect() != null
@@ -157,11 +163,15 @@ fun main(args: Array<String>) {
             terminal = terminal,
         ),
         InitCommand(terminal),
-        PullCommand(containerEngine, terminal),
+        PullCommand({ containerEngine }, terminal),
         ShowCommand(terminal),
-        SendCommand(reportPublishUseCase, terminal),
-        ContributorsCommand(contributorAnalyzer, terminal),
-        ViewCommand(sarifService, terminal),
+        SendCommand(
+            reportPublisher = { reportPublishUseCase },
+            terminal = terminal,
+            httpTransport = { httpTransport },
+        ),
+        ContributorsCommand({ contributorAnalyzer }, terminal),
+        ViewCommand({ sarifService }, terminal),
         ClocCommand(terminal),
         CompletionCommand(
             name = "completion",

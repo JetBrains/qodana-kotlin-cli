@@ -24,13 +24,33 @@ import java.nio.file.Path
 import java.util.UUID
 
 class SendCommand(
-    private val reportPublisher: ReportPublishUseCase,
+    private val reportPublisher: () -> ReportPublishUseCase,
     private val terminal: Terminal,
     private val getEnv: (String) -> String? = System::getenv,
-    private val tokenStore: TokenStore = FileTokenStore(),
-    private val httpTransport: HttpTransport = OkHttpTransport(),
+    private val tokenStore: () -> TokenStore = { FileTokenStore() },
+    private val httpTransport: () -> HttpTransport = { OkHttpTransport() },
     private val runtimeEnvironmentDetector: () -> RuntimeEnvironment = { RuntimeEnvironmentDetector.detect() },
 ) : CliktCommand("send") {
+
+    // Secondary constructor for tests passing concrete instances. The heavy deps
+    // are non-default so this overload is unambiguous against the primary's lazy
+    // form — calls that don't pass tokenStore/httpTransport hit the primary and
+    // its lazy { ... } defaults.
+    constructor(
+        reportPublisher: ReportPublishUseCase,
+        terminal: Terminal,
+        getEnv: (String) -> String?,
+        tokenStore: TokenStore,
+        httpTransport: HttpTransport,
+        runtimeEnvironmentDetector: () -> RuntimeEnvironment = { RuntimeEnvironmentDetector.detect() },
+    ) : this(
+        reportPublisher = { reportPublisher },
+        terminal = terminal,
+        getEnv = getEnv,
+        tokenStore = { tokenStore },
+        httpTransport = { httpTransport },
+        runtimeEnvironmentDetector = runtimeEnvironmentDetector,
+    )
 
     override fun help(context: Context) = "Send Qodana report to Qodana Cloud"
 
@@ -71,7 +91,7 @@ class SendCommand(
             endpoint = cloudRootEndpoint(),
         )
 
-        val result = reportPublisher.publish(
+        val result = reportPublisher().publish(
             analysisId = analysisId,
             reportPath = resolvedPaths.resultsDir,
             auth = auth,
@@ -96,7 +116,7 @@ class SendCommand(
             return envToken
         }
 
-        val storedToken = runCatching { tokenStore.load(QodanaEnv.TOKEN)?.trim() }
+        val storedToken = runCatching { tokenStore().load(QodanaEnv.TOKEN)?.trim() }
             .getOrNull()
             .orEmpty()
         if (storedToken.isNotEmpty()) {
@@ -114,15 +134,16 @@ class SendCommand(
             return null
         }
 
-        runCatching { tokenStore.save(QodanaEnv.TOKEN, token) }
+        runCatching { tokenStore().save(QodanaEnv.TOKEN, token) }
             .onFailure { terminal.warn("Failed to save credentials: ${it.message}") }
         return token
     }
 
     private suspend fun validateTokenOrExit(token: String) {
+        val http = httpTransport()
         val cloudRoot = cloudRootEndpoint()
         val cloudClient = CloudClient(
-            http = httpTransport,
+            http = http,
             endpoint = cloudRoot,
             token = token,
         )
@@ -133,7 +154,7 @@ class SendCommand(
         }
 
         val response = runCatching {
-            httpTransport.get(
+            http.get(
                 "${endpoints.cloudApiUrl.trimEnd('/')}/projects",
                 headers = mapOf("Authorization" to "Bearer $token"),
             )
