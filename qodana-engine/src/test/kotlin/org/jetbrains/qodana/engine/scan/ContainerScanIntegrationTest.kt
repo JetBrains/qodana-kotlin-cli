@@ -1,14 +1,13 @@
 package org.jetbrains.qodana.engine.scan
 
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.test.runTest
 import org.jetbrains.qodana.core.model.*
+import org.jetbrains.qodana.core.port.Terminal
+import org.jetbrains.qodana.engine.docker.DockerJavaEngine
 import org.jetbrains.qodana.engine.model.*
 import org.jetbrains.qodana.engine.port.ContainerEngine
 import org.jetbrains.qodana.engine.port.ContainerEngineInfo
-import org.jetbrains.qodana.engine.port.EngineType
-import org.jetbrains.qodana.core.port.Terminal
-import kotlinx.coroutines.flow.Flow
-import org.jetbrains.qodana.engine.docker.DockerJavaEngine
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -26,9 +25,10 @@ import kotlin.time.Duration.Companion.minutes
  * to verify all operations happen in the correct order.
  */
 class ContainerScanIntegrationTest {
-
     @Test
-    fun `container scan runs full lifecycle with alpine`(@TempDir tempDir: Path) = runTest(timeout = 2.minutes) {
+    fun `container scan runs full lifecycle with alpine`(
+        @TempDir tempDir: Path,
+    ) = runTest(timeout = 2.minutes) {
         val engine = createDockerEngine() ?: return@runTest
 
         val projectDir = tempDir.resolve("project").also { Files.createDirectories(it) }
@@ -47,21 +47,24 @@ class ContainerScanIntegrationTest {
 
         val containerScan = ContainerScan(recordingEngine, recordingTerminal)
 
-        val context = ScanContext(
-            paths = ScanPaths(
-                projectDir = projectDir,
-                resultsDir = resultsDir,
-                cacheDir = cacheDir,
-                reportDir = reportDir,
-            ),
-            auth = AuthContext(token = null, endpoint = "https://qodana.cloud"),
-            runtime = RuntimeContext(),
-            ci = CiContext(),
-            report = ReportOptions(),
-            docker = DockerOptions(
-                image = "alpine:3.20",
-            ),
-        )
+        val context =
+            ScanContext(
+                paths =
+                    ScanPaths(
+                        projectDir = projectDir,
+                        resultsDir = resultsDir,
+                        cacheDir = cacheDir,
+                        reportDir = reportDir,
+                    ),
+                auth = AuthContext(token = null, endpoint = "https://qodana.cloud"),
+                runtime = RuntimeContext(),
+                ci = CiContext(),
+                report = ReportOptions(),
+                docker =
+                    DockerOptions(
+                        image = "alpine:3.20",
+                    ),
+            )
 
         // Override: use custom entrypoint that writes a SARIF result
         // ContainerScan builds the spec internally, so we test via the recording engine
@@ -77,30 +80,37 @@ class ContainerScanIntegrationTest {
     }
 
     @Test
-    fun `container produces SARIF output to mounted volume`(@TempDir tempDir: Path) = runTest(timeout = 2.minutes) {
+    fun `container produces SARIF output to mounted volume`(
+        @TempDir tempDir: Path,
+    ) = runTest(timeout = 2.minutes) {
         val engine = createDockerEngine() ?: return@runTest
 
         val resultsDir = tempDir.resolve("results").also { Files.createDirectories(it) }
 
         engine.pull("alpine:3.20") {}
 
-        val sarifContent = """
+        val sarifContent =
+            """
             {"version":"2.1.0","runs":[{"tool":{"driver":{"name":"test"}},"results":[]}]}
-        """.trimIndent()
+            """.trimIndent()
 
-        val spec = ContainerRunSpec(
-            image = "alpine:3.20",
-            mounts = listOf(
-                MountSpec(
-                    hostPath = resultsDir.toString(),
-                    containerPath = "/data/results",
-                )
-            ),
-            cmd = listOf(
-                "sh", "-c",
-                "echo '$sarifContent' > /data/results/qodana.sarif.json"
-            ),
-        )
+        val spec =
+            ContainerRunSpec(
+                image = "alpine:3.20",
+                mounts =
+                    listOf(
+                        MountSpec(
+                            hostPath = resultsDir.toString(),
+                            containerPath = "/data/results",
+                        ),
+                    ),
+                cmd =
+                    listOf(
+                        "sh",
+                        "-c",
+                        "echo '$sarifContent' > /data/results/qodana.sarif.json",
+                    ),
+            )
 
         val containerId = engine.create(spec)
         try {
@@ -119,15 +129,18 @@ class ContainerScanIntegrationTest {
     }
 
     @Test
-    fun `container captures stderr and non-zero exit codes`(@TempDir tempDir: Path) = runTest(timeout = 2.minutes) {
+    fun `container captures stderr and non-zero exit codes`(
+        @TempDir tempDir: Path,
+    ) = runTest(timeout = 2.minutes) {
         val engine = createDockerEngine() ?: return@runTest
 
         engine.pull("alpine:3.20") {}
 
-        val spec = ContainerRunSpec(
-            image = "alpine:3.20",
-            cmd = listOf("sh", "-c", "echo 'analysis failed' >&2 && exit 255"),
-        )
+        val spec =
+            ContainerRunSpec(
+                image = "alpine:3.20",
+                cmd = listOf("sh", "-c", "echo 'analysis failed' >&2 && exit 255"),
+            )
 
         val containerId = engine.create(spec)
         try {
@@ -149,17 +162,24 @@ class ContainerScanIntegrationTest {
 
         val resultsDir = tempDir.resolve("scan-results").also { Files.createDirectories(it) }
 
-        val spec = ContainerRunSpec(
-            image = image,
-            mounts = listOf(
-                MountSpec(hostPath = resultsDir.toString(), containerPath = "/data/results"),
-            ),
-            cmd = listOf("sh", "-c", """
-                echo "Starting analysis..."
-                echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"mock-qodana"}},"results":[]}]}' > /data/results/qodana.sarif.json
-                echo "Analysis complete"
-            """.trimIndent()),
-        )
+        val spec =
+            ContainerRunSpec(
+                image = image,
+                mounts =
+                    listOf(
+                        MountSpec(hostPath = resultsDir.toString(), containerPath = "/data/results"),
+                    ),
+                cmd =
+                    listOf(
+                        "sh",
+                        "-c",
+                        """
+                        echo "Starting analysis..."
+                        echo '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"mock-qodana"}},"results":[]}]}' > /data/results/qodana.sarif.json
+                        echo "Analysis complete"
+                        """.trimIndent(),
+                    ),
+            )
 
         val containerId = engine.create(spec)
         return try {
@@ -167,12 +187,15 @@ class ContainerScanIntegrationTest {
             val status = engine.wait(containerId)
             status.exitCode
         } finally {
-            try { engine.remove(containerId, force = true) } catch (_: Exception) {}
+            try {
+                engine.remove(containerId, force = true)
+            } catch (_: Exception) {
+            }
         }
     }
 
-    private fun createDockerEngine(): ContainerEngine? {
-        return try {
+    private fun createDockerEngine(): ContainerEngine? =
+        try {
             val engine = createRealDockerEngine()
             kotlinx.coroutines.runBlocking { engine.info() }
             engine
@@ -180,11 +203,8 @@ class ContainerScanIntegrationTest {
             assumeTrue(false, "Docker not available: ${e.message}")
             null
         }
-    }
 
-    private fun createRealDockerEngine(): ContainerEngine {
-        return DockerJavaEngine()
-    }
+    private fun createRealDockerEngine(): ContainerEngine = DockerJavaEngine()
 }
 
 /**
@@ -194,7 +214,10 @@ private class RecordingContainerEngine(
     private val delegate: ContainerEngine,
     private val operations: MutableList<String>,
 ) : ContainerEngine {
-    override suspend fun pull(image: String, onProgress: (String) -> Unit) {
+    override suspend fun pull(
+        image: String,
+        onProgress: (String) -> Unit,
+    ) {
         operations.add("pull")
         delegate.pull(image, onProgress)
     }
@@ -219,31 +242,63 @@ private class RecordingContainerEngine(
         return delegate.wait(containerId)
     }
 
-    override suspend fun remove(containerId: String, force: Boolean) {
+    override suspend fun remove(
+        containerId: String,
+        force: Boolean,
+    ) {
         operations.add("remove")
         delegate.remove(containerId, force)
     }
 
-    override suspend fun info(): ContainerEngineInfo {
-        return delegate.info()
-    }
+    override suspend fun info(): ContainerEngineInfo = delegate.info()
 
-    override suspend fun imageExists(image: String): Boolean {
-        return delegate.imageExists(image)
-    }
+    override suspend fun imageExists(image: String): Boolean = delegate.imageExists(image)
 }
 
-private class RecordingTerminal(private val lines: MutableList<String>) : Terminal {
+private class RecordingTerminal(
+    private val lines: MutableList<String>,
+) : Terminal {
     override val isInteractive: Boolean = false
     override var isCi: Boolean = true
-    override fun print(message: String) { lines.add(message) }
-    override fun println(message: String) { lines.add(message) }
-    override fun error(message: String) { lines.add("ERROR: $message") }
-    override fun info(message: String) { lines.add("INFO: $message") }
-    override fun warn(message: String) { lines.add("WARN: $message") }
-    override fun debug(message: String) { lines.add("DEBUG: $message") }
-    override fun <T> spinner(message: String, action: () -> T): T = action()
-    override fun prompt(message: String, default: String?): String = default ?: ""
-    override fun select(message: String, choices: List<String>): String = choices.first()
+
+    override fun print(message: String) {
+        lines.add(message)
+    }
+
+    override fun println(message: String) {
+        lines.add(message)
+    }
+
+    override fun error(message: String) {
+        lines.add("ERROR: $message")
+    }
+
+    override fun info(message: String) {
+        lines.add("INFO: $message")
+    }
+
+    override fun warn(message: String) {
+        lines.add("WARN: $message")
+    }
+
+    override fun debug(message: String) {
+        lines.add("DEBUG: $message")
+    }
+
+    override fun <T> spinner(
+        message: String,
+        action: () -> T,
+    ): T = action()
+
+    override fun prompt(
+        message: String,
+        default: String?,
+    ): String = default ?: ""
+
+    override fun select(
+        message: String,
+        choices: List<String>,
+    ): String = choices.first()
+
     override fun setRedactedTokens(tokens: Set<String>) {}
 }

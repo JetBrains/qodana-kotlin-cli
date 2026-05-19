@@ -30,12 +30,15 @@ class CdnetLinter(
 
         terminal.println("Running ReSharper InspectCode...")
 
-        val result = processRunner.run(ProcessSpec(
-            command = args[0],  // "dotnet"
-            args = args.drop(1),
-            env = envOverrides,
-            workDir = context.paths.projectDir,
-        ))
+        val result =
+            processRunner.run(
+                ProcessSpec(
+                    command = args[0], // "dotnet"
+                    args = args.drop(1),
+                    env = envOverrides,
+                    workDir = context.paths.projectDir,
+                ),
+            )
 
         if (result.exitCode != 0) {
             throw RuntimeException("Analysis exited with code: ${result.exitCode}")
@@ -64,7 +67,7 @@ class CdnetLinter(
         if (cltDll == null) {
             throw IllegalStateException(
                 "ReSharper CLT not found at $toolsDir. " +
-                "Ensure the CLT archive is available."
+                    "Ensure the CLT archive is available.",
             )
         }
 
@@ -73,9 +76,11 @@ class CdnetLinter(
 
     private fun findInspectCodeDll(dir: Path): Path? {
         if (!Files.exists(dir)) return null
-        return fileSystem.walk(dir, "**/*InspectCode*.dll")
+        return fileSystem
+            .walk(dir, "**/*InspectCode*.dll")
             .firstOrNull()
-            ?: fileSystem.walk(dir, "**/inspectcode*")
-            .firstOrNull()
+            ?: fileSystem
+                .walk(dir, "**/inspectcode*")
+                .firstOrNull()
     }
 }

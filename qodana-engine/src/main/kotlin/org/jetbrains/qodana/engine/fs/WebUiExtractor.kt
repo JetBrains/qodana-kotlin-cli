@@ -7,10 +7,10 @@ import java.nio.file.StandardCopyOption
 import java.util.zip.ZipInputStream
 
 class WebUiExtractor : WebUiProvider {
-
     override fun extractWebUi(targetDir: Path) {
-        val resource = javaClass.classLoader.getResourceAsStream("web-ui.zip")
-            ?: throw IllegalStateException("web-ui.zip not found in classpath resources")
+        val resource =
+            javaClass.classLoader.getResourceAsStream("web-ui.zip")
+                ?: throw IllegalStateException("web-ui.zip not found in classpath resources")
 
         Files.createDirectories(targetDir)
 

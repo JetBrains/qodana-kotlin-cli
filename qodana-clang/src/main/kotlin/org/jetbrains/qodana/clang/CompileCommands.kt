@@ -3,8 +3,8 @@ package org.jetbrains.qodana.clang
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.kotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
-import org.jetbrains.qodana.core.port.ProcessRunner
 import org.jetbrains.qodana.core.model.ProcessSpec
+import org.jetbrains.qodana.core.port.ProcessRunner
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
 
@@ -21,7 +21,9 @@ data class FileWithHeaders(
     val headers: List<String>,
 )
 
-class CompileCommands(private val processRunner: ProcessRunner) {
+class CompileCommands(
+    private val processRunner: ProcessRunner,
+) {
     private val logger = LoggerFactory.getLogger(CompileCommands::class.java)
     private val mapper = ObjectMapper().registerModule(kotlinModule())
 
@@ -35,20 +37,26 @@ class CompileCommands(private val processRunner: ProcessRunner) {
         val headerCache = mutableMapOf<String, List<String>>()
 
         return commands.mapNotNull { cmd ->
-            val compiler = when {
-                cmd.command.isNotBlank() -> cmd.command.trim().split(" ").first()
-                cmd.arguments.isNotEmpty() -> cmd.arguments.first()
-                else -> {
-                    logger.warn("Empty command and arguments for file in compilation db: {}", cmd.file)
-                    return@mapNotNull null
+            val compiler =
+                when {
+                    cmd.command.isNotBlank() ->
+                        cmd.command
+                            .trim()
+                            .split(" ")
+                            .first()
+                    cmd.arguments.isNotEmpty() -> cmd.arguments.first()
+                    else -> {
+                        logger.warn("Empty command and arguments for file in compilation db: {}", cmd.file)
+                        return@mapNotNull null
+                    }
                 }
-            }
 
             val headerType = getHeaderType(cmd.file)
             val cacheKey = compiler + headerType
-            val headers = headerCache.getOrPut(cacheKey) {
-                askCompiler(compiler, headerType)
-            }
+            val headers =
+                headerCache.getOrPut(cacheKey) {
+                    askCompiler(compiler, headerType)
+                }
             FileWithHeaders(file = cmd.file, headers = headers)
         }
     }
@@ -62,11 +70,17 @@ class CompileCommands(private val processRunner: ProcessRunner) {
         }
     }
 
-    private suspend fun askCompiler(compiler: String, headerType: String): List<String> {
-        val result = processRunner.run(ProcessSpec(
-            command = compiler,
-            args = headerType.split(" "),
-        ))
+    private suspend fun askCompiler(
+        compiler: String,
+        headerType: String,
+    ): List<String> {
+        val result =
+            processRunner.run(
+                ProcessSpec(
+                    command = compiler,
+                    args = headerType.split(" "),
+                ),
+            )
 
         val stderr = result.stderr
         val startIdx = stderr.indexOf(SEARCH_START)
@@ -77,9 +91,11 @@ class CompileCommands(private val processRunner: ProcessRunner) {
         }
 
         val includes = stderr.substring(startIdx + SEARCH_START.length, endIdx).trim()
-        val dirs = includes.split(Regex("[\\n\\r]+"))
-            .filter { !it.contains("(") }
-            .map { "--extra-arg=-isystem${it.trim()}" }
+        val dirs =
+            includes
+                .split(Regex("[\\n\\r]+"))
+                .filter { !it.contains("(") }
+                .map { "--extra-arg=-isystem${it.trim()}" }
 
         logger.debug("Compiler: {} Include dirs: {}", compiler, dirs)
         return dirs

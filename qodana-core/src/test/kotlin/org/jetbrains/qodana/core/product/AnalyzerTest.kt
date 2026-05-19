@@ -7,7 +7,6 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class AnalyzerTest {
-
     @Test
     fun `native analyzer linter`() {
         val analyzer = Linters.JVM.nativeAnalyzer()
@@ -51,16 +50,18 @@ class AnalyzerTest {
         val native = Linters.JVM.nativeAnalyzer()
         val docker = Linters.JVM.dockerAnalyzer()
 
-        val nativeResult = when (native) {
-            is Analyzer.Native -> "native"
-            is Analyzer.Docker -> "docker"
-        }
+        val nativeResult =
+            when (native) {
+                is Analyzer.Native -> "native"
+                is Analyzer.Docker -> "docker"
+            }
         assertEquals("native", nativeResult)
 
-        val dockerResult = when (docker) {
-            is Analyzer.Native -> "native"
-            is Analyzer.Docker -> "docker"
-        }
+        val dockerResult =
+            when (docker) {
+                is Analyzer.Native -> "native"
+                is Analyzer.Docker -> "docker"
+            }
         assertEquals("docker", dockerResult)
     }
 }

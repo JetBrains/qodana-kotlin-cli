@@ -3,11 +3,11 @@ package org.jetbrains.qodana.engine.startup
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.kotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
+import org.jetbrains.qodana.core.port.FileSystem
+import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.core.product.Analyzer
 import org.jetbrains.qodana.core.product.IntellijLinterProperties
 import org.jetbrains.qodana.core.product.Linters
-import org.jetbrains.qodana.core.port.FileSystem
-import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.engine.port.HttpTransport
 import java.nio.file.Path
 import java.security.MessageDigest
@@ -20,9 +20,13 @@ class IdeInstaller(
 ) {
     private val mapper = ObjectMapper().registerModule(kotlinModule())
 
-    suspend fun downloadAndInstall(analyzer: Analyzer, baseDir: Path): Path {
-        val downloadInfo = getIde(analyzer)
-            ?: error("Error while obtaining the URL for the supplied IDE, exiting")
+    suspend fun downloadAndInstall(
+        analyzer: Analyzer,
+        baseDir: Path,
+    ): Path {
+        val downloadInfo =
+            getIde(analyzer)
+                ?: error("Error while obtaining the URL for the supplied IDE, exiting")
 
         val ideUrl = downloadInfo.link
         val fileName = Path.of(ideUrl).fileName.toString()
@@ -45,7 +49,10 @@ class IdeInstaller(
 
             extractArchive(downloadedPath, installDir, fileExt)
         } finally {
-            try { fileSystem.delete(downloadedPath) } catch (_: Exception) {}
+            try {
+                fileSystem.delete(downloadedPath)
+            } catch (_: Exception) {
+            }
         }
 
         return resolveInstallDir(installDir)
@@ -66,45 +73,52 @@ class IdeInstaller(
             return null
         }
 
-        val product = getProductByCode(properties.feedProductCode) ?: run {
-            terminal.error("Product info is not found for code: ${properties.feedProductCode}")
-            return null
-        }
+        val product =
+            getProductByCode(properties.feedProductCode) ?: run {
+                terminal.error("Product info is not found for code: ${properties.feedProductCode}")
+                return null
+            }
 
-        val release = selectLatestCompatibleRelease(product, dist) ?: run {
-            terminal.error("Could not find a $dist version for '${properties.presentableName}'")
-            return null
-        }
+        val release =
+            selectLatestCompatibleRelease(product, dist) ?: run {
+                terminal.error("Could not find a $dist version for '${properties.presentableName}'")
+                return null
+            }
 
         val downloadType = resolveDownloadType()
         val downloads = release.downloads ?: return null
         return downloads[downloadType] ?: run {
             terminal.error(
                 "${properties.feedProductCode} ${release.version} ($dist) " +
-                    "is not available or not supported for the current platform"
+                    "is not available or not supported for the current platform",
             )
             null
         }
     }
 
     fun getProductByCode(code: String): Product? {
-        val feedJson = try {
-            val response = kotlinx.coroutines.runBlocking { httpTransport.get(productFeedUrl) }
-            response.body
-        } catch (e: Exception) {
-            terminal.error("Failed to fetch product feed: ${e.message}")
-            return null
-        }
+        val feedJson =
+            try {
+                val response = kotlinx.coroutines.runBlocking { httpTransport.get(productFeedUrl) }
+                response.body
+            } catch (e: Exception) {
+                terminal.error("Failed to fetch product feed: ${e.message}")
+                return null
+            }
 
         val products: List<Product> = mapper.readValue(feedJson)
         return products.find { it.code == code }
     }
 
-    fun selectLatestCompatibleRelease(product: Product, reqType: String): ReleaseInfo? {
+    fun selectLatestCompatibleRelease(
+        product: Product,
+        reqType: String,
+    ): ReleaseInfo? {
         // Prefer matching the current release version
-        val preferred = product.releases
-            .filter { it.majorVersion == Linters.RELEASE_VERSION && it.type == reqType }
-            .maxByOrNull { it.date }
+        val preferred =
+            product.releases
+                .filter { it.majorVersion == Linters.RELEASE_VERSION && it.type == reqType }
+                .maxByOrNull { it.date }
         if (preferred != null) return preferred
 
         // Fall back to latest release of the requested type
@@ -122,7 +136,11 @@ class IdeInstaller(
         }
     }
 
-    suspend fun verifySha256(checksumUrl: String, filePath: Path, workDir: Path) {
+    suspend fun verifySha256(
+        checksumUrl: String,
+        filePath: Path,
+        workDir: Path,
+    ) {
         val checksumFile = workDir.resolve("${filePath.fileName}.sha256")
         httpTransport.download(checksumUrl, checksumFile)
 
@@ -136,7 +154,10 @@ class IdeInstaller(
             }
             terminal.info("Checksum of downloaded IDE was verified")
         } finally {
-            try { fileSystem.delete(checksumFile) } catch (_: Exception) {}
+            try {
+                fileSystem.delete(checksumFile)
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -152,7 +173,11 @@ class IdeInstaller(
         return digest.digest().joinToString("") { "%02x".format(it) }
     }
 
-    private fun extractArchive(archivePath: Path, targetDir: Path, extension: String) {
+    private fun extractArchive(
+        archivePath: Path,
+        targetDir: Path,
+        extension: String,
+    ) {
         when (extension) {
             "sit", "zip" -> fileSystem.extractArchive(archivePath, targetDir)
             "gz" -> fileSystem.extractArchive(archivePath, targetDir)

@@ -3,8 +3,10 @@ package org.jetbrains.qodana.engine.report
 import org.jetbrains.qodana.core.model.QodanaYaml
 
 object FailureThresholds {
-
-    fun getFailureThresholds(yaml: QodanaYaml?, cliFailThreshold: String = ""): Map<String, String> {
+    fun getFailureThresholds(
+        yaml: QodanaYaml?,
+        cliFailThreshold: String = "",
+    ): Map<String, String> {
         if (yaml == null) return emptyMap()
 
         val result = mutableMapOf<String, String>()

@@ -14,18 +14,22 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class WebUiExtractorTest {
-
     @Test
-    fun `throws when web-ui zip not in classpath`(@TempDir dir: Path) {
+    fun `throws when web-ui zip not in classpath`(
+        @TempDir dir: Path,
+    ) {
         val extractor = WebUiExtractor()
-        val exception = assertFailsWith<IllegalStateException> {
-            extractor.extractWebUi(dir.resolve("output"))
-        }
+        val exception =
+            assertFailsWith<IllegalStateException> {
+                extractor.extractWebUi(dir.resolve("output"))
+            }
         assertTrue(exception.message!!.contains("web-ui.zip not found"))
     }
 
     @Test
-    fun `extracts zip contents to target directory`(@TempDir dir: Path) {
+    fun `extracts zip contents to target directory`(
+        @TempDir dir: Path,
+    ) {
         val zipBytes = createTestZip(mapOf("index.html" to "hello", "css/style.css" to "body{}"))
         val target = dir.resolve("output")
         extractZipLikeWebUi(zipBytes, target)
@@ -37,7 +41,9 @@ class WebUiExtractorTest {
     }
 
     @Test
-    fun `creates target directory if it does not exist`(@TempDir dir: Path) {
+    fun `creates target directory if it does not exist`(
+        @TempDir dir: Path,
+    ) {
         val zipBytes = createTestZip(mapOf("file.txt" to "data"))
         val target = dir.resolve("nested/deep/output")
         extractZipLikeWebUi(zipBytes, target)
@@ -47,7 +53,9 @@ class WebUiExtractorTest {
     }
 
     @Test
-    fun `rejects path traversal entries`(@TempDir dir: Path) {
+    fun `rejects path traversal entries`(
+        @TempDir dir: Path,
+    ) {
         val zipBytes = createTestZipRaw(listOf("../escape.txt" to "bad"))
         val target = dir.resolve("output")
         assertFailsWith<SecurityException> {
@@ -59,7 +67,10 @@ class WebUiExtractorTest {
      * Mimics the WebUiExtractor extraction logic using a byte array instead of classpath resource,
      * verifying the zip extraction and path traversal protection code paths.
      */
-    private fun extractZipLikeWebUi(zipBytes: ByteArray, targetDir: Path) {
+    private fun extractZipLikeWebUi(
+        zipBytes: ByteArray,
+        targetDir: Path,
+    ) {
         Files.createDirectories(targetDir)
         ZipInputStream(zipBytes.inputStream()).use { zis ->
             var entry = zis.nextEntry
@@ -79,9 +90,7 @@ class WebUiExtractorTest {
         }
     }
 
-    private fun createTestZip(entries: Map<String, String>): ByteArray {
-        return createTestZipRaw(entries.entries.map { it.key to it.value })
-    }
+    private fun createTestZip(entries: Map<String, String>): ByteArray = createTestZipRaw(entries.entries.map { it.key to it.value })
 
     private fun createTestZipRaw(entries: List<Pair<String, String>>): ByteArray {
         val baos = ByteArrayOutputStream()

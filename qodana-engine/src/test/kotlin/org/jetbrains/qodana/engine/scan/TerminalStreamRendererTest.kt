@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
 class TerminalStreamRendererTest {
-
     @Test
     fun `interactive render preserves carriage return chunks`() {
         val terminal = RendererRecordingTerminal(isInteractive = true)
@@ -83,11 +82,27 @@ private class RendererRecordingTerminal(
     }
 
     override fun error(message: String) {}
+
     override fun info(message: String) {}
+
     override fun warn(message: String) {}
+
     override fun debug(message: String) {}
-    override fun <T> spinner(message: String, action: () -> T): T = action()
-    override fun prompt(message: String, default: String?): String = default ?: ""
-    override fun select(message: String, choices: List<String>): String = choices.firstOrNull() ?: ""
+
+    override fun <T> spinner(
+        message: String,
+        action: () -> T,
+    ): T = action()
+
+    override fun prompt(
+        message: String,
+        default: String?,
+    ): String = default ?: ""
+
+    override fun select(
+        message: String,
+        choices: List<String>,
+    ): String = choices.firstOrNull() ?: ""
+
     override fun setRedactedTokens(tokens: Set<String>) {}
 }

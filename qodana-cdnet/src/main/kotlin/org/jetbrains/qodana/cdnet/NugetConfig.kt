@@ -13,12 +13,11 @@ object NugetConfig {
     private const val QODANA_NUGET_PASSWORD = "QODANA_NUGET_PASSWORD"
     private const val QODANA_NUGET_NAME = "QODANA_NUGET_NAME"
 
-    fun isNeeded(getEnv: (String) -> String? = System::getenv): Boolean {
-        return getEnv(QodanaEnv.DOCKER)?.isNotBlank() == true
-            && getEnv(QODANA_NUGET_URL)?.isNotBlank() == true
-            && getEnv(QODANA_NUGET_USER)?.isNotBlank() == true
-            && getEnv(QODANA_NUGET_PASSWORD)?.isNotBlank() == true
-    }
+    fun isNeeded(getEnv: (String) -> String? = System::getenv): Boolean =
+        getEnv(QodanaEnv.DOCKER)?.isNotBlank() == true &&
+            getEnv(QODANA_NUGET_URL)?.isNotBlank() == true &&
+            getEnv(QODANA_NUGET_USER)?.isNotBlank() == true &&
+            getEnv(QODANA_NUGET_PASSWORD)?.isNotBlank() == true
 
     fun prepare(
         homeDir: Path,
@@ -33,7 +32,8 @@ object NugetConfig {
         val user = getEnv(QODANA_NUGET_USER)
         val password = getEnv(QODANA_NUGET_PASSWORD)
 
-        val config = """
+        val config =
+            """
             |<?xml version="1.0" encoding="utf-8"?>
             |<configuration>
             |  <packageSources>
@@ -48,7 +48,7 @@ object NugetConfig {
             |    </$sourceName>
             |  </packageSourceCredentials>
             |</configuration>
-        """.trimMargin()
+            """.trimMargin()
 
         Files.writeString(configPath, config)
     }

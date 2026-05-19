@@ -7,7 +7,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class PluginUtilsTest {
-
     @Test
     fun `getPluginIds empty plugins`() {
         val yaml = QodanaYaml(plugins = emptyList())
@@ -22,11 +21,15 @@ class PluginUtilsTest {
 
     @Test
     fun `getPluginIds multiple plugins`() {
-        val yaml = QodanaYaml(plugins = listOf(
-            YamlPlugin(id = "plugin1"),
-            YamlPlugin(id = "plugin2"),
-            YamlPlugin(id = "plugin3"),
-        ))
+        val yaml =
+            QodanaYaml(
+                plugins =
+                    listOf(
+                        YamlPlugin(id = "plugin1"),
+                        YamlPlugin(id = "plugin2"),
+                        YamlPlugin(id = "plugin3"),
+                    ),
+            )
         assertEquals(listOf("plugin1", "plugin2", "plugin3"), PluginUtils.getPluginIds(yaml))
     }
 

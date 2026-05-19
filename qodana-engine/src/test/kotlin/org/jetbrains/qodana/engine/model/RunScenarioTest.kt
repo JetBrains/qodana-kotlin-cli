@@ -6,7 +6,6 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 
 class RunScenarioTest {
-
     @Test
     fun `default scenario`() {
         val scenario: RunScenario = RunScenario.Default
@@ -47,13 +46,14 @@ class RunScenarioTest {
 
     @Test
     fun `sealed interface covers all variants`() {
-        val scenarios: List<RunScenario> = listOf(
-            RunScenario.Default,
-            RunScenario.FullHistory,
-            RunScenario.LocalChanges(),
-            RunScenario.Scoped("main"),
-            RunScenario.ReverseScoped("main"),
-        )
+        val scenarios: List<RunScenario> =
+            listOf(
+                RunScenario.Default,
+                RunScenario.FullHistory,
+                RunScenario.LocalChanges(),
+                RunScenario.Scoped("main"),
+                RunScenario.ReverseScoped("main"),
+            )
         assertEquals(5, scenarios.size)
     }
 }

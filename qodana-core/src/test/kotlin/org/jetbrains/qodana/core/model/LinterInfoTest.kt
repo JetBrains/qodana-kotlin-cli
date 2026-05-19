@@ -7,7 +7,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class LinterInfoTest {
-
     @Test
     fun `getMajorVersion simple version`() {
         assertEquals("2024.1", LinterInfo("QDJVM", "2024.1").getMajorVersion())

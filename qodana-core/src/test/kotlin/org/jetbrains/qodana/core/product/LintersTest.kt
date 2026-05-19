@@ -8,7 +8,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class LintersTest {
-
     @Test
     fun `all linters count is 15`() {
         assertEquals(15, Linters.ALL.size)

@@ -17,16 +17,21 @@ internal data class CommandPaths(
 )
 
 internal object CliPathResolver {
-    fun loadYaml(projectDir: Path, customConfigName: String?): QodanaYaml? {
-        val yamlPath = when {
-            !customConfigName.isNullOrBlank() -> projectDir.resolve(customConfigName)
-            Files.exists(projectDir.resolve("qodana.yaml")) -> projectDir.resolve("qodana.yaml")
-            Files.exists(projectDir.resolve("qodana.yml")) -> projectDir.resolve("qodana.yml")
-            else -> null
-        } ?: return null
+    fun loadYaml(
+        projectDir: Path,
+        customConfigName: String?,
+    ): QodanaYaml? {
+        val yamlPath =
+            when {
+                !customConfigName.isNullOrBlank() -> projectDir.resolve(customConfigName)
+                Files.exists(projectDir.resolve("qodana.yaml")) -> projectDir.resolve("qodana.yaml")
+                Files.exists(projectDir.resolve("qodana.yml")) -> projectDir.resolve("qodana.yml")
+                else -> null
+            } ?: return null
 
         return runCatching {
-            YAMLMapper.builder()
+            YAMLMapper
+                .builder()
                 .addModule(kotlinModule())
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                 .build()
@@ -34,13 +39,16 @@ internal object CliPathResolver {
         }.getOrNull()
     }
 
-    fun resolveLinterName(cliLinter: String?, yaml: QodanaYaml?, projectDir: Path): String {
-        return cliLinter
+    fun resolveLinterName(
+        cliLinter: String?,
+        yaml: QodanaYaml?,
+        projectDir: Path,
+    ): String =
+        cliLinter
             ?: yaml?.linter
             ?: yaml?.image
             ?: ProjectDetector.detectLinter(projectDir)?.name
             ?: "qodana-jvm"
-    }
 
     fun resolvePaths(
         projectDir: Path,
@@ -51,15 +59,16 @@ internal object CliPathResolver {
         runtimeEnvironment: RuntimeEnvironment,
     ): CommandPaths {
         val normalizedCacheOverride = cacheDir?.toAbsolutePath()?.normalize()
-        val defaults = if (runtimeEnvironment == RuntimeEnvironment.IN_DOCKER) {
-            Triple(Path.of("/data/results"), Path.of("/data/cache"), Path.of("/data/results/report"))
-        } else {
-            val linterDir = qodanaSystemDir(normalizedCacheOverride).resolve(computeScanId(linterName, projectDir))
-            val defaultResults = linterDir.resolve("results")
-            val defaultCache = linterDir.resolve("cache")
-            val defaultReport = defaultResults.resolve("report")
-            Triple(defaultResults, defaultCache, defaultReport)
-        }
+        val defaults =
+            if (runtimeEnvironment == RuntimeEnvironment.IN_DOCKER) {
+                Triple(Path.of("/data/results"), Path.of("/data/cache"), Path.of("/data/results/report"))
+            } else {
+                val linterDir = qodanaSystemDir(normalizedCacheOverride).resolve(computeScanId(linterName, projectDir))
+                val defaultResults = linterDir.resolve("results")
+                val defaultCache = linterDir.resolve("cache")
+                val defaultReport = defaultResults.resolve("report")
+                Triple(defaultResults, defaultCache, defaultReport)
+            }
 
         val resolvedResults = resultsDir?.toAbsolutePath()?.normalize() ?: defaults.first
         val resolvedCache = normalizedCacheOverride ?: defaults.second
@@ -84,15 +93,19 @@ internal object CliPathResolver {
         }
         val home = System.getProperty("user.home") ?: "."
         val isMac = System.getProperty("os.name", "").lowercase().contains("mac")
-        val userCache = if (isMac) {
-            Path.of(home, "Library", "Caches")
-        } else {
-            Path.of(home, ".cache")
-        }
+        val userCache =
+            if (isMac) {
+                Path.of(home, "Library", "Caches")
+            } else {
+                Path.of(home, ".cache")
+            }
         return userCache.resolve("JetBrains").resolve("Qodana")
     }
 
-    private fun computeScanId(linterName: String, projectDir: Path): String {
+    private fun computeScanId(
+        linterName: String,
+        projectDir: Path,
+    ): String {
         val linterHash = sha256(linterName).take(8)
         val projectHash = sha256(projectDir.toString()).take(8)
         return "$linterHash-$projectHash"

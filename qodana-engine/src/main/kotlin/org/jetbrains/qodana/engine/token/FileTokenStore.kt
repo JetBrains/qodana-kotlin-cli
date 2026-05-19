@@ -1,7 +1,6 @@
 package org.jetbrains.qodana.engine.token
 
 import org.jetbrains.qodana.engine.port.TokenStore
-import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteIfExists
@@ -12,13 +11,15 @@ import kotlin.io.path.writeText
 class FileTokenStore(
     private val storageDir: Path = defaultStorageDir(),
 ) : TokenStore {
-
     override fun load(key: String): String? {
         val file = storageDir.resolve(key)
         return if (file.exists()) file.readText().trim().takeIf { it.isNotBlank() } else null
     }
 
-    override fun save(key: String, value: String) {
+    override fun save(
+        key: String,
+        value: String,
+    ) {
         storageDir.createDirectories()
         val file = storageDir.resolve(key)
         file.writeText(value)

@@ -11,21 +11,25 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 object EffectiveConfig {
+    private val yamlMapper: ObjectMapper =
+        ObjectMapper(YAMLFactory())
+            .registerKotlinModule()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
-    private val yamlMapper: ObjectMapper = ObjectMapper(YAMLFactory())
-        .registerKotlinModule()
-        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-
-    fun load(projectDir: Path, customConfigName: String? = null): QodanaYaml? {
+    fun load(
+        projectDir: Path,
+        customConfigName: String? = null,
+    ): QodanaYaml? {
         val yamlFile = resolveYamlPath(projectDir, customConfigName) ?: return null
         return parse(Files.readString(yamlFile))
     }
 
-    fun parse(yamlContent: String): QodanaYaml {
-        return yamlMapper.readValue(yamlContent, QodanaYaml::class.java)
-    }
+    fun parse(yamlContent: String): QodanaYaml = yamlMapper.readValue(yamlContent, QodanaYaml::class.java)
 
-    fun resolveYamlPath(projectDir: Path, customConfigName: String? = null): Path? {
+    fun resolveYamlPath(
+        projectDir: Path,
+        customConfigName: String? = null,
+    ): Path? {
         if (!customConfigName.isNullOrBlank()) {
             val customPath = resolveCustomConfigPath(projectDir, customConfigName)
             return if (Files.exists(customPath)) customPath else null
@@ -42,12 +46,18 @@ object EffectiveConfig {
             .firstOrNull { Files.exists(it) }
     }
 
-    private fun resolveCustomConfigPath(projectDir: Path, configuredPath: String): Path {
+    private fun resolveCustomConfigPath(
+        projectDir: Path,
+        configuredPath: String,
+    ): Path {
         val rawPath = Path.of(configuredPath)
         return if (rawPath.isAbsolute) rawPath else projectDir.resolve(rawPath)
     }
 
-    fun merge(yaml: QodanaYaml?, context: ScanContext): ScanContext {
+    fun merge(
+        yaml: QodanaYaml?,
+        context: ScanContext,
+    ): ScanContext {
         if (yaml == null) return context
 
         return context.copy(
@@ -60,14 +70,19 @@ object EffectiveConfig {
         )
     }
 
-    private fun mergeProfile(yamlProfile: YamlProfile, cliProfile: ProfileSpec?): ProfileSpec {
-        return ProfileSpec(
+    private fun mergeProfile(
+        yamlProfile: YamlProfile,
+        cliProfile: ProfileSpec?,
+    ): ProfileSpec =
+        ProfileSpec(
             name = cliProfile?.name ?: yamlProfile.name.ifBlank { null },
             path = cliProfile?.path ?: yamlProfile.path.ifBlank { null },
         )
-    }
 
-    private fun mergeRuntime(yaml: QodanaYaml, runtime: RuntimeContext): RuntimeContext {
+    private fun mergeRuntime(
+        yaml: QodanaYaml,
+        runtime: RuntimeContext,
+    ): RuntimeContext {
         val mergedProperties = yaml.properties + runtime.properties
         val failThreshold = runtime.failThreshold ?: yaml.failThreshold
         val yamlDisableSanity = yaml.disableSanityInspections?.toBooleanStrictOrNull() == true
@@ -78,36 +93,36 @@ object EffectiveConfig {
             runPromo = runtime.runPromo ?: yaml.runPromoInspections?.ifBlank { null },
             bootstrap = runtime.bootstrap ?: yaml.bootstrap?.ifBlank { null },
             fixesStrategy = runtime.fixesStrategy ?: yaml.fixesStrategy?.ifBlank { null },
-            script = if (runtime.script == "default") {
-                yaml.script.name.ifBlank { runtime.script }
-            } else {
-                runtime.script
-            },
+            script =
+                if (runtime.script == "default") {
+                    yaml.script.name.ifBlank { runtime.script }
+                } else {
+                    runtime.script
+                },
         )
     }
 
-    private fun mergeReport(yaml: QodanaYaml, report: ReportOptions): ReportOptions {
-        return report.copy(
-            baselineIncludeAbsent = report.baselineIncludeAbsent ||
-                yaml.includeAbsent?.toBooleanStrictOrNull() == true,
+    private fun mergeReport(
+        yaml: QodanaYaml,
+        report: ReportOptions,
+    ): ReportOptions =
+        report.copy(
+            baselineIncludeAbsent =
+                report.baselineIncludeAbsent ||
+                    yaml.includeAbsent?.toBooleanStrictOrNull() == true,
         )
-    }
 
-    private fun mergeDocker(yaml: QodanaYaml, docker: DockerOptions): DockerOptions {
-        return docker.copy(
+    private fun mergeDocker(
+        yaml: QodanaYaml,
+        docker: DockerOptions,
+    ): DockerOptions =
+        docker.copy(
             image = docker.image ?: yaml.image ?: yaml.linter,
         )
-    }
 
-    fun resolveBootstrap(yaml: QodanaYaml?): String? {
-        return yaml?.bootstrap
-    }
+    fun resolveBootstrap(yaml: QodanaYaml?): String? = yaml?.bootstrap
 
-    fun resolvePlugins(yaml: QodanaYaml?): List<YamlPlugin> {
-        return yaml?.plugins ?: emptyList()
-    }
+    fun resolvePlugins(yaml: QodanaYaml?): List<YamlPlugin> = yaml?.plugins ?: emptyList()
 
-    fun resolveDotNet(yaml: QodanaYaml?): YamlDotNet? {
-        return yaml?.dotnet
-    }
+    fun resolveDotNet(yaml: QodanaYaml?): YamlDotNet? = yaml?.dotnet
 }

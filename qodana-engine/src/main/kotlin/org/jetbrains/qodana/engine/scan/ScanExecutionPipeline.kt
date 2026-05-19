@@ -12,7 +12,9 @@ abstract class BaseScanExecutionPipeline(
     private val prepareHost: PrepareHost,
 ) {
     open fun prepare(context: ScanContext): PreparedHost = prepareHost.prepare(context)
+
     abstract fun canRunBootstrap(context: ScanContext): Boolean
+
     abstract suspend fun runAnalysis(context: ScanContext): Int
 }
 
@@ -21,6 +23,7 @@ class NativeScanExecutionPipeline(
     private val nativeScan: NativeScan,
 ) : BaseScanExecutionPipeline(prepareHost) {
     override fun canRunBootstrap(context: ScanContext): Boolean = true
+
     override suspend fun runAnalysis(context: ScanContext): Int = nativeScan.run(context)
 }
 
@@ -29,6 +32,7 @@ abstract class BaseContainerScanExecutionPipeline(
     private val containerScan: ContainerScan,
 ) : BaseScanExecutionPipeline(prepareHost) {
     override fun canRunBootstrap(context: ScanContext): Boolean = false
+
     override suspend fun runAnalysis(context: ScanContext): Int = containerScan.run(context)
 }
 
@@ -47,11 +51,10 @@ class ScanExecutionPipelineFactory(
     private val inDockerPipeline: InDockerScanExecutionPipeline,
     private val dockerLauncherPipeline: DockerLauncherScanExecutionPipeline,
 ) {
-    fun create(profile: ExecutionProfile): BaseScanExecutionPipeline {
-        return when (profile) {
+    fun create(profile: ExecutionProfile): BaseScanExecutionPipeline =
+        when (profile) {
             NativeExecutionProfile -> nativePipeline
             InDockerExecutionProfile -> inDockerPipeline
             DockerLauncherExecutionProfile -> dockerLauncherPipeline
         }
-    }
 }

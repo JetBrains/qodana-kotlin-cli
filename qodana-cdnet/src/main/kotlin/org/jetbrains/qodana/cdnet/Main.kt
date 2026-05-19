@@ -25,20 +25,25 @@ fun main(args: Array<String>) {
 
     val linter = CdnetLinter(processRunner, fileSystem, terminal)
 
-    val rootCommand = QodanaCdnetCommand().subcommands(
-        CdnetCommand(linter, terminal),
-    )
+    val rootCommand =
+        QodanaCdnetCommand().subcommands(
+            CdnetCommand(linter, terminal),
+        )
     rootCommand.main(args)
 }
 
 internal fun resolveThirdPartyEapExitCode(
     terminal: Terminal,
-    buildDateStr: String = System.getProperty("qodana.build.date")
-        ?: System.getenv("QODANA_BUILD_DATE")
-        ?: "",
-    isEap: Boolean = (System.getProperty("qodana.is.eap")
-        ?: System.getenv("QODANA_IS_EAP")
-        ?: "false").toBooleanStrictOrNull() ?: false,
+    buildDateStr: String =
+        System.getProperty("qodana.build.date")
+            ?: System.getenv("QODANA_BUILD_DATE")
+            ?: "",
+    isEap: Boolean =
+        (
+            System.getProperty("qodana.is.eap")
+                ?: System.getenv("QODANA_IS_EAP")
+                ?: "false"
+        ).toBooleanStrictOrNull() ?: false,
     checker: EapChecker = EapChecker(terminal),
 ): Int? {
     if (!isEap) return null

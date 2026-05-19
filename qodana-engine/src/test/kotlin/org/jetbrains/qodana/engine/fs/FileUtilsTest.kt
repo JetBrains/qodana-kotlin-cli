@@ -7,11 +7,9 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class FileUtilsTest {
-
     @Test
     fun `getSha256 produces consistent hash`() {
         val content = "test content"
@@ -29,7 +27,9 @@ class FileUtilsTest {
     }
 
     @Test
-    fun `getFileSha256 reads file`(@TempDir dir: Path) {
+    fun `getFileSha256 reads file`(
+        @TempDir dir: Path,
+    ) {
         val file = dir.resolve("test.txt")
         file.writeText("test content")
 
@@ -39,13 +39,17 @@ class FileUtilsTest {
     }
 
     @Test
-    fun `getFileSha256 nonexistent file fails`(@TempDir dir: Path) {
+    fun `getFileSha256 nonexistent file fails`(
+        @TempDir dir: Path,
+    ) {
         val result = FileUtils.getFileSha256(dir.resolve("nonexistent.txt"))
         assertTrue(result.isFailure)
     }
 
     @Test
-    fun `copyDir copies files recursively`(@TempDir dir: Path) {
+    fun `copyDir copies files recursively`(
+        @TempDir dir: Path,
+    ) {
         val src = dir.resolve("src")
         src.createDirectories()
         src.resolve("file1.txt").writeText("content1")
@@ -60,7 +64,9 @@ class FileUtilsTest {
     }
 
     @Test
-    fun `copyDir preserves directory structure`(@TempDir dir: Path) {
+    fun `copyDir preserves directory structure`(
+        @TempDir dir: Path,
+    ) {
         val src = dir.resolve("src")
         src.resolve("a/b/c").createDirectories()
         src.resolve("a/b/c/deep.txt").writeText("deep")

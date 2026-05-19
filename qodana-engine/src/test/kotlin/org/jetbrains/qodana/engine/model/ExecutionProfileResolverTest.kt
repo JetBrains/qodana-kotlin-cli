@@ -5,7 +5,6 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
 class ExecutionProfileResolverTest {
-
     @Test
     fun `native target resolves to native profile in host runtime`() {
         val resolver = ExecutionProfileResolver { RuntimeEnvironment.HOST }

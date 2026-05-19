@@ -34,7 +34,6 @@ class InitCommand(
     private val httpTransport: HttpTransport = OkHttpTransport(),
     private val runtimeEnvironmentDetector: () -> RuntimeEnvironment = { RuntimeEnvironmentDetector.detect() },
 ) : CliktCommand("init") {
-
     override fun help(context: Context) = "Configure a Qodana project by creating a qodana.yaml file"
 
     private val projectDir by option("-i", "--project-dir", help = "Root directory of the project")
@@ -44,38 +43,42 @@ class InitCommand(
         .flag()
     private val configName by option("--config", help = "Custom configuration file instead of qodana.yaml")
 
-    override fun run() = runBlocking {
-        val absProjectDir = projectDir.toAbsolutePath().normalize()
-        val yamlFile = resolveYamlFile(absProjectDir, configName)
-        val isExisting = Files.exists(yamlFile)
-        val content = if (isExisting) Files.readString(yamlFile) else ""
-        val analyzerAlreadyConfigured = isExisting && !force && isAnalyzerConfigured(content)
+    override fun run() =
+        runBlocking {
+            val absProjectDir = projectDir.toAbsolutePath().normalize()
+            val yamlFile = resolveYamlFile(absProjectDir, configName)
+            val isExisting = Files.exists(yamlFile)
+            val content = if (isExisting) Files.readString(yamlFile) else ""
+            val analyzerAlreadyConfigured = isExisting && !force && isAnalyzerConfigured(content)
 
-        if (analyzerAlreadyConfigured) {
-            terminal.println(
-                "The product to use was already configured before. Run the command with -f flag to re-init the project"
-            )
-        } else {
-            val detectedLinter = ProjectDetector.detectLinter(absProjectDir)
-            if (detectedLinter == null) {
-                terminal.error("Could not configure project as it is not supported by Qodana")
-                terminal.warn("See https://www.jetbrains.com/help/qodana/supported-technologies.html for more details")
-                throw ProgramResult(1)
-            }
-
-            if (isExisting) {
-                updateExistingYaml(yamlFile, detectedLinter.name)
+            if (analyzerAlreadyConfigured) {
+                terminal.println(
+                    "The product to use was already configured before. Run the command with -f flag to re-init the project",
+                )
             } else {
-                createNewYaml(yamlFile, detectedLinter.name)
+                val detectedLinter = ProjectDetector.detectLinter(absProjectDir)
+                if (detectedLinter == null) {
+                    terminal.error("Could not configure project as it is not supported by Qodana")
+                    terminal.warn("See https://www.jetbrains.com/help/qodana/supported-technologies.html for more details")
+                    throw ProgramResult(1)
+                }
+
+                if (isExisting) {
+                    updateExistingYaml(yamlFile, detectedLinter.name)
+                } else {
+                    createNewYaml(yamlFile, detectedLinter.name)
+                }
+                checkCloudTokenIfRequired(detectedLinter)
             }
-            checkCloudTokenIfRequired(detectedLinter)
+
+            configureDotNetIfNeeded(absProjectDir, yamlFile)
+            terminal.println(yamlFile.toString())
         }
 
-        configureDotNetIfNeeded(absProjectDir, yamlFile)
-        terminal.println(yamlFile.toString())
-    }
-
-    private fun resolveYamlFile(dir: Path, customConfigName: String?): Path {
+    private fun resolveYamlFile(
+        dir: Path,
+        customConfigName: String?,
+    ): Path {
         if (!customConfigName.isNullOrBlank()) {
             return dir.resolve(customConfigName)
         }
@@ -84,14 +87,16 @@ class InitCommand(
             ?: dir.resolve("qodana.yaml")
     }
 
-    private fun isAnalyzerConfigured(content: String): Boolean {
-        return content.lines().any { line ->
+    private fun isAnalyzerConfigured(content: String): Boolean =
+        content.lines().any { line ->
             val trimmed = line.trimStart()
             trimmed.startsWith("linter:") || trimmed.startsWith("ide:") || trimmed.startsWith("image:")
         }
-    }
 
-    private fun updateExistingYaml(yamlFile: Path, linterName: String) {
+    private fun updateExistingYaml(
+        yamlFile: Path,
+        linterName: String,
+    ) {
         val content = Files.readString(yamlFile)
         val lines = content.lines().toMutableList()
 
@@ -109,19 +114,26 @@ class InitCommand(
         terminal.println("Updated $yamlFile with linter: $linterName")
     }
 
-    private fun createNewYaml(yamlFile: Path, linterName: String) {
-        val yaml = """
+    private fun createNewYaml(
+        yamlFile: Path,
+        linterName: String,
+    ) {
+        val yaml =
+            """
             |version: "1.0"
             |linter: $linterName
             |profile:
             |  name: qodana.recommended
-        """.trimMargin()
+            """.trimMargin()
 
         Files.writeString(yamlFile, yaml)
         terminal.println("Created $yamlFile with linter: $linterName")
     }
 
-    private fun configureDotNetIfNeeded(projectDir: Path, yamlFile: Path) {
+    private fun configureDotNetIfNeeded(
+        projectDir: Path,
+        yamlFile: Path,
+    ) {
         if (!terminal.isInteractive) return
 
         val yaml = CliPathResolver.loadYaml(projectDir, configName) ?: return
@@ -146,7 +158,8 @@ class InitCommand(
         val files = mutableListOf<Path>()
         val supportedExtensions = setOf("sln", "csproj", "vbproj", "fsproj")
         Files.walk(projectDir).use { stream ->
-            stream.filter { Files.isRegularFile(it) }
+            stream
+                .filter { Files.isRegularFile(it) }
                 .forEach { path ->
                     if (path.extension.lowercase() in supportedExtensions) {
                         files.add(path.toAbsolutePath().normalize())
@@ -156,13 +169,17 @@ class InitCommand(
         return files.sorted()
     }
 
-    private fun writeDotNetConfig(yamlFile: Path, selectedFileName: String): Boolean {
+    private fun writeDotNetConfig(
+        yamlFile: Path,
+        selectedFileName: String,
+    ): Boolean {
         val lines = Files.readString(yamlFile).lines().toMutableList()
-        val block = if (selectedFileName.endsWith(".sln", ignoreCase = true)) {
-            listOf("dotnet:", "  solution: $selectedFileName")
-        } else {
-            listOf("dotnet:", "  project: $selectedFileName")
-        }
+        val block =
+            if (selectedFileName.endsWith(".sln", ignoreCase = true)) {
+                listOf("dotnet:", "  solution: $selectedFileName")
+            } else {
+                listOf("dotnet:", "  project: $selectedFileName")
+            }
 
         val existingIdx = lines.indexOfFirst { it.trimStart().startsWith("dotnet:") }
         if (existingIdx >= 0) {
@@ -184,13 +201,14 @@ class InitCommand(
     }
 
     private suspend fun checkCloudTokenIfRequired(linter: Linter) {
-        val tokenRequired = LicenseToken.isCloudTokenRequired(
-            qodanaToken = getEnv(QodanaEnv.TOKEN),
-            licenseOnlyToken = getEnv(QodanaEnv.LICENSE_ONLY_TOKEN),
-            licenseEnv = getEnv(QodanaEnv.LICENSE),
-            isPaid = linter.isPaid,
-            isEap = linter.eapOnly,
-        )
+        val tokenRequired =
+            LicenseToken.isCloudTokenRequired(
+                qodanaToken = getEnv(QodanaEnv.TOKEN),
+                licenseOnlyToken = getEnv(QodanaEnv.LICENSE_ONLY_TOKEN),
+                licenseEnv = getEnv(QodanaEnv.LICENSE),
+                isPaid = linter.isPaid,
+                isEap = linter.eapOnly,
+            )
         if (!tokenRequired) return
 
         val token = loadCloudToken() ?: return
@@ -203,9 +221,10 @@ class InitCommand(
             return envToken
         }
 
-        val storedToken = runCatching { tokenStore.load(QodanaEnv.TOKEN)?.trim() }
-            .getOrNull()
-            .orEmpty()
+        val storedToken =
+            runCatching { tokenStore.load(QodanaEnv.TOKEN)?.trim() }
+                .getOrNull()
+                .orEmpty()
         if (storedToken.isNotEmpty()) {
             terminal.warn(TOKEN_STORE_WARNING)
             return storedToken
@@ -214,9 +233,11 @@ class InitCommand(
         if (!terminal.isInteractive) {
             return null
         }
-        val token = terminal.prompt(
-            "Enter the token (will be used for ${projectDir.toAbsolutePath().normalize()}; enter 'q' to exit)"
-        ).trim()
+        val token =
+            terminal
+                .prompt(
+                    "Enter the token (will be used for ${projectDir.toAbsolutePath().normalize()}; enter 'q' to exit)",
+                ).trim()
         if (token.equals("q", ignoreCase = true) || token.isEmpty()) {
             return null
         }
@@ -228,23 +249,25 @@ class InitCommand(
 
     private suspend fun validateTokenOrExit(token: String) {
         val cloudRoot = cloudRootEndpoint()
-        val cloudClient = CloudClient(
-            http = httpTransport,
-            endpoint = cloudRoot,
-            token = token,
-        )
+        val cloudClient =
+            CloudClient(
+                http = httpTransport,
+                endpoint = cloudRoot,
+                token = token,
+            )
         val endpoints = cloudClient.fetchEndpoints().getOrNull()
         if (endpoints == null) {
             terminal.error(INVALID_TOKEN_MESSAGE)
             throw ProgramResult(1)
         }
 
-        val response = runCatching {
-            httpTransport.get(
-                "${endpoints.cloudApiUrl.trimEnd('/')}/projects",
-                headers = mapOf("Authorization" to "Bearer $token"),
-            )
-        }.getOrNull()
+        val response =
+            runCatching {
+                httpTransport.get(
+                    "${endpoints.cloudApiUrl.trimEnd('/')}/projects",
+                    headers = mapOf("Authorization" to "Bearer $token"),
+                )
+            }.getOrNull()
 
         if (response == null || !response.isSuccess) {
             terminal.error(INVALID_TOKEN_MESSAGE)

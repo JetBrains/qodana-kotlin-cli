@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertTrue
 
 class XmlConfigTest {
-
     @Test
     fun `jdkTableXml contains required elements`() {
         val jdkPath = "/path/to/jdk"

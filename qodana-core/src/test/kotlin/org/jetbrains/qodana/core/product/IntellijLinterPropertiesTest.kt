@@ -6,7 +6,6 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 class IntellijLinterPropertiesTest {
-
     @Test
     fun `findByLinter returns properties for JVM`() {
         val props = IntellijLinterProperties.findByLinter(Linters.JVM)
@@ -70,9 +69,10 @@ class IntellijLinterPropertiesTest {
 
     @Test
     fun `each linter in ALL has unique feedProductCode or empty`() {
-        val nonEmpty = IntellijLinterProperties.ALL
-            .map { it.feedProductCode }
-            .filter { it.isNotEmpty() }
+        val nonEmpty =
+            IntellijLinterProperties.ALL
+                .map { it.feedProductCode }
+                .filter { it.isNotEmpty() }
         assertEquals(nonEmpty.size, nonEmpty.distinct().size)
     }
 }

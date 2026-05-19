@@ -1,17 +1,20 @@
 package org.jetbrains.qodana.cdnet
 
 import org.jetbrains.qodana.core.model.ThirdPartyScanContext
-import java.nio.file.Path
 
 object CdnetOptions {
     private val frameworkPrefixes = listOf("log.", "idea.", "qodana.", "jetbrains.")
 
     fun computeArgs(context: ThirdPartyScanContext): List<String> {
-        val target = getSolutionOrProject(context)
-            ?: error("Solution/project relative file path is not specified. Use --solution or --project flags or create qodana.yaml file with respective fields")
+        val target =
+            getSolutionOrProject(context)
+                ?: error(
+                    "Solution/project relative file path is not specified. Use --solution or --project flags or create qodana.yaml file with respective fields",
+                )
 
-        val cltPath = context.customTools["clt"]
-            ?: error("ReSharper CLT not found in mounted tools")
+        val cltPath =
+            context.customTools["clt"]
+                ?: error("ReSharper CLT not found in mounted tools")
 
         val props = buildProperties(context)
         val sarifPath = context.paths.resultsDir.resolve("qodana.sarif.json")
@@ -36,14 +39,13 @@ object CdnetOptions {
         }
     }
 
-    fun getSolutionOrProject(context: ThirdPartyScanContext): String? {
-        return listOfNotNull(
+    fun getSolutionOrProject(context: ThirdPartyScanContext): String? =
+        listOfNotNull(
             context.solutionPath,
             context.projectPath,
             context.yaml?.dotnet?.solution,
             context.yaml?.dotnet?.project,
         ).firstOrNull { it.isNotBlank() }
-    }
 
     private fun buildProperties(context: ThirdPartyScanContext): String {
         val props = mutableListOf<String>()
@@ -55,15 +57,17 @@ object CdnetOptions {
         }
 
         // Configuration: CLI flag > YAML
-        val config = context.configurationName
-            ?: context.yaml?.dotnet?.configuration
+        val config =
+            context.configurationName
+                ?: context.yaml?.dotnet?.configuration
         if (config != null) {
             props.add("Configuration=$config")
         }
 
         // Platform: CLI flag > YAML
-        val platform = context.platformName
-            ?: context.yaml?.dotnet?.platform
+        val platform =
+            context.platformName
+                ?: context.yaml?.dotnet?.platform
         if (platform != null) {
             props.add("Platform=$platform")
         }

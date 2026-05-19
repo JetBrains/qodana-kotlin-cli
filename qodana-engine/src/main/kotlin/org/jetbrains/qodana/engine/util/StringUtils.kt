@@ -1,11 +1,14 @@
 package org.jetbrains.qodana.engine.util
 
 object StringUtils {
-
     /**
      * Splits string by separator and returns element at index, or empty string if out of range.
      */
-    fun safeSplit(s: String, sep: String, index: Int): String {
+    fun safeSplit(
+        s: String,
+        sep: String,
+        index: Int,
+    ): String {
         if (index < 0) return ""
         val parts = s.split(sep)
         return if (index < parts.size) parts[index] else ""
@@ -14,19 +17,28 @@ object StringUtils {
     /**
      * Checks if a list contains a given string.
      */
-    fun contains(list: List<String>, element: String): Boolean = element in list
+    fun contains(
+        list: List<String>,
+        element: String,
+    ): Boolean = element in list
 
     /**
      * Appends element to list only if not already present.
      */
-    fun appendIfAbsent(list: MutableList<String>, element: String) {
+    fun appendIfAbsent(
+        list: MutableList<String>,
+        element: String,
+    ) {
         if (element !in list) list.add(element)
     }
 
     /**
      * Removes first occurrence of element from list.
      */
-    fun remove(list: MutableList<String>, element: String) {
+    fun remove(
+        list: MutableList<String>,
+        element: String,
+    ) {
         list.remove(element)
     }
 
@@ -58,8 +70,7 @@ object StringUtils {
     /**
      * Checks if string starts and ends with double quotes.
      */
-    fun isStringQuoted(s: String): Boolean =
-        s.length >= 2 && s.startsWith('"') && s.endsWith('"')
+    fun isStringQuoted(s: String): Boolean = s.length >= 2 && s.startsWith('"') && s.endsWith('"')
 
     /**
      * Checks if string contains Windows batch special characters.

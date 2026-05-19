@@ -2,6 +2,8 @@ import org.gradle.jvm.toolchain.JavaLanguageVersion
 
 plugins {
     kotlin("jvm")
+    id("kotlin-ktlint")
+    id("kotlin-detekt")
 }
 
 java {

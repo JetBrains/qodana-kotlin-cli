@@ -13,21 +13,40 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class EapCheckerTest {
+    private val terminal =
+        object : Terminal {
+            override fun print(message: String) {}
 
-    private val terminal = object : Terminal {
-        override fun print(message: String) {}
-        override fun println(message: String) {}
-        override fun error(message: String) {}
-        override fun info(message: String) {}
-        override fun warn(message: String) {}
-        override fun debug(message: String) {}
-        override fun <T> spinner(message: String, action: () -> T): T = action()
-        override fun prompt(message: String, default: String?): String = default ?: ""
-        override fun select(message: String, choices: List<String>): String = choices.first()
-        override val isInteractive: Boolean = false
-        override var isCi: Boolean = false
-        override fun setRedactedTokens(tokens: Set<String>) {}
-    }
+            override fun println(message: String) {}
+
+            override fun error(message: String) {}
+
+            override fun info(message: String) {}
+
+            override fun warn(message: String) {}
+
+            override fun debug(message: String) {}
+
+            override fun <T> spinner(
+                message: String,
+                action: () -> T,
+            ): T = action()
+
+            override fun prompt(
+                message: String,
+                default: String?,
+            ): String = default ?: ""
+
+            override fun select(
+                message: String,
+                choices: List<String>,
+            ): String = choices.first()
+
+            override val isInteractive: Boolean = false
+            override var isCi: Boolean = false
+
+            override fun setRedactedTokens(tokens: Set<String>) {}
+        }
 
     @Test
     fun `not EAP returns early without error`() {
@@ -39,8 +58,12 @@ class EapCheckerTest {
 
     @Test
     fun `valid EAP within 60 days`() {
-        val tenDaysAgo = Instant.now().minus(10, ChronoUnit.DAYS)
-            .atZone(ZoneOffset.UTC).format(DateTimeFormatter.ISO_DATE_TIME)
+        val tenDaysAgo =
+            Instant
+                .now()
+                .minus(10, ChronoUnit.DAYS)
+                .atZone(ZoneOffset.UTC)
+                .format(DateTimeFormatter.ISO_DATE_TIME)
 
         val checker = EapChecker(terminal)
         val result = checker.check(tenDaysAgo, isEap = true)
@@ -51,8 +74,12 @@ class EapCheckerTest {
 
     @Test
     fun `expired EAP after 60 days`() {
-        val seventyDaysAgo = Instant.now().minus(70, ChronoUnit.DAYS)
-            .atZone(ZoneOffset.UTC).format(DateTimeFormatter.ISO_DATE_TIME)
+        val seventyDaysAgo =
+            Instant
+                .now()
+                .minus(70, ChronoUnit.DAYS)
+                .atZone(ZoneOffset.UTC)
+                .format(DateTimeFormatter.ISO_DATE_TIME)
 
         val checker = EapChecker(terminal)
         val result = checker.check(seventyDaysAgo, isEap = true)
@@ -72,8 +99,12 @@ class EapCheckerTest {
 
     @Test
     fun `container mode shows docker-specific message when expired`() {
-        val seventyDaysAgo = Instant.now().minus(70, ChronoUnit.DAYS)
-            .atZone(ZoneOffset.UTC).format(DateTimeFormatter.ISO_DATE_TIME)
+        val seventyDaysAgo =
+            Instant
+                .now()
+                .minus(70, ChronoUnit.DAYS)
+                .atZone(ZoneOffset.UTC)
+                .format(DateTimeFormatter.ISO_DATE_TIME)
 
         val checker = EapChecker(terminal, isContainer = true)
         val result = checker.check(seventyDaysAgo, isEap = true)
@@ -83,8 +114,12 @@ class EapCheckerTest {
 
     @Test
     fun `container mode shows docker-specific agreement when valid`() {
-        val tenDaysAgo = Instant.now().minus(10, ChronoUnit.DAYS)
-            .atZone(ZoneOffset.UTC).format(DateTimeFormatter.ISO_DATE_TIME)
+        val tenDaysAgo =
+            Instant
+                .now()
+                .minus(10, ChronoUnit.DAYS)
+                .atZone(ZoneOffset.UTC)
+                .format(DateTimeFormatter.ISO_DATE_TIME)
 
         val checker = EapChecker(terminal, isContainer = true)
         val result = checker.check(tenDaysAgo, isEap = true)

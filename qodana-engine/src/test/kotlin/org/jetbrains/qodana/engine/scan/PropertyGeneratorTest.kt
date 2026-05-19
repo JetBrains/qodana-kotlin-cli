@@ -10,7 +10,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class PropertyGeneratorTest {
-
     private fun testContext(
         runtimeProperties: Map<String, String> = emptyMap(),
         yamlProperties: Map<String, String> = emptyMap(),
@@ -20,20 +19,22 @@ class PropertyGeneratorTest {
         repositoryRoot: Path = Path.of("/project"),
         ciRemoteUrl: String? = null,
     ) = ScanContext(
-        paths = ScanPaths(
-            projectDir = Path.of("/project"),
-            repositoryRoot = repositoryRoot,
-            resultsDir = Path.of("/results"),
-            cacheDir = Path.of("/cache"),
-            reportDir = Path.of("/report"),
-        ),
+        paths =
+            ScanPaths(
+                projectDir = Path.of("/project"),
+                repositoryRoot = repositoryRoot,
+                resultsDir = Path.of("/results"),
+                cacheDir = Path.of("/cache"),
+                reportDir = Path.of("/report"),
+            ),
         auth = AuthContext(token = null, endpoint = "https://qodana.cloud"),
-        runtime = RuntimeContext(
-            properties = runtimeProperties,
-            jvmDebugPort = jvmDebugPort,
-            analysisId = analysisId,
-            coverageDir = coverageDir,
-        ),
+        runtime =
+            RuntimeContext(
+                properties = runtimeProperties,
+                jvmDebugPort = jvmDebugPort,
+                analysisId = analysisId,
+                coverageDir = coverageDir,
+            ),
         ci = CiContext(remoteUrl = ciRemoteUrl),
         report = ReportOptions(),
         docker = DockerOptions(),
@@ -58,20 +59,26 @@ class PropertyGeneratorTest {
 
     @Test
     fun `merges yaml and runtime properties`() {
-        val props = PropertyGenerator.generateIdeaProperties(testContext(
-            yamlProperties = mapOf("yaml.prop" to "yaml-val"),
-            runtimeProperties = mapOf("runtime.prop" to "runtime-val"),
-        ))
+        val props =
+            PropertyGenerator.generateIdeaProperties(
+                testContext(
+                    yamlProperties = mapOf("yaml.prop" to "yaml-val"),
+                    runtimeProperties = mapOf("runtime.prop" to "runtime-val"),
+                ),
+            )
         assertContains(props, "yaml.prop=yaml-val")
         assertContains(props, "runtime.prop=runtime-val")
     }
 
     @Test
     fun `runtime properties override yaml on conflict`() {
-        val props = PropertyGenerator.generateIdeaProperties(testContext(
-            yamlProperties = mapOf("shared.key" to "yaml-val"),
-            runtimeProperties = mapOf("shared.key" to "runtime-wins"),
-        ))
+        val props =
+            PropertyGenerator.generateIdeaProperties(
+                testContext(
+                    yamlProperties = mapOf("shared.key" to "yaml-val"),
+                    runtimeProperties = mapOf("shared.key" to "runtime-wins"),
+                ),
+            )
         assertContains(props, "shared.key=runtime-wins")
     }
 
@@ -85,21 +92,23 @@ class PropertyGeneratorTest {
 
     @Test
     fun `analysis and coverage properties are included when configured`() {
-        val props = PropertyGenerator.generateIdeaProperties(
-            testContext(
-                analysisId = "analysis-guid-123",
-                coverageDir = Path.of("/project/.qodana/code-coverage"),
+        val props =
+            PropertyGenerator.generateIdeaProperties(
+                testContext(
+                    analysisId = "analysis-guid-123",
+                    coverageDir = Path.of("/project/.qodana/code-coverage"),
+                ),
             )
-        )
         assertContains(props, "qodana.automation.guid=analysis-guid-123")
         assertContains(props, "qodana.coverage.input=/project/.qodana/code-coverage")
     }
 
     @Test
     fun `project path relative to repository root is included`() {
-        val props = PropertyGenerator.generateIdeaProperties(
-            testContext(repositoryRoot = Path.of("/"))
-        )
+        val props =
+            PropertyGenerator.generateIdeaProperties(
+                testContext(repositoryRoot = Path.of("/")),
+            )
         assertContains(props, "qodana.path.to.project.dir.from.project.root=project")
     }
 

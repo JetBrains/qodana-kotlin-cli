@@ -30,11 +30,12 @@ internal class TerminalStreamRenderer(
 
     fun renderInPlace(text: String) {
         if (terminal.isInteractive) {
-            val clear = if (lineWidth > 0) {
-                "\r${" ".repeat(lineWidth)}\r"
-            } else {
-                "\r"
-            }
+            val clear =
+                if (lineWidth > 0) {
+                    "\r${" ".repeat(lineWidth)}\r"
+                } else {
+                    "\r"
+                }
             terminal.print("$clear$text")
             currentColumn = text.length
             lineWidth = text.length
@@ -118,7 +119,5 @@ internal class TerminalStreamRenderer(
         }
     }
 
-    private fun containsControlRewrite(chunk: String): Boolean {
-        return chunk.indexOf('\r') >= 0 || chunk.indexOf('\u001B') >= 0
-    }
+    private fun containsControlRewrite(chunk: String): Boolean = chunk.indexOf('\r') >= 0 || chunk.indexOf('\u001B') >= 0
 }

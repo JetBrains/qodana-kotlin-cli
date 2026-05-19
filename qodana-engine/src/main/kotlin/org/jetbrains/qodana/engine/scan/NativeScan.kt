@@ -8,8 +8,8 @@ import org.jetbrains.qodana.core.model.Stream
 import org.jetbrains.qodana.core.port.FileSystem
 import org.jetbrains.qodana.core.port.ProcessRunner
 import org.jetbrains.qodana.core.port.Terminal
-import org.jetbrains.qodana.core.product.Linters
 import org.jetbrains.qodana.core.product.IntellijLinterProperties
+import org.jetbrains.qodana.core.product.Linters
 import org.jetbrains.qodana.engine.env.CiDetector
 import org.jetbrains.qodana.engine.model.ScanContext
 import org.jetbrains.qodana.engine.startup.CacheSync
@@ -32,18 +32,18 @@ class NativeScan(
     private val fileSystem: FileSystem,
     private val terminal: Terminal? = null,
 ) {
-
     private val log = LoggerFactory.getLogger(NativeScan::class.java)
 
     suspend fun run(context: ScanContext): Int {
         // Resolve IDE home directory
         val distOverride = System.getenv(QodanaEnv.DIST)
-        val ideDir = if (!distOverride.isNullOrBlank()) {
-            Path.of(distOverride)
-        } else {
-            context.runtime.ideDir
-                ?: throw IllegalStateException("Native scan requires ideDir to be set")
-        }
+        val ideDir =
+            if (!distOverride.isNullOrBlank()) {
+                Path.of(distOverride)
+            } else {
+                context.runtime.ideDir
+                    ?: throw IllegalStateException("Native scan requires ideDir to be set")
+            }
 
         // Discover IDE product (matches Go's GuessProduct)
         val product = IdeProductDiscovery.guessProduct(ideDir, fileSystem)
@@ -70,18 +70,20 @@ class NativeScan(
             val args = getIdeRunCommand(product, context)
             log.info("Starting native IDE scan: {}", args.joinToString(" "))
 
-            val spec = ProcessSpec(
-                command = args[0],
-                args = args.drop(1),
-                workDir = context.paths.projectDir,
-                timeout = context.runtime.timeout,
-                env = runEnv,
-            )
+            val spec =
+                ProcessSpec(
+                    command = args[0],
+                    args = args.drop(1),
+                    workDir = context.paths.projectDir,
+                    timeout = context.runtime.timeout,
+                    env = runEnv,
+                )
 
             val process = processRunner.start(spec)
             val outputRenderer = terminal?.let { TerminalStreamRenderer(it) }
 
-            process.events()
+            process
+                .events()
                 .onEach { event ->
                     // Match Go behavior: native analyzer output is streamed to CLI in real time.
                     if (outputRenderer != null) {
@@ -93,8 +95,7 @@ class NativeScan(
                             Stream.STDERR -> log.warn("[IDE] {}", event.text)
                         }
                     }
-                }
-                .collect()
+                }.collect()
             outputRenderer?.ensureLineBreak()
 
             val processExitCode = process.awaitExit()
@@ -106,7 +107,11 @@ class NativeScan(
         }
     }
 
-    private suspend fun installPlugins(context: ScanContext, product: IdeProduct, configDir: Path) {
+    private suspend fun installPlugins(
+        context: ScanContext,
+        product: IdeProduct,
+        configDir: Path,
+    ) {
         val plugins = context.yaml?.plugins ?: emptyList()
         if (plugins.isEmpty()) return
         val installVmOptionsPath = configDir.resolve("install_plugins.vmoptions")
@@ -115,32 +120,38 @@ class NativeScan(
         for (plugin in plugins) {
             if (plugin.id.isBlank()) continue
             log.info("Installing plugin {}", plugin.id)
-            val result = processRunner.run(
-                ProcessSpec(
-                    command = product.ideScript,
-                    args = listOf("installPlugins", plugin.id),
-                    workDir = context.paths.projectDir,
-                    timeout = context.runtime.timeout,
-                    env = installEnv,
+            val result =
+                processRunner.run(
+                    ProcessSpec(
+                        command = product.ideScript,
+                        args = listOf("installPlugins", plugin.id),
+                        workDir = context.paths.projectDir,
+                        timeout = context.runtime.timeout,
+                        env = installEnv,
+                    ),
                 )
-            )
             if (!result.isSuccess) {
                 throw IllegalStateException("Failed to install plugin ${plugin.id}: ${result.stderr}")
             }
         }
     }
 
-    private fun generateInstallPluginsVmOptions(context: ScanContext, product: IdeProduct, configDir: Path): String {
-        val lines = listOf(
-            "-Didea.config.path=$configDir",
-            "-Didea.system.path=${context.paths.cacheDir.resolve("idea-system")}",
-            "-Didea.plugins.path=${context.paths.cacheDir.resolve("idea-plugins")}",
-            "-Didea.log.path=${context.paths.resultsDir.resolve("log")}",
-            "-Didea.headless.enable.statistics=false",
-            "-Dqodana.application=true",
-            "-Dintellij.platform.load.app.info.from.resources=true",
-            "-Dqodana.build.number=${product.ideCode}-${product.build}",
-        )
+    private fun generateInstallPluginsVmOptions(
+        context: ScanContext,
+        product: IdeProduct,
+        configDir: Path,
+    ): String {
+        val lines =
+            listOf(
+                "-Didea.config.path=$configDir",
+                "-Didea.system.path=${context.paths.cacheDir.resolve("idea-system")}",
+                "-Didea.plugins.path=${context.paths.cacheDir.resolve("idea-plugins")}",
+                "-Didea.log.path=${context.paths.resultsDir.resolve("log")}",
+                "-Didea.headless.enable.statistics=false",
+                "-Dqodana.application=true",
+                "-Dintellij.platform.load.app.info.from.resources=true",
+                "-Dqodana.build.number=${product.ideCode}-${product.build}",
+            )
         return lines.joinToString(separator = "\n")
     }
 
@@ -148,18 +159,26 @@ class NativeScan(
      * Matches Go's `getIdeRunCommand()`:
      * `[ideScript] [inspect] qodana <args> <projectDir> <resultsDir>`
      */
-    private fun getIdeRunCommand(product: IdeProduct, context: ScanContext): List<String> = buildList {
-        add(product.ideScript)
-        if (!product.is242orNewer()) {
-            add("inspect")
+    private fun getIdeRunCommand(
+        product: IdeProduct,
+        context: ScanContext,
+    ): List<String> =
+        buildList {
+            add(product.ideScript)
+            if (!product.is242orNewer()) {
+                add("inspect")
+            }
+            add("qodana")
+            addAll(IdeArgBuilder.build(context, product))
+            add(context.paths.projectDir.toString())
+            add(context.paths.resultsDir.toString())
         }
-        add("qodana")
-        addAll(IdeArgBuilder.build(context, product))
-        add(context.paths.projectDir.toString())
-        add(context.paths.resultsDir.toString())
-    }
 
-    private fun writeProperties(context: ScanContext, product: IdeProduct, configDir: Path): Map<String, String> {
+    private fun writeProperties(
+        context: ScanContext,
+        product: IdeProduct,
+        configDir: Path,
+    ): Map<String, String> {
         PropertyGenerator.writeTo(context, configDir) { path, content ->
             fileSystem.write(path, content)
         }
@@ -167,10 +186,15 @@ class NativeScan(
         return buildVmOptionsEnv(context, product, configDir.resolve("idea64.vmoptions"))
     }
 
-    private fun buildVmOptionsEnv(context: ScanContext, product: IdeProduct, vmOptionsPath: Path): Map<String, String> {
-        val linterProperties = context.linter?.let { Linters.findByName(it) }?.let { IntellijLinterProperties.findByLinter(it) }
-            ?: IntellijLinterProperties.findByProductInfoCode(product.ideCode)
-            ?: return context.runtime.envVars
+    private fun buildVmOptionsEnv(
+        context: ScanContext,
+        product: IdeProduct,
+        vmOptionsPath: Path,
+    ): Map<String, String> {
+        val linterProperties =
+            context.linter?.let { Linters.findByName(it) }?.let { IntellijLinterProperties.findByLinter(it) }
+                ?: IntellijLinterProperties.findByProductInfoCode(product.ideCode)
+                ?: return context.runtime.envVars
         return context.runtime.envVars + (linterProperties.vmOptionsEnv to vmOptionsPath.toString())
     }
 
@@ -220,7 +244,10 @@ class NativeScan(
         }
     }
 
-    private fun readIdeExitCode(resultsDir: Path, processExitCode: Int): Int {
+    private fun readIdeExitCode(
+        resultsDir: Path,
+        processExitCode: Int,
+    ): Int {
         if (processExitCode != 0) {
             log.info("IDE process exited with non-zero code {}; SARIF exit code is ignored", processExitCode)
             return processExitCode
@@ -256,19 +283,39 @@ class NativeScan(
     companion object {
         private const val SARIF_FILENAME = "qodana.sarif.json"
         private val EXIT_CODE_PATTERN = Regex(""""exitCode"\s*:\s*(\d+)""")
-        private val CACHE_SYNC_TERMINAL = object : Terminal {
-            override val isInteractive: Boolean = false
-            override var isCi: Boolean = false
-            override fun print(message: String) {}
-            override fun println(message: String) {}
-            override fun error(message: String) {}
-            override fun info(message: String) {}
-            override fun warn(message: String) {}
-            override fun debug(message: String) {}
-            override fun <T> spinner(message: String, action: () -> T): T = action()
-            override fun prompt(message: String, default: String?): String = default ?: ""
-            override fun select(message: String, choices: List<String>): String = choices.firstOrNull() ?: ""
-            override fun setRedactedTokens(tokens: Set<String>) {}
-        }
+        private val CACHE_SYNC_TERMINAL =
+            object : Terminal {
+                override val isInteractive: Boolean = false
+                override var isCi: Boolean = false
+
+                override fun print(message: String) {}
+
+                override fun println(message: String) {}
+
+                override fun error(message: String) {}
+
+                override fun info(message: String) {}
+
+                override fun warn(message: String) {}
+
+                override fun debug(message: String) {}
+
+                override fun <T> spinner(
+                    message: String,
+                    action: () -> T,
+                ): T = action()
+
+                override fun prompt(
+                    message: String,
+                    default: String?,
+                ): String = default ?: ""
+
+                override fun select(
+                    message: String,
+                    choices: List<String>,
+                ): String = choices.firstOrNull() ?: ""
+
+                override fun setRedactedTokens(tokens: Set<String>) {}
+            }
     }
 }

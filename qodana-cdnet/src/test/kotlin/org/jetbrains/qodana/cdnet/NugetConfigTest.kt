@@ -13,46 +13,48 @@ class NugetConfigTest {
 
     @Test
     fun `isNeeded returns true when required vars are set`() {
-        val getEnv = env(
-            mapOf(
-                "QODANA_DOCKER" to "true",
-                "QODANA_NUGET_URL" to "https://nuget.example.com/v3/index.json",
-                "QODANA_NUGET_USER" to "user",
-                "QODANA_NUGET_PASSWORD" to "password",
-            ),
-        )
+        val getEnv =
+            env(
+                mapOf(
+                    "QODANA_DOCKER" to "true",
+                    "QODANA_NUGET_URL" to "https://nuget.example.com/v3/index.json",
+                    "QODANA_NUGET_USER" to "user",
+                    "QODANA_NUGET_PASSWORD" to "password",
+                ),
+            )
 
         assertTrue(NugetConfig.isNeeded(getEnv))
     }
 
     @Test
     fun `isNeeded returns false when any required var is missing`() {
-        val cases = listOf(
-            mapOf(
-                "QODANA_DOCKER" to "",
-                "QODANA_NUGET_URL" to "https://nuget.example.com",
-                "QODANA_NUGET_USER" to "user",
-                "QODANA_NUGET_PASSWORD" to "password",
-            ),
-            mapOf(
-                "QODANA_DOCKER" to "true",
-                "QODANA_NUGET_URL" to "",
-                "QODANA_NUGET_USER" to "user",
-                "QODANA_NUGET_PASSWORD" to "password",
-            ),
-            mapOf(
-                "QODANA_DOCKER" to "true",
-                "QODANA_NUGET_URL" to "https://nuget.example.com",
-                "QODANA_NUGET_USER" to "   ",
-                "QODANA_NUGET_PASSWORD" to "password",
-            ),
-            mapOf(
-                "QODANA_DOCKER" to "true",
-                "QODANA_NUGET_URL" to "https://nuget.example.com",
-                "QODANA_NUGET_USER" to "user",
-                "QODANA_NUGET_PASSWORD" to null,
-            ),
-        )
+        val cases =
+            listOf(
+                mapOf(
+                    "QODANA_DOCKER" to "",
+                    "QODANA_NUGET_URL" to "https://nuget.example.com",
+                    "QODANA_NUGET_USER" to "user",
+                    "QODANA_NUGET_PASSWORD" to "password",
+                ),
+                mapOf(
+                    "QODANA_DOCKER" to "true",
+                    "QODANA_NUGET_URL" to "",
+                    "QODANA_NUGET_USER" to "user",
+                    "QODANA_NUGET_PASSWORD" to "password",
+                ),
+                mapOf(
+                    "QODANA_DOCKER" to "true",
+                    "QODANA_NUGET_URL" to "https://nuget.example.com",
+                    "QODANA_NUGET_USER" to "   ",
+                    "QODANA_NUGET_PASSWORD" to "password",
+                ),
+                mapOf(
+                    "QODANA_DOCKER" to "true",
+                    "QODANA_NUGET_URL" to "https://nuget.example.com",
+                    "QODANA_NUGET_USER" to "user",
+                    "QODANA_NUGET_PASSWORD" to null,
+                ),
+            )
 
         cases.forEach { case ->
             assertFalse(NugetConfig.isNeeded(env(case)))
@@ -60,15 +62,18 @@ class NugetConfigTest {
     }
 
     @Test
-    fun `prepare writes config with explicit source name`(@TempDir homeDir: Path) {
-        val getEnv = env(
-            mapOf(
-                "QODANA_NUGET_NAME" to "qdn",
-                "QODANA_NUGET_URL" to "test_url",
-                "QODANA_NUGET_USER" to "test_user",
-                "QODANA_NUGET_PASSWORD" to "test_password",
-            ),
-        )
+    fun `prepare writes config with explicit source name`(
+        @TempDir homeDir: Path,
+    ) {
+        val getEnv =
+            env(
+                mapOf(
+                    "QODANA_NUGET_NAME" to "qdn",
+                    "QODANA_NUGET_URL" to "test_url",
+                    "QODANA_NUGET_USER" to "test_user",
+                    "QODANA_NUGET_PASSWORD" to "test_password",
+                ),
+            )
 
         NugetConfig.prepare(homeDir, getEnv)
 
@@ -76,7 +81,8 @@ class NugetConfigTest {
         assertTrue(Files.exists(configPath))
 
         val content = Files.readString(configPath).trim()
-        val expected = """
+        val expected =
+            """
             <?xml version="1.0" encoding="utf-8"?>
             <configuration>
               <packageSources>
@@ -91,20 +97,23 @@ class NugetConfigTest {
                 </qdn>
               </packageSourceCredentials>
             </configuration>
-        """.trimIndent()
+            """.trimIndent()
         assertEquals(expected, content)
     }
 
     @Test
-    fun `prepare uses default source name when name is blank`(@TempDir homeDir: Path) {
-        val getEnv = env(
-            mapOf(
-                "QODANA_NUGET_NAME" to "   ",
-                "QODANA_NUGET_URL" to "test_url",
-                "QODANA_NUGET_USER" to "test_user",
-                "QODANA_NUGET_PASSWORD" to "test_password",
-            ),
-        )
+    fun `prepare uses default source name when name is blank`(
+        @TempDir homeDir: Path,
+    ) {
+        val getEnv =
+            env(
+                mapOf(
+                    "QODANA_NUGET_NAME" to "   ",
+                    "QODANA_NUGET_URL" to "test_url",
+                    "QODANA_NUGET_USER" to "test_user",
+                    "QODANA_NUGET_PASSWORD" to "test_password",
+                ),
+            )
 
         NugetConfig.prepare(homeDir, getEnv)
 

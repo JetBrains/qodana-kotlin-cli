@@ -13,6 +13,7 @@ import com.github.ajalt.clikt.parameters.types.long
 import com.github.ajalt.clikt.parameters.types.path
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.qodana.core.env.QodanaEnv
+import org.jetbrains.qodana.core.model.*
 import org.jetbrains.qodana.core.model.QodanaYaml
 import org.jetbrains.qodana.core.model.ScanPaths
 import org.jetbrains.qodana.core.port.Terminal
@@ -20,7 +21,6 @@ import org.jetbrains.qodana.core.product.Linters
 import org.jetbrains.qodana.core.terminal.MordantTerminal
 import org.jetbrains.qodana.engine.env.CiDetector
 import org.jetbrains.qodana.engine.env.RuntimeEnvironment
-import org.jetbrains.qodana.core.model.*
 import org.jetbrains.qodana.engine.model.*
 import org.jetbrains.qodana.engine.scan.ReportPort
 import java.nio.file.Files
@@ -30,7 +30,11 @@ import java.security.MessageDigest
 import java.util.UUID
 
 fun interface ScanReportDisplay {
-    fun show(resultsDir: Path, reportDir: Path, port: Int): Int
+    fun show(
+        resultsDir: Path,
+        reportDir: Path,
+        port: Int,
+    ): Int
 }
 
 class ScanCommand(
@@ -39,7 +43,6 @@ class ScanCommand(
     private val envOverrides: Map<String, String> = emptyMap(),
     private val scanRunner: suspend (ScanContext) -> Int,
 ) : CliktCommand("scan") {
-
     override fun help(context: Context) = "Scan project with Qodana"
 
     private val linter by option("-l", "--linter", help = "Defines the linter to be used for analysis")
@@ -159,7 +162,7 @@ class ScanCommand(
         if (forceLocalChangesScript || script == "local-changes") {
             echo(
                 "Warning: Using local-changes script is deprecated, please switch to other mechanisms of incremental analysis. " +
-                    "Further information - https://www.jetbrains.com/help/qodana/analyze-pr.html"
+                    "Further information - https://www.jetbrains.com/help/qodana/analyze-pr.html",
             )
         }
 
@@ -171,133 +174,147 @@ class ScanCommand(
         val executionProfile = ExecutionProfileResolver().resolve(analyzer.requestedTarget)
 
         val startHash = resolveStartHash(commit, diffStart)
-        val scenario = ScanContextUtils.determineRunScenario(
-            fullHistory = fullHistory,
-            script = effectiveScript(),
-            startHash = startHash,
-            forceLocalChanges = forceLocalChangesScript,
-            isContainer = executionProfile.analysisRuntime == ExecutionProfile.AnalysisRuntime.CONTAINER,
-            reversePrAnalysis = reverse,
-        )
+        val scenario =
+            ScanContextUtils.determineRunScenario(
+                fullHistory = fullHistory,
+                script = effectiveScript(),
+                startHash = startHash,
+                forceLocalChanges = forceLocalChangesScript,
+                isContainer = executionProfile.analysisRuntime == ExecutionProfile.AnalysisRuntime.CONTAINER,
+                reversePrAnalysis = reverse,
+            )
 
-        val requestedRepositoryRoot = repositoryRoot?.toAbsolutePath()?.normalize()
-            ?: detectRepositoryRoot(absProjectDir)
+        val requestedRepositoryRoot =
+            repositoryRoot?.toAbsolutePath()?.normalize()
+                ?: detectRepositoryRoot(absProjectDir)
         val resolvedRepositoryRoot = normalizeRepositoryRoot(absProjectDir, requestedRepositoryRoot)
-        val paths = resolvePaths(
-            projectDir = absProjectDir,
-            repositoryRoot = resolvedRepositoryRoot,
-            linterName = analyzer.linterName ?: analyzer.image ?: "qodana",
-            pathLayout = executionProfile.pathLayout,
-        )
-        val effectiveConfigDir = prepareEffectiveConfigDir(
-            executionProfile = executionProfile,
-            projectDir = absProjectDir,
-            cacheDir = paths.cacheDir,
-            customConfigName = configName,
-        )
+        val paths =
+            resolvePaths(
+                projectDir = absProjectDir,
+                repositoryRoot = resolvedRepositoryRoot,
+                linterName = analyzer.linterName ?: analyzer.image ?: "qodana",
+                pathLayout = executionProfile.pathLayout,
+            )
+        val effectiveConfigDir =
+            prepareEffectiveConfigDir(
+                executionProfile = executionProfile,
+                projectDir = absProjectDir,
+                cacheDir = paths.cacheDir,
+                customConfigName = configName,
+            )
 
-        val outputFormats = buildSet {
-            add(ReportOptions.OutputFormat.SARIF)
-            if (codeClimate) add(ReportOptions.OutputFormat.CODE_CLIMATE)
-            if (bitbucketInsights) add(ReportOptions.OutputFormat.BITBUCKET)
-        }
+        val outputFormats =
+            buildSet {
+                add(ReportOptions.OutputFormat.SARIF)
+                if (codeClimate) add(ReportOptions.OutputFormat.CODE_CLIMATE)
+                if (bitbucketInsights) add(ReportOptions.OutputFormat.BITBUCKET)
+            }
         val (parsedProperties, parsedPropertyFlags) = ScanContextUtils.parsePropertiesAndFlags(property)
 
-        val context = ScanContext(
-            paths = paths,
-            auth = AuthContext(
-                token = System.getenv(QodanaEnv.TOKEN),
-                endpoint = System.getenv(QodanaEnv.ENDPOINT) ?: QodanaEnv.DEFAULT_ENDPOINT,
-                licenseOnlyToken = System.getenv(QodanaEnv.LICENSE_ONLY_TOKEN),
-            ),
-            runtime = RuntimeContext(
-                ideDir = analyzer.ideDir,
-                timeout = ScanContextUtils.getAnalysisTimeout(timeoutMs),
-                timeoutExitCode = timeoutExitCode,
-                envVars = parseKeyValueOptions(env),
-                properties = parsedProperties,
-                propertyFlags = parsedPropertyFlags,
-                failThreshold = failThreshold,
-                disableStatistics = noStatistics,
-                noStatistics = noStatistics,
-                forceFullHistory = fullHistory,
-                clearCache = clearCache,
-                analysisId = analysisId,
-                jvmDebugPort = jvmDebugPort,
-                applyFixes = applyFixes,
-                cleanup = cleanup,
-                fixesStrategy = fixesStrategy,
-                disableSanity = disableSanity,
-                runPromo = runPromo,
-                script = effectiveScript(),
-                commit = commit,
-                diffStart = startHash,
-                diffEnd = diffEnd,
-                forceLocalChangesScript = forceLocalChangesScript,
-                reversePrAnalysis = reverse,
-                onlyDirectory = onlyDirectory ?: sourceDirectory,
-                coverageDir = coverageDir,
-                globalConfigDir = globalConfigDir,
-                globalConfigId = globalConfigId,
-                effectiveConfigDir = effectiveConfigDir,
-                customConfigName = configName,
-                showReportPort = showReportPort,
-                deprecatedPort = port,
-                clangCompileCommands = clangCompileCommands,
-                clangArgs = clangArgs,
-                cdnetSolution = cdnetSolution,
-                cdnetProject = cdnetProject,
-                cdnetConfiguration = cdnetConfiguration,
-                cdnetPlatform = cdnetPlatform,
-                cdnetNoBuild = cdnetNoBuild,
-            ),
-            ci = CiDetector.extractQodanaEnvironment(CiDetector.detect()),
-            report = ReportOptions(
-                outputFormats = outputFormats,
-                baselinePath = baseline,
-                baselineIncludeAbsent = baselineIncludeAbsent,
-                saveReport = saveReport,
-                showReport = showReport,
-                printProblems = printProblems,
-            ),
-            docker = DockerOptions(
-                image = analyzer.image,
-                volumes = volumes,
-                envVars = parseKeyValueOptions(env),
-                user = if (user == "auto") null else user,
-                skipPull = skipPull,
-            ),
-            linter = analyzer.linterName,
-            profile = ProfileSpec(name = profileName, path = profilePath),
-            yaml = yaml,
-            scenario = scenario,
-            executionProfile = executionProfile,
-        )
+        val context =
+            ScanContext(
+                paths = paths,
+                auth =
+                    AuthContext(
+                        token = System.getenv(QodanaEnv.TOKEN),
+                        endpoint = System.getenv(QodanaEnv.ENDPOINT) ?: QodanaEnv.DEFAULT_ENDPOINT,
+                        licenseOnlyToken = System.getenv(QodanaEnv.LICENSE_ONLY_TOKEN),
+                    ),
+                runtime =
+                    RuntimeContext(
+                        ideDir = analyzer.ideDir,
+                        timeout = ScanContextUtils.getAnalysisTimeout(timeoutMs),
+                        timeoutExitCode = timeoutExitCode,
+                        envVars = parseKeyValueOptions(env),
+                        properties = parsedProperties,
+                        propertyFlags = parsedPropertyFlags,
+                        failThreshold = failThreshold,
+                        disableStatistics = noStatistics,
+                        noStatistics = noStatistics,
+                        forceFullHistory = fullHistory,
+                        clearCache = clearCache,
+                        analysisId = analysisId,
+                        jvmDebugPort = jvmDebugPort,
+                        applyFixes = applyFixes,
+                        cleanup = cleanup,
+                        fixesStrategy = fixesStrategy,
+                        disableSanity = disableSanity,
+                        runPromo = runPromo,
+                        script = effectiveScript(),
+                        commit = commit,
+                        diffStart = startHash,
+                        diffEnd = diffEnd,
+                        forceLocalChangesScript = forceLocalChangesScript,
+                        reversePrAnalysis = reverse,
+                        onlyDirectory = onlyDirectory ?: sourceDirectory,
+                        coverageDir = coverageDir,
+                        globalConfigDir = globalConfigDir,
+                        globalConfigId = globalConfigId,
+                        effectiveConfigDir = effectiveConfigDir,
+                        customConfigName = configName,
+                        showReportPort = showReportPort,
+                        deprecatedPort = port,
+                        clangCompileCommands = clangCompileCommands,
+                        clangArgs = clangArgs,
+                        cdnetSolution = cdnetSolution,
+                        cdnetProject = cdnetProject,
+                        cdnetConfiguration = cdnetConfiguration,
+                        cdnetPlatform = cdnetPlatform,
+                        cdnetNoBuild = cdnetNoBuild,
+                    ),
+                ci = CiDetector.extractQodanaEnvironment(CiDetector.detect()),
+                report =
+                    ReportOptions(
+                        outputFormats = outputFormats,
+                        baselinePath = baseline,
+                        baselineIncludeAbsent = baselineIncludeAbsent,
+                        saveReport = saveReport,
+                        showReport = showReport,
+                        printProblems = printProblems,
+                    ),
+                docker =
+                    DockerOptions(
+                        image = analyzer.image,
+                        volumes = volumes,
+                        envVars = parseKeyValueOptions(env),
+                        user = if (user == "auto") null else user,
+                        skipPull = skipPull,
+                    ),
+                linter = analyzer.linterName,
+                profile = ProfileSpec(name = profileName, path = profilePath),
+                yaml = yaml,
+                scenario = scenario,
+                executionProfile = executionProfile,
+            )
 
         var exitCode = runBlocking { scanRunner(context) }
-        val shouldShowReport = when {
-            showReport -> true
-            terminal.isInteractive -> terminal.select(
-                "Do you want to open the latest report",
-                listOf("Yes", "No"),
-            ) == "Yes"
-            else -> false
-        }
-        if (shouldShowReport) {
-            val reportDisplay = scanReportDisplay ?: ScanReportDisplay { resultsDir, reportDir, port ->
-                ReportDisplay.showReport(
-                    terminal = terminal,
-                    resultsDir = resultsDir,
-                    reportDir = reportDir,
-                    port = port,
-                )
+        val shouldShowReport =
+            when {
+                showReport -> true
+                terminal.isInteractive ->
+                    terminal.select(
+                        "Do you want to open the latest report",
+                        listOf("Yes", "No"),
+                    ) == "Yes"
+                else -> false
             }
+        if (shouldShowReport) {
+            val reportDisplay =
+                scanReportDisplay ?: ScanReportDisplay { resultsDir, reportDir, port ->
+                    ReportDisplay.showReport(
+                        terminal = terminal,
+                        resultsDir = resultsDir,
+                        reportDir = reportDir,
+                        port = port,
+                    )
+                }
             val resolvedPort = ReportPort.getShowReportPort(showReportPort = showReportPort, port = port)
-            val showReportExitCode = reportDisplay.show(
-                resultsDir = context.paths.resultsDir,
-                reportDir = context.paths.reportDir,
-                port = resolvedPort,
-            )
+            val showReportExitCode =
+                reportDisplay.show(
+                    resultsDir = context.paths.resultsDir,
+                    reportDir = context.paths.reportDir,
+                    port = resolvedPort,
+                )
             if (exitCode == 0 && showReportExitCode != 0) {
                 terminal.error("Failed to show report")
                 exitCode = showReportExitCode
@@ -305,7 +322,7 @@ class ScanCommand(
         } else if (!showReport && terminal.isInteractive && executionProfile.runtimeEnvironment == RuntimeEnvironment.HOST) {
             terminal.warn(
                 "To view the Qodana report later, run qodana show in the current directory " +
-                    "or add --show-report flag to qodana scan"
+                    "or add --show-report flag to qodana scan",
             )
         }
         throw ProgramResult(exitCode)
@@ -361,31 +378,37 @@ class ScanCommand(
     }
 
     private fun validateProjectDir(dir: Path) {
-        if (org.jetbrains.qodana.engine.scan.SystemUtils.isHomeDirectory(dir.toString())) {
+        if (org.jetbrains.qodana.engine.scan.SystemUtils
+                .isHomeDirectory(dir.toString())
+        ) {
             echo("Warning: Project directory ($dir) is the home directory")
         }
-        val hasFiles = Files.walk(dir).use { stream ->
-            stream.anyMatch { it != dir && Files.isRegularFile(it) }
-        }
+        val hasFiles =
+            Files.walk(dir).use { stream ->
+                stream.anyMatch { it != dir && Files.isRegularFile(it) }
+            }
         if (!hasFiles) {
             throw UsageError("No files to check with Qodana found in $dir")
         }
     }
 
-    private fun effectiveScript(): String {
-        return script
-    }
+    private fun effectiveScript(): String = script
 
-    private fun resolveStartHash(commit: String?, diffStart: String?): String? {
-        return when {
+    private fun resolveStartHash(
+        commit: String?,
+        diffStart: String?,
+    ): String? =
+        when {
             commit == diffStart -> commit
             commit == null -> diffStart
             diffStart == null -> commit
             else -> throw UsageError("Conflicting CLI arguments: --commit=$commit --diff-start=$diffStart")
         }
-    }
 
-    private fun resolveAnalyzer(yaml: QodanaYaml?, projectDir: Path): AnalyzerResolution {
+    private fun resolveAnalyzer(
+        yaml: QodanaYaml?,
+        projectDir: Path,
+    ): AnalyzerResolution {
         val explicitWithinDocker = parseWithinDocker(withinDocker)
         val yamlWithinDocker = parseWithinDocker(yaml?.withinDocker)
         val yamlIde = yaml?.ide?.takeIf { it.isNotBlank() }
@@ -406,13 +429,13 @@ class ScanCommand(
         if (yamlLinter != null && yamlIde != null) {
             throw UsageError(
                 "You have both `linter:` ($yamlLinter) and `ide:` ($yamlIde) fields set in qodana.yaml. " +
-                    "Modify the configuration file to keep one of them"
+                    "Modify the configuration file to keep one of them",
             )
         }
         if (yamlImage != null && yamlIde != null) {
             throw UsageError(
                 "You have both `image:` ($yamlImage) and `ide:` ($yamlIde) fields set in qodana.yaml. " +
-                    "Modify the configuration file to keep one of them"
+                    "Modify the configuration file to keep one of them",
             )
         }
 
@@ -464,7 +487,7 @@ class ScanCommand(
                 }
                 throw UsageError(
                     "Unrecognized '--linter' value '$chosenLinter'. " +
-                        "Hint: If the provided value is a custom docker image, please use '--image' instead."
+                        "Hint: If the provided value is a custom docker image, please use '--image' instead.",
                 )
             }
 
@@ -495,7 +518,9 @@ class ScanCommand(
             )
         }
 
-        val detectedLinter = org.jetbrains.qodana.engine.scan.ProjectDetector.detectLinter(projectDir)
+        val detectedLinter =
+            org.jetbrains.qodana.engine.scan.ProjectDetector
+                .detectLinter(projectDir)
         if (detectedLinter != null) {
             return AnalyzerResolution(
                 requestedTarget = RequestedExecutionTarget.CONTAINER,
@@ -520,15 +545,16 @@ class ScanCommand(
         pathLayout: ExecutionProfile.PathLayout,
     ): ScanPaths {
         val normalizedCacheOverride = cacheDir?.toAbsolutePath()?.normalize()
-        val defaultPaths = if (pathLayout == ExecutionProfile.PathLayout.IN_DOCKER) {
-            Triple(Path.of("/data/results"), Path.of("/data/cache"), Path.of("/data/results/report"))
-        } else {
-            val linterDir = qodanaSystemDir(normalizedCacheOverride).resolve(computeScanId(linterName, projectDir))
-            val defaultResults = linterDir.resolve("results")
-            val defaultCache = linterDir.resolve("cache")
-            val defaultReport = defaultResults.resolve("report")
-            Triple(defaultResults, defaultCache, defaultReport)
-        }
+        val defaultPaths =
+            if (pathLayout == ExecutionProfile.PathLayout.IN_DOCKER) {
+                Triple(Path.of("/data/results"), Path.of("/data/cache"), Path.of("/data/results/report"))
+            } else {
+                val linterDir = qodanaSystemDir(normalizedCacheOverride).resolve(computeScanId(linterName, projectDir))
+                val defaultResults = linterDir.resolve("results")
+                val defaultCache = linterDir.resolve("cache")
+                val defaultReport = defaultResults.resolve("report")
+                Triple(defaultResults, defaultCache, defaultReport)
+            }
 
         val actualResultsDir = resultsDir?.toAbsolutePath()?.normalize() ?: defaultPaths.first
         val actualCacheDir = normalizedCacheOverride ?: defaultPaths.second
@@ -555,15 +581,19 @@ class ScanCommand(
         }
         val home = System.getProperty("user.home") ?: "."
         val isMac = System.getProperty("os.name", "").lowercase().contains("mac")
-        val userCache = if (isMac) {
-            Path.of(home, "Library", "Caches")
-        } else {
-            Path.of(home, ".cache")
-        }
+        val userCache =
+            if (isMac) {
+                Path.of(home, "Library", "Caches")
+            } else {
+                Path.of(home, ".cache")
+            }
         return userCache.resolve("JetBrains").resolve("Qodana")
     }
 
-    private fun computeScanId(linterName: String, projectDir: Path): String {
+    private fun computeScanId(
+        linterName: String,
+        projectDir: Path,
+    ): String {
         val linterHash = sha256(linterName).take(8)
         val projectHash = sha256(projectDir.toString()).take(8)
         return "$linterHash-$projectHash"
@@ -585,18 +615,21 @@ class ScanCommand(
         }
     }
 
-    private fun parseKeyValueOptions(values: List<String>): Map<String, String> {
-        return values.associate { entry ->
+    private fun parseKeyValueOptions(values: List<String>): Map<String, String> =
+        values.associate { entry ->
             val parts = entry.split("=", limit = 2)
             parts[0] to (parts.getOrNull(1) ?: "")
         }
-    }
 
-    private fun loadQodanaYaml(projectDir: Path, customConfigName: String?): QodanaYaml? {
+    private fun loadQodanaYaml(
+        projectDir: Path,
+        customConfigName: String?,
+    ): QodanaYaml? {
         val yamlPath = resolveQodanaYamlPath(projectDir, customConfigName) ?: return null
 
         return try {
-            YAMLMapper.builder()
+            YAMLMapper
+                .builder()
                 .addModule(kotlinModule())
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                 .build()
@@ -606,14 +639,16 @@ class ScanCommand(
         }
     }
 
-    private fun resolveQodanaYamlPath(projectDir: Path, customConfigName: String?): Path? {
-        return when {
+    private fun resolveQodanaYamlPath(
+        projectDir: Path,
+        customConfigName: String?,
+    ): Path? =
+        when {
             !customConfigName.isNullOrBlank() -> projectDir.resolve(customConfigName)
             Files.exists(projectDir.resolve("qodana.yaml")) -> projectDir.resolve("qodana.yaml")
             Files.exists(projectDir.resolve("qodana.yml")) -> projectDir.resolve("qodana.yml")
             else -> null
         }
-    }
 
     private fun prepareEffectiveConfigDir(
         executionProfile: ExecutionProfile,
@@ -639,28 +674,36 @@ class ScanCommand(
         return effectiveDir
     }
 
-    private fun detectRepositoryRoot(projectDir: Path): Path {
-        return runCatching {
-            val process = ProcessBuilder("git", "-C", projectDir.toString(), "rev-parse", "--show-toplevel")
-                .redirectErrorStream(true)
-                .start()
-            val output = process.inputStream.bufferedReader().readText().trim()
+    private fun detectRepositoryRoot(projectDir: Path): Path =
+        runCatching {
+            val process =
+                ProcessBuilder("git", "-C", projectDir.toString(), "rev-parse", "--show-toplevel")
+                    .redirectErrorStream(true)
+                    .start()
+            val output =
+                process.inputStream
+                    .bufferedReader()
+                    .readText()
+                    .trim()
             if (process.waitFor() == 0 && output.isNotEmpty()) {
                 Path.of(output).toAbsolutePath().normalize()
             } else {
                 projectDir
             }
         }.getOrElse { projectDir }
-    }
 
-    private fun normalizeRepositoryRoot(projectDir: Path, repositoryRoot: Path): Path {
+    private fun normalizeRepositoryRoot(
+        projectDir: Path,
+        repositoryRoot: Path,
+    ): Path {
         val normalizedProjectDir = normalizePath(projectDir)
         val normalizedRepositoryRoot = normalizePath(repositoryRoot)
 
         var current: Path? = normalizedProjectDir
         while (current != null) {
-            val matches = runCatching { Files.isSameFile(current, normalizedRepositoryRoot) }
-                .getOrDefault(false)
+            val matches =
+                runCatching { Files.isSameFile(current, normalizedRepositoryRoot) }
+                    .getOrDefault(false)
             if (matches) {
                 return current
             }
@@ -670,14 +713,13 @@ class ScanCommand(
         throw UsageError(
             "The project directory must be located inside repository root. " +
                 "Please, specify correct --repository-root argument. " +
-                "ProjectDir: $normalizedProjectDir. RepositoryRoot: $normalizedRepositoryRoot."
+                "ProjectDir: $normalizedProjectDir. RepositoryRoot: $normalizedRepositoryRoot.",
         )
     }
 
-    private fun normalizePath(path: Path): Path {
-        return runCatching { path.toRealPath().normalize() }
+    private fun normalizePath(path: Path): Path =
+        runCatching { path.toRealPath().normalize() }
             .getOrElse { path.toAbsolutePath().normalize() }
-    }
 
     private fun validateDistOverride(distPath: Path) {
         if (!Files.isDirectory(distPath)) {
@@ -690,9 +732,7 @@ class ScanCommand(
         }
     }
 
-    private fun readEnv(key: String): String? {
-        return envOverrides[key] ?: System.getenv(key)
-    }
+    private fun readEnv(key: String): String? = envOverrides[key] ?: System.getenv(key)
 
     private data class AnalyzerResolution(
         val requestedTarget: RequestedExecutionTarget,

@@ -1,10 +1,9 @@
 package org.jetbrains.qodana.engine.startup
 
-import org.jetbrains.qodana.core.product.Analyzer
-import org.jetbrains.qodana.core.product.IntellijLinterProperties
-import org.jetbrains.qodana.core.product.Linters
 import org.jetbrains.qodana.core.port.FileSystem
 import org.jetbrains.qodana.core.port.Terminal
+import org.jetbrains.qodana.core.product.Analyzer
+import org.jetbrains.qodana.core.product.Linters
 import org.jetbrains.qodana.engine.port.HttpResponse
 import org.jetbrains.qodana.engine.port.HttpTransport
 import org.jetbrains.qodana.engine.port.MultipartPart
@@ -19,8 +18,8 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class IdeInstallerTest {
-
-    private val sampleFeedJson = """
+    private val sampleFeedJson =
+        """
         [
           {
             "Code": "IIU",
@@ -76,47 +75,113 @@ class IdeInstallerTest {
             ]
           }
         ]
-    """.trimIndent()
+        """.trimIndent()
 
-    private fun fakeHttp(feedJson: String = sampleFeedJson) = object : HttpTransport {
-        override suspend fun get(url: String, headers: Map<String, String>) =
-            HttpResponse(200, feedJson)
-        override suspend fun post(url: String, body: ByteArray, contentType: String, headers: Map<String, String>) =
-            HttpResponse(200, "")
-        override suspend fun download(url: String, target: Path, headers: Map<String, String>) {}
-        override suspend fun uploadMultipart(url: String, parts: List<MultipartPart>, headers: Map<String, String>) =
-            HttpResponse(200, "")
-    }
+    private fun fakeHttp(feedJson: String = sampleFeedJson) =
+        object : HttpTransport {
+            override suspend fun get(
+                url: String,
+                headers: Map<String, String>,
+            ) = HttpResponse(200, feedJson)
 
-    private fun fakeFs() = object : FileSystem {
-        override fun read(path: Path) = ""
-        override fun readBytes(path: Path) = byteArrayOf()
-        override fun write(path: Path, content: String) {}
-        override fun writeBytes(path: Path, content: ByteArray) {}
-        override fun copy(source: Path, target: Path) {}
-        override fun walk(root: Path, glob: String?) = emptySequence<Path>()
-        override fun exists(path: Path) = false
-        override fun createDirectories(path: Path): Path = path
-        override fun tempDir(prefix: String) = Path.of("/tmp/$prefix")
-        override fun delete(path: Path) {}
-        override fun extractArchive(archive: Path, target: Path) {}
-    }
+            override suspend fun post(
+                url: String,
+                body: ByteArray,
+                contentType: String,
+                headers: Map<String, String>,
+            ) = HttpResponse(200, "")
 
-    private fun fakeTerminal() = object : Terminal {
-        val errors = mutableListOf<String>()
-        override fun print(message: String) {}
-        override fun println(message: String) {}
-        override fun error(message: String) { errors.add(message) }
-        override fun info(message: String) {}
-        override fun warn(message: String) {}
-        override fun debug(message: String) {}
-        override fun <T> spinner(message: String, action: () -> T): T = action()
-        override fun prompt(message: String, default: String?): String = default ?: ""
-        override fun select(message: String, choices: List<String>): String = choices.first()
-        override val isInteractive: Boolean = false
-        override var isCi: Boolean = false
-        override fun setRedactedTokens(tokens: Set<String>) {}
-    }
+            override suspend fun download(
+                url: String,
+                target: Path,
+                headers: Map<String, String>,
+            ) {}
+
+            override suspend fun uploadMultipart(
+                url: String,
+                parts: List<MultipartPart>,
+                headers: Map<String, String>,
+            ) = HttpResponse(200, "")
+        }
+
+    private fun fakeFs() =
+        object : FileSystem {
+            override fun read(path: Path) = ""
+
+            override fun readBytes(path: Path) = byteArrayOf()
+
+            override fun write(
+                path: Path,
+                content: String,
+            ) {}
+
+            override fun writeBytes(
+                path: Path,
+                content: ByteArray,
+            ) {}
+
+            override fun copy(
+                source: Path,
+                target: Path,
+            ) {}
+
+            override fun walk(
+                root: Path,
+                glob: String?,
+            ) = emptySequence<Path>()
+
+            override fun exists(path: Path) = false
+
+            override fun createDirectories(path: Path): Path = path
+
+            override fun tempDir(prefix: String) = Path.of("/tmp/$prefix")
+
+            override fun delete(path: Path) {}
+
+            override fun extractArchive(
+                archive: Path,
+                target: Path,
+            ) {}
+        }
+
+    private fun fakeTerminal() =
+        object : Terminal {
+            val errors = mutableListOf<String>()
+
+            override fun print(message: String) {}
+
+            override fun println(message: String) {}
+
+            override fun error(message: String) {
+                errors.add(message)
+            }
+
+            override fun info(message: String) {}
+
+            override fun warn(message: String) {}
+
+            override fun debug(message: String) {}
+
+            override fun <T> spinner(
+                message: String,
+                action: () -> T,
+            ): T = action()
+
+            override fun prompt(
+                message: String,
+                default: String?,
+            ): String = default ?: ""
+
+            override fun select(
+                message: String,
+                choices: List<String>,
+            ): String = choices.first()
+
+            override val isInteractive: Boolean = false
+            override var isCi: Boolean = false
+
+            override fun setRedactedTokens(tokens: Set<String>) {}
+        }
 
     @Test
     fun `getProductByCode returns matching product`() {
@@ -191,8 +256,10 @@ class IdeInstallerTest {
     fun `getPluginsUrl replaces sit extension`() {
         val installer = IdeInstaller(fakeHttp(), fakeFs(), fakeTerminal())
         val result = installer.getPluginsUrl("https://example.com/idea-2025.3.1-aarch64.sit")
-        assertEquals("https://example.com/idea-2025.3.1.sit".replace(".sit", "-custom-plugins.zip"),
-            installer.getPluginsUrl("https://example.com/idea-2025.3.1.sit"))
+        assertEquals(
+            "https://example.com/idea-2025.3.1.sit".replace(".sit", "-custom-plugins.zip"),
+            installer.getPluginsUrl("https://example.com/idea-2025.3.1.sit"),
+        )
     }
 
     @Test
@@ -221,7 +288,9 @@ class IdeInstallerTest {
     }
 
     @Test
-    fun `verifySha256 throws on mismatch`(@TempDir tmpDir: Path) {
+    fun `verifySha256 throws on mismatch`(
+        @TempDir tmpDir: Path,
+    ) {
         val filePath = tmpDir.resolve("test.bin")
         Files.write(filePath, "hello world".toByteArray())
 
@@ -229,71 +298,180 @@ class IdeInstallerTest {
         // Write a wrong checksum
         val wrongChecksum = "0000000000000000000000000000000000000000000000000000000000000000"
 
-        val http = object : HttpTransport {
-            override suspend fun get(url: String, headers: Map<String, String>) = HttpResponse(200, "")
-            override suspend fun post(url: String, body: ByteArray, contentType: String, headers: Map<String, String>) = HttpResponse(200, "")
-            override suspend fun download(url: String, target: Path, headers: Map<String, String>) {
-                Files.writeString(target, "$wrongChecksum  test.bin")
-            }
-            override suspend fun uploadMultipart(url: String, parts: List<MultipartPart>, headers: Map<String, String>) = HttpResponse(200, "")
-        }
+        val http =
+            object : HttpTransport {
+                override suspend fun get(
+                    url: String,
+                    headers: Map<String, String>,
+                ) = HttpResponse(200, "")
 
-        val fs = object : FileSystem {
-            override fun read(path: Path) = Files.readString(path)
-            override fun readBytes(path: Path) = Files.readAllBytes(path)
-            override fun write(path: Path, content: String) { Files.writeString(path, content) }
-            override fun writeBytes(path: Path, content: ByteArray) { Files.write(path, content) }
-            override fun copy(source: Path, target: Path) {}
-            override fun walk(root: Path, glob: String?) = emptySequence<Path>()
-            override fun exists(path: Path) = Files.exists(path)
-            override fun createDirectories(path: Path): Path = Files.createDirectories(path)
-            override fun tempDir(prefix: String) = Files.createTempDirectory(prefix)
-            override fun delete(path: Path) { Files.deleteIfExists(path) }
-            override fun extractArchive(archive: Path, target: Path) {}
-        }
+                override suspend fun post(
+                    url: String,
+                    body: ByteArray,
+                    contentType: String,
+                    headers: Map<String, String>,
+                ) = HttpResponse(200, "")
+
+                override suspend fun download(
+                    url: String,
+                    target: Path,
+                    headers: Map<String, String>,
+                ) {
+                    Files.writeString(target, "$wrongChecksum  test.bin")
+                }
+
+                override suspend fun uploadMultipart(
+                    url: String,
+                    parts: List<MultipartPart>,
+                    headers: Map<String, String>,
+                ) = HttpResponse(200, "")
+            }
+
+        val fs =
+            object : FileSystem {
+                override fun read(path: Path) = Files.readString(path)
+
+                override fun readBytes(path: Path) = Files.readAllBytes(path)
+
+                override fun write(
+                    path: Path,
+                    content: String,
+                ) {
+                    Files.writeString(path, content)
+                }
+
+                override fun writeBytes(
+                    path: Path,
+                    content: ByteArray,
+                ) {
+                    Files.write(path, content)
+                }
+
+                override fun copy(
+                    source: Path,
+                    target: Path,
+                ) {}
+
+                override fun walk(
+                    root: Path,
+                    glob: String?,
+                ) = emptySequence<Path>()
+
+                override fun exists(path: Path) = Files.exists(path)
+
+                override fun createDirectories(path: Path): Path = Files.createDirectories(path)
+
+                override fun tempDir(prefix: String) = Files.createTempDirectory(prefix)
+
+                override fun delete(path: Path) {
+                    Files.deleteIfExists(path)
+                }
+
+                override fun extractArchive(
+                    archive: Path,
+                    target: Path,
+                ) {}
+            }
 
         val installer = IdeInstaller(http, fs, fakeTerminal())
-        val ex = assertFailsWith<IllegalStateException> {
-            kotlinx.coroutines.test.runTest {
-                installer.verifySha256("https://example.com/checksum", filePath, tmpDir)
+        val ex =
+            assertFailsWith<IllegalStateException> {
+                kotlinx.coroutines.test.runTest {
+                    installer.verifySha256("https://example.com/checksum", filePath, tmpDir)
+                }
             }
-        }
         assertTrue(ex.message!!.contains("Checksums don't match"))
     }
 
     @Test
-    fun `verifySha256 passes on correct checksum`(@TempDir tmpDir: Path) {
+    fun `verifySha256 passes on correct checksum`(
+        @TempDir tmpDir: Path,
+    ) {
         val content = "hello world"
         val filePath = tmpDir.resolve("test.bin")
         Files.write(filePath, content.toByteArray())
 
         // Compute correct SHA-256
         val digest = java.security.MessageDigest.getInstance("SHA-256")
-        val correctChecksum = digest.digest(content.toByteArray())
-            .joinToString("") { "%02x".format(it) }
+        val correctChecksum =
+            digest
+                .digest(content.toByteArray())
+                .joinToString("") { "%02x".format(it) }
 
-        val http = object : HttpTransport {
-            override suspend fun get(url: String, headers: Map<String, String>) = HttpResponse(200, "")
-            override suspend fun post(url: String, body: ByteArray, contentType: String, headers: Map<String, String>) = HttpResponse(200, "")
-            override suspend fun download(url: String, target: Path, headers: Map<String, String>) {
-                Files.writeString(target, "$correctChecksum  test.bin")
+        val http =
+            object : HttpTransport {
+                override suspend fun get(
+                    url: String,
+                    headers: Map<String, String>,
+                ) = HttpResponse(200, "")
+
+                override suspend fun post(
+                    url: String,
+                    body: ByteArray,
+                    contentType: String,
+                    headers: Map<String, String>,
+                ) = HttpResponse(200, "")
+
+                override suspend fun download(
+                    url: String,
+                    target: Path,
+                    headers: Map<String, String>,
+                ) {
+                    Files.writeString(target, "$correctChecksum  test.bin")
+                }
+
+                override suspend fun uploadMultipart(
+                    url: String,
+                    parts: List<MultipartPart>,
+                    headers: Map<String, String>,
+                ) = HttpResponse(200, "")
             }
-            override suspend fun uploadMultipart(url: String, parts: List<MultipartPart>, headers: Map<String, String>) = HttpResponse(200, "")
-        }
 
-        val fs = object : FileSystem {
-            override fun read(path: Path) = Files.readString(path)
-            override fun readBytes(path: Path) = Files.readAllBytes(path)
-            override fun write(path: Path, content: String) { Files.writeString(path, content) }
-            override fun writeBytes(path: Path, content: ByteArray) { Files.write(path, content) }
-            override fun copy(source: Path, target: Path) {}
-            override fun walk(root: Path, glob: String?) = emptySequence<Path>()
-            override fun exists(path: Path) = Files.exists(path)
-            override fun createDirectories(path: Path): Path = Files.createDirectories(path)
-            override fun tempDir(prefix: String) = Files.createTempDirectory(prefix)
-            override fun delete(path: Path) { Files.deleteIfExists(path) }
-            override fun extractArchive(archive: Path, target: Path) {}
-        }
+        val fs =
+            object : FileSystem {
+                override fun read(path: Path) = Files.readString(path)
+
+                override fun readBytes(path: Path) = Files.readAllBytes(path)
+
+                override fun write(
+                    path: Path,
+                    content: String,
+                ) {
+                    Files.writeString(path, content)
+                }
+
+                override fun writeBytes(
+                    path: Path,
+                    content: ByteArray,
+                ) {
+                    Files.write(path, content)
+                }
+
+                override fun copy(
+                    source: Path,
+                    target: Path,
+                ) {}
+
+                override fun walk(
+                    root: Path,
+                    glob: String?,
+                ) = emptySequence<Path>()
+
+                override fun exists(path: Path) = Files.exists(path)
+
+                override fun createDirectories(path: Path): Path = Files.createDirectories(path)
+
+                override fun tempDir(prefix: String) = Files.createTempDirectory(prefix)
+
+                override fun delete(path: Path) {
+                    Files.deleteIfExists(path)
+                }
+
+                override fun extractArchive(
+                    archive: Path,
+                    target: Path,
+                ) {}
+            }
 
         val installer = IdeInstaller(http, fs, fakeTerminal())
         // Should not throw

@@ -12,7 +12,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class FuserSerializerTest {
-
     private val mapper = ObjectMapper()
 
     private fun createLogEvent(
@@ -26,15 +25,16 @@ class FuserSerializerTest {
         eventId: String = "test.event",
         state: Boolean = false,
         data: MutableMap<String, Any> = mutableMapOf("key" to "value"),
-    ): LogEvent = LogEvent(
-        session,
-        build,
-        bucket,
-        time,
-        LogEventGroup(groupId, groupVersion),
-        recorderVersion,
-        LogEventAction(eventId, state, data = data),
-    )
+    ): LogEvent =
+        LogEvent(
+            session,
+            build,
+            bucket,
+            time,
+            LogEventGroup(groupId, groupVersion),
+            recorderVersion,
+            LogEventAction(eventId, state, data = data),
+        )
 
     private fun createReport(
         product: String = "QDKOTLIN",
@@ -42,13 +42,14 @@ class FuserSerializerTest {
         recorder: String = "FUS",
         internal: Boolean = false,
         events: List<LogEvent> = listOf(createLogEvent()),
-    ): ValidatedFusReport = ValidatedFusReport(
-        product,
-        device,
-        recorder,
-        internal,
-        listOf(ValidatedFusRecord(events)),
-    )
+    ): ValidatedFusReport =
+        ValidatedFusReport(
+            product,
+            device,
+            recorder,
+            internal,
+            listOf(ValidatedFusRecord(events)),
+        )
 
     @Test
     fun `serialize produces valid JSON with product and device`() {

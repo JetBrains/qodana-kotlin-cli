@@ -4,7 +4,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class ReportPortTest {
-
     @Test
     fun `showReportPort defined`() {
         assertEquals(9001, ReportPort.getShowReportPort(showReportPort = 9001, port = null))

@@ -2,16 +2,19 @@ package org.jetbrains.qodana.engine.cloud
 
 import java.io.File
 
-data class ApiVersion(val major: Int, val minor: Int)
+data class ApiVersion(
+    val major: Int,
+    val minor: Int,
+)
 
 class ApiVersionMismatchError(
     val apiKind: String,
     val supportedVersions: List<String>,
 ) : Exception(
-    "failed to find supported API. Available $apiKind API: $supportedVersions. " +
-        "Required major version: $REQUIRED_MAJOR_VERSION. " +
-        "Minimum required minor version: $MINIMUM_REQUIRED_MINOR_VERSION"
-)
+        "failed to find supported API. Available $apiKind API: $supportedVersions. " +
+            "Required major version: $REQUIRED_MAJOR_VERSION. " +
+            "Minimum required minor version: $MINIMUM_REQUIRED_MINOR_VERSION",
+    )
 
 const val REQUIRED_MAJOR_VERSION = 1
 const val MINIMUM_REQUIRED_MINOR_VERSION = 0
@@ -34,30 +37,36 @@ fun selectSupportedVersion(descriptions: List<ApiVersionDescription>): String {
     return ""
 }
 
-fun extractVersions(descriptions: List<ApiVersionDescription>): List<String> =
-    descriptions.map { it.version }
+fun extractVersions(descriptions: List<ApiVersionDescription>): List<String> = descriptions.map { it.version }
 
-fun getCloudTeamsPageUrl(rootUrl: String, origin: String, path: String): String {
+fun getCloudTeamsPageUrl(
+    rootUrl: String,
+    origin: String,
+    path: String,
+): String {
     val name = File(path).name
     return "${rootUrl.trimEnd('/')}/?origin=$origin&name=$name"
 }
 
-fun parseProjectName(json: String): Result<String> {
-    return try {
-        val mapper = com.fasterxml.jackson.databind.ObjectMapper()
+fun parseProjectName(json: String): Result<String> =
+    try {
+        val mapper =
+            com.fasterxml.jackson.databind
+                .ObjectMapper()
         val tree = mapper.readTree(json)
         val name = tree["name"]?.asText() ?: ""
         Result.success(name)
     } catch (e: Exception) {
         Result.failure(IllegalArgumentException("response '$json': ${e.message}"))
     }
-}
 
 fun getReportUrl(resultsDir: String): String {
     val file = File(resultsDir, "open-in-ide.json")
     if (!file.exists()) return ""
     return try {
-        val mapper = com.fasterxml.jackson.databind.ObjectMapper()
+        val mapper =
+            com.fasterxml.jackson.databind
+                .ObjectMapper()
         val tree = mapper.readTree(file)
         tree["cloud"]?.get("url")?.asText() ?: ""
     } catch (_: Exception) {

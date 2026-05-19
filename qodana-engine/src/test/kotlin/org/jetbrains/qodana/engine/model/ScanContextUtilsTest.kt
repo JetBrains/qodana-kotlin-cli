@@ -11,71 +11,105 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class ScanContextUtilsTest {
-
     // --- determineRunScenario ---
 
     @Test
     fun `scenario fullHistory takes priority`() {
-        val scenario = ScanContextUtils.determineRunScenario(
-            fullHistory = true, script = "default", startHash = "abc", forceLocalChanges = false,
-            isContainer = false, reversePrAnalysis = false,
-        )
+        val scenario =
+            ScanContextUtils.determineRunScenario(
+                fullHistory = true,
+                script = "default",
+                startHash = "abc",
+                forceLocalChanges = false,
+                isContainer = false,
+                reversePrAnalysis = false,
+            )
         assertIs<RunScenario.FullHistory>(scenario)
     }
 
     @Test
     fun `scenario no startHash returns Default`() {
-        val scenario = ScanContextUtils.determineRunScenario(
-            fullHistory = false, script = "default", startHash = null, forceLocalChanges = false,
-            isContainer = false, reversePrAnalysis = false,
-        )
+        val scenario =
+            ScanContextUtils.determineRunScenario(
+                fullHistory = false,
+                script = "default",
+                startHash = null,
+                forceLocalChanges = false,
+                isContainer = false,
+                reversePrAnalysis = false,
+            )
         assertIs<RunScenario.Default>(scenario)
     }
 
     @Test
     fun `scenario empty startHash returns Default`() {
-        val scenario = ScanContextUtils.determineRunScenario(
-            fullHistory = false, script = "default", startHash = "", forceLocalChanges = false,
-            isContainer = false, reversePrAnalysis = false,
-        )
+        val scenario =
+            ScanContextUtils.determineRunScenario(
+                fullHistory = false,
+                script = "default",
+                startHash = "",
+                forceLocalChanges = false,
+                isContainer = false,
+                reversePrAnalysis = false,
+            )
         assertIs<RunScenario.Default>(scenario)
     }
 
     @Test
     fun `scenario forceLocalChanges returns LocalChanges`() {
-        val scenario = ScanContextUtils.determineRunScenario(
-            fullHistory = false, script = "default", startHash = "abc123", forceLocalChanges = true,
-            isContainer = false, reversePrAnalysis = false,
-        )
+        val scenario =
+            ScanContextUtils.determineRunScenario(
+                fullHistory = false,
+                script = "default",
+                startHash = "abc123",
+                forceLocalChanges = true,
+                isContainer = false,
+                reversePrAnalysis = false,
+            )
         assertIs<RunScenario.LocalChanges>(scenario)
         assertEquals("abc123", scenario.diffStart)
     }
 
     @Test
     fun `scenario container overrides to Default`() {
-        val scenario = ScanContextUtils.determineRunScenario(
-            fullHistory = false, script = "default", startHash = "abc", forceLocalChanges = false,
-            isContainer = true, reversePrAnalysis = false,
-        )
+        val scenario =
+            ScanContextUtils.determineRunScenario(
+                fullHistory = false,
+                script = "default",
+                startHash = "abc",
+                forceLocalChanges = false,
+                isContainer = true,
+                reversePrAnalysis = false,
+            )
         assertIs<RunScenario.Default>(scenario)
     }
 
     @Test
     fun `scenario reversePrAnalysis returns ReverseScoped`() {
-        val scenario = ScanContextUtils.determineRunScenario(
-            fullHistory = false, script = "default", startHash = "main", forceLocalChanges = false,
-            isContainer = false, reversePrAnalysis = true,
-        )
+        val scenario =
+            ScanContextUtils.determineRunScenario(
+                fullHistory = false,
+                script = "default",
+                startHash = "main",
+                forceLocalChanges = false,
+                isContainer = false,
+                reversePrAnalysis = true,
+            )
         assertIs<RunScenario.ReverseScoped>(scenario)
         assertEquals("main", scenario.targetBranch)
     }
 
     @Test
     fun `scenario default with startHash returns Scoped`() {
-        val scenario = ScanContextUtils.determineRunScenario(
-            fullHistory = false, script = "default", startHash = "develop", forceLocalChanges = false,
-            isContainer = false, reversePrAnalysis = false,
-        )
+        val scenario =
+            ScanContextUtils.determineRunScenario(
+                fullHistory = false,
+                script = "default",
+                startHash = "develop",
+                forceLocalChanges = false,
+                isContainer = false,
+                reversePrAnalysis = false,
+            )
         assertIs<RunScenario.Scoped>(scenario)
         assertEquals("develop", scenario.targetBranch)
     }
@@ -115,19 +149,25 @@ class ScanContextUtilsTest {
     // --- localQodanaYamlExists ---
 
     @Test
-    fun `localQodanaYamlExists true when yaml exists`(@TempDir dir: Path) {
+    fun `localQodanaYamlExists true when yaml exists`(
+        @TempDir dir: Path,
+    ) {
         dir.resolve("qodana.yaml").createFile()
         assertTrue(ScanContextUtils.localQodanaYamlExists(dir))
     }
 
     @Test
-    fun `localQodanaYamlExists true when yml exists`(@TempDir dir: Path) {
+    fun `localQodanaYamlExists true when yml exists`(
+        @TempDir dir: Path,
+    ) {
         dir.resolve("qodana.yml").createFile()
         assertTrue(ScanContextUtils.localQodanaYamlExists(dir))
     }
 
     @Test
-    fun `localQodanaYamlExists false when missing`(@TempDir dir: Path) {
+    fun `localQodanaYamlExists false when missing`(
+        @TempDir dir: Path,
+    ) {
         assertFalse(ScanContextUtils.localQodanaYamlExists(dir))
     }
 
@@ -135,23 +175,35 @@ class ScanContextUtilsTest {
 
     @Test
     fun `relative path subdirectory`() {
-        assertEquals("sub1/sub2", ScanContextUtils.projectDirRelativeToRepoRoot(
-            Path.of("/repo/sub1/sub2"), Path.of("/repo"),
-        ))
+        assertEquals(
+            "sub1/sub2",
+            ScanContextUtils.projectDirRelativeToRepoRoot(
+                Path.of("/repo/sub1/sub2"),
+                Path.of("/repo"),
+            ),
+        )
     }
 
     @Test
     fun `relative path same directory returns dot`() {
-        assertEquals(".", ScanContextUtils.projectDirRelativeToRepoRoot(
-            Path.of("/repo"), Path.of("/repo"),
-        ))
+        assertEquals(
+            ".",
+            ScanContextUtils.projectDirRelativeToRepoRoot(
+                Path.of("/repo"),
+                Path.of("/repo"),
+            ),
+        )
     }
 
     @Test
     fun `relative path single level`() {
-        assertEquals("project", ScanContextUtils.projectDirRelativeToRepoRoot(
-            Path.of("/repo/project"), Path.of("/repo"),
-        ))
+        assertEquals(
+            "project",
+            ScanContextUtils.projectDirRelativeToRepoRoot(
+                Path.of("/repo/project"),
+                Path.of("/repo"),
+            ),
+        )
     }
 
     // --- parsePropertiesAndFlags ---

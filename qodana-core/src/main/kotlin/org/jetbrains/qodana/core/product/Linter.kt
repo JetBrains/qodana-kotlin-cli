@@ -11,11 +11,12 @@ data class Linter(
     val eapOnly: Boolean,
 ) {
     fun image(): String {
-        val tag = if (!Linters.IS_RELEASED || eapOnly) {
-            "${Linters.RELEASE_VERSION}-eap"
-        } else {
-            Linters.RELEASE_VERSION
-        }
+        val tag =
+            if (!Linters.IS_RELEASED || eapOnly) {
+                "${Linters.RELEASE_VERSION}-eap"
+            } else {
+                Linters.RELEASE_VERSION
+            }
         return "$dockerImage:$tag"
     }
 }

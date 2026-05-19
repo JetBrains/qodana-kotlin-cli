@@ -9,7 +9,6 @@ import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
 
 object FileUtils {
-
     fun getSha256(input: InputStream): String {
         val digest = MessageDigest.getInstance("SHA-256")
         val buffer = ByteArray(8192)
@@ -31,7 +30,10 @@ object FileUtils {
         }
     }
 
-    fun copyDir(source: Path, target: Path) {
+    fun copyDir(
+        source: Path,
+        target: Path,
+    ) {
         if (!source.isDirectory()) throw IllegalArgumentException("Source is not a directory: $source")
         Files.walk(source).use { stream ->
             stream.forEach { src ->

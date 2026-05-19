@@ -3,20 +3,24 @@ package org.jetbrains.qodana.engine.scan
 import org.jetbrains.qodana.core.product.Linters
 
 object ContainerImageUtils {
-
     private val officialPrefixes = listOf("jetbrains/qodana", "registry.jetbrains.team/")
     private val privilegedSuffix = "-privileged"
-    private val tokenEnvVars = setOf(
-        "QODANA_TOKEN", "QODANA_LICENSE_ONLY_TOKEN",
-        "QODANA_ENDPOINT_CLOUD_TOKEN", "QODANA_CLOUD_TOKEN",
-    )
-    private val unauthorizedPatterns = listOf(
-        "unauthorized", "access denied", "denied", "forbidden",
-    )
+    private val tokenEnvVars =
+        setOf(
+            "QODANA_TOKEN",
+            "QODANA_LICENSE_ONLY_TOKEN",
+            "QODANA_ENDPOINT_CLOUD_TOKEN",
+            "QODANA_CLOUD_TOKEN",
+        )
+    private val unauthorizedPatterns =
+        listOf(
+            "unauthorized",
+            "access denied",
+            "denied",
+            "forbidden",
+        )
 
-    fun isUnofficialLinter(image: String): Boolean {
-        return officialPrefixes.none { image.startsWith(it) }
-    }
+    fun isUnofficialLinter(image: String): Boolean = officialPrefixes.none { image.startsWith(it) }
 
     fun hasExactVersionTag(image: String): Boolean {
         val tag = image.substringAfter(":", "")
@@ -32,12 +36,16 @@ object ContainerImageUtils {
             tag.startsWith(Linters.SHORT_VERSION)
     }
 
-    fun selectUser(image: String, requestedUser: String): String {
+    fun selectUser(
+        image: String,
+        requestedUser: String,
+    ): String {
         if (requestedUser != "auto") return requestedUser
 
-        val isPrivileged = officialPrefixes.any { prefix ->
-            image.startsWith(prefix) && image.contains(privilegedSuffix)
-        }
+        val isPrivileged =
+            officialPrefixes.any { prefix ->
+                image.startsWith(prefix) && image.contains(privilegedSuffix)
+            }
         return if (isPrivileged) "" else getDefaultUser()
     }
 
@@ -81,30 +89,31 @@ object ContainerImageUtils {
         attachStderr: Boolean = false,
         tty: Boolean = false,
         cmd: List<String> = emptyList(),
-    ): String = buildString {
-        append("docker run")
-        if (autoRemove) append(" --rm")
-        if (tty) append(" -it")
-        if (attachStdout) append(" -a stdout")
-        if (attachStderr) append(" -a stderr")
-        if (user.isNotEmpty()) append(" -u $user")
-        for (e in env) {
-            if (!isTokenEnvVar(e)) append(" -e $e")
+    ): String =
+        buildString {
+            append("docker run")
+            if (autoRemove) append(" --rm")
+            if (tty) append(" -it")
+            if (attachStdout) append(" -a stdout")
+            if (attachStderr) append(" -a stderr")
+            if (user.isNotEmpty()) append(" -u $user")
+            for (e in env) {
+                if (!isTokenEnvVar(e)) append(" -e $e")
+            }
+            for ((source, target) in mounts) {
+                append(" -v $source:$target")
+            }
+            for (cap in capAdd) {
+                append(" --cap-add $cap")
+            }
+            for (opt in securityOpt) {
+                append(" --security-opt $opt")
+            }
+            append(" $image")
+            for (c in cmd) {
+                append(" $c")
+            }
         }
-        for ((source, target) in mounts) {
-            append(" -v $source:$target")
-        }
-        for (cap in capAdd) {
-            append(" --cap-add $cap")
-        }
-        for (opt in securityOpt) {
-            append(" --security-opt $opt")
-        }
-        append(" $image")
-        for (c in cmd) {
-            append(" $c")
-        }
-    }
 
     private fun isTokenEnvVar(envEntry: String): Boolean {
         val name = envEntry.substringBefore("=")

@@ -9,17 +9,17 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class CiDetectorTest {
-
     @Test
     fun `detect GitHub Actions`() {
-        val env = mapOf(
-            "GITHUB_ACTIONS" to "true",
-            "GITHUB_REF_NAME" to "main",
-            "GITHUB_SHA" to "abc123",
-            "GITHUB_SERVER_URL" to "https://github.com",
-            "GITHUB_REPOSITORY" to "JetBrains/qodana-cli",
-            "GITHUB_RUN_ID" to "12345",
-        )
+        val env =
+            mapOf(
+                "GITHUB_ACTIONS" to "true",
+                "GITHUB_REF_NAME" to "main",
+                "GITHUB_SHA" to "abc123",
+                "GITHUB_SERVER_URL" to "https://github.com",
+                "GITHUB_REPOSITORY" to "JetBrains/qodana-cli",
+                "GITHUB_RUN_ID" to "12345",
+            )
         val ci = CiDetector.detect { env[it] }
         assertNotNull(ci)
         assertEquals("github-actions", ci.ciName)
@@ -31,13 +31,14 @@ class CiDetectorTest {
 
     @Test
     fun `detect GitLab CI`() {
-        val env = mapOf(
-            "GITLAB_CI" to "true",
-            "CI_COMMIT_REF_NAME" to "feature-branch",
-            "CI_COMMIT_SHA" to "def456",
-            "CI_REPOSITORY_URL" to "https://gitlab.com/org/repo.git",
-            "CI_JOB_URL" to "https://gitlab.com/org/repo/-/jobs/789",
-        )
+        val env =
+            mapOf(
+                "GITLAB_CI" to "true",
+                "CI_COMMIT_REF_NAME" to "feature-branch",
+                "CI_COMMIT_SHA" to "def456",
+                "CI_REPOSITORY_URL" to "https://gitlab.com/org/repo.git",
+                "CI_JOB_URL" to "https://gitlab.com/org/repo/-/jobs/789",
+            )
         val ci = CiDetector.detect { env[it] }
         assertNotNull(ci)
         assertEquals("gitlab-ci", ci.ciName)
@@ -55,13 +56,14 @@ class CiDetectorTest {
 
     @Test
     fun `detect BitBucket Pipelines`() {
-        val env = mapOf(
-            "BITBUCKET_PIPELINE_UUID" to "{uuid}",
-            "BITBUCKET_BRANCH" to "develop",
-            "BITBUCKET_COMMIT" to "ghi789",
-            "BITBUCKET_REPO_FULL_NAME" to "owner/repo",
-            "BITBUCKET_BUILD_NUMBER" to "42",
-        )
+        val env =
+            mapOf(
+                "BITBUCKET_PIPELINE_UUID" to "{uuid}",
+                "BITBUCKET_BRANCH" to "develop",
+                "BITBUCKET_COMMIT" to "ghi789",
+                "BITBUCKET_REPO_FULL_NAME" to "owner/repo",
+                "BITBUCKET_BUILD_NUMBER" to "42",
+            )
         val ci = CiDetector.detect { env[it] }
         assertNotNull(ci)
         assertEquals("bitbucket", ci.ciName)
@@ -73,13 +75,14 @@ class CiDetectorTest {
 
     @Test
     fun `detect Jenkins`() {
-        val env = mapOf(
-            "JENKINS_URL" to "https://jenkins.example.com",
-            "GIT_BRANCH" to "origin/main",
-            "GIT_COMMIT" to "abc123",
-            "GIT_URL" to "https://github.com/org/repo.git",
-            "BUILD_URL" to "https://jenkins.example.com/job/test/1",
-        )
+        val env =
+            mapOf(
+                "JENKINS_URL" to "https://jenkins.example.com",
+                "GIT_BRANCH" to "origin/main",
+                "GIT_COMMIT" to "abc123",
+                "GIT_URL" to "https://github.com/org/repo.git",
+                "BUILD_URL" to "https://jenkins.example.com/job/test/1",
+            )
         val ci = CiDetector.detect { env[it] }
         assertNotNull(ci)
         assertEquals("jenkins", ci.ciName)
@@ -91,14 +94,15 @@ class CiDetectorTest {
 
     @Test
     fun `detect Azure Pipelines`() {
-        val env = mapOf(
-            "SYSTEM_TEAMFOUNDATIONCOLLECTIONURI" to "https://dev.azure.com/org/",
-            "SYSTEM_TEAMPROJECT" to "myproject",
-            "BUILD_BUILDID" to "999",
-            "BUILD_SOURCEBRANCHNAME" to "main",
-            "BUILD_SOURCEVERSION" to "sha999",
-            "BUILD_REPOSITORY_URI" to "https://dev.azure.com/org/repo",
-        )
+        val env =
+            mapOf(
+                "SYSTEM_TEAMFOUNDATIONCOLLECTIONURI" to "https://dev.azure.com/org/",
+                "SYSTEM_TEAMPROJECT" to "myproject",
+                "BUILD_BUILDID" to "999",
+                "BUILD_SOURCEBRANCHNAME" to "main",
+                "BUILD_SOURCEVERSION" to "sha999",
+                "BUILD_REPOSITORY_URI" to "https://dev.azure.com/org/repo",
+            )
         val ci = CiDetector.detect { env[it] }
         assertNotNull(ci)
         assertEquals("azure-pipelines", ci.ciName)
@@ -110,14 +114,15 @@ class CiDetectorTest {
 
     @Test
     fun `detect JetBrains Space`() {
-        val env = mapOf(
-            "JB_SPACE_API_URL" to "space.example.com",
-            "JB_SPACE_PROJECT_KEY" to "PROJ",
-            "JB_SPACE_GIT_REPOSITORY_NAME" to "myrepo",
-            "JB_SPACE_GIT_BRANCH" to "refs/heads/main",
-            "JB_SPACE_GIT_REVISION" to "rev123",
-            "JB_SPACE_EXECUTION_URL" to "https://space.example.com/p/PROJ/jobs/123",
-        )
+        val env =
+            mapOf(
+                "JB_SPACE_API_URL" to "space.example.com",
+                "JB_SPACE_PROJECT_KEY" to "PROJ",
+                "JB_SPACE_GIT_REPOSITORY_NAME" to "myrepo",
+                "JB_SPACE_GIT_BRANCH" to "refs/heads/main",
+                "JB_SPACE_GIT_REVISION" to "rev123",
+                "JB_SPACE_EXECUTION_URL" to "https://space.example.com/p/PROJ/jobs/123",
+            )
         val ci = CiDetector.detect { env[it] }
         assertNotNull(ci)
         assertEquals("space", ci.ciName)
@@ -129,11 +134,12 @@ class CiDetectorTest {
 
     @Test
     fun `detect TeamCity`() {
-        val env = mapOf(
-            "TEAMCITY_VERSION" to "2024.1",
-            "BUILD_VCS_NUMBER_1" to "main",
-            "BUILD_VCS_NUMBER" to "tc123",
-        )
+        val env =
+            mapOf(
+                "TEAMCITY_VERSION" to "2024.1",
+                "BUILD_VCS_NUMBER_1" to "main",
+                "BUILD_VCS_NUMBER" to "tc123",
+            )
         val ci = CiDetector.detect { env[it] }
         assertNotNull(ci)
         assertEquals("teamcity", ci.ciName)
@@ -143,13 +149,14 @@ class CiDetectorTest {
 
     @Test
     fun `detect CircleCI`() {
-        val env = mapOf(
-            "CIRCLECI" to "true",
-            "CIRCLE_BRANCH" to "feature-x",
-            "CIRCLE_SHA1" to "circle123",
-            "CIRCLE_REPOSITORY_URL" to "https://github.com/org/repo",
-            "CIRCLE_BUILD_URL" to "https://circleci.com/gh/org/repo/42",
-        )
+        val env =
+            mapOf(
+                "CIRCLECI" to "true",
+                "CIRCLE_BRANCH" to "feature-x",
+                "CIRCLE_SHA1" to "circle123",
+                "CIRCLE_REPOSITORY_URL" to "https://github.com/org/repo",
+                "CIRCLE_BUILD_URL" to "https://circleci.com/gh/org/repo/42",
+            )
         val ci = CiDetector.detect { env[it] }
         assertNotNull(ci)
         assertEquals("circleci", ci.ciName)
@@ -262,12 +269,13 @@ class CiDetectorTest {
 
     @Test
     fun `GitHub Actions takes priority over GitLab`() {
-        val env = mapOf(
-            "GITHUB_ACTIONS" to "true",
-            "GITHUB_REF_NAME" to "main",
-            "GITLAB_CI" to "true",
-            "CI_COMMIT_REF_NAME" to "gitlab-branch",
-        )
+        val env =
+            mapOf(
+                "GITHUB_ACTIONS" to "true",
+                "GITHUB_REF_NAME" to "main",
+                "GITLAB_CI" to "true",
+                "CI_COMMIT_REF_NAME" to "gitlab-branch",
+            )
         val ci = CiDetector.detect { env[it] }
         assertNotNull(ci)
         assertEquals("github-actions", ci.ciName)
@@ -275,20 +283,22 @@ class CiDetectorTest {
 
     @Test
     fun `extractQodanaEnvironment applies explicit overrides`() {
-        val env = mapOf(
-            QodanaEnv.ENV to "custom-ci",
-            QodanaEnv.BRANCH to "override-branch",
-            QodanaEnv.REVISION to "override-revision",
-            QodanaEnv.REMOTE_URL to "https://example.com/custom/repo",
-            QodanaEnv.JOB_URL to "https://ci.example.com/custom/job/1",
-        )
-        val base = org.jetbrains.qodana.engine.model.CiContext(
-            ciName = "github-actions",
-            branch = "main",
-            revision = "sha1",
-            remoteUrl = "https://github.com/org/repo",
-            jobUrl = "https://github.com/org/repo/actions/runs/1",
-        )
+        val env =
+            mapOf(
+                QodanaEnv.ENV to "custom-ci",
+                QodanaEnv.BRANCH to "override-branch",
+                QodanaEnv.REVISION to "override-revision",
+                QodanaEnv.REMOTE_URL to "https://example.com/custom/repo",
+                QodanaEnv.JOB_URL to "https://ci.example.com/custom/job/1",
+            )
+        val base =
+            org.jetbrains.qodana.engine.model.CiContext(
+                ciName = "github-actions",
+                branch = "main",
+                revision = "sha1",
+                remoteUrl = "https://github.com/org/repo",
+                jobUrl = "https://github.com/org/repo/actions/runs/1",
+            )
 
         val extracted = CiDetector.extractQodanaEnvironment(base) { env[it] }
 
@@ -301,16 +311,18 @@ class CiDetectorTest {
 
     @Test
     fun `extractQodanaEnvironment normalizes invalid urls and falls back branch`() {
-        val env = mapOf(
-            "GITHUB_REF_NAME" to "fallback-branch",
-        )
-        val base = org.jetbrains.qodana.engine.model.CiContext(
-            ciName = "github-actions",
-            branch = "",
-            revision = "sha1",
-            remoteUrl = "not-a-url",
-            jobUrl = "not-a-url",
-        )
+        val env =
+            mapOf(
+                "GITHUB_REF_NAME" to "fallback-branch",
+            )
+        val base =
+            org.jetbrains.qodana.engine.model.CiContext(
+                ciName = "github-actions",
+                branch = "",
+                revision = "sha1",
+                remoteUrl = "not-a-url",
+                jobUrl = "not-a-url",
+            )
 
         val extracted = CiDetector.extractQodanaEnvironment(base) { env[it] }
 

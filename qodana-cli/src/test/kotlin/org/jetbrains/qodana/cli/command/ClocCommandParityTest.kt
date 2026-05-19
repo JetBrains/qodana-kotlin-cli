@@ -15,12 +15,12 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class ClocCommandParityTest {
-
     @Test
     fun `cloc invokes scc with default format and current directory`() {
-        val runner = RecordingProcessRunner(
-            ProcessResult(exitCode = 0, stdout = "scc output", stderr = ""),
-        )
+        val runner =
+            RecordingProcessRunner(
+                ProcessResult(exitCode = 0, stdout = "scc output", stderr = ""),
+            )
         val terminal = ClocRecordingTerminal()
 
         ClocCommand(terminal, runner).parse(emptyList())
@@ -33,9 +33,10 @@ class ClocCommandParityTest {
 
     @Test
     fun `cloc forwards output value and multiple project dirs as-is`() {
-        val runner = RecordingProcessRunner(
-            ProcessResult(exitCode = 0, stdout = "", stderr = ""),
-        )
+        val runner =
+            RecordingProcessRunner(
+                ProcessResult(exitCode = 0, stdout = "", stderr = ""),
+            )
         val terminal = ClocRecordingTerminal()
 
         ClocCommand(terminal, runner).parse(
@@ -50,14 +51,16 @@ class ClocCommandParityTest {
 
     @Test
     fun `cloc returns exit code 1 on scc process failure and prints stderr`() {
-        val runner = RecordingProcessRunner(
-            ProcessResult(exitCode = 3, stdout = "partial", stderr = "boom"),
-        )
+        val runner =
+            RecordingProcessRunner(
+                ProcessResult(exitCode = 3, stdout = "partial", stderr = "boom"),
+            )
         val terminal = ClocRecordingTerminal()
 
-        val error = assertFailsWith<ProgramResult> {
-            ClocCommand(terminal, runner).parse(emptyList())
-        }
+        val error =
+            assertFailsWith<ProgramResult> {
+                ClocCommand(terminal, runner).parse(emptyList())
+            }
 
         assertEquals(1, error.statusCode)
         assertTrue(terminal.errors.contains("boom"))
@@ -75,11 +78,14 @@ private class RecordingProcessRunner(
         return result
     }
 
-    override suspend fun start(spec: ProcessSpec): RunningProcess = object : RunningProcess {
-        override fun events() = emptyFlow<LogEvent>()
-        override suspend fun awaitExit() = 0
-        override fun terminate() = Unit
-    }
+    override suspend fun start(spec: ProcessSpec): RunningProcess =
+        object : RunningProcess {
+            override fun events() = emptyFlow<LogEvent>()
+
+            override suspend fun awaitExit() = 0
+
+            override fun terminate() = Unit
+        }
 }
 
 private class ClocRecordingTerminal : Terminal {
@@ -110,10 +116,23 @@ private class ClocRecordingTerminal : Terminal {
         lines.add(message)
     }
 
-    override fun <T> spinner(message: String, action: () -> T): T = action()
-    override fun prompt(message: String, default: String?): String = default ?: ""
-    override fun select(message: String, choices: List<String>): String = choices.first()
+    override fun <T> spinner(
+        message: String,
+        action: () -> T,
+    ): T = action()
+
+    override fun prompt(
+        message: String,
+        default: String?,
+    ): String = default ?: ""
+
+    override fun select(
+        message: String,
+        choices: List<String>,
+    ): String = choices.first()
+
     override val isInteractive = false
     override var isCi = false
+
     override fun setRedactedTokens(tokens: Set<String>) {}
 }

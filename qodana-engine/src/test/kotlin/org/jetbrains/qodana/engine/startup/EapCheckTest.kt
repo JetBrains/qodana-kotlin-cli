@@ -6,7 +6,6 @@ import kotlin.test.Test
 import kotlin.test.assertIs
 
 class EapCheckTest {
-
     @Test
     fun `not EAP returns NotEap`() {
         val result = EapCheck.checkEap(isEap = false, buildDateStr = "2025-01-01T00:00:00Z")

@@ -1,8 +1,8 @@
 package org.jetbrains.qodana.engine.startup
 
 object XmlConfig {
-
-    fun jdkTableXml(jdkPath: String): String = """
+    fun jdkTableXml(jdkPath: String): String =
+        """
 <application>
   <component name="ProjectJdkTable">
     <jdk version="2">
@@ -90,7 +90,8 @@ object XmlConfig {
 </application>
 """.trimStart()
 
-    fun androidProjectDefaultXml(androidSdkPath: String): String = """
+    fun androidProjectDefaultXml(androidSdkPath: String): String =
+        """
 <application>
   <component name="ProjectManager">
     <defaultProject>

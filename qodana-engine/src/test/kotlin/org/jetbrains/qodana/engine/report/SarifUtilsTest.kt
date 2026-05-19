@@ -10,7 +10,6 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 class SarifUtilsTest {
-
     @Test
     fun `getSarifPath returns correct path`() {
         assertEquals("/results/qodana.sarif.json", SarifUtils.getSarifPath("/results"))
@@ -23,10 +22,11 @@ class SarifUtilsTest {
 
     @Test
     fun `getSeverity from qodanaSeverity property`() {
-        val result = mapOf<String, Any?>(
-            "properties" to mapOf("qodanaSeverity" to "Critical"),
-            "level" to "error",
-        )
+        val result =
+            mapOf<String, Any?>(
+                "properties" to mapOf("qodanaSeverity" to "Critical"),
+                "level" to "error",
+            )
         assertEquals("Critical", SarifUtils.getSeverity(result))
     }
 
@@ -44,20 +44,23 @@ class SarifUtilsTest {
 
     @Test
     fun `getFingerprint prefers v2`() {
-        val result = mapOf<String, Any?>(
-            "partialFingerprints" to mapOf(
-                "equalIndicator/v1" to "fp-v1",
-                "equalIndicator/v2" to "fp-v2",
-            ),
-        )
+        val result =
+            mapOf<String, Any?>(
+                "partialFingerprints" to
+                    mapOf(
+                        "equalIndicator/v1" to "fp-v1",
+                        "equalIndicator/v2" to "fp-v2",
+                    ),
+            )
         assertEquals("fp-v2", SarifUtils.getFingerprint(result))
     }
 
     @Test
     fun `getFingerprint falls back to v1`() {
-        val result = mapOf<String, Any?>(
-            "partialFingerprints" to mapOf("equalIndicator/v1" to "fp-v1"),
-        )
+        val result =
+            mapOf<String, Any?>(
+                "partialFingerprints" to mapOf("equalIndicator/v1" to "fp-v1"),
+            )
         assertEquals("fp-v1", SarifUtils.getFingerprint(result))
     }
 
@@ -69,30 +72,33 @@ class SarifUtilsTest {
 
     @Test
     fun `removeDuplicates keeps unique results`() {
-        val results = listOf(
-            mapOf<String, Any?>("ruleId" to "R1", "partialFingerprints" to mapOf("equalIndicator/v2" to "fp1")),
-            mapOf<String, Any?>("ruleId" to "R2", "partialFingerprints" to mapOf("equalIndicator/v2" to "fp2")),
-        )
+        val results =
+            listOf(
+                mapOf<String, Any?>("ruleId" to "R1", "partialFingerprints" to mapOf("equalIndicator/v2" to "fp1")),
+                mapOf<String, Any?>("ruleId" to "R2", "partialFingerprints" to mapOf("equalIndicator/v2" to "fp2")),
+            )
         assertEquals(2, SarifUtils.removeDuplicates(results).size)
     }
 
     @Test
     fun `removeDuplicates removes duplicates by fingerprint`() {
-        val results = listOf(
-            mapOf<String, Any?>("ruleId" to "R1", "partialFingerprints" to mapOf("equalIndicator/v2" to "fp1")),
-            mapOf<String, Any?>("ruleId" to "R1", "partialFingerprints" to mapOf("equalIndicator/v2" to "fp1")),
-            mapOf<String, Any?>("ruleId" to "R2", "partialFingerprints" to mapOf("equalIndicator/v2" to "fp2")),
-        )
+        val results =
+            listOf(
+                mapOf<String, Any?>("ruleId" to "R1", "partialFingerprints" to mapOf("equalIndicator/v2" to "fp1")),
+                mapOf<String, Any?>("ruleId" to "R1", "partialFingerprints" to mapOf("equalIndicator/v2" to "fp1")),
+                mapOf<String, Any?>("ruleId" to "R2", "partialFingerprints" to mapOf("equalIndicator/v2" to "fp2")),
+            )
         val deduped = SarifUtils.removeDuplicates(results)
         assertEquals(2, deduped.size)
     }
 
     @Test
     fun `removeDuplicates keeps results without fingerprints`() {
-        val results = listOf(
-            mapOf<String, Any?>("ruleId" to "R1"),
-            mapOf<String, Any?>("ruleId" to "R2"),
-        )
+        val results =
+            listOf(
+                mapOf<String, Any?>("ruleId" to "R1"),
+                mapOf<String, Any?>("ruleId" to "R2"),
+            )
         assertEquals(2, SarifUtils.removeDuplicates(results).size)
     }
 
@@ -142,7 +148,9 @@ class SarifUtilsTest {
     }
 
     @Test
-    fun `findSarifFiles finds sarif files`(@TempDir tmpDir: Path) {
+    fun `findSarifFiles finds sarif files`(
+        @TempDir tmpDir: Path,
+    ) {
         Files.writeString(tmpDir.resolve("result.sarif.json"), "{}")
         Files.writeString(tmpDir.resolve("other.sarif.json"), "{}")
         Files.writeString(tmpDir.resolve("readme.txt"), "not sarif")
@@ -153,13 +161,17 @@ class SarifUtilsTest {
     }
 
     @Test
-    fun `findSarifFiles returns empty when no sarif files`(@TempDir tmpDir: Path) {
+    fun `findSarifFiles returns empty when no sarif files`(
+        @TempDir tmpDir: Path,
+    ) {
         Files.writeString(tmpDir.resolve("readme.txt"), "not sarif")
         assertEquals(0, SarifUtils.findSarifFiles(tmpDir).size)
     }
 
     @Test
-    fun `findSarifFiles case insensitive`(@TempDir tmpDir: Path) {
+    fun `findSarifFiles case insensitive`(
+        @TempDir tmpDir: Path,
+    ) {
         Files.writeString(tmpDir.resolve("result.SARIF.JSON"), "{}")
         val found = SarifUtils.findSarifFiles(tmpDir)
         assertEquals(1, found.size)
@@ -169,44 +181,57 @@ class SarifUtilsTest {
 
     @Test
     fun `getRuleDescription finds rule`() {
-        val report = mapOf<String, Any?>(
-            "runs" to listOf(
-                mapOf<String, Any?>(
-                    "tool" to mapOf<String, Any?>(
-                        "extensions" to listOf(
-                            mapOf<String, Any?>(
-                                "rules" to listOf(
-                                    mapOf<String, Any?>(
-                                        "id" to "TEST001",
-                                        "shortDescription" to mapOf("text" to "Test rule description"),
-                                    ),
+        val report =
+            mapOf<String, Any?>(
+                "runs" to
+                    listOf(
+                        mapOf<String, Any?>(
+                            "tool" to
+                                mapOf<String, Any?>(
+                                    "extensions" to
+                                        listOf(
+                                            mapOf<String, Any?>(
+                                                "rules" to
+                                                    listOf(
+                                                        mapOf<String, Any?>(
+                                                            "id" to "TEST001",
+                                                            "shortDescription" to mapOf("text" to "Test rule description"),
+                                                        ),
+                                                    ),
+                                            ),
+                                        ),
                                 ),
-                            ),
                         ),
                     ),
-                ),
-            ),
-        )
+            )
         assertEquals("Test rule description", SarifUtils.getRuleDescription(report, "TEST001"))
     }
 
     @Test
     fun `getRuleDescription returns empty for unknown rule`() {
-        val report = mapOf<String, Any?>(
-            "runs" to listOf(
-                mapOf<String, Any?>(
-                    "tool" to mapOf<String, Any?>(
-                        "extensions" to listOf(
-                            mapOf<String, Any?>(
-                                "rules" to listOf(
-                                    mapOf<String, Any?>("id" to "TEST001", "shortDescription" to mapOf("text" to "desc")),
+        val report =
+            mapOf<String, Any?>(
+                "runs" to
+                    listOf(
+                        mapOf<String, Any?>(
+                            "tool" to
+                                mapOf<String, Any?>(
+                                    "extensions" to
+                                        listOf(
+                                            mapOf<String, Any?>(
+                                                "rules" to
+                                                    listOf(
+                                                        mapOf<String, Any?>(
+                                                            "id" to "TEST001",
+                                                            "shortDescription" to mapOf("text" to "desc"),
+                                                        ),
+                                                    ),
+                                            ),
+                                        ),
                                 ),
-                            ),
                         ),
                     ),
-                ),
-            ),
-        )
+            )
         assertEquals("", SarifUtils.getRuleDescription(report, "UNKNOWN"))
     }
 
@@ -219,19 +244,22 @@ class SarifUtilsTest {
 
     @Test
     fun `formatSarifProblem full result`() {
-        val result = mapOf<String, Any?>(
-            "ruleId" to "TEST001",
-            "level" to "error",
-            "message" to mapOf("text" to "Something is wrong"),
-            "locations" to listOf(
-                mapOf<String, Any?>(
-                    "physicalLocation" to mapOf<String, Any?>(
-                        "artifactLocation" to mapOf("uri" to "src/Main.kt"),
-                        "region" to mapOf("startLine" to 10, "startColumn" to 5),
+        val result =
+            mapOf<String, Any?>(
+                "ruleId" to "TEST001",
+                "level" to "error",
+                "message" to mapOf("text" to "Something is wrong"),
+                "locations" to
+                    listOf(
+                        mapOf<String, Any?>(
+                            "physicalLocation" to
+                                mapOf<String, Any?>(
+                                    "artifactLocation" to mapOf("uri" to "src/Main.kt"),
+                                    "region" to mapOf("startLine" to 10, "startColumn" to 5),
+                                ),
+                        ),
                     ),
-                ),
-            ),
-        )
+            )
         val formatted = SarifUtils.formatSarifProblem(result)
         assertTrue(formatted!!.contains("[error]"))
         assertTrue(formatted.contains("TEST001"))
@@ -252,10 +280,11 @@ class SarifUtilsTest {
 
     @Test
     fun `formatSarifProblem no locations`() {
-        val result = mapOf<String, Any?>(
-            "ruleId" to "R1",
-            "message" to mapOf("text" to "msg"),
-        )
+        val result =
+            mapOf<String, Any?>(
+                "ruleId" to "R1",
+                "message" to mapOf("text" to "msg"),
+            )
         val formatted = SarifUtils.formatSarifProblem(result)
         assertTrue(formatted!!.contains("R1: msg"))
         assertFalse(formatted.contains(" at "))
@@ -266,22 +295,26 @@ class SarifUtilsTest {
     @Suppress("UNCHECKED_CAST")
     @Test
     fun `makeShortSarif strips results and artifacts`() {
-        val report = mutableMapOf<String, Any?>(
-            "runs" to listOf(
-                mutableMapOf<String, Any?>(
-                    "results" to listOf("r1", "r2"),
-                    "artifacts" to listOf("a1"),
-                    "tool" to mutableMapOf<String, Any?>(
-                        "driver" to mutableMapOf<String, Any?>(
-                            "name" to "qodana",
-                            "rules" to listOf("rule1"),
-                            "taxa" to listOf("taxa1"),
+        val report =
+            mutableMapOf<String, Any?>(
+                "runs" to
+                    listOf(
+                        mutableMapOf<String, Any?>(
+                            "results" to listOf("r1", "r2"),
+                            "artifacts" to listOf("a1"),
+                            "tool" to
+                                mutableMapOf<String, Any?>(
+                                    "driver" to
+                                        mutableMapOf<String, Any?>(
+                                            "name" to "qodana",
+                                            "rules" to listOf("rule1"),
+                                            "taxa" to listOf("taxa1"),
+                                        ),
+                                    "extensions" to listOf("ext1"),
+                                ),
                         ),
-                        "extensions" to listOf("ext1"),
                     ),
-                ),
-            ),
-        )
+            )
         val short = SarifUtils.makeShortSarif(report)
         val run = (short["runs"] as List<Map<String, Any?>>).first()
         assertFalse(run.containsKey("results"))

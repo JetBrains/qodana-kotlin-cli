@@ -7,7 +7,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ContainerImageUtilsTest {
-
     @Test
     fun `isUnofficialLinter detects unofficial images`() {
         assertTrue(ContainerImageUtils.isUnofficialLinter("hadolint"))
@@ -89,10 +88,11 @@ class ContainerImageUtilsTest {
 
     @Test
     fun `generateDebugDockerRunCommand basic`() {
-        val cmd = ContainerImageUtils.generateDebugDockerRunCommand(
-            image = "jetbrains/qodana-jvm:latest",
-            cmd = listOf("--analyze"),
-        )
+        val cmd =
+            ContainerImageUtils.generateDebugDockerRunCommand(
+                image = "jetbrains/qodana-jvm:latest",
+                cmd = listOf("--analyze"),
+            )
         assertTrue(cmd.contains("docker run"))
         assertTrue(cmd.contains("jetbrains/qodana-jvm:latest"))
         assertTrue(cmd.contains("--analyze"))
@@ -100,60 +100,66 @@ class ContainerImageUtilsTest {
 
     @Test
     fun `generateDebugDockerRunCommand with user`() {
-        val cmd = ContainerImageUtils.generateDebugDockerRunCommand(
-            image = "jetbrains/qodana-jvm:latest",
-            user = "1000:1000",
-        )
+        val cmd =
+            ContainerImageUtils.generateDebugDockerRunCommand(
+                image = "jetbrains/qodana-jvm:latest",
+                user = "1000:1000",
+            )
         assertTrue(cmd.contains("-u 1000:1000"))
     }
 
     @Test
     fun `generateDebugDockerRunCommand with env`() {
-        val cmd = ContainerImageUtils.generateDebugDockerRunCommand(
-            image = "jetbrains/qodana-jvm:latest",
-            env = listOf("MY_VAR=value", "ANOTHER=test"),
-        )
+        val cmd =
+            ContainerImageUtils.generateDebugDockerRunCommand(
+                image = "jetbrains/qodana-jvm:latest",
+                env = listOf("MY_VAR=value", "ANOTHER=test"),
+            )
         assertTrue(cmd.contains("-e MY_VAR=value"))
         assertTrue(cmd.contains("-e ANOTHER=test"))
     }
 
     @Test
     fun `generateDebugDockerRunCommand filters token env`() {
-        val cmd = ContainerImageUtils.generateDebugDockerRunCommand(
-            image = "jetbrains/qodana-jvm:latest",
-            env = listOf("SAFE_VAR=value", "QODANA_TOKEN=secret_token"),
-        )
+        val cmd =
+            ContainerImageUtils.generateDebugDockerRunCommand(
+                image = "jetbrains/qodana-jvm:latest",
+                env = listOf("SAFE_VAR=value", "QODANA_TOKEN=secret_token"),
+            )
         assertTrue(cmd.contains("-e SAFE_VAR=value"))
         assertFalse(cmd.contains("secret_token"))
     }
 
     @Test
     fun `generateDebugDockerRunCommand with mounts`() {
-        val cmd = ContainerImageUtils.generateDebugDockerRunCommand(
-            image = "jetbrains/qodana-jvm:latest",
-            mounts = listOf("/host/path" to "/container/path"),
-        )
+        val cmd =
+            ContainerImageUtils.generateDebugDockerRunCommand(
+                image = "jetbrains/qodana-jvm:latest",
+                mounts = listOf("/host/path" to "/container/path"),
+            )
         assertTrue(cmd.contains("-v /host/path:/container/path"))
     }
 
     @Test
     fun `generateDebugDockerRunCommand with capabilities`() {
-        val cmd = ContainerImageUtils.generateDebugDockerRunCommand(
-            image = "jetbrains/qodana-jvm:latest",
-            capAdd = listOf("SYS_PTRACE"),
-        )
+        val cmd =
+            ContainerImageUtils.generateDebugDockerRunCommand(
+                image = "jetbrains/qodana-jvm:latest",
+                capAdd = listOf("SYS_PTRACE"),
+            )
         assertTrue(cmd.contains("--cap-add SYS_PTRACE"))
     }
 
     @Test
     fun `generateDebugDockerRunCommand with rm and tty`() {
-        val cmd = ContainerImageUtils.generateDebugDockerRunCommand(
-            image = "jetbrains/qodana-jvm:latest",
-            autoRemove = true,
-            tty = true,
-            attachStdout = true,
-            attachStderr = true,
-        )
+        val cmd =
+            ContainerImageUtils.generateDebugDockerRunCommand(
+                image = "jetbrains/qodana-jvm:latest",
+                autoRemove = true,
+                tty = true,
+                attachStdout = true,
+                attachStderr = true,
+            )
         assertTrue(cmd.contains("--rm"))
         assertTrue(cmd.contains("-it"))
         assertTrue(cmd.contains("-a stdout"))

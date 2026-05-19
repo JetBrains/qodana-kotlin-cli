@@ -10,8 +10,8 @@ import java.nio.file.Path
 import kotlin.test.assertTrue
 
 class CodeClimateExporterTest {
-
-    private val sarifWithResults = """
+    private val sarifWithResults =
+        """
         {
           "version": "2.1.0",
           "runs": [{
@@ -34,10 +34,12 @@ class CodeClimateExporterTest {
             ]
           }]
         }
-    """.trimIndent()
+        """.trimIndent()
 
     @Test
-    fun `export creates gitlab code quality json`(@TempDir dir: Path) {
+    fun `export creates gitlab code quality json`(
+        @TempDir dir: Path,
+    ) {
         Files.writeString(dir.resolve("qodana.sarif.json"), sarifWithResults)
 
         val exporter = CodeClimateExporter(TypedSarifService())
@@ -56,8 +58,11 @@ class CodeClimateExporterTest {
     }
 
     @Test
-    fun `export maps sarif and qodana severities`(@TempDir dir: Path) {
-        val sarif = """
+    fun `export maps sarif and qodana severities`(
+        @TempDir dir: Path,
+    ) {
+        val sarif =
+            """
             {
               "version": "2.1.0",
               "runs": [{
@@ -72,7 +77,7 @@ class CodeClimateExporterTest {
                 ]
               }]
             }
-        """.trimIndent()
+            """.trimIndent()
 
         Files.writeString(dir.resolve("qodana.sarif.json"), sarif)
 
@@ -88,8 +93,11 @@ class CodeClimateExporterTest {
     }
 
     @Test
-    fun `export skips unchanged and results without locations`(@TempDir dir: Path) {
-        val sarif = """
+    fun `export skips unchanged and results without locations`(
+        @TempDir dir: Path,
+    ) {
+        val sarif =
+            """
             {
               "version": "2.1.0",
               "runs": [{
@@ -101,7 +109,7 @@ class CodeClimateExporterTest {
                 ]
               }]
             }
-        """.trimIndent()
+            """.trimIndent()
 
         Files.writeString(dir.resolve("qodana.sarif.json"), sarif)
 
@@ -115,7 +123,9 @@ class CodeClimateExporterTest {
     }
 
     @Test
-    fun `export handles empty results`(@TempDir dir: Path) {
+    fun `export handles empty results`(
+        @TempDir dir: Path,
+    ) {
         val sarif = """{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Qodana","version":"1"}},"results":[]}]}"""
         Files.writeString(dir.resolve("qodana.sarif.json"), sarif)
 
@@ -129,9 +139,25 @@ class CodeClimateExporterTest {
 
 private class TypedSarifService : SarifService {
     override fun read(path: Path): Any = SarifUtil.readReport(path)
-    override fun write(path: Path, report: Any) {}
-    override fun merge(reports: List<Path>, output: Path) {}
-    override fun baselineCompare(report: Path, baseline: Path, includeAbsent: Boolean) =
-        BaselineResult(0, 0, 0)
-    override fun normalizePaths(reportPath: Path, projectDir: Path) {}
+
+    override fun write(
+        path: Path,
+        report: Any,
+    ) {}
+
+    override fun merge(
+        reports: List<Path>,
+        output: Path,
+    ) {}
+
+    override fun baselineCompare(
+        report: Path,
+        baseline: Path,
+        includeAbsent: Boolean,
+    ) = BaselineResult(0, 0, 0)
+
+    override fun normalizePaths(
+        reportPath: Path,
+        projectDir: Path,
+    ) {}
 }

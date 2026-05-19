@@ -6,14 +6,17 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 class ReportConverterAdapter : ReportConverter {
-
-    override fun convertToHtml(resultsDir: Path, outputDir: Path) {
+    override fun convertToHtml(
+        resultsDir: Path,
+        outputDir: Path,
+    ) {
         prepareOutputDir(outputDir)
-        val options = QodanaReportConverter.Options(
-            Integer.MAX_VALUE,
-            resultsDir.toFile(),
-            outputDir.toFile(),
-        )
+        val options =
+            QodanaReportConverter.Options(
+                Integer.MAX_VALUE,
+                resultsDir.toFile(),
+                outputDir.toFile(),
+            )
         QodanaReportConverter(options).convert()
     }
 

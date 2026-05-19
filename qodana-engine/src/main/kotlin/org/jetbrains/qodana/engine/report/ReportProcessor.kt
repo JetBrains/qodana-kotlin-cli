@@ -1,11 +1,11 @@
 package org.jetbrains.qodana.engine.report
 
+import com.jetbrains.qodana.sarif.model.SarifReport
 import org.jetbrains.qodana.core.model.BaselineResult
 import org.jetbrains.qodana.core.model.ExitCode
+import org.jetbrains.qodana.core.port.SarifService
 import org.jetbrains.qodana.engine.model.ReportOptions
 import org.jetbrains.qodana.engine.port.ReportConverter
-import org.jetbrains.qodana.core.port.SarifService
-import com.jetbrains.qodana.sarif.model.SarifReport
 import java.nio.file.Path
 
 data class ProcessedReport(
@@ -32,22 +32,24 @@ class ReportProcessor(
     ): ProcessedReport {
         val sarifPath = resultsDir.resolve(SARIF_FILENAME)
 
-        val baselineResult = reportOptions.baselinePath?.let { baselinePath ->
-            sarifService.baselineCompare(
-                report = sarifPath,
-                baseline = baselinePath,
-                includeAbsent = reportOptions.baselineIncludeAbsent,
-            )
-        }
+        val baselineResult =
+            reportOptions.baselinePath?.let { baselinePath ->
+                sarifService.baselineCompare(
+                    report = sarifPath,
+                    baseline = baselinePath,
+                    includeAbsent = reportOptions.baselineIncludeAbsent,
+                )
+            }
 
         val totalProblems = countProblems(sarifPath)
         val newProblems = baselineResult?.newCount ?: totalProblems
 
-        val exitCode = determineExitCode(
-            newProblems = newProblems,
-            failThreshold = failThreshold,
-            analysisExitCode = analysisExitCode,
-        )
+        val exitCode =
+            determineExitCode(
+                newProblems = newProblems,
+                failThreshold = failThreshold,
+                analysisExitCode = analysisExitCode,
+            )
 
         if (reportOptions.saveReport) {
             reportConverter.convertToHtml(resultsDir, reportDir)
@@ -66,7 +68,11 @@ class ReportProcessor(
         return extractProblemCount(report)
     }
 
-    private fun determineExitCode(newProblems: Int, failThreshold: Int?, analysisExitCode: Int = 0): Int {
+    private fun determineExitCode(
+        newProblems: Int,
+        failThreshold: Int?,
+        analysisExitCode: Int = 0,
+    ): Int {
         if (analysisExitCode != 0) {
             return analysisExitCode
         }

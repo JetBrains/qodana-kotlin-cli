@@ -17,15 +17,14 @@ class PrepareHost(
     private val terminal: Terminal,
     private val ideInstaller: IdeInstaller? = null,
 ) {
-    private val preparers: Map<ExecutionProfile.Kind, BaseHostPreparer> = mapOf(
-        ExecutionProfile.Kind.NATIVE to NativeHostPreparer(fileSystem, terminal, ideInstaller),
-        ExecutionProfile.Kind.IN_DOCKER to InDockerHostPreparer(fileSystem, terminal),
-        ExecutionProfile.Kind.DOCKER_LAUNCHER to DockerLauncherHostPreparer(fileSystem, terminal),
-    )
+    private val preparers: Map<ExecutionProfile.Kind, BaseHostPreparer> =
+        mapOf(
+            ExecutionProfile.Kind.NATIVE to NativeHostPreparer(fileSystem, terminal, ideInstaller),
+            ExecutionProfile.Kind.IN_DOCKER to InDockerHostPreparer(fileSystem, terminal),
+            ExecutionProfile.Kind.DOCKER_LAUNCHER to DockerLauncherHostPreparer(fileSystem, terminal),
+        )
 
-    fun prepare(context: ScanContext): PreparedHost {
-        return preparers.getValue(context.executionProfile.kind).prepare(context)
-    }
+    fun prepare(context: ScanContext): PreparedHost = preparers.getValue(context.executionProfile.kind).prepare(context)
 }
 
 private abstract class BaseHostPreparer(
@@ -91,9 +90,10 @@ private class NativeHostPreparer(
             val linter = context.linter?.let { Linters.findByName(it) }
             if (linter != null && linter.supportsNative) {
                 val analyzer = linter.nativeAnalyzer()
-                ideDir = runBlocking {
-                    ideInstaller.downloadAndInstall(analyzer, context.paths.cacheDir)
-                }
+                ideDir =
+                    runBlocking {
+                        ideInstaller.downloadAndInstall(analyzer, context.paths.cacheDir)
+                    }
                 terminal.println("IDE installed to $ideDir")
             }
         }

@@ -6,7 +6,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class LicenseTokenTest {
-
     @Test
     fun `no token`() {
         val token = LicenseToken.resolve(null, null)

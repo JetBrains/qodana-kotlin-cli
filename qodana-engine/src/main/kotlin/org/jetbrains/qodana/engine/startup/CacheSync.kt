@@ -2,14 +2,18 @@ package org.jetbrains.qodana.engine.startup
 
 import org.jetbrains.qodana.core.port.FileSystem
 import org.jetbrains.qodana.core.port.Terminal
-import java.nio.file.Path
 import java.nio.file.Files
+import java.nio.file.Path
 
 class CacheSync(
     private val fileSystem: FileSystem,
     private val terminal: Terminal,
 ) {
-    fun syncIdeaCache(cacheDir: Path, projectDir: Path, overwrite: Boolean = false) {
+    fun syncIdeaCache(
+        cacheDir: Path,
+        projectDir: Path,
+        overwrite: Boolean = false,
+    ) {
         val src = cacheDir.resolve(".idea")
         if (!fileSystem.exists(src)) {
             terminal.debug("Source .idea directory does not exist: $src")
@@ -50,13 +54,20 @@ class CacheSync(
         }
     }
 
-    fun writeFileIfNew(path: Path, content: String) {
+    fun writeFileIfNew(
+        path: Path,
+        content: String,
+    ) {
         if (!fileSystem.exists(path)) {
             fileSystem.write(path, content)
         }
     }
 
-    private fun copyDirectoryRecursively(sourceDir: Path, targetDir: Path, overwrite: Boolean) {
+    private fun copyDirectoryRecursively(
+        sourceDir: Path,
+        targetDir: Path,
+        overwrite: Boolean,
+    ) {
         val paths = fileSystem.walk(sourceDir).sortedBy { it.nameCount }
         for (source in paths) {
             if (Files.isSymbolicLink(source)) {

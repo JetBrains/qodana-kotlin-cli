@@ -8,9 +8,10 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ReportConverterAdapterTest {
-
     @Test
-    fun `prepareOutputDir recreates non-empty directory`(@TempDir tmpDir: Path) {
+    fun `prepareOutputDir recreates non-empty directory`(
+        @TempDir tmpDir: Path,
+    ) {
         val outputDir = tmpDir.resolve("report")
         Files.createDirectories(outputDir)
         Files.writeString(outputDir.resolve("old.html"), "stale")
@@ -25,7 +26,9 @@ class ReportConverterAdapterTest {
     }
 
     @Test
-    fun `prepareOutputDir creates missing directory`(@TempDir tmpDir: Path) {
+    fun `prepareOutputDir creates missing directory`(
+        @TempDir tmpDir: Path,
+    ) {
         val outputDir = tmpDir.resolve("report")
 
         ReportConverterAdapter().prepareOutputDir(outputDir)

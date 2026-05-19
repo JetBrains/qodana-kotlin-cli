@@ -13,13 +13,15 @@ data class LicenseToken(
     companion object {
         val EMPTY = LicenseToken(token = "", licenseOnly = false)
 
-        fun resolve(cloudToken: String?, licenseOnlyToken: String?): LicenseToken {
-            return when {
+        fun resolve(
+            cloudToken: String?,
+            licenseOnlyToken: String?,
+        ): LicenseToken =
+            when {
                 !cloudToken.isNullOrEmpty() -> LicenseToken(token = cloudToken, licenseOnly = false)
                 !licenseOnlyToken.isNullOrEmpty() -> LicenseToken(token = licenseOnlyToken, licenseOnly = true)
                 else -> EMPTY
             }
-        }
 
         /**
          * Determines if a cloud token is required for the given analyzer configuration.

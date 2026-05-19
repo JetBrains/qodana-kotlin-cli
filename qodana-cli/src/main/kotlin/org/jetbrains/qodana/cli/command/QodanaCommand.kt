@@ -9,7 +9,6 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.versionOption
 
 class QodanaCommand : CliktCommand("qodana") {
-
     override val invokeWithoutSubcommand = true
 
     override fun help(context: Context) = "Qodana CLI — static analysis tool by JetBrains"
@@ -38,8 +37,9 @@ class QodanaCommand : CliktCommand("qodana") {
     companion object {
         const val SYSTEM_DISABLE_UPDATE_CHECKS = "qodana.disableUpdateChecks"
         private val VALID_LOG_LEVELS = setOf("trace", "debug", "info", "warn", "error")
-        val VERSION: String = System.getProperty("qodana.version")
-            ?: System.getenv("QODANA_VERSION")
-            ?: "dev"
+        val VERSION: String =
+            System.getProperty("qodana.version")
+                ?: System.getenv("QODANA_VERSION")
+                ?: "dev"
     }
 }

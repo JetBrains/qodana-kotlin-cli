@@ -23,13 +23,15 @@ class CloudClient(
         private const val VERSIONS_URI = "/api/versions"
     }
 
-    private val mapper: ObjectMapper = ObjectMapper()
-        .registerModule(kotlinModule())
-        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+    private val mapper: ObjectMapper =
+        ObjectMapper()
+            .registerModule(kotlinModule())
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
-    private fun authHeaders(): Map<String, String> = mapOf(
-        "Authorization" to "Bearer $token",
-    )
+    private fun authHeaders(): Map<String, String> =
+        mapOf(
+            "Authorization" to "Bearer $token",
+        )
 
     suspend fun fetchEndpoints(): Result<CloudEndpoints> {
         val url = "${endpoint.trimEnd('/')}$VERSIONS_URI"
@@ -38,8 +40,8 @@ class CloudClient(
             if (!response.isSuccess) {
                 return@executeWithRetries Result.failure(
                     QodanaErrorException(
-                        QodanaError.Network(requestUrl, "HTTP ${response.statusCode}: ${response.body}")
-                    )
+                        QodanaError.Network(requestUrl, "HTTP ${response.statusCode}: ${response.body}"),
+                    ),
                 )
             }
 
@@ -47,14 +49,14 @@ class CloudClient(
             val cloudApiUrl = selectSupportedVersion(descriptions.api.versions)
             if (cloudApiUrl.isBlank()) {
                 return@executeWithRetries Result.failure(
-                    ApiVersionMismatchError("cloud", extractVersions(descriptions.api.versions))
+                    ApiVersionMismatchError("cloud", extractVersions(descriptions.api.versions)),
                 )
             }
 
             val lintersApiUrl = selectSupportedVersion(descriptions.linters.versions)
             if (lintersApiUrl.isBlank()) {
                 return@executeWithRetries Result.failure(
-                    ApiVersionMismatchError("linters", extractVersions(descriptions.linters.versions))
+                    ApiVersionMismatchError("linters", extractVersions(descriptions.linters.versions)),
                 )
             }
 
@@ -62,28 +64,29 @@ class CloudClient(
                 CloudEndpoints(
                     lintersApiUrl = lintersApiUrl,
                     cloudApiUrl = cloudApiUrl,
-                )
+                ),
             )
         }
     }
 
-    suspend fun <T> getAuthenticated(url: String, responseType: Class<T>): Result<T> {
+    suspend fun <T> getAuthenticated(
+        url: String,
+        responseType: Class<T>,
+    ): Result<T> {
         return executeWithRetries(url) { requestUrl ->
             val response = http.get(requestUrl, authHeaders())
             if (!response.isSuccess) {
                 return@executeWithRetries Result.failure(
                     QodanaErrorException(
-                        QodanaError.Network(requestUrl, "HTTP ${response.statusCode}: ${response.body}")
-                    )
+                        QodanaError.Network(requestUrl, "HTTP ${response.statusCode}: ${response.body}"),
+                    ),
                 )
             }
             Result.success(mapper.readValue(response.body, responseType))
         }
     }
 
-    suspend inline fun <reified T> getAuthenticated(url: String): Result<T> {
-        return getAuthenticated(url, T::class.java)
-    }
+    suspend inline fun <reified T> getAuthenticated(url: String): Result<T> = getAuthenticated(url, T::class.java)
 
     private suspend fun <T> executeWithRetries(
         url: String,
@@ -95,8 +98,8 @@ class CloudClient(
             if (System.currentTimeMillis() > deadline) {
                 return Result.failure(
                     lastException ?: QodanaErrorException(
-                        QodanaError.Network(url, "Request timed out after ${timeoutMs}ms")
-                    )
+                        QodanaError.Network(url, "Request timed out after ${timeoutMs}ms"),
+                    ),
                 )
             }
             try {
@@ -112,8 +115,8 @@ class CloudClient(
         }
         return Result.failure(
             lastException ?: QodanaErrorException(
-                QodanaError.Network(url, "Request failed after $maxRetries retries")
-            )
+                QodanaError.Network(url, "Request failed after $maxRetries retries"),
+            ),
         )
     }
 }
@@ -121,4 +124,6 @@ class CloudClient(
 /**
  * Wrapper to carry [QodanaError] inside Kotlin [Result].
  */
-class QodanaErrorException(val error: QodanaError) : Exception(error.message)
+class QodanaErrorException(
+    val error: QodanaError,
+) : Exception(error.message)

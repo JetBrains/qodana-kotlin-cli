@@ -12,17 +12,19 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class QodanaYamlTest {
-
-    private val mapper = YAMLMapper.builder()
-        .addModule(kotlinModule())
-        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-        .build()
+    private val mapper =
+        YAMLMapper
+            .builder()
+            .addModule(kotlinModule())
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            .build()
 
     @Test
     fun `parse minimal yaml`() {
-        val yaml = """
+        val yaml =
+            """
             version: "1.0"
-        """.trimIndent()
+            """.trimIndent()
         val config = mapper.readValue<QodanaYaml>(yaml)
         assertEquals("1.0", config.version)
         assertEquals("", config.profile.name)
@@ -31,18 +33,20 @@ class QodanaYamlTest {
 
     @Test
     fun `parse yaml with profile name`() {
-        val yaml = """
+        val yaml =
+            """
             version: "1.0"
             profile:
               name: "qodana.starter"
-        """.trimIndent()
+            """.trimIndent()
         val config = mapper.readValue<QodanaYaml>(yaml)
         assertEquals("qodana.starter", config.profile.name)
     }
 
     @Test
     fun `parse yaml with linter and exclude`() {
-        val yaml = """
+        val yaml =
+            """
             version: "1.0"
             linter: jetbrains/qodana-jvm:latest
             exclude:
@@ -51,7 +55,7 @@ class QodanaYamlTest {
                   - vendor
                   - testdata
               - name: CyclomaticComplexity
-        """.trimIndent()
+            """.trimIndent()
         val config = mapper.readValue<QodanaYaml>(yaml)
         assertEquals("jetbrains/qodana-jvm:latest", config.linter)
         assertEquals(2, config.exclude.size)
@@ -62,7 +66,8 @@ class QodanaYamlTest {
 
     @Test
     fun `parse yaml with failure conditions`() {
-        val yaml = """
+        val yaml =
+            """
             version: "1.0"
             failureConditions:
               severityThresholds:
@@ -71,7 +76,7 @@ class QodanaYamlTest {
                 high: 10
               testCoverageThresholds:
                 total: 50
-        """.trimIndent()
+            """.trimIndent()
         val config = mapper.readValue<QodanaYaml>(yaml)
         assertEquals(100, config.failureConditions.severityThresholds.any)
         assertEquals(0, config.failureConditions.severityThresholds.critical)
@@ -81,13 +86,14 @@ class QodanaYamlTest {
 
     @Test
     fun `parse yaml with dotnet config`() {
-        val yaml = """
+        val yaml =
+            """
             version: "1.0"
             dotnet:
               solution: MySolution.sln
               configuration: Release
               platform: x64
-        """.trimIndent()
+            """.trimIndent()
         val config = mapper.readValue<QodanaYaml>(yaml)
         assertNotNull(config.dotnet)
         assertEquals("MySolution.sln", config.dotnet!!.solution)
@@ -97,12 +103,13 @@ class QodanaYamlTest {
 
     @Test
     fun `parse yaml with properties`() {
-        val yaml = """
+        val yaml =
+            """
             version: "1.0"
             properties:
               idea.suppress.statistics: "true"
               some.other: "value"
-        """.trimIndent()
+            """.trimIndent()
         val config = mapper.readValue<QodanaYaml>(yaml)
         assertEquals(2, config.properties.size)
         assertEquals("true", config.properties["idea.suppress.statistics"])
@@ -110,12 +117,13 @@ class QodanaYamlTest {
 
     @Test
     fun `parse yaml with plugins`() {
-        val yaml = """
+        val yaml =
+            """
             version: "1.0"
             plugins:
               - id: com.intellij.plugins.some-plugin
               - id: another-plugin
-        """.trimIndent()
+            """.trimIndent()
         val config = mapper.readValue<QodanaYaml>(yaml)
         assertEquals(2, config.plugins.size)
         assertEquals("com.intellij.plugins.some-plugin", config.plugins[0].id)
@@ -163,24 +171,28 @@ class QodanaYamlTest {
 
     @Test
     fun `sorted sorts includes and excludes`() {
-        val yaml = QodanaYaml(
-            include = listOf(
-                InspectScope(name = "Zebra"),
-                InspectScope(name = "Alpha"),
-                InspectScope(name = "Beta"),
-            ),
-            exclude = listOf(
-                InspectScope(name = "Zulu"),
-                InspectScope(name = "Alpha"),
-            ),
-            licenseRules = listOf(
-                YamlLicenseRule(
-                    keys = listOf("zlib", "apache-2.0", "MIT"),
-                    allowed = listOf("GPL-3.0", "BSD-3-Clause"),
-                    prohibited = listOf("Proprietary", "Commercial"),
-                ),
-            ),
-        )
+        val yaml =
+            QodanaYaml(
+                include =
+                    listOf(
+                        InspectScope(name = "Zebra"),
+                        InspectScope(name = "Alpha"),
+                        InspectScope(name = "Beta"),
+                    ),
+                exclude =
+                    listOf(
+                        InspectScope(name = "Zulu"),
+                        InspectScope(name = "Alpha"),
+                    ),
+                licenseRules =
+                    listOf(
+                        YamlLicenseRule(
+                            keys = listOf("zlib", "apache-2.0", "MIT"),
+                            allowed = listOf("GPL-3.0", "BSD-3-Clause"),
+                            prohibited = listOf("Proprietary", "Commercial"),
+                        ),
+                    ),
+            )
         val sorted = yaml.sorted()
         assertEquals("Alpha", sorted.include[0].name)
         assertEquals("Beta", sorted.include[1].name)

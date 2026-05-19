@@ -1,0 +1,253 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>ComplexCondition:CiDetector.kt$CiDetector$remoteUrl.startsWith("http://") || remoteUrl.startsWith("https://") || remoteUrl.startsWith("ssh://") || remoteUrl.startsWith("git@")</ID>
+    <ID>CyclomaticComplexMethod:ContainerScan.kt$ContainerScan$private fun buildContainerSpec( context: ScanContext, image: String, ): ContainerRunSpec</ID>
+    <ID>CyclomaticComplexMethod:DockerJavaEngine.kt$DockerJavaEngine$override suspend fun create(spec: ContainerRunSpec): String</ID>
+    <ID>CyclomaticComplexMethod:IdeArgBuilder.kt$BaseContainerExecutionIdeArgBuilder$override fun MutableList&lt;String&gt;.addModeSpecificArgs(context: ScanContext)</ID>
+    <ID>CyclomaticComplexMethod:IdeArgBuilder.kt$BaseExecutionIdeArgBuilder$protected open fun MutableList&lt;String&gt;.addCommonArgs(context: ScanContext)</ID>
+    <ID>CyclomaticComplexMethod:SarifUtils.kt$SarifUtils$@Suppress("UNCHECKED_CAST") fun getRuleDescription( report: Map&lt;String, Any?&gt;, ruleId: String, ): String</ID>
+    <ID>CyclomaticComplexMethod:ScanUseCase.kt$ScanUseCase$private suspend fun enrichSarifMetadata(context: ScanContext)</ID>
+    <ID>CyclomaticComplexMethod:ScanUseCase.kt$ScanUseCase$private suspend fun runFullHistory(context: ScanContext): Int</ID>
+    <ID>CyclomaticComplexMethod:ScanUseCase.kt$ScanUseCase$private suspend fun runReverseScoped( context: ScanContext, scenario: RunScenario.ReverseScoped, ): Int</ID>
+    <ID>CyclomaticComplexMethod:ScanUseCase.kt$ScanUseCase$suspend fun run(context: ScanContext): Int</ID>
+    <ID>EmptyFunctionBlock:BitBucketExporterTest.kt$BitBucketFakeSarifService${}</ID>
+    <ID>EmptyFunctionBlock:BitBucketExporterTest.kt$RecordingHttp${}</ID>
+    <ID>EmptyFunctionBlock:CacheSyncTest.kt$CacheSyncTest.&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:CloudClientTest.kt$FakeHttp${}</ID>
+    <ID>EmptyFunctionBlock:CloudClientTest.kt$RecordingHttp${}</ID>
+    <ID>EmptyFunctionBlock:CodeClimateExporterTest.kt$TypedSarifService${}</ID>
+    <ID>EmptyFunctionBlock:ContainerScanIntegrationTest.kt$RecordingTerminal${}</ID>
+    <ID>EmptyFunctionBlock:ContainerScanTest.kt$CapturingContainerEngine${}</ID>
+    <ID>EmptyFunctionBlock:ContainerScanTest.kt$FakeTerminal${}</ID>
+    <ID>EmptyFunctionBlock:ContainerScanTest.kt$RenderRecordingTerminal${}</ID>
+    <ID>EmptyFunctionBlock:EapCheckerTest.kt$EapCheckerTest.&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:IdeInstallerTest.kt$IdeInstallerTest.&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:LicenseSetupTest.kt$SetupFakeHttp${}</ID>
+    <ID>EmptyFunctionBlock:LicenseValidatorTest.kt$LicenseFakeHttp${}</ID>
+    <ID>EmptyFunctionBlock:NativeScan.kt$NativeScan.Companion.&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:NativeScanTest.kt$FakeProcessRunner.&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:NativeScanTest.kt$NativeOutputTerminal${}</ID>
+    <ID>EmptyFunctionBlock:NativeScanTest.kt$RecordingFileSystem${}</ID>
+    <ID>EmptyFunctionBlock:PrepareHostTest.kt$FakeFileSystem${}</ID>
+    <ID>EmptyFunctionBlock:PrepareHostTest.kt$FakeTerminal${}</ID>
+    <ID>EmptyFunctionBlock:ReportProcessorTest.kt$FakeSarifService${}</ID>
+    <ID>EmptyFunctionBlock:ScanUseCaseTest.kt$ScanUseCaseTest.&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:ScanUseCaseTest.kt$ScanUseCaseTest.RecordingContainerEngine${}</ID>
+    <ID>EmptyFunctionBlock:ScanUseCaseTest.kt$ScanUseCaseTest.RecordingHttpTransport${}</ID>
+    <ID>EmptyFunctionBlock:ScanUseCaseTest.kt$ScanUseCaseTest.RecordingProcessRunner.&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:ScanUseCaseTest.kt$ScanUseCaseTest.ScanFakeReportConverter${}</ID>
+    <ID>EmptyFunctionBlock:ScanUseCaseTest.kt$ScanUseCaseTest.ScanFakeSarifService${}</ID>
+    <ID>EmptyFunctionBlock:ScanUseCaseTest.kt$ScanUseCaseTest.ScanFakeTerminal${}</ID>
+    <ID>EmptyFunctionBlock:ScanUseCaseTest.kt$ScanUseCaseTest.StubFileSystem${}</ID>
+    <ID>EmptyFunctionBlock:TerminalStreamRendererTest.kt$RendererRecordingTerminal${}</ID>
+    <ID>LargeClass:ScanUseCase.kt$ScanUseCase</ID>
+    <ID>LongMethod:ContainerScan.kt$ContainerScan$private fun buildContainerSpec( context: ScanContext, image: String, ): ContainerRunSpec</ID>
+    <ID>LongMethod:IdeArgBuilder.kt$BaseContainerExecutionIdeArgBuilder$override fun MutableList&lt;String&gt;.addModeSpecificArgs(context: ScanContext)</ID>
+    <ID>LongMethod:ScanUseCase.kt$ScanUseCase$private suspend fun enrichSarifMetadata(context: ScanContext)</ID>
+    <ID>LongMethod:ScanUseCase.kt$ScanUseCase$private suspend fun runFullHistory(context: ScanContext): Int</ID>
+    <ID>LongMethod:ScanUseCase.kt$ScanUseCase$private suspend fun runReverseScoped( context: ScanContext, scenario: RunScenario.ReverseScoped, ): Int</ID>
+    <ID>LongMethod:ScanUseCase.kt$ScanUseCase$suspend fun run(context: ScanContext): Int</ID>
+    <ID>LongMethod:ScanUseCaseTest.kt$ScanUseCaseTest$@Test fun `analysis enriches sarif with automation and vcs metadata`()</ID>
+    <ID>LongMethod:XmlConfig.kt$XmlConfig$fun jdkTableXml(jdkPath: String): String</ID>
+    <ID>LongParameterList:BitBucketExporter.kt$BitBucketExporter$( baseUrl: String, token: String, reportId: String, reportTitle: String, totalAnnotations: Int, reportLink: String, )</ID>
+    <ID>LongParameterList:BitBucketExporter.kt$BitBucketExporter$( resultsDir: Path, bitbucketUrl: String, workspace: String, repoSlug: String, commitHash: String, token: String, reportId: String = "qodana", reportTitle: String = DEFAULT_REPORT_TITLE, )</ID>
+    <ID>LongParameterList:ContainerImageUtils.kt$ContainerImageUtils$( image: String, user: String = "", env: List&lt;String&gt; = emptyList(), mounts: List&lt;Pair&lt;String, String&gt;&gt; = emptyList(), capAdd: List&lt;String&gt; = emptyList(), securityOpt: List&lt;String&gt; = emptyList(), autoRemove: Boolean = false, attachStdout: Boolean = false, attachStderr: Boolean = false, tty: Boolean = false, cmd: List&lt;String&gt; = emptyList(), )</ID>
+    <ID>LongParameterList:ContainerUtils.kt$ContainerUtils$( image: String, envVars: List&lt;String&gt; = emptyList(), volumes: List&lt;String&gt; = emptyList(), user: String = "", capabilities: List&lt;String&gt; = emptyList(), securityOpts: List&lt;String&gt; = emptyList(), args: List&lt;String&gt; = emptyList(), tty: Boolean = false, )</ID>
+    <ID>LongParameterList:FuserSerializerTest.kt$FuserSerializerTest$( session: String = "test-session", build: String = "QD-1.0", bucket: String = "42", time: Long = 1700000000000L, groupId: String = "test.group", groupVersion: String = "1", recorderVersion: String = "75", eventId: String = "test.event", state: Boolean = false, data: MutableMap&lt;String, Any&gt; = mutableMapOf("key" to "value"), )</ID>
+    <ID>LongParameterList:PropertyGeneratorTest.kt$PropertyGeneratorTest$( runtimeProperties: Map&lt;String, String&gt; = emptyMap(), yamlProperties: Map&lt;String, String&gt; = emptyMap(), jvmDebugPort: Int? = null, analysisId: String? = null, coverageDir: Path? = null, repositoryRoot: Path = Path.of("/project"), ciRemoteUrl: String? = null, )</ID>
+    <ID>LongParameterList:ScanContextUtils.kt$ScanContextUtils$( fullHistory: Boolean, script: String, startHash: String?, forceLocalChanges: Boolean, isContainer: Boolean, reversePrAnalysis: Boolean, )</ID>
+    <ID>LongParameterList:ScanUseCase.kt$ScanUseCase$( base: ScanContext, script: String, resultsDir: Path, skipFixes: Boolean, clearBaseline: Boolean = false, additionalPropertyFlags: List&lt;String&gt;, )</ID>
+    <ID>LongParameterList:ScanUseCase.kt$ScanUseCase$( private val prepareHost: PrepareHost, private val nativeScan: NativeScan, private val containerScan: ContainerScan, private val reportProcessor: ReportProcessor, private val reportPublisher: ReportPublishUseCase?, private val licenseValidator: LicenseValidator?, private val codeClimateExporter: CodeClimateExporter?, private val bitBucketExporter: BitBucketExporter?, private val gitClient: GitClient?, private val terminal: Terminal, )</ID>
+    <ID>LoopWithTooManyJumpStatements:CacheSync.kt$CacheSync$for</ID>
+    <ID>LoopWithTooManyJumpStatements:SarifUtils.kt$SarifUtils$for</ID>
+    <ID>MagicNumber:ContainerImageUtils.kt$ContainerImageUtils$3</ID>
+    <ID>MagicNumber:ContainerScan.kt$ContainerScan$5005</ID>
+    <ID>MagicNumber:ContainerScan.kt$ContainerScan.ScanStageTracker$3</ID>
+    <ID>MagicNumber:ContainerScan.kt$ContainerScan.ScanStageTracker$4</ID>
+    <ID>MagicNumber:ContainerScan.kt$ContainerScan.ScanStageTracker$5</ID>
+    <ID>MagicNumber:ContainerUtils.kt$ContainerUtils$3</ID>
+    <ID>MagicNumber:ContributorAnalyzer.kt$ContributorAnalyzer$3</ID>
+    <ID>MagicNumber:ContributorAnalyzer.kt$ContributorAnalyzer$4</ID>
+    <ID>MagicNumber:DeviceId.kt$DeviceId$12</ID>
+    <ID>MagicNumber:DeviceId.kt$DeviceId$24</ID>
+    <ID>MagicNumber:DeviceId.kt$DeviceId$4</ID>
+    <ID>MagicNumber:DeviceId.kt$DeviceId$8</ID>
+    <ID>MagicNumber:DockerJavaEngine.kt$DockerJavaEngine$30</ID>
+    <ID>MagicNumber:DockerJavaEngine.kt$DockerJavaEngine$60</ID>
+    <ID>MagicNumber:EapChecker.kt$EapChecker$60</ID>
+    <ID>MagicNumber:FileUtils.kt$FileUtils$8192</ID>
+    <ID>MagicNumber:FuserAdapter.kt$FuserAdapter$10</ID>
+    <ID>MagicNumber:FuserAdapter.kt$FuserAdapter$256</ID>
+    <ID>MagicNumber:HttpTransport.kt$HttpResponse$200</ID>
+    <ID>MagicNumber:HttpTransport.kt$HttpResponse$299</ID>
+    <ID>MagicNumber:IdeInstaller.kt$IdeInstaller$8192</ID>
+    <ID>MagicNumber:IdeProduct.kt$IdeProduct$233</ID>
+    <ID>MagicNumber:IdeProduct.kt$IdeProduct$242</ID>
+    <ID>MagicNumber:IdeProduct.kt$IdeProduct$251</ID>
+    <ID>MagicNumber:LicenseValidator.kt$LicenseValidator$200</ID>
+    <ID>MagicNumber:LicenseValidator.kt$LicenseValidator$401</ID>
+    <ID>MagicNumber:LicenseValidator.kt$LicenseValidator$404</ID>
+    <ID>MagicNumber:NativeScan.kt$NativeScan$255</ID>
+    <ID>MagicNumber:OkHttpTransport.kt$OkHttpTransport$30</ID>
+    <ID>MagicNumber:OkHttpTransport.kt$OkHttpTransport$60</ID>
+    <ID>MagicNumber:RuntimeContext.kt$RuntimeContext$60</ID>
+    <ID>MagicNumber:SystemUtils.kt$SystemUtils$200</ID>
+    <ID>MagicNumber:SystemUtils.kt$SystemUtils$5</ID>
+    <ID>MaxLineLength:BitBucketExporterTest.kt$BitBucketExporterTest$"""{"ruleId":"R$i","level":"warning","message":{"text":"issue $i"},"partialFingerprints":{"equalIndicator/v2":"fp-$i"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"file$i.kt"},"region":{"startLine":$i}}}]}"""</ID>
+    <ID>MaxLineLength:BitBucketExporterTest.kt$BitBucketExporterTest$assertEquals("It seems all right 👌 No new problems found according to the checks applied", reportBody["details"])</ID>
+    <ID>MaxLineLength:BitBucketExporterTest.kt$BitBucketExporterTest$val sarif = """{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Qodana","version":"1"}},"results":[$results]}]}"""</ID>
+    <ID>MaxLineLength:BitBucketExporterTest.kt$BitBucketExporterTest$val selfHostedBase = "https://bitbucket.example.com/rest/api/1.0/repositories/myworkspace/myrepo/commit/deadbeef/reports"</ID>
+    <ID>MaxLineLength:CiDetector.kt$CiDetector$fun getBitBucketRepoFullName(getEnv: (String) -&gt; String? = System::getenv): String</ID>
+    <ID>MaxLineLength:CiDetector.kt$CiDetector$fun isBitBucket(getEnv: (String) -&gt; String? = System::getenv): Boolean</ID>
+    <ID>MaxLineLength:CiDetector.kt$CiDetector$jobUrl = env("GITHUB_SERVER_URL")?.let { "$it/${env("GITHUB_REPOSITORY")}/actions/runs/${env("GITHUB_RUN_ID")}" }</ID>
+    <ID>MaxLineLength:CiDetectorTest.kt$CiDetectorTest$assertEquals("https://ci.example.com/build/123", CiDetector.validateJobUrl("https://ci.example.com/build/123", "github-actions"))</ID>
+    <ID>MaxLineLength:CiDetectorTest.kt$CiDetectorTest$assertEquals("https://github.com/org/repo", CiDetector.validateRemoteUrl("https://github.com/org/repo", "github-actions"))</ID>
+    <ID>MaxLineLength:CloudClient.kt$CloudClient$private val cooldownMs: Long = System.getenv(QodanaEnv.CLOUD_REQUEST_COOLDOWN)?.toLongOrNull() ?: DEFAULT_COOLDOWN_MS</ID>
+    <ID>MaxLineLength:CloudClientTest.kt$CloudClientTest$"""{"licenseId":"id","licenseKey":"key","expirationDate":"2026","projectIdHash":"p","organisationIdHash":"o","licensePlan":"plan"}"""</ID>
+    <ID>MaxLineLength:CloudClientTest.kt$CloudClientTest$val client = CloudClient(http, endpoint = "https://qodana.cloud", token = "my-token", maxRetries = 1, cooldownMs = 0)</ID>
+    <ID>MaxLineLength:CloudClientTest.kt$CloudClientTest$val client = CloudClient(http, endpoint = "https://qodana.cloud", token = "t", maxRetries = 1, cooldownMs = 0)</ID>
+    <ID>MaxLineLength:CloudClientTest.kt$CloudClientTest$val client = CloudClient(http, endpoint = "https://qodana.cloud", token = "t", maxRetries = 3, cooldownMs = 0)</ID>
+    <ID>MaxLineLength:CloudClientTest.kt$CloudClientTest$val client = CloudClient(http, endpoint = "https://qodana.cloud/", token = "t", maxRetries = 1, cooldownMs = 0)</ID>
+    <ID>MaxLineLength:ContainerUtilsTest.kt$ContainerUtilsTest$val result = ContainerUtils.selectUser("jetbrains/qodana-jvm-privileged:latest", "auto", defaultUser = "1000:1000")</ID>
+    <ID>MaxLineLength:DeviceId.kt$DeviceId$"200820300000000-${hash.substring(0, 4)}-${hash.substring(4, 8)}-${hash.substring(8, 12)}-${hash.substring(12, 24)}"</ID>
+    <ID>MaxLineLength:EapChecker.kt$EapChecker$"EAP license of this Qodana linter is expired. Obtain the new one with the latest version of Qodana CLI."</ID>
+    <ID>MaxLineLength:FailureThresholdsTest.kt$FailureThresholdsTest$" --threshold-any=1 --threshold-critical=2 --threshold-high=3 --threshold-info=6 --threshold-low=5 --threshold-moderate=4"</ID>
+    <ID>MaxLineLength:FailureThresholdsTest.kt$FailureThresholdsTest$" --threshold-any=123 --threshold-critical=2 --threshold-high=3 --threshold-info=6 --threshold-low=5 --threshold-moderate=4"</ID>
+    <ID>MaxLineLength:LicenseSetupTest.kt$LicenseSetupTest$val cloudClient = CloudClient(http, endpoint = "https://qodana.cloud", token = "t", maxRetries = 1, cooldownMs = 0)</ID>
+    <ID>MaxLineLength:LicenseValidatorTest.kt$LicenseValidatorTest$val cloudClient = CloudClient(http, endpoint = "https://qodana.cloud", token = "t", maxRetries = 1, cooldownMs = 0)</ID>
+    <ID>MaxLineLength:ProjectDetector.kt$ProjectDetector$private val SKIP_DIRS = setOf(".idea", ".vscode", ".git", "node_modules", "vendor", "build", "target", "__pycache__")</ID>
+    <ID>MaxLineLength:PropertyGeneratorTest.kt$PropertyGeneratorTest$val props = PropertyGenerator.generateIdeaProperties(testContext(ciRemoteUrl = "https://github.com/acme/repo.git"))</ID>
+    <ID>MaxLineLength:SarifUtilsTest.kt$SarifUtilsTest$"shortDescription" to mapOf("text" to "Test rule description")</ID>
+    <ID>MaxLineLength:ScanContextUtils.kt$ScanContextUtils$fun</ID>
+    <ID>MaxLineLength:ScanUseCase.kt$ScanUseCase$"Cannot run analysis for commit $startHash because it doesn't exist in the repository. Falling back to default analysis."</ID>
+    <ID>MaxLineLength:ScanUseCase.kt$ScanUseCase$"Cannot run local-changes because --diff-end is ${context.runtime.diffEnd} and HEAD is $currentRevision"</ID>
+    <ID>MaxLineLength:ScanUseCase.kt$ScanUseCase$"Could not reset git repository, no --commit option will be applied: ${resetResult.exceptionOrNull()?.message}"</ID>
+    <ID>MaxLineLength:ScanUseCase.kt$ScanUseCase$"Please check that project is located within the Git repo. If you specified --repository-root option, check that it points to the right directory."</ID>
+    <ID>MaxLineLength:ScanUseCase.kt$ScanUseCase$private fun shouldStopAfterStage(exitCode: Int): Boolean</ID>
+    <ID>MaxLineLength:ScanUseCase.kt$ScanUseCase$terminal.error("Cannot update submodules for branch $branch: ${updateResult.exceptionOrNull()?.message}")</ID>
+    <ID>MaxLineLength:ScanUseCase.kt$ScanUseCase$terminal.error("Cannot update submodules for revision $revision: ${updateResult.exceptionOrNull()?.message}")</ID>
+    <ID>MaxLineLength:ScanUseCase.kt$ScanUseCase$val oldStageFinishStrategy = if (context.runtime.applyFixes || context.runtime.cleanup) "FIXABLE" else "NEVER"</ID>
+    <ID>MaxLineLength:ScanUseCaseTest.kt$ScanUseCaseTest$assertFalse(recordingLicenseHttp.getCalled, "licenseValidator should NOT have been called when no token is present")</ID>
+    <ID>MaxLineLength:ScanUseCaseTest.kt$ScanUseCaseTest$assertTrue(recordingLicenseHttp.getCalled, "licenseValidator should have made an HTTP call to validate the license")</ID>
+    <ID>MaxLineLength:ScanUseCaseTest.kt$ScanUseCaseTest$private fun buildReportProcessor(): ReportProcessor</ID>
+    <ID>MaxLineLength:ScanUseCaseTest.kt$ScanUseCaseTest$productInfoPath to """{"version":"2025.3","buildNumber":"253.12345","productCode":"IU","versionSuffix":""}"""</ID>
+    <ID>MaxLineLength:ScanUseCaseTest.kt$ScanUseCaseTest.RecordingContainerEngine$override suspend fun info()</ID>
+    <ID>MaxLineLength:ScopedAnalysisTest.kt$ScopedAnalysisTest$assertEquals("reverse-scoped:NEW,changes.json", ScopedAnalysis.reverseScopedScript(ScopedAnalysis.ReverseStage.NEW, "changes.json"))</ID>
+    <ID>MaxLineLength:ScopedAnalysisTest.kt$ScopedAnalysisTest$assertEquals("reverse-scoped:OLD,changes.json", ScopedAnalysis.reverseScopedScript(ScopedAnalysis.ReverseStage.OLD, "changes.json"))</ID>
+    <ID>MaxLineLength:SystemGitClient.kt$SystemGitClient$override suspend fun branch(workDir: Path): Result&lt;String&gt;</ID>
+    <ID>MaxLineLength:SystemGitClient.kt$SystemGitClient$override suspend fun currentBranch(workDir: Path): Result&lt;String&gt;</ID>
+    <ID>MaxLineLength:SystemGitClient.kt$SystemGitClient$override suspend fun currentRevision(workDir: Path): Result&lt;String&gt;</ID>
+    <ID>MaxLineLength:SystemGitClient.kt$SystemGitClient$override suspend fun isGitRepo(workDir: Path): Boolean</ID>
+    <ID>MaxLineLength:SystemGitClient.kt$SystemGitClient$override suspend fun remoteUrl(workDir: Path): Result&lt;String&gt;</ID>
+    <ID>MaxLineLength:TerminalStreamRenderer.kt$TerminalStreamRenderer$private fun containsControlRewrite(chunk: String): Boolean</ID>
+    <ID>MaxLineLength:WebUiExtractorTest.kt$WebUiExtractorTest$private fun createTestZip(entries: Map&lt;String, String&gt;): ByteArray</ID>
+    <ID>MayBeConst:ContainerImageUtils.kt$ContainerImageUtils$private val privilegedSuffix = "-privileged"</ID>
+    <ID>NestedBlockDepth:FileUtils.kt$FileUtils$fun copyDir( source: Path, target: Path, )</ID>
+    <ID>NestedBlockDepth:ModeChecksArchitectureTest.kt$ModeChecksArchitectureTest$@Test fun `legacy mode checks are not used in engine implementation`()</ID>
+    <ID>NestedBlockDepth:ProjectDetector.kt$ProjectDetector$fun readIdeaDir(projectDir: Path): List&lt;String&gt;</ID>
+    <ID>NestedBlockDepth:SarifUtils.kt$SarifUtils$@Suppress("UNCHECKED_CAST") fun getRuleDescription( report: Map&lt;String, Any?&gt;, ruleId: String, ): String</ID>
+    <ID>NestedBlockDepth:WebUiExtractor.kt$WebUiExtractor$override fun extractWebUi(targetDir: Path)</ID>
+    <ID>NestedBlockDepth:WebUiExtractorTest.kt$WebUiExtractorTest$private fun extractZipLikeWebUi( zipBytes: ByteArray, targetDir: Path, )</ID>
+    <ID>ReturnCount:AnalyzerResolver.kt$AnalyzerResolver$fun resolveFromDockerImage(image: String?): Analyzer?</ID>
+    <ID>ReturnCount:AnalyzerResolver.kt$AnalyzerResolver$fun resolveFromIdeField(ideField: String?): Analyzer?</ID>
+    <ID>ReturnCount:AnalyzerResolver.kt$AnalyzerResolver$fun resolveFromLinterName(name: String?): Analyzer?</ID>
+    <ID>ReturnCount:BitBucketExporter.kt$BitBucketExporter$private fun resolveApiBaseUrl(rawUrl: String): String</ID>
+    <ID>ReturnCount:CiDetector.kt$CiDetector$fun validateJobUrl( jobUrl: String, ciName: String, getEnv: (String) -&gt; String? = System::getenv, ): String</ID>
+    <ID>ReturnCount:CiDetector.kt$CiDetector$fun validateRemoteUrl( remoteUrl: String, ciName: String, getEnv: (String) -&gt; String? = System::getenv, ): String</ID>
+    <ID>ReturnCount:CloudClient.kt$CloudClient$private suspend fun &lt;T&gt; executeWithRetries( url: String, action: suspend (String) -&gt; Result&lt;T&gt;, ): Result&lt;T&gt;</ID>
+    <ID>ReturnCount:CloudVersions.kt$fun parseRawUrl(rawUrl: String): Result&lt;String&gt;</ID>
+    <ID>ReturnCount:CloudVersions.kt$fun toCloudVersion(version: String): Result&lt;ApiVersion&gt;</ID>
+    <ID>ReturnCount:ContributorAnalyzer.kt$ContributorAnalyzer$private fun applyMailmap( commit: ParsedCommit, rules: List&lt;MailmapRule&gt;, ): ParsedCommit</ID>
+    <ID>ReturnCount:ContributorAnalyzer.kt$ContributorAnalyzer$private fun isBot(commit: ParsedCommit): Boolean</ID>
+    <ID>ReturnCount:ContributorAnalyzer.kt$ContributorAnalyzer$private fun parseLine( line: String, project: String, mailmap: List&lt;MailmapRule&gt;, ): ParsedCommit?</ID>
+    <ID>ReturnCount:ContributorAnalyzer.kt$ContributorAnalyzer$private fun parseMailmapRule(rawLine: String): MailmapRule?</ID>
+    <ID>ReturnCount:DockerJavaEngine.kt$DockerJavaEngine.Companion$fun resolveDockerHost(): String</ID>
+    <ID>ReturnCount:EapCheck.kt$EapCheck$fun checkEap( isEap: Boolean, buildDateStr: String, now: Instant = Instant.now(), ): EapResult</ID>
+    <ID>ReturnCount:EapChecker.kt$EapChecker$fun check( buildDateStr: String, isEap: Boolean, ): EapResult</ID>
+    <ID>ReturnCount:EffectiveConfig.kt$EffectiveConfig$fun resolveYamlPath( projectDir: Path, customConfigName: String? = null, ): Path?</ID>
+    <ID>ReturnCount:IdeInstaller.kt$IdeInstaller$fun getIde(analyzer: Analyzer): ReleaseDownloadInfo?</ID>
+    <ID>ReturnCount:LicenseSetup.kt$LicenseSetup$suspend fun setupLicenseAndProjectHash( linter: Linter, licenseToken: LicenseToken, validator: LicenseValidator, existingLicense: String? = null, ): Result&lt;LicenseSetupResult&gt;</ID>
+    <ID>ReturnCount:LicenseToken.kt$LicenseToken.Companion$fun isCloudTokenRequired( qodanaToken: String?, licenseOnlyToken: String?, licenseEnv: String?, isPaid: Boolean, isEap: Boolean, ): Boolean</ID>
+    <ID>ReturnCount:LicenseValidator.kt$LicenseValidator$suspend fun validate(token: String): Result&lt;LicenseData&gt;</ID>
+    <ID>ReturnCount:NativeScan.kt$NativeScan$private fun readIdeExitCode( resultsDir: Path, processExitCode: Int, ): Int</ID>
+    <ID>ReturnCount:ProjectDetector.kt$ProjectDetector$fun detectLinter(projectDir: Path): Linter?</ID>
+    <ID>ReturnCount:ReportPort.kt$ReportPort$fun getShowReportPort( showReportPort: Int?, port: Int?, default: Int = DEFAULT_PORT, ): Int</ID>
+    <ID>ReturnCount:ReportProcessor.kt$ReportProcessor$private fun determineExitCode( newProblems: Int, failThreshold: Int?, analysisExitCode: Int = 0, ): Int</ID>
+    <ID>ReturnCount:SarifUtils.kt$SarifUtils$@Suppress("UNCHECKED_CAST") fun getRuleDescription( report: Map&lt;String, Any?&gt;, ruleId: String, ): String</ID>
+    <ID>ReturnCount:SarifUtils.kt$SarifUtils$fun getFingerprint(result: Map&lt;String, Any?&gt;): String</ID>
+    <ID>ReturnCount:ScanContextUtils.kt$ScanContextUtils$fun determineRunScenario( fullHistory: Boolean, script: String, startHash: String?, forceLocalChanges: Boolean, isContainer: Boolean, reversePrAnalysis: Boolean, ): RunScenario</ID>
+    <ID>ReturnCount:ScanUseCase.kt$ScanUseCase$private fun runBootstrapIfNeeded( context: ScanContext, pipeline: BaseScanExecutionPipeline, ): Int</ID>
+    <ID>ReturnCount:ScanUseCase.kt$ScanUseCase$private suspend fun enrichSarifMetadata(context: ScanContext)</ID>
+    <ID>ReturnCount:ScanUseCase.kt$ScanUseCase$private suspend fun exportBitBucket(context: ScanContext)</ID>
+    <ID>ReturnCount:ScanUseCase.kt$ScanUseCase$private suspend fun prepareScenarioContext(context: ScanContext): ScanContext</ID>
+    <ID>ReturnCount:ScanUseCase.kt$ScanUseCase$private suspend fun runFullHistory(context: ScanContext): Int</ID>
+    <ID>ReturnCount:ScanUseCase.kt$ScanUseCase$private suspend fun runLocalChanges(context: ScanContext): Int</ID>
+    <ID>ReturnCount:ScanUseCase.kt$ScanUseCase$private suspend fun runReverseScoped( context: ScanContext, scenario: RunScenario.ReverseScoped, ): Int</ID>
+    <ID>ReturnCount:ScanUseCase.kt$ScanUseCase$private suspend fun runScoped( context: ScanContext, scenario: RunScenario.Scoped, ): Int</ID>
+    <ID>ReturnCount:ScanUseCase.kt$ScanUseCase$private suspend fun runStageAtRevision( git: GitClient, repositoryRoot: Path, revision: String, stageContext: ScanContext, ): Int</ID>
+    <ID>ReturnCount:ScanUseCase.kt$ScanUseCase$suspend fun run(context: ScanContext): Int</ID>
+    <ID>ReturnCount:StringUtils.kt$StringUtils$fun quoteIfSpace(s: String): String</ID>
+    <ID>ReturnCount:SystemUtils.kt$SystemUtils$fun checkForUpdates( currentVersion: String, getLatestVersion: () -&gt; String = ::fetchLatestVersion, ): String?</ID>
+    <ID>SpreadOperator:DockerJavaEngine.kt$DockerJavaEngine$(*spec.capAdd.map { Capability.valueOf(it) }.toTypedArray())</ID>
+    <ID>SpreadOperator:SystemGitClient.kt$SystemGitClient$(workDir, *args.toTypedArray())</ID>
+    <ID>SwallowedException:CloudVersions.kt$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:CloudClient.kt$CloudClient$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:CloudVersions.kt$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:FileUtils.kt$FileUtils$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:IdeInstaller.kt$IdeInstaller$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:LicenseValidator.kt$LicenseValidator$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:NativeScan.kt$NativeScan$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:ReportPublishUseCase.kt$ReportPublishUseCase$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:ScanUseCase.kt$ScanUseCase$e: Exception</ID>
+    <ID>TooGenericExceptionThrown:ReportPublishUseCaseTest.kt$ReportPublishUseCaseTest.&lt;no name provided&gt;$throw RuntimeException("Network down")</ID>
+    <ID>TooManyFunctions:BitBucketExporter.kt$BitBucketExporter</ID>
+    <ID>TooManyFunctions:CiDetector.kt$CiDetector</ID>
+    <ID>TooManyFunctions:DockerJavaEngine.kt$DockerJavaEngine : ContainerEngine</ID>
+    <ID>TooManyFunctions:EffectiveConfig.kt$EffectiveConfig</ID>
+    <ID>TooManyFunctions:GitClient.kt$GitClient</ID>
+    <ID>TooManyFunctions:SarifUtils.kt$SarifUtils</ID>
+    <ID>TooManyFunctions:ScanUseCase.kt$ScanUseCase</ID>
+    <ID>TooManyFunctions:SystemGitClient.kt$SystemGitClient : GitClient</ID>
+    <ID>UnusedParameter:ContainerScanIntegrationTest.kt$ContainerScanIntegrationTest$@TempDir tempDir: Path</ID>
+    <ID>UnusedParameter:ScanContextUtils.kt$ScanContextUtils$script: String</ID>
+    <ID>UnusedPrivateProperty:ContainerScanIntegrationTest.kt$ContainerScanIntegrationTest$val containerScan = ContainerScan(recordingEngine, recordingTerminal)</ID>
+    <ID>UnusedPrivateProperty:ContainerScanIntegrationTest.kt$ContainerScanIntegrationTest$val context = ScanContext( paths = ScanPaths( projectDir = projectDir, resultsDir = resultsDir, cacheDir = cacheDir, reportDir = reportDir, ), auth = AuthContext(token = null, endpoint = "https://qodana.cloud"), runtime = RuntimeContext(), ci = CiContext(), report = ReportOptions(), docker = DockerOptions( image = "alpine:3.20", ), )</ID>
+    <ID>UnusedPrivateProperty:IdeInstallerTest.kt$IdeInstallerTest$val checksumFile = tmpDir.resolve("test.bin.sha256")</ID>
+    <ID>UnusedPrivateProperty:SystemGitClientTest.kt$SystemGitClientTest$val mainBranch = git.currentBranch(dir).getOrThrow()</ID>
+    <ID>UseCheckOrError:BitBucketExporter.kt$BitBucketExporter$throw IllegalStateException("failed to get fingerprint from result: $result")</ID>
+    <ID>UseCheckOrError:CodeClimateExporter.kt$CodeClimateExporter$throw IllegalStateException("failed to get fingerprint from result: $result")</ID>
+    <ID>UseCheckOrError:ContainerScan.kt$ContainerScan$throw IllegalStateException("No Docker image specified for container scan")</ID>
+    <ID>UseCheckOrError:NativeScan.kt$NativeScan$throw IllegalStateException("Failed to install plugin ${plugin.id}: ${result.stderr}")</ID>
+    <ID>UseCheckOrError:NativeScan.kt$NativeScan$throw IllegalStateException("Native scan requires ideDir to be set")</ID>
+    <ID>UseCheckOrError:WebUiExtractor.kt$WebUiExtractor$throw IllegalStateException("web-ui.zip not found in classpath resources")</ID>
+    <ID>UseRequire:FileUtils.kt$FileUtils$throw IllegalArgumentException("Source is not a directory: $source")</ID>
+    <ID>WildcardImport:AuthContextTest.kt$import kotlin.test.*</ID>
+    <ID>WildcardImport:ContainerScan.kt$import org.jetbrains.qodana.core.model.*</ID>
+    <ID>WildcardImport:ContainerScan.kt$import org.jetbrains.qodana.engine.model.*</ID>
+    <ID>WildcardImport:ContainerScanIntegrationTest.kt$import org.jetbrains.qodana.core.model.*</ID>
+    <ID>WildcardImport:ContainerScanIntegrationTest.kt$import org.jetbrains.qodana.engine.model.*</ID>
+    <ID>WildcardImport:ContainerScanTest.kt$import org.jetbrains.qodana.core.model.*</ID>
+    <ID>WildcardImport:ContainerScanTest.kt$import org.jetbrains.qodana.engine.model.*</ID>
+    <ID>WildcardImport:DockerJavaEngine.kt$import com.github.dockerjava.api.model.*</ID>
+    <ID>WildcardImport:DockerJavaEngine.kt$import org.jetbrains.qodana.core.model.*</ID>
+    <ID>WildcardImport:DockerJavaEngine.kt$import org.jetbrains.qodana.engine.model.*</ID>
+    <ID>WildcardImport:EffectiveConfig.kt$import org.jetbrains.qodana.core.model.*</ID>
+    <ID>WildcardImport:EffectiveConfig.kt$import org.jetbrains.qodana.engine.model.*</ID>
+    <ID>WildcardImport:EffectiveConfigTest.kt$import kotlin.test.*</ID>
+    <ID>WildcardImport:EffectiveConfigTest.kt$import org.jetbrains.qodana.core.model.*</ID>
+    <ID>WildcardImport:EffectiveConfigTest.kt$import org.jetbrains.qodana.engine.model.*</ID>
+    <ID>WildcardImport:IdeArgBuilderTest.kt$import kotlin.test.*</ID>
+    <ID>WildcardImport:IdeArgBuilderTest.kt$import org.jetbrains.qodana.core.model.*</ID>
+    <ID>WildcardImport:IdeArgBuilderTest.kt$import org.jetbrains.qodana.engine.model.*</ID>
+    <ID>WildcardImport:NativeScanTest.kt$import org.jetbrains.qodana.core.model.*</ID>
+    <ID>WildcardImport:NativeScanTest.kt$import org.jetbrains.qodana.engine.model.*</ID>
+    <ID>WildcardImport:PrepareHostTest.kt$import org.jetbrains.qodana.core.model.*</ID>
+    <ID>WildcardImport:PrepareHostTest.kt$import org.jetbrains.qodana.engine.model.*</ID>
+    <ID>WildcardImport:PropertyGeneratorTest.kt$import org.jetbrains.qodana.core.model.*</ID>
+    <ID>WildcardImport:PropertyGeneratorTest.kt$import org.jetbrains.qodana.engine.model.*</ID>
+    <ID>WildcardImport:ScanUseCaseTest.kt$import org.jetbrains.qodana.core.model.*</ID>
+    <ID>WildcardImport:ScanUseCaseTest.kt$import org.jetbrains.qodana.engine.model.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

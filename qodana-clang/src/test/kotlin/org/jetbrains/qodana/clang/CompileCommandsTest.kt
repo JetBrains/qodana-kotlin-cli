@@ -7,19 +7,19 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class CompileCommandsTest {
-
     private val mapper = ObjectMapper().registerModule(kotlinModule())
 
     @Test
     fun `parse compile command with command field`() {
-        val json = """
+        val json =
+            """
             [{
                 "directory": "/home/user/project",
                 "command": "clang++ -std=c++17 -o main.o -c main.cpp",
                 "file": "main.cpp",
                 "output": "main.o"
             }]
-        """.trimIndent()
+            """.trimIndent()
 
         val commands: List<CompileCommand> = mapper.readValue(json)
         assertEquals(1, commands.size)
@@ -34,14 +34,15 @@ class CompileCommandsTest {
 
     @Test
     fun `parse compile command with arguments field`() {
-        val json = """
+        val json =
+            """
             [{
                 "directory": "/home/user/project",
                 "file": "main.cpp",
                 "output": "main.o",
                 "arguments": ["clang++", "-std=c++17", "-o", "main.o", "-c", "main.cpp"]
             }]
-        """.trimIndent()
+            """.trimIndent()
 
         val commands: List<CompileCommand> = mapper.readValue(json)
         assertEquals(1, commands.size)
@@ -56,7 +57,8 @@ class CompileCommandsTest {
 
     @Test
     fun `parse array of multiple compile commands`() {
-        val json = """
+        val json =
+            """
             [
                 {
                     "directory": "/project",
@@ -74,7 +76,7 @@ class CompileCommandsTest {
                     "file": "baz.c"
                 }
             ]
-        """.trimIndent()
+            """.trimIndent()
 
         val commands: List<CompileCommand> = mapper.readValue(json)
         assertEquals(3, commands.size)
@@ -102,19 +104,21 @@ class CompileCommandsTest {
 
         for (file in cExtensions) {
             val ext = file.substringAfterLast('.', "")
-            val result = when (ext) {
-                "c", "h" -> "-E -Wp,-v -xc $nullDevice"
-                else -> "-E -Wp,-v -xc++ $nullDevice"
-            }
+            val result =
+                when (ext) {
+                    "c", "h" -> "-E -Wp,-v -xc $nullDevice"
+                    else -> "-E -Wp,-v -xc++ $nullDevice"
+                }
             assertEquals(expectedC, result, "Expected C header type for file: $file")
         }
 
         for (file in cppExtensions) {
             val ext = file.substringAfterLast('.', "")
-            val result = when (ext) {
-                "c", "h" -> "-E -Wp,-v -xc $nullDevice"
-                else -> "-E -Wp,-v -xc++ $nullDevice"
-            }
+            val result =
+                when (ext) {
+                    "c", "h" -> "-E -Wp,-v -xc $nullDevice"
+                    else -> "-E -Wp,-v -xc++ $nullDevice"
+                }
             assertEquals(expectedCpp, result, "Expected C++ header type for file: $file")
         }
     }

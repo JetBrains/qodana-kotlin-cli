@@ -1,0 +1,5 @@
+# Project-level overrides on top of detekt's default config (buildUponDefaultConfig = true).
+# Keep this file small: only override what we deliberately want to change.
+#
+# Formatting rules are handled by ktlint, which runs separately. The detekt-formatting
+# ruleset is not added as a dependency (intentional), so no override is needed here.

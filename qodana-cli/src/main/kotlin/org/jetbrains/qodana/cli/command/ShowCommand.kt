@@ -16,7 +16,6 @@ import java.nio.file.Path
 class ShowCommand(
     private val terminal: Terminal,
 ) : CliktCommand("show") {
-
     override fun help(context: Context) = "Show a Qodana report"
 
     private val linter by option("-l", "--linter", help = "Override linter to use")
@@ -33,14 +32,15 @@ class ShowCommand(
         val absProjectDir = projectDir.toAbsolutePath().normalize()
         val yaml = CliPathResolver.loadYaml(absProjectDir, configName)
         val resolvedLinter = CliPathResolver.resolveLinterName(linter, yaml, absProjectDir)
-        val resolvedPaths = CliPathResolver.resolvePaths(
-            projectDir = absProjectDir,
-            linterName = resolvedLinter,
-            resultsDir = resultsDir,
-            cacheDir = null,
-            reportDir = reportDir,
-            runtimeEnvironment = RuntimeEnvironmentDetector.detect(),
-        )
+        val resolvedPaths =
+            CliPathResolver.resolvePaths(
+                projectDir = absProjectDir,
+                linterName = resolvedLinter,
+                resultsDir = resultsDir,
+                cacheDir = null,
+                reportDir = reportDir,
+                runtimeEnvironment = RuntimeEnvironmentDetector.detect(),
+            )
         val dir = resolvedPaths.reportDir
 
         if (openDir) {
@@ -54,12 +54,13 @@ class ShowCommand(
             return
         }
 
-        val showExitCode = ReportDisplay.showReport(
-            terminal = terminal,
-            resultsDir = resolvedPaths.resultsDir,
-            reportDir = dir,
-            port = port,
-        )
+        val showExitCode =
+            ReportDisplay.showReport(
+                terminal = terminal,
+                resultsDir = resolvedPaths.resultsDir,
+                reportDir = dir,
+                port = port,
+            )
         if (showExitCode != 0) {
             throw ProgramResult(showExitCode)
         }
@@ -68,19 +69,19 @@ class ShowCommand(
     private fun openDirectory(path: Path) {
         try {
             val os = System.getProperty("os.name").lowercase()
-            val cmd = when {
-                os.contains("mac") -> arrayOf("open", path.toString())
-                os.contains("linux") -> arrayOf("xdg-open", path.toString())
-                os.contains("windows") -> arrayOf("cmd", "/c", "start", path.toString())
-                else -> {
-                    terminal.println("Path: $path")
-                    return
+            val cmd =
+                when {
+                    os.contains("mac") -> arrayOf("open", path.toString())
+                    os.contains("linux") -> arrayOf("xdg-open", path.toString())
+                    os.contains("windows") -> arrayOf("cmd", "/c", "start", path.toString())
+                    else -> {
+                        terminal.println("Path: $path")
+                        return
+                    }
                 }
-            }
             Runtime.getRuntime().exec(cmd)
         } catch (_: Exception) {
             terminal.println("Could not open. Path: $path")
         }
     }
-
 }

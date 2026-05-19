@@ -5,10 +5,10 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 object SarifUtils {
-
     const val SARIF_EXTENSION = ".sarif.json"
 
     fun getSarifPath(resultsDir: String): String = "$resultsDir/qodana$SARIF_EXTENSION"
+
     fun getShortSarifPath(resultsDir: String): String = "$resultsDir/qodana-short$SARIF_EXTENSION"
 
     fun getSeverity(result: Map<String, Any?>): String {
@@ -42,9 +42,8 @@ object SarifUtils {
         }
     }
 
-    fun runGuid(envGuid: String? = System.getenv("QODANA_AUTOMATION_GUID")): String {
-        return if (!envGuid.isNullOrEmpty()) envGuid else UUID.randomUUID().toString()
-    }
+    fun runGuid(envGuid: String? = System.getenv("QODANA_AUTOMATION_GUID")): String =
+        if (!envGuid.isNullOrEmpty()) envGuid else UUID.randomUUID().toString()
 
     fun reportId(
         productCode: String,
@@ -57,23 +56,30 @@ object SarifUtils {
         return "$projectId/qodana/$date"
     }
 
-    fun jobUrl(envJobUrl: String? = System.getenv("QODANA_JOB_URL")): String {
-        return envJobUrl ?: ""
-    }
+    fun jobUrl(envJobUrl: String? = System.getenv("QODANA_JOB_URL")): String = envJobUrl ?: ""
 
-    fun findSarifFiles(root: java.nio.file.Path): List<java.nio.file.Path> {
-        return java.nio.file.Files.walk(root)
-            .filter { !java.nio.file.Files.isDirectory(it) }
-            .filter { it.fileName.toString().lowercase().endsWith(SARIF_EXTENSION) }
-            .sorted()
+    fun findSarifFiles(root: java.nio.file.Path): List<java.nio.file.Path> =
+        java.nio.file.Files
+            .walk(root)
+            .filter {
+                !java.nio.file.Files
+                    .isDirectory(it)
+            }.filter {
+                it.fileName
+                    .toString()
+                    .lowercase()
+                    .endsWith(SARIF_EXTENSION)
+            }.sorted()
             .toList()
-    }
 
     /**
      * Searches for a rule description (shortDescription.text) across all runs.
      */
     @Suppress("UNCHECKED_CAST")
-    fun getRuleDescription(report: Map<String, Any?>, ruleId: String): String {
+    fun getRuleDescription(
+        report: Map<String, Any?>,
+        ruleId: String,
+    ): String {
         val runs = report["runs"] as? List<Map<String, Any?>> ?: return ""
         for (run in runs) {
             val tool = run["tool"] as? Map<String, Any?> ?: continue

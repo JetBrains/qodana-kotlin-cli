@@ -5,8 +5,25 @@ import java.nio.file.Path
 
 interface SarifService {
     fun read(path: Path): Any
-    fun write(path: Path, report: Any)
-    fun merge(reports: List<Path>, output: Path)
-    fun baselineCompare(report: Path, baseline: Path, includeAbsent: Boolean = false): BaselineResult
-    fun normalizePaths(reportPath: Path, projectDir: Path)
+
+    fun write(
+        path: Path,
+        report: Any,
+    )
+
+    fun merge(
+        reports: List<Path>,
+        output: Path,
+    )
+
+    fun baselineCompare(
+        report: Path,
+        baseline: Path,
+        includeAbsent: Boolean = false,
+    ): BaselineResult
+
+    fun normalizePaths(
+        reportPath: Path,
+        projectDir: Path,
+    )
 }

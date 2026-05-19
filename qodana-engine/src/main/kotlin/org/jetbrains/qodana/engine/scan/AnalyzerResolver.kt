@@ -4,7 +4,6 @@ import org.jetbrains.qodana.core.product.Analyzer
 import org.jetbrains.qodana.core.product.Linters
 
 object AnalyzerResolver {
-
     /**
      * Resolves an analyzer from the IDE field in qodana.yaml.
      * Returns null if the IDE code is not recognized.

@@ -24,13 +24,15 @@ class ClangLinter(
         logger.info("Starting clang-tidy analysis for {}", context.paths.projectDir)
         val checks = ClangConfig.buildChecksArg(context.yaml)
 
-        val compileCommandsPath = Path.of(
-            context.compileCommands ?: "./build/compile_commands.json"
-        )
+        val compileCommandsPath =
+            Path.of(
+                context.compileCommands ?: "./build/compile_commands.json",
+            )
         val filesAndCompilers = compileCommands.getFilesAndCompilers(compileCommandsPath)
 
-        val clangPath = context.customTools["clang-tidy"]
-            ?: throw IllegalStateException("clang-tidy binary not found in mounted tools")
+        val clangPath =
+            context.customTools["clang-tidy"]
+                ?: throw IllegalStateException("clang-tidy binary not found in mounted tools")
 
         runner.runParallel(context, filesAndCompilers, checks, clangPath)
 
@@ -40,10 +42,12 @@ class ClangLinter(
 
     private fun mergeSarifReports(context: ThirdPartyScanContext) {
         val tmpResultsDir = context.paths.resultsDir.resolve("tmp")
-        val sarifFiles = Files.list(tmpResultsDir)
-            .filter { it.toString().endsWith(".sarif.json") }
-            .sorted()
-            .toList()
+        val sarifFiles =
+            Files
+                .list(tmpResultsDir)
+                .filter { it.toString().endsWith(".sarif.json") }
+                .sorted()
+                .toList()
 
         if (sarifFiles.isEmpty()) {
             terminal.warn("No SARIF reports found to merge")
@@ -95,7 +99,7 @@ class ClangLinter(
         if (!Files.exists(binaryPath)) {
             throw IllegalStateException(
                 "clang-tidy binary not found at $toolsDir. " +
-                "Ensure the clang-tidy archive is available for ${System.getProperty("os.name")}/${System.getProperty("os.arch")}"
+                    "Ensure the clang-tidy archive is available for ${System.getProperty("os.name")}/${System.getProperty("os.arch")}",
             )
         }
 

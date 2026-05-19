@@ -7,7 +7,6 @@ import com.jetbrains.fus.reporting.model.lion3.LogEvent
 import com.jetbrains.fus.reporting.model.lion3.ValidatedFusReport
 
 internal object FuserSerializer {
-
     fun serialize(request: ValidatedFusReport): String {
         val mapper = ObjectMapper()
         val obj = mapper.createObjectNode()
@@ -33,7 +32,10 @@ internal object FuserSerializer {
         return obj.toString()
     }
 
-    private fun eventToJson(mapper: ObjectMapper, event: LogEvent): ObjectNode {
+    private fun eventToJson(
+        mapper: ObjectMapper,
+        event: LogEvent,
+    ): ObjectNode {
         val obj = mapper.createObjectNode()
         obj.put("recorder_version", event.recorderVersion)
         obj.put("session", event.session)

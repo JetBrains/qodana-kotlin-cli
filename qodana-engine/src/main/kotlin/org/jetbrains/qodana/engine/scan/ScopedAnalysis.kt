@@ -4,7 +4,6 @@ package org.jetbrains.qodana.engine.scan
  * Utilities for building scoped and reverse-scoped analysis script strings and stage configurations.
  */
 object ScopedAnalysis {
-
     /**
      * Builds the script string for scoped analysis.
      */
@@ -13,10 +12,14 @@ object ScopedAnalysis {
     /**
      * Builds the script string for reverse-scoped analysis with a stage tag.
      */
-    fun reverseScopedScript(stage: ReverseStage, scopeFile: String): String =
-        "reverse-scoped:${stage.tag},$scopeFile"
+    fun reverseScopedScript(
+        stage: ReverseStage,
+        scopeFile: String,
+    ): String = "reverse-scoped:${stage.tag},$scopeFile"
 
-    enum class ReverseStage(val tag: String) {
+    enum class ReverseStage(
+        val tag: String,
+    ) {
         NEW("NEW"),
         OLD("OLD"),
         FIXES("FIXES"),
@@ -25,8 +28,10 @@ object ScopedAnalysis {
     enum class FinishStrategy {
         /** Finish after analysis. */
         ANY,
+
         /** Finish only if fixable issues found. */
         FIXABLE,
+
         /** Never finish early; always run all stages. */
         NEVER,
     }
@@ -43,44 +48,58 @@ object ScopedAnalysis {
 
     // --- Scoped Analysis Stages ---
 
-    fun firstStageOfScoped(scopeFile: String): StageConfig = StageConfig(
-        script = scopedScript(scopeFile),
-        skipResult = true,
-        skipCoverageComputation = true,
-        resultsSubDir = "start",
-    )
+    fun firstStageOfScoped(scopeFile: String): StageConfig =
+        StageConfig(
+            script = scopedScript(scopeFile),
+            skipResult = true,
+            skipCoverageComputation = true,
+            resultsSubDir = "start",
+        )
 
-    fun secondStageOfScoped(scopeFile: String, startSarif: String): StageConfig = StageConfig(
-        script = scopedScript(scopeFile),
-        baselineSarif = startSarif,
-        resultsSubDir = "end",
-    )
+    fun secondStageOfScoped(
+        scopeFile: String,
+        startSarif: String,
+    ): StageConfig =
+        StageConfig(
+            script = scopedScript(scopeFile),
+            baselineSarif = startSarif,
+            resultsSubDir = "end",
+        )
 
     // --- Reverse Scoped Analysis Stages ---
 
-    fun firstStageOfReverseScoped(scopeFile: String, reducedScopePath: String? = null): StageConfig = StageConfig(
-        script = reverseScopedScript(ReverseStage.NEW, scopeFile),
-        finishStrategy = FinishStrategy.ANY,
-        reducedScopePath = reducedScopePath,
-        resultsSubDir = "end",
-    )
+    fun firstStageOfReverseScoped(
+        scopeFile: String,
+        reducedScopePath: String? = null,
+    ): StageConfig =
+        StageConfig(
+            script = reverseScopedScript(ReverseStage.NEW, scopeFile),
+            finishStrategy = FinishStrategy.ANY,
+            reducedScopePath = reducedScopePath,
+            resultsSubDir = "end",
+        )
 
     fun secondStageOfReverseScoped(
         scopeFile: String,
         startSarif: String,
         applyFixes: Boolean = false,
         cleanup: Boolean = false,
-    ): StageConfig = StageConfig(
-        script = reverseScopedScript(ReverseStage.OLD, scopeFile),
-        baselineSarif = startSarif,
-        finishStrategy = if (applyFixes || cleanup) FinishStrategy.FIXABLE else FinishStrategy.NEVER,
-        resultsSubDir = "start",
-    )
+    ): StageConfig =
+        StageConfig(
+            script = reverseScopedScript(ReverseStage.OLD, scopeFile),
+            baselineSarif = startSarif,
+            finishStrategy = if (applyFixes || cleanup) FinishStrategy.FIXABLE else FinishStrategy.NEVER,
+            resultsSubDir = "start",
+        )
 
-    fun thirdStageOfReverseScoped(scopeFile: String, startSarif: String): StageConfig = StageConfig(
-        script = reverseScopedScript(ReverseStage.FIXES, scopeFile),
-        baselineSarif = startSarif,
-        finishStrategy = FinishStrategy.NEVER,
-        resultsSubDir = "fixes",
-    )
+    fun thirdStageOfReverseScoped(
+        scopeFile: String,
+        startSarif: String,
+    ): StageConfig =
+        StageConfig(
+            script = reverseScopedScript(ReverseStage.FIXES, scopeFile),
+            baselineSarif = startSarif,
+            finishStrategy = FinishStrategy.NEVER,
+            resultsSubDir = "fixes",
+        )
 }

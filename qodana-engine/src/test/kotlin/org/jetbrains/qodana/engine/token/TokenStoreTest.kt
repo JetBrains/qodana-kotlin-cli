@@ -7,7 +7,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class TokenStoreTest {
-
     @Test
     fun `EnvTokenStore loads from environment`() {
         val env = mapOf("QODANA_TOKEN" to "test-token-123")
@@ -40,20 +39,26 @@ class TokenStoreTest {
     }
 
     @Test
-    fun `FileTokenStore save and load`(@TempDir dir: Path) {
+    fun `FileTokenStore save and load`(
+        @TempDir dir: Path,
+    ) {
         val store = FileTokenStore(dir)
         store.save("QODANA_TOKEN", "my-secret-token")
         assertEquals("my-secret-token", store.load("QODANA_TOKEN"))
     }
 
     @Test
-    fun `FileTokenStore returns null for missing key`(@TempDir dir: Path) {
+    fun `FileTokenStore returns null for missing key`(
+        @TempDir dir: Path,
+    ) {
         val store = FileTokenStore(dir)
         assertNull(store.load("NONEXISTENT"))
     }
 
     @Test
-    fun `FileTokenStore delete removes token`(@TempDir dir: Path) {
+    fun `FileTokenStore delete removes token`(
+        @TempDir dir: Path,
+    ) {
         val store = FileTokenStore(dir)
         store.save("QODANA_TOKEN", "token-to-delete")
         assertEquals("token-to-delete", store.load("QODANA_TOKEN"))
@@ -62,7 +67,9 @@ class TokenStoreTest {
     }
 
     @Test
-    fun `FileTokenStore trims whitespace`(@TempDir dir: Path) {
+    fun `FileTokenStore trims whitespace`(
+        @TempDir dir: Path,
+    ) {
         val store = FileTokenStore(dir)
         store.save("TOKEN", "  token-with-spaces  ")
         // save stores as-is, but load trims
@@ -71,14 +78,18 @@ class TokenStoreTest {
     }
 
     @Test
-    fun `FileTokenStore returns null for blank file`(@TempDir dir: Path) {
+    fun `FileTokenStore returns null for blank file`(
+        @TempDir dir: Path,
+    ) {
         val store = FileTokenStore(dir)
         store.save("TOKEN", "   ")
         assertNull(store.load("TOKEN"))
     }
 
     @Test
-    fun `FileTokenStore multiple keys`(@TempDir dir: Path) {
+    fun `FileTokenStore multiple keys`(
+        @TempDir dir: Path,
+    ) {
         val store = FileTokenStore(dir)
         store.save("TOKEN_A", "value-a")
         store.save("TOKEN_B", "value-b")
@@ -87,7 +98,9 @@ class TokenStoreTest {
     }
 
     @Test
-    fun `FileTokenStore overwrite existing`(@TempDir dir: Path) {
+    fun `FileTokenStore overwrite existing`(
+        @TempDir dir: Path,
+    ) {
         val store = FileTokenStore(dir)
         store.save("TOKEN", "old-value")
         store.save("TOKEN", "new-value")

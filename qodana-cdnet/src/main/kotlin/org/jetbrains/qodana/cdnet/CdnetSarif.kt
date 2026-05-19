@@ -15,7 +15,11 @@ object CdnetSarif {
     private const val CLT_FINGERPRINT = "contextRegionHash/v1"
     private const val QODANA_FINGERPRINT = "equalIndicator/v1"
 
-    fun patchReport(sarifPath: Path, logDir: Path, fileSystem: FileSystem) {
+    fun patchReport(
+        sarifPath: Path,
+        logDir: Path,
+        fileSystem: FileSystem,
+    ) {
         logger.info("Patching cdnet SARIF report: {}", sarifPath)
         val backupPath = logDir.resolve("clt.original.sarif.json")
         fileSystem.copy(sarifPath, backupPath)

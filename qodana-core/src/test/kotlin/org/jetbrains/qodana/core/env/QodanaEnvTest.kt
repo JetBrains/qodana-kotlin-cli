@@ -5,7 +5,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class QodanaEnvTest {
-
     @Test
     fun `TOKEN constant is QODANA_TOKEN`() {
         assertEquals("QODANA_TOKEN", QodanaEnv.TOKEN)
@@ -45,8 +44,13 @@ class QodanaEnvTest {
     fun `all env var constants except DEFAULT_ENDPOINT start with QODANA prefix or are known system vars`() {
         val knownSystemVars = setOf("ANDROID_SDK_ROOT", "GEM_HOME", "BUNDLE_APP_CONFIG")
         val knownNonEnvFields = setOf("DEFAULT_ENDPOINT")
-        val fields = QodanaEnv::class.java.declaredFields
-            .filter { java.lang.reflect.Modifier.isStatic(it.modifiers) && it.type == String::class.java }
+        val fields =
+            QodanaEnv::class.java.declaredFields
+                .filter {
+                    java.lang.reflect.Modifier
+                        .isStatic(it.modifiers) &&
+                        it.type == String::class.java
+                }
 
         for (field in fields) {
             if (field.name in knownNonEnvFields) continue
@@ -54,7 +58,7 @@ class QodanaEnvTest {
             val value = field.get(null) as String
             assertTrue(
                 value.startsWith("QODANA_") || value in knownSystemVars,
-                "Env var ${field.name} = $value should start with QODANA_ or be a known system var"
+                "Env var ${field.name} = $value should start with QODANA_ or be a known system var",
             )
         }
     }

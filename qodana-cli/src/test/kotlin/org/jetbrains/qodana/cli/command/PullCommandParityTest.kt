@@ -19,9 +19,10 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class PullCommandParityTest {
-
     @Test
-    fun `unknown yaml linter fails with explicit error`(@TempDir dir: Path) {
+    fun `unknown yaml linter fails with explicit error`(
+        @TempDir dir: Path,
+    ) {
         Files.writeString(
             dir.resolve("qodana.yaml"),
             """
@@ -33,9 +34,10 @@ class PullCommandParityTest {
         val terminal = PullRecordingTerminal()
         val container = RecordingContainerEngine()
 
-        val error = assertFailsWith<ProgramResult> {
-            PullCommand(container, terminal).parse(listOf("-i", dir.toString()))
-        }
+        val error =
+            assertFailsWith<ProgramResult> {
+                PullCommand(container, terminal).parse(listOf("-i", dir.toString()))
+            }
 
         assertEquals(1, error.statusCode)
         assertTrue(terminal.errors.any { it.contains("Unknown linter 'totally-unknown-linter'") })
@@ -43,7 +45,9 @@ class PullCommandParityTest {
     }
 
     @Test
-    fun `withinDocker false with named yaml linter skips pull as native`(@TempDir dir: Path) {
+    fun `withinDocker false with named yaml linter skips pull as native`(
+        @TempDir dir: Path,
+    ) {
         Files.writeString(
             dir.resolve("qodana.yaml"),
             """
@@ -63,7 +67,9 @@ class PullCommandParityTest {
     }
 
     @Test
-    fun `withinDocker false with legacy image-as-linter still pulls docker image`(@TempDir dir: Path) {
+    fun `withinDocker false with legacy image-as-linter still pulls docker image`(
+        @TempDir dir: Path,
+    ) {
         val image = "jetbrains/qodana-jvm:2025.3"
         Files.writeString(
             dir.resolve("qodana.yaml"),
@@ -86,17 +92,29 @@ class PullCommandParityTest {
 private class RecordingContainerEngine : ContainerEngine {
     val pulledImages = mutableListOf<String>()
 
-    override suspend fun pull(image: String, onProgress: (String) -> Unit) {
+    override suspend fun pull(
+        image: String,
+        onProgress: (String) -> Unit,
+    ) {
         pulledImages += image
         onProgress("pulled $image")
     }
 
     override suspend fun create(spec: ContainerRunSpec): String = error("Not used in test")
+
     override suspend fun start(containerId: String) = error("Not used in test")
+
     override fun logs(containerId: String) = emptyFlow<LogEvent>()
+
     override suspend fun wait(containerId: String) = ContainerExitStatus(exitCode = 0)
-    override suspend fun remove(containerId: String, force: Boolean) = Unit
+
+    override suspend fun remove(
+        containerId: String,
+        force: Boolean,
+    ) = Unit
+
     override suspend fun info() = ContainerEngineInfo(EngineType.DOCKER, "test", null)
+
     override suspend fun imageExists(image: String) = false
 }
 
@@ -128,10 +146,23 @@ private class PullRecordingTerminal : Terminal {
         lines.add(message)
     }
 
-    override fun <T> spinner(message: String, action: () -> T): T = action()
-    override fun prompt(message: String, default: String?): String = default ?: ""
-    override fun select(message: String, choices: List<String>): String = choices.first()
+    override fun <T> spinner(
+        message: String,
+        action: () -> T,
+    ): T = action()
+
+    override fun prompt(
+        message: String,
+        default: String?,
+    ): String = default ?: ""
+
+    override fun select(
+        message: String,
+        choices: List<String>,
+    ): String = choices.first()
+
     override val isInteractive = false
     override var isCi = false
+
     override fun setRedactedTokens(tokens: Set<String>) {}
 }

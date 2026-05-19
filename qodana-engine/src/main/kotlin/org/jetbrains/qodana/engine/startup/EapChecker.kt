@@ -21,7 +21,10 @@ class EapChecker(
         val exitCode: Int = 0,
     )
 
-    fun checkAndPrint(buildDateStr: String, isEap: Boolean): EapResult {
+    fun checkAndPrint(
+        buildDateStr: String,
+        isEap: Boolean,
+    ): EapResult {
         val result = check(buildDateStr, isEap)
         if (result.message != null) {
             if (result.expired) terminal.error(result.message) else terminal.println(result.message)
@@ -29,36 +32,44 @@ class EapChecker(
         return result
     }
 
-    fun check(buildDateStr: String, isEap: Boolean): EapResult {
+    fun check(
+        buildDateStr: String,
+        isEap: Boolean,
+    ): EapResult {
         if (!isEap || !System.getenv(QodanaEnv.TREAT_AS_RELEASE).isNullOrBlank()) {
             return EapResult(expired = false, message = null)
         }
 
-        val buildDate = try {
-            ZonedDateTime.parse(buildDateStr, DateTimeFormatter.ISO_DATE_TIME).toInstant()
-        } catch (_: DateTimeParseException) {
-            return EapResult(
-                expired = true,
-                message = "Failed to parse build date",
-                exitCode = ExitCode.EAP_EXPIRED.code,
-            )
-        }
+        val buildDate =
+            try {
+                ZonedDateTime.parse(buildDateStr, DateTimeFormatter.ISO_DATE_TIME).toInstant()
+            } catch (_: DateTimeParseException) {
+                return EapResult(
+                    expired = true,
+                    message = "Failed to parse build date",
+                    exitCode = ExitCode.EAP_EXPIRED.code,
+                )
+            }
 
         val deadline = buildDate.plus(60, ChronoUnit.DAYS)
         val now = clock.now()
 
         return if (now.isAfter(deadline)) {
-            val message = if (isContainer) {
-                "EAP license of this Qodana image is expired. Please use \"docker pull\" to update image."
-            } else {
-                "EAP license of this Qodana linter is expired. Obtain the new one with the latest version of Qodana CLI."
-            }
+            val message =
+                if (isContainer) {
+                    "EAP license of this Qodana image is expired. Please use \"docker pull\" to update image."
+                } else {
+                    "EAP license of this Qodana linter is expired. Obtain the new one with the latest version of Qodana CLI."
+                }
             EapResult(expired = true, message = message, exitCode = ExitCode.EAP_EXPIRED.code)
         } else {
-            val dateStr = DateTimeFormatter.ofPattern("MMMM dd, yyyy")
-                .format(deadline.atZone(java.time.ZoneId.systemDefault()))
-            val agreement = if (isContainer) {
-                """
+            val dateStr =
+                DateTimeFormatter
+                    .ofPattern("MMMM dd, yyyy")
+                    .format(deadline.atZone(java.time.ZoneId.systemDefault()))
+            val agreement =
+                if (isContainer) {
+                    """
                 |
                 |By using this Docker image, you agree to
                 |- JetBrains Privacy Policy (https://jb.gg/jetbrains-privacy-policy)
@@ -67,9 +78,9 @@ class EapChecker(
                 |The Docker image includes an evaluation license.
                 |The license will expire on $dateStr.
                 |Please ensure you pull a new image on time.
-                """.trimMargin()
-            } else {
-                """
+                    """.trimMargin()
+                } else {
+                    """
                 |
                 |By using this linter, you agree to
                 |- JetBrains Privacy Policy (https://jb.gg/jetbrains-privacy-policy)
@@ -78,8 +89,8 @@ class EapChecker(
                 |The linter includes an evaluation license.
                 |The license will expire on $dateStr.
                 |Please ensure you obtain a new version on time.
-                """.trimMargin()
-            }
+                    """.trimMargin()
+                }
             EapResult(expired = false, message = agreement)
         }
     }

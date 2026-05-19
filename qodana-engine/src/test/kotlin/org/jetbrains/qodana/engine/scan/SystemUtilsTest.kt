@@ -5,12 +5,10 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SystemUtilsTest {
-
     @Test
     fun `isHomeDirectory true for home`() {
         val home = System.getProperty("user.home")
@@ -24,7 +22,9 @@ class SystemUtilsTest {
     }
 
     @Test
-    fun `isHomeDirectory false for tmp`(@TempDir dir: Path) {
+    fun `isHomeDirectory false for tmp`(
+        @TempDir dir: Path,
+    ) {
         assertFalse(SystemUtils.isHomeDirectory(dir.toString()))
     }
 

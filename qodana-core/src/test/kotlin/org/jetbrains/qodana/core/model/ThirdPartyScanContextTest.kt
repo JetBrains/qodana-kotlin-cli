@@ -8,32 +8,33 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ThirdPartyScanContextTest {
-
-    private fun testPaths() = ScanPaths(
-        projectDir = Path.of("/project"),
-        resultsDir = Path.of("/results"),
-        cacheDir = Path.of("/cache"),
-        reportDir = Path.of("/report"),
-    )
+    private fun testPaths() =
+        ScanPaths(
+            projectDir = Path.of("/project"),
+            resultsDir = Path.of("/results"),
+            cacheDir = Path.of("/cache"),
+            reportDir = Path.of("/report"),
+        )
 
     @Test
     fun `context stores all fields`() {
-        val ctx = ThirdPartyScanContext(
-            paths = testPaths(),
-            yaml = null,
-            linterDir = Path.of("/linter"),
-            logDir = Path.of("/logs"),
-            noBuild = true,
-            noStatistics = true,
-            configurationName = "Release",
-            platformName = "x64",
-            solutionPath = "solution.sln",
-            projectPath = "project.csproj",
-            compileCommands = "compile_commands.json",
-            clangArgs = "-Wall",
-            properties = listOf("prop=val"),
-            customTools = mapOf("clt" to Path.of("/usr/bin/clt")),
-        )
+        val ctx =
+            ThirdPartyScanContext(
+                paths = testPaths(),
+                yaml = null,
+                linterDir = Path.of("/linter"),
+                logDir = Path.of("/logs"),
+                noBuild = true,
+                noStatistics = true,
+                configurationName = "Release",
+                platformName = "x64",
+                solutionPath = "solution.sln",
+                projectPath = "project.csproj",
+                compileCommands = "compile_commands.json",
+                clangArgs = "-Wall",
+                properties = listOf("prop=val"),
+                customTools = mapOf("clt" to Path.of("/usr/bin/clt")),
+            )
 
         assertEquals(Path.of("/project"), ctx.paths.projectDir)
         assertEquals(Path.of("/results"), ctx.paths.resultsDir)
@@ -55,12 +56,13 @@ class ThirdPartyScanContextTest {
 
     @Test
     fun `defaults are sensible`() {
-        val ctx = ThirdPartyScanContext(
-            paths = testPaths(),
-            yaml = null,
-            linterDir = Path.of("/linter"),
-            logDir = Path.of("/logs"),
-        )
+        val ctx =
+            ThirdPartyScanContext(
+                paths = testPaths(),
+                yaml = null,
+                linterDir = Path.of("/linter"),
+                logDir = Path.of("/logs"),
+            )
 
         assertFalse(ctx.noBuild)
         assertFalse(ctx.noStatistics)
@@ -76,16 +78,18 @@ class ThirdPartyScanContextTest {
 
     @Test
     fun `custom tools lookup`() {
-        val ctx = ThirdPartyScanContext(
-            paths = testPaths(),
-            yaml = null,
-            linterDir = Path.of("/linter"),
-            logDir = Path.of("/logs"),
-            customTools = mapOf(
-                "clang" to Path.of("/usr/bin/clang-15"),
-                "clt" to Path.of("/tools/inspectcode.dll"),
-            ),
-        )
+        val ctx =
+            ThirdPartyScanContext(
+                paths = testPaths(),
+                yaml = null,
+                linterDir = Path.of("/linter"),
+                logDir = Path.of("/logs"),
+                customTools =
+                    mapOf(
+                        "clang" to Path.of("/usr/bin/clang-15"),
+                        "clt" to Path.of("/tools/inspectcode.dll"),
+                    ),
+            )
 
         assertEquals(Path.of("/usr/bin/clang-15"), ctx.customTools["clang"])
         assertEquals(Path.of("/tools/inspectcode.dll"), ctx.customTools["clt"])
@@ -95,13 +99,14 @@ class ThirdPartyScanContextTest {
     @Test
     fun `properties reflect source list updates`() {
         val props = mutableListOf("a=1", "b=2")
-        val ctx = ThirdPartyScanContext(
-            paths = testPaths(),
-            yaml = null,
-            linterDir = Path.of("/linter"),
-            logDir = Path.of("/logs"),
-            properties = props,
-        )
+        val ctx =
+            ThirdPartyScanContext(
+                paths = testPaths(),
+                yaml = null,
+                linterDir = Path.of("/linter"),
+                logDir = Path.of("/logs"),
+                properties = props,
+            )
 
         assertEquals(listOf("a=1", "b=2"), ctx.properties)
 
@@ -112,12 +117,13 @@ class ThirdPartyScanContextTest {
 
     @Test
     fun `data class copy works`() {
-        val ctx = ThirdPartyScanContext(
-            paths = testPaths(),
-            yaml = null,
-            linterDir = Path.of("/linter"),
-            logDir = Path.of("/logs"),
-        )
+        val ctx =
+            ThirdPartyScanContext(
+                paths = testPaths(),
+                yaml = null,
+                linterDir = Path.of("/linter"),
+                logDir = Path.of("/logs"),
+            )
 
         val updated = ctx.copy(noBuild = true, solutionPath = "app.sln")
         assertTrue(updated.noBuild)

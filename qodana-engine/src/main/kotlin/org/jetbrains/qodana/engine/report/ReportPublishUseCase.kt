@@ -13,16 +13,18 @@ class ReportPublishUseCase(
         reportPath: Path,
         auth: AuthContext,
     ): Result<PublishResult> {
-        val token = auth.token
-            ?: return Result.failure(IllegalStateException("Cannot publish report: no Qodana Cloud token provided"))
+        val token =
+            auth.token
+                ?: return Result.failure(IllegalStateException("Cannot publish report: no Qodana Cloud token provided"))
 
         return try {
-            val result = reportPublisher.publish(
-                analysisId = analysisId,
-                reportPath = reportPath,
-                token = token,
-                endpoint = auth.endpoint,
-            )
+            val result =
+                reportPublisher.publish(
+                    analysisId = analysisId,
+                    reportPath = reportPath,
+                    token = token,
+                    endpoint = auth.endpoint,
+                )
             Result.success(result)
         } catch (e: Exception) {
             Result.failure(e)

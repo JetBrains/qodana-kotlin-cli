@@ -8,27 +8,38 @@ import java.nio.file.StandardCopyOption
 import kotlin.io.path.*
 
 class NioFileSystem : FileSystem {
-
     override fun read(path: Path): String = path.readText()
 
     override fun readBytes(path: Path): ByteArray = path.readBytes()
 
-    override fun write(path: Path, content: String) {
+    override fun write(
+        path: Path,
+        content: String,
+    ) {
         path.parent?.let { Files.createDirectories(it) }
         path.writeText(content)
     }
 
-    override fun writeBytes(path: Path, content: ByteArray) {
+    override fun writeBytes(
+        path: Path,
+        content: ByteArray,
+    ) {
         path.parent?.let { Files.createDirectories(it) }
         path.writeBytes(content)
     }
 
-    override fun copy(source: Path, target: Path) {
+    override fun copy(
+        source: Path,
+        target: Path,
+    ) {
         target.parent?.let { Files.createDirectories(it) }
         Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
     }
 
-    override fun walk(root: Path, glob: String?): Sequence<Path> {
+    override fun walk(
+        root: Path,
+        glob: String?,
+    ): Sequence<Path> {
         if (!root.exists()) return emptySequence()
         return if (glob != null) {
             val matcher = FileSystems.getDefault().getPathMatcher("glob:$glob")
@@ -63,21 +74,29 @@ class NioFileSystem : FileSystem {
      *
      * Extracts to a temp dir first, then renames atomically — same as Go.
      */
-    override fun extractArchive(archive: Path, target: Path) {
-        val targetName = target.fileName?.toString()
-            ?: throw IllegalArgumentException("Invalid target directory")
+    override fun extractArchive(
+        archive: Path,
+        target: Path,
+    ) {
+        val targetName =
+            target.fileName?.toString()
+                ?: throw IllegalArgumentException("Invalid target directory")
 
-        val tempDir = Files.createTempDirectory("$targetName-").also {
-            // Clean up temp dir on failure
-            Runtime.getRuntime().addShutdownHook(Thread {
-                it.toFile().deleteRecursively()
-            })
-        }
+        val tempDir =
+            Files.createTempDirectory("$targetName-").also {
+                // Clean up temp dir on failure
+                Runtime.getRuntime().addShutdownHook(
+                    Thread {
+                        it.toFile().deleteRecursively()
+                    },
+                )
+            }
 
         try {
-            val process = ProcessBuilder("tar", "-xf", archive.toString(), "-C", tempDir.toString())
-                .redirectErrorStream(true)
-                .start()
+            val process =
+                ProcessBuilder("tar", "-xf", archive.toString(), "-C", tempDir.toString())
+                    .redirectErrorStream(true)
+                    .start()
             val output = process.inputStream.bufferedReader().readText()
             val exitCode = process.waitFor()
             if (exitCode != 0) {

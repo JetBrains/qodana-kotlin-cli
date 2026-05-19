@@ -8,11 +8,10 @@ enum class RuntimeEnvironment {
 }
 
 object RuntimeEnvironmentDetector {
-    fun detect(getEnv: (String) -> String? = System::getenv): RuntimeEnvironment {
-        return if (getEnv(QodanaEnv.DOCKER).isNullOrBlank()) {
+    fun detect(getEnv: (String) -> String? = System::getenv): RuntimeEnvironment =
+        if (getEnv(QodanaEnv.DOCKER).isNullOrBlank()) {
             RuntimeEnvironment.HOST
         } else {
             RuntimeEnvironment.IN_DOCKER
         }
-    }
 }

@@ -1,24 +1,27 @@
 package org.jetbrains.qodana.core.sarif
 
-import org.jetbrains.qodana.core.model.BaselineResult
-import org.jetbrains.qodana.core.port.SarifService
 import com.jetbrains.qodana.sarif.SarifUtil
 import com.jetbrains.qodana.sarif.baseline.BaselineCalculation
 import com.jetbrains.qodana.sarif.model.SarifReport
+import org.jetbrains.qodana.core.model.BaselineResult
+import org.jetbrains.qodana.core.port.SarifService
 import java.nio.file.Path
 
 class QodanaSarifService : SarifService {
+    override fun read(path: Path): Any = SarifUtil.readReport(path)
 
-    override fun read(path: Path): Any {
-        return SarifUtil.readReport(path)
-    }
-
-    override fun write(path: Path, report: Any) {
+    override fun write(
+        path: Path,
+        report: Any,
+    ) {
         require(report is SarifReport) { "Expected SarifReport but got ${report::class}" }
         SarifUtil.writeReport(path, report)
     }
 
-    override fun merge(reports: List<Path>, output: Path) {
+    override fun merge(
+        reports: List<Path>,
+        output: Path,
+    ) {
         if (reports.isEmpty()) return
         val first = SarifUtil.readReport(reports.first())
         for (i in 1 until reports.size) {
@@ -30,7 +33,11 @@ class QodanaSarifService : SarifService {
         SarifUtil.writeReport(output, first)
     }
 
-    override fun baselineCompare(report: Path, baseline: Path, includeAbsent: Boolean): BaselineResult {
+    override fun baselineCompare(
+        report: Path,
+        baseline: Path,
+        includeAbsent: Boolean,
+    ): BaselineResult {
         val reportData = SarifUtil.readReport(report)
         val baselineData = SarifUtil.readReport(baseline)
         val options = BaselineCalculation.Options(includeAbsent)
@@ -42,11 +49,15 @@ class QodanaSarifService : SarifService {
         )
     }
 
-    override fun normalizePaths(reportPath: Path, projectDir: Path) {
+    override fun normalizePaths(
+        reportPath: Path,
+        projectDir: Path,
+    ) {
         val report = SarifUtil.readReport(reportPath)
-        val projectDirPrefix = projectDir.toString().replace("\\", "/").let {
-            if (it.endsWith("/")) it else "$it/"
-        }
+        val projectDirPrefix =
+            projectDir.toString().replace("\\", "/").let {
+                if (it.endsWith("/")) it else "$it/"
+            }
         for (run in report.runs ?: emptyList()) {
             for (result in run.results ?: emptyList()) {
                 for (location in result.locations ?: emptyList()) {

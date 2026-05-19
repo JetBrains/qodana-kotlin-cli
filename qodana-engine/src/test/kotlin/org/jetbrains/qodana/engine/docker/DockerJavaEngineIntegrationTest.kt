@@ -2,7 +2,6 @@ package org.jetbrains.qodana.engine.docker
 
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withTimeout
 import org.jetbrains.qodana.engine.model.ContainerRunSpec
 import org.jetbrains.qodana.engine.model.MountSpec
 import org.jetbrains.qodana.engine.model.ResourceLimits
@@ -24,7 +23,6 @@ import kotlin.time.Duration.Companion.minutes
  * Skipped automatically if Docker is not available.
  */
 class DockerJavaEngineIntegrationTest {
-
     companion object {
         private lateinit var engine: DockerJavaEngine
         private const val ALPINE_IMAGE = "alpine:3.20"
@@ -43,119 +41,132 @@ class DockerJavaEngineIntegrationTest {
     }
 
     @Test
-    fun `info returns Docker or Podman engine`() = runTest {
-        val info = engine.info()
-        assertNotNull(info.version)
-        assertTrue(info.version.isNotBlank(), "Engine version should not be blank")
-        assertTrue(
-            info.engineType == EngineType.DOCKER || info.engineType == EngineType.PODMAN,
-            "Engine type should be Docker or Podman"
-        )
-    }
-
-    @Test
-    fun `pull image succeeds`() = runTest(timeout = 2.minutes) {
-        val messages = mutableListOf<String>()
-        engine.pull(ALPINE_IMAGE) { messages.add(it) }
-        assertTrue(messages.isNotEmpty(), "Should have received progress messages")
-        assertTrue(engine.imageExists(ALPINE_IMAGE), "Image should exist after pull")
-    }
-
-    @Test
-    fun `imageExists returns false for nonexistent image`() = runTest {
-        assertFalse(engine.imageExists("nonexistent/image:999.999.999"))
-    }
-
-    @Test
-    fun `create start logs wait remove lifecycle`() = runTest(timeout = 1.minutes) {
-        // Pull first
-        engine.pull(ALPINE_IMAGE) {}
-
-        val spec = ContainerRunSpec(
-            image = ALPINE_IMAGE,
-            cmd = listOf("echo", "hello from docker test"),
-        )
-
-        val containerId = engine.create(spec)
-        assertNotNull(containerId)
-        assertTrue(containerId.isNotBlank())
-
-        try {
-            engine.start(containerId)
-
-            val exitStatus = engine.wait(containerId)
-            assertEquals(0, exitStatus.exitCode, "Container should exit with code 0")
-            assertFalse(exitStatus.oomKilled, "Container should not be OOM killed")
-        } finally {
-            engine.remove(containerId, force = true)
+    fun `info returns Docker or Podman engine`() =
+        runTest {
+            val info = engine.info()
+            assertNotNull(info.version)
+            assertTrue(info.version.isNotBlank(), "Engine version should not be blank")
+            assertTrue(
+                info.engineType == EngineType.DOCKER || info.engineType == EngineType.PODMAN,
+                "Engine type should be Docker or Podman",
+            )
         }
-    }
 
     @Test
-    fun `container logs are captured`() = runTest(timeout = 1.minutes) {
-        engine.pull(ALPINE_IMAGE) {}
-
-        val spec = ContainerRunSpec(
-            image = ALPINE_IMAGE,
-            cmd = listOf("sh", "-c", "echo stdout-line && echo stderr-line >&2"),
-        )
-
-        val containerId = engine.create(spec)
-        try {
-            engine.start(containerId)
-
-            // Wait for container to finish
-            engine.wait(containerId)
-
-            // Collect logs after container has finished
-            val logs = engine.logs(containerId).toList()
-            val allText = logs.joinToString("\n") { it.text }
-
-            assertTrue(allText.contains("stdout-line"), "Should capture stdout: got $allText")
-            assertTrue(allText.contains("stderr-line"), "Should capture stderr: got $allText")
-        } finally {
-            engine.remove(containerId, force = true)
+    fun `pull image succeeds`() =
+        runTest(timeout = 2.minutes) {
+            val messages = mutableListOf<String>()
+            engine.pull(ALPINE_IMAGE) { messages.add(it) }
+            assertTrue(messages.isNotEmpty(), "Should have received progress messages")
+            assertTrue(engine.imageExists(ALPINE_IMAGE), "Image should exist after pull")
         }
-    }
 
     @Test
-    fun `container with non-zero exit code`() = runTest(timeout = 1.minutes) {
-        engine.pull(ALPINE_IMAGE) {}
-
-        val spec = ContainerRunSpec(
-            image = ALPINE_IMAGE,
-            cmd = listOf("sh", "-c", "exit 42"),
-        )
-
-        val containerId = engine.create(spec)
-        try {
-            engine.start(containerId)
-            val exitStatus = engine.wait(containerId)
-            assertEquals(42, exitStatus.exitCode, "Should capture non-zero exit code")
-        } finally {
-            engine.remove(containerId, force = true)
+    fun `imageExists returns false for nonexistent image`() =
+        runTest {
+            assertFalse(engine.imageExists("nonexistent/image:999.999.999"))
         }
-    }
 
     @Test
-    fun `container with volume mount`(@TempDir tempDir: Path) = runTest(timeout = 1.minutes) {
+    fun `create start logs wait remove lifecycle`() =
+        runTest(timeout = 1.minutes) {
+            // Pull first
+            engine.pull(ALPINE_IMAGE) {}
+
+            val spec =
+                ContainerRunSpec(
+                    image = ALPINE_IMAGE,
+                    cmd = listOf("echo", "hello from docker test"),
+                )
+
+            val containerId = engine.create(spec)
+            assertNotNull(containerId)
+            assertTrue(containerId.isNotBlank())
+
+            try {
+                engine.start(containerId)
+
+                val exitStatus = engine.wait(containerId)
+                assertEquals(0, exitStatus.exitCode, "Container should exit with code 0")
+                assertFalse(exitStatus.oomKilled, "Container should not be OOM killed")
+            } finally {
+                engine.remove(containerId, force = true)
+            }
+        }
+
+    @Test
+    fun `container logs are captured`() =
+        runTest(timeout = 1.minutes) {
+            engine.pull(ALPINE_IMAGE) {}
+
+            val spec =
+                ContainerRunSpec(
+                    image = ALPINE_IMAGE,
+                    cmd = listOf("sh", "-c", "echo stdout-line && echo stderr-line >&2"),
+                )
+
+            val containerId = engine.create(spec)
+            try {
+                engine.start(containerId)
+
+                // Wait for container to finish
+                engine.wait(containerId)
+
+                // Collect logs after container has finished
+                val logs = engine.logs(containerId).toList()
+                val allText = logs.joinToString("\n") { it.text }
+
+                assertTrue(allText.contains("stdout-line"), "Should capture stdout: got $allText")
+                assertTrue(allText.contains("stderr-line"), "Should capture stderr: got $allText")
+            } finally {
+                engine.remove(containerId, force = true)
+            }
+        }
+
+    @Test
+    fun `container with non-zero exit code`() =
+        runTest(timeout = 1.minutes) {
+            engine.pull(ALPINE_IMAGE) {}
+
+            val spec =
+                ContainerRunSpec(
+                    image = ALPINE_IMAGE,
+                    cmd = listOf("sh", "-c", "exit 42"),
+                )
+
+            val containerId = engine.create(spec)
+            try {
+                engine.start(containerId)
+                val exitStatus = engine.wait(containerId)
+                assertEquals(42, exitStatus.exitCode, "Should capture non-zero exit code")
+            } finally {
+                engine.remove(containerId, force = true)
+            }
+        }
+
+    @Test
+    fun `container with volume mount`(
+        @TempDir tempDir: Path,
+    ) = runTest(timeout = 1.minutes) {
         engine.pull(ALPINE_IMAGE) {}
 
         // Write a file on the host
         val testFile = tempDir.resolve("input.txt")
         Files.writeString(testFile, "mount-test-content")
 
-        val spec = ContainerRunSpec(
-            image = ALPINE_IMAGE,
-            mounts = listOf(
-                MountSpec(
-                    hostPath = tempDir.toString(),
-                    containerPath = "/data",
-                    readOnly = true,
-                )
-            ),
-            cmd = listOf("cat", "/data/input.txt"),
-        )
+        val spec =
+            ContainerRunSpec(
+                image = ALPINE_IMAGE,
+                mounts =
+                    listOf(
+                        MountSpec(
+                            hostPath = tempDir.toString(),
+                            containerPath = "/data",
+                            readOnly = true,
+                        ),
+                    ),
+                cmd = listOf("cat", "/data/input.txt"),
+            )
 
         val containerId = engine.create(spec)
         try {
@@ -171,94 +182,106 @@ class DockerJavaEngineIntegrationTest {
     }
 
     @Test
-    fun `container with environment variables`() = runTest(timeout = 1.minutes) {
-        engine.pull(ALPINE_IMAGE) {}
+    fun `container with environment variables`() =
+        runTest(timeout = 1.minutes) {
+            engine.pull(ALPINE_IMAGE) {}
 
-        val spec = ContainerRunSpec(
-            image = ALPINE_IMAGE,
-            env = mapOf(
-                "TEST_VAR" to "hello-env",
-                "ANOTHER_VAR" to "world",
-            ),
-            cmd = listOf("sh", "-c", "echo \$TEST_VAR-\$ANOTHER_VAR"),
-        )
+            val spec =
+                ContainerRunSpec(
+                    image = ALPINE_IMAGE,
+                    env =
+                        mapOf(
+                            "TEST_VAR" to "hello-env",
+                            "ANOTHER_VAR" to "world",
+                        ),
+                    cmd = listOf("sh", "-c", "echo \$TEST_VAR-\$ANOTHER_VAR"),
+                )
 
-        val containerId = engine.create(spec)
-        try {
-            engine.start(containerId)
-            engine.wait(containerId)
+            val containerId = engine.create(spec)
+            try {
+                engine.start(containerId)
+                engine.wait(containerId)
 
-            val logs = engine.logs(containerId).toList()
-            val output = logs.joinToString("") { it.text }
-            assertTrue(output.contains("hello-env-world"), "Should see env vars: got $output")
-        } finally {
-            engine.remove(containerId, force = true)
+                val logs = engine.logs(containerId).toList()
+                val output = logs.joinToString("") { it.text }
+                assertTrue(output.contains("hello-env-world"), "Should see env vars: got $output")
+            } finally {
+                engine.remove(containerId, force = true)
+            }
         }
-    }
 
     @Test
-    fun `container with resource limits`() = runTest(timeout = 1.minutes) {
-        engine.pull(ALPINE_IMAGE) {}
+    fun `container with resource limits`() =
+        runTest(timeout = 1.minutes) {
+            engine.pull(ALPINE_IMAGE) {}
 
-        val spec = ContainerRunSpec(
-            image = ALPINE_IMAGE,
-            resources = ResourceLimits(
-                memoryBytes = 64 * 1024 * 1024, // 64MB
-                cpuCount = 1,
-            ),
-            cmd = listOf("echo", "resource-limited"),
-        )
+            val spec =
+                ContainerRunSpec(
+                    image = ALPINE_IMAGE,
+                    resources =
+                        ResourceLimits(
+                            memoryBytes = 64 * 1024 * 1024, // 64MB
+                            cpuCount = 1,
+                        ),
+                    cmd = listOf("echo", "resource-limited"),
+                )
 
-        val containerId = engine.create(spec)
-        try {
-            engine.start(containerId)
-            val exitStatus = engine.wait(containerId)
-            assertEquals(0, exitStatus.exitCode)
-        } finally {
-            engine.remove(containerId, force = true)
+            val containerId = engine.create(spec)
+            try {
+                engine.start(containerId)
+                val exitStatus = engine.wait(containerId)
+                assertEquals(0, exitStatus.exitCode)
+            } finally {
+                engine.remove(containerId, force = true)
+            }
         }
-    }
 
     @Test
-    fun `container with custom entrypoint`() = runTest(timeout = 1.minutes) {
-        engine.pull(ALPINE_IMAGE) {}
+    fun `container with custom entrypoint`() =
+        runTest(timeout = 1.minutes) {
+            engine.pull(ALPINE_IMAGE) {}
 
-        val spec = ContainerRunSpec(
-            image = ALPINE_IMAGE,
-            entrypoint = listOf("sh", "-c"),
-            cmd = listOf("echo custom-entrypoint-works"),
-        )
+            val spec =
+                ContainerRunSpec(
+                    image = ALPINE_IMAGE,
+                    entrypoint = listOf("sh", "-c"),
+                    cmd = listOf("echo custom-entrypoint-works"),
+                )
 
-        val containerId = engine.create(spec)
-        try {
-            engine.start(containerId)
-            engine.wait(containerId)
+            val containerId = engine.create(spec)
+            try {
+                engine.start(containerId)
+                engine.wait(containerId)
 
-            val logs = engine.logs(containerId).toList()
-            val output = logs.joinToString("") { it.text }
-            assertTrue(output.contains("custom-entrypoint-works"), "Should use custom entrypoint: got $output")
-        } finally {
-            engine.remove(containerId, force = true)
+                val logs = engine.logs(containerId).toList()
+                val output = logs.joinToString("") { it.text }
+                assertTrue(output.contains("custom-entrypoint-works"), "Should use custom entrypoint: got $output")
+            } finally {
+                engine.remove(containerId, force = true)
+            }
         }
-    }
 
     @Test
-    fun `container writes output file to mounted volume`(@TempDir tempDir: Path) = runTest(timeout = 1.minutes) {
+    fun `container writes output file to mounted volume`(
+        @TempDir tempDir: Path,
+    ) = runTest(timeout = 1.minutes) {
         engine.pull(ALPINE_IMAGE) {}
 
         val outputDir = tempDir.resolve("output")
         Files.createDirectories(outputDir)
 
-        val spec = ContainerRunSpec(
-            image = ALPINE_IMAGE,
-            mounts = listOf(
-                MountSpec(
-                    hostPath = outputDir.toString(),
-                    containerPath = "/output",
-                )
-            ),
-            cmd = listOf("sh", "-c", "echo '{\"version\":\"2.1.0\"}' > /output/result.json"),
-        )
+        val spec =
+            ContainerRunSpec(
+                image = ALPINE_IMAGE,
+                mounts =
+                    listOf(
+                        MountSpec(
+                            hostPath = outputDir.toString(),
+                            containerPath = "/output",
+                        ),
+                    ),
+                cmd = listOf("sh", "-c", "echo '{\"version\":\"2.1.0\"}' > /output/result.json"),
+            )
 
         val containerId = engine.create(spec)
         try {

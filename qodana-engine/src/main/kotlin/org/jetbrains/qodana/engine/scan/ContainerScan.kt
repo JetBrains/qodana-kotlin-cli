@@ -1,23 +1,24 @@
 package org.jetbrains.qodana.engine.scan
 
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.qodana.core.env.QodanaEnv
 import org.jetbrains.qodana.core.model.*
+import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.engine.model.*
 import org.jetbrains.qodana.engine.port.ContainerEngine
-import org.jetbrains.qodana.core.port.Terminal
 
 class ContainerScan(
     private val containerEngine: ContainerEngine,
     private val terminal: Terminal,
 ) {
     suspend fun run(context: ScanContext): Int {
-        val image = context.docker.image
-            ?: throw IllegalStateException("No Docker image specified for container scan")
+        val image =
+            context.docker.image
+                ?: throw IllegalStateException("No Docker image specified for container scan")
 
         if (ContainerImageUtils.isUnofficialLinter(image)) {
             terminal.warn("You are using an unofficial Qodana linter: $image")
@@ -67,15 +68,16 @@ class ContainerScan(
             containerEngine.start(containerId)
 
             coroutineScope {
-                val logsJob = launch {
-                    containerEngine.logs(containerId)
-                        .onEach { event ->
-                            stageTracker.onChunk(event.text)
-                            outputRenderer.render(event.text)
-                        }
-                        .collect()
-                    stageTracker.flush()
-                }
+                val logsJob =
+                    launch {
+                        containerEngine
+                            .logs(containerId)
+                            .onEach { event ->
+                                stageTracker.onChunk(event.text)
+                                outputRenderer.render(event.text)
+                            }.collect()
+                        stageTracker.flush()
+                    }
 
                 val exitStatus = containerEngine.wait(containerId)
                 logsJob.join()
@@ -147,76 +149,99 @@ class ContainerScan(
         }
     }
 
-    private fun buildContainerSpec(context: ScanContext, image: String): ContainerRunSpec {
-        val mounts = buildList {
-            add(MountSpec(
-                hostPath = context.paths.repositoryRoot.toString(),
-                containerPath = "/data/project",
-            ))
-            add(MountSpec(
-                hostPath = context.paths.resultsDir.toString(),
-                containerPath = "/data/results",
-            ))
-            add(MountSpec(
-                hostPath = context.paths.reportDir.toString(),
-                containerPath = "/data/results/report",
-            ))
-            add(MountSpec(
-                hostPath = context.paths.cacheDir.toString(),
-                containerPath = "/data/cache",
-            ))
-            context.runtime.globalConfigDir?.let {
-                add(MountSpec(
-                    hostPath = it.toString(),
-                    containerPath = "/data/config",
-                    readOnly = true,
-                ))
-            }
-            context.runtime.coverageDir?.let {
-                add(MountSpec(
-                    hostPath = it.toString(),
-                    containerPath = "/data/coverage",
-                    readOnly = true,
-                ))
-            }
-            for (volume in context.docker.volumes) {
-                val parts = volume.split(":")
-                if (parts.size >= 2) {
-                    add(MountSpec(
-                        hostPath = parts[0],
-                        containerPath = parts[1],
-                        readOnly = parts.getOrNull(2) == "ro",
-                    ))
+    private fun buildContainerSpec(
+        context: ScanContext,
+        image: String,
+    ): ContainerRunSpec {
+        val mounts =
+            buildList {
+                add(
+                    MountSpec(
+                        hostPath = context.paths.repositoryRoot.toString(),
+                        containerPath = "/data/project",
+                    ),
+                )
+                add(
+                    MountSpec(
+                        hostPath = context.paths.resultsDir.toString(),
+                        containerPath = "/data/results",
+                    ),
+                )
+                add(
+                    MountSpec(
+                        hostPath = context.paths.reportDir.toString(),
+                        containerPath = "/data/results/report",
+                    ),
+                )
+                add(
+                    MountSpec(
+                        hostPath = context.paths.cacheDir.toString(),
+                        containerPath = "/data/cache",
+                    ),
+                )
+                context.runtime.globalConfigDir?.let {
+                    add(
+                        MountSpec(
+                            hostPath = it.toString(),
+                            containerPath = "/data/config",
+                            readOnly = true,
+                        ),
+                    )
+                }
+                context.runtime.coverageDir?.let {
+                    add(
+                        MountSpec(
+                            hostPath = it.toString(),
+                            containerPath = "/data/coverage",
+                            readOnly = true,
+                        ),
+                    )
+                }
+                for (volume in context.docker.volumes) {
+                    val parts = volume.split(":")
+                    if (parts.size >= 2) {
+                        add(
+                            MountSpec(
+                                hostPath = parts[0],
+                                containerPath = parts[1],
+                                readOnly = parts.getOrNull(2) == "ro",
+                            ),
+                        )
+                    }
                 }
             }
-        }
 
-        val env = buildMap {
-            putAll(context.docker.envVars)
-            context.auth.token?.let { put("QODANA_TOKEN", it) }
-            context.auth.licenseOnlyToken?.let { put("QODANA_LICENSE_ONLY_TOKEN", it) }
-            for ((key, value) in context.runtime.envVars) {
-                if (key.startsWith("qodana.", ignoreCase = true) || key.startsWith("QODANA_")) {
-                    put(key, value)
+        val env =
+            buildMap {
+                putAll(context.docker.envVars)
+                context.auth.token?.let { put("QODANA_TOKEN", it) }
+                context.auth.licenseOnlyToken?.let { put("QODANA_LICENSE_ONLY_TOKEN", it) }
+                for ((key, value) in context.runtime.envVars) {
+                    if (key.startsWith("qodana.", ignoreCase = true) || key.startsWith("QODANA_")) {
+                        put(key, value)
+                    }
                 }
             }
-        }
 
-        val isDotnet = image.contains("dotnet", ignoreCase = true) ||
-            image.contains("cdnet", ignoreCase = true)
+        val isDotnet =
+            image.contains("dotnet", ignoreCase = true) ||
+                image.contains("cdnet", ignoreCase = true)
 
         val capAdd = if (isDotnet) listOf("SYS_PTRACE") else emptyList()
         val securityOpts = if (isDotnet) listOf("seccomp=unconfined") else emptyList()
 
-        val portBindings = context.runtime.jvmDebugPort?.let {
-            mapOf(5005 to it)
-        } ?: emptyMap()
+        val portBindings =
+            context.runtime.jvmDebugPort?.let {
+                mapOf(5005 to it)
+            } ?: emptyMap()
 
         val exposedPorts = if (portBindings.isNotEmpty()) listOf(5005) else emptyList()
 
         val containerName = System.getenv(QodanaEnv.CLI_CONTAINER_NAME)
-        val resolvedUser = ContainerImageUtils.selectUser(image, context.docker.user ?: "auto")
-            .ifBlank { null }
+        val resolvedUser =
+            ContainerImageUtils
+                .selectUser(image, context.docker.user ?: "auto")
+                .ifBlank { null }
         val cmd = IdeArgBuilder.build(context)
 
         return ContainerRunSpec(
@@ -224,10 +249,11 @@ class ContainerScan(
             name = containerName,
             mounts = mounts,
             env = env,
-            resources = ResourceLimits(
-                memoryBytes = context.docker.memoryLimit,
-                cpuCount = context.docker.cpuLimit,
-            ),
+            resources =
+                ResourceLimits(
+                    memoryBytes = context.docker.memoryLimit,
+                    cpuCount = context.docker.cpuLimit,
+                ),
             user = resolvedUser,
             cmd = cmd,
             capAdd = capAdd,

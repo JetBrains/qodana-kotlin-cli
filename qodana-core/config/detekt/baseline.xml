@@ -1,0 +1,24 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>LoopWithTooManyJumpStatements:SystemProcessRunner.kt$SystemRunningProcess$while</ID>
+    <ID>LoopWithTooManyJumpStatements:SystemProcessRunner.kt$while</ID>
+    <ID>MagicNumber:ExitCode.kt$ExitCode.EAP_EXPIRED$7</ID>
+    <ID>MagicNumber:ExitCode.kt$ExitCode.FAIL_THRESHOLD$255</ID>
+    <ID>MagicNumber:Linters.kt$Linters$4</ID>
+    <ID>MagicNumber:SystemProcessRunner.kt$4096</ID>
+    <ID>MagicNumber:SystemProcessRunner.kt$SystemProcessRunner$5000</ID>
+    <ID>MaxLineLength:LintersTest.kt$LintersTest$val expectedLangs = listOf("Java", "Kotlin", "PHP", "Python", "JavaScript", "TypeScript", "Go", "C#", "C", "C++", "Ruby", "Rust")</ID>
+    <ID>TooGenericExceptionCaught:NioFileSystem.kt$NioFileSystem$e: Exception</ID>
+    <ID>TooGenericExceptionThrown:NioFileSystem.kt$NioFileSystem$throw RuntimeException("tar extraction failed (exit $exitCode): $output")</ID>
+    <ID>TooManyFunctions:FileSystem.kt$FileSystem</ID>
+    <ID>TooManyFunctions:MordantTerminal.kt$MordantTerminal : Terminal</ID>
+    <ID>TooManyFunctions:NioFileSystem.kt$NioFileSystem : FileSystem</ID>
+    <ID>TooManyFunctions:Terminal.kt$Terminal</ID>
+    <ID>WildcardImport:ExitCodeTest.kt$import kotlin.test.*</ID>
+    <ID>WildcardImport:NioFileSystem.kt$import kotlin.io.path.*</ID>
+    <ID>WildcardImport:ProcessResultTest.kt$import kotlin.test.*</ID>
+    <ID>WildcardImport:QodanaErrorTest.kt$import kotlin.test.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

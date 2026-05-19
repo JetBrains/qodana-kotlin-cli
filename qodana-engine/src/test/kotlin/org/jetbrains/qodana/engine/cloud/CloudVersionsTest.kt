@@ -4,11 +4,9 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 class CloudVersionsTest {
-
     @Test
     fun `toCloudVersion parses valid version`() {
         val result = toCloudVersion("1.0")
@@ -43,28 +41,31 @@ class CloudVersionsTest {
 
     @Test
     fun `selectSupportedVersion finds matching version`() {
-        val descriptions = listOf(
-            ApiVersionDescription("1.0", "https://api.v1"),
-            ApiVersionDescription("2.0", "https://api.v2"),
-        )
+        val descriptions =
+            listOf(
+                ApiVersionDescription("1.0", "https://api.v1"),
+                ApiVersionDescription("2.0", "https://api.v2"),
+            )
         assertEquals("https://api.v1", selectSupportedVersion(descriptions))
     }
 
     @Test
     fun `selectSupportedVersion returns empty when no match`() {
-        val descriptions = listOf(
-            ApiVersionDescription("2.0", "https://api.v2"),
-            ApiVersionDescription("3.0", "https://api.v3"),
-        )
+        val descriptions =
+            listOf(
+                ApiVersionDescription("2.0", "https://api.v2"),
+                ApiVersionDescription("3.0", "https://api.v3"),
+            )
         assertEquals("", selectSupportedVersion(descriptions))
     }
 
     @Test
     fun `selectSupportedVersion picks first match`() {
-        val descriptions = listOf(
-            ApiVersionDescription("1.0", "https://first"),
-            ApiVersionDescription("1.1", "https://second"),
-        )
+        val descriptions =
+            listOf(
+                ApiVersionDescription("1.0", "https://first"),
+                ApiVersionDescription("1.1", "https://second"),
+            )
         assertEquals("https://first", selectSupportedVersion(descriptions))
     }
 
@@ -75,10 +76,11 @@ class CloudVersionsTest {
 
     @Test
     fun `extractVersions returns version strings`() {
-        val descriptions = listOf(
-            ApiVersionDescription("1.0", "https://a"),
-            ApiVersionDescription("2.5", "https://b"),
-        )
+        val descriptions =
+            listOf(
+                ApiVersionDescription("1.0", "https://a"),
+                ApiVersionDescription("2.5", "https://b"),
+            )
         assertEquals(listOf("1.0", "2.5"), extractVersions(descriptions))
     }
 
@@ -117,14 +119,18 @@ class CloudVersionsTest {
     }
 
     @Test
-    fun `getReportUrl from open-in-ide json`(@TempDir dir: Path) {
+    fun `getReportUrl from open-in-ide json`(
+        @TempDir dir: Path,
+    ) {
         val file = dir.resolve("open-in-ide.json").toFile()
         file.writeText("""{"cloud":{"url":"https://qodana.cloud/report/123"}}""")
         assertEquals("https://qodana.cloud/report/123", getReportUrl(dir.toString()))
     }
 
     @Test
-    fun `getReportUrl returns empty when file missing`(@TempDir dir: Path) {
+    fun `getReportUrl returns empty when file missing`(
+        @TempDir dir: Path,
+    ) {
         assertEquals("", getReportUrl(dir.toString()))
     }
 

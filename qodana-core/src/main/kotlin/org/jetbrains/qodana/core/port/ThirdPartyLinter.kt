@@ -5,5 +5,6 @@ import java.nio.file.Path
 
 interface ThirdPartyLinter {
     fun mountTools(targetPath: Path): Map<String, Path>
+
     suspend fun runAnalysis(context: ThirdPartyScanContext)
 }

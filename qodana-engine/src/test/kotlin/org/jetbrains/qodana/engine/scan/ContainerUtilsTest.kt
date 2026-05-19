@@ -8,7 +8,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ContainerUtilsTest {
-
     // --- selectUser ---
 
     @Test
@@ -35,7 +34,12 @@ class ContainerUtilsTest {
 
     @Test
     fun `selectUser auto with registry privileged image`() {
-        val result = ContainerUtils.selectUser("registry.jetbrains.team/p/sa/containers/qodana-jvm-privileged:latest", "auto", defaultUser = "1000:1000")
+        val result =
+            ContainerUtils.selectUser(
+                "registry.jetbrains.team/p/sa/containers/qodana-jvm-privileged:latest",
+                "auto",
+                defaultUser = "1000:1000",
+            )
         assertEquals("", result)
     }
 
@@ -44,7 +48,12 @@ class ContainerUtilsTest {
     @Test
     fun `encodeAuthToBase64 basic auth`() {
         val encoded = ContainerUtils.encodeAuthToBase64("user", "pass")
-        val decoded = String(java.util.Base64.getUrlDecoder().decode(encoded))
+        val decoded =
+            String(
+                java.util.Base64
+                    .getUrlDecoder()
+                    .decode(encoded),
+            )
         assertTrue(decoded.contains("\"username\":\"user\""))
         assertTrue(decoded.contains("\"password\":\"pass\""))
     }
@@ -52,14 +61,24 @@ class ContainerUtilsTest {
     @Test
     fun `encodeAuthToBase64 with server`() {
         val encoded = ContainerUtils.encodeAuthToBase64("user", "pass", "https://registry.example.com")
-        val decoded = String(java.util.Base64.getUrlDecoder().decode(encoded))
+        val decoded =
+            String(
+                java.util.Base64
+                    .getUrlDecoder()
+                    .decode(encoded),
+            )
         assertTrue(decoded.contains("\"serveraddress\":\"https://registry.example.com\""))
     }
 
     @Test
     fun `encodeAuthToBase64 empty auth`() {
         val encoded = ContainerUtils.encodeAuthToBase64("", "")
-        val decoded = String(java.util.Base64.getUrlDecoder().decode(encoded))
+        val decoded =
+            String(
+                java.util.Base64
+                    .getUrlDecoder()
+                    .decode(encoded),
+            )
         assertTrue(decoded.contains("\"username\":\"\""))
     }
 
@@ -214,20 +233,22 @@ class ContainerUtilsTest {
 
     @Test
     fun `generateDebugDockerRunCommand filters QODANA_TOKEN`() {
-        val cmd = ContainerUtils.generateDebugDockerRunCommand(
-            "img",
-            envVars = listOf("QODANA_TOKEN=secret", "OTHER=keep"),
-        )
+        val cmd =
+            ContainerUtils.generateDebugDockerRunCommand(
+                "img",
+                envVars = listOf("QODANA_TOKEN=secret", "OTHER=keep"),
+            )
         assertFalse(cmd.contains("QODANA_TOKEN"))
         assertTrue(cmd.contains("OTHER=keep"))
     }
 
     @Test
     fun `generateDebugDockerRunCommand keeps license token vars`() {
-        val cmd = ContainerUtils.generateDebugDockerRunCommand(
-            "img",
-            envVars = listOf("QODANA_TOKEN=x", "QodanaLicenseOnlyToken=y"),
-        )
+        val cmd =
+            ContainerUtils.generateDebugDockerRunCommand(
+                "img",
+                envVars = listOf("QODANA_TOKEN=x", "QodanaLicenseOnlyToken=y"),
+            )
         assertFalse(cmd.contains("QODANA_TOKEN=x"))
         assertTrue(cmd.contains("QodanaLicenseOnlyToken=y"))
     }

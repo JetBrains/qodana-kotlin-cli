@@ -78,25 +78,29 @@ class ClangRunner(
         val sarifOutput = tmpResultsDir.resolve("$counter.sarif.json")
         val compileCommands = context.compileCommands ?: return
 
-        val args = buildList {
-            add(checks)
-            add("-p")
-            add(compileCommands)
-            add("--export-sarif")
-            add(sarifOutput.toString())
-            addAll(input.headers)
-            add(input.file)
-            add("--quiet")
-            if (context.clangArgs.isNotBlank()) {
-                addAll(context.clangArgs.split(" ").filter { it.isNotBlank() })
+        val args =
+            buildList {
+                add(checks)
+                add("-p")
+                add(compileCommands)
+                add("--export-sarif")
+                add(sarifOutput.toString())
+                addAll(input.headers)
+                add(input.file)
+                add("--quiet")
+                if (context.clangArgs.isNotBlank()) {
+                    addAll(context.clangArgs.split(" ").filter { it.isNotBlank() })
+                }
             }
-        }
 
-        val result = processRunner.run(ProcessSpec(
-            command = clangPath.toString(),
-            args = args,
-            workDir = context.paths.projectDir,
-        ))
+        val result =
+            processRunner.run(
+                ProcessSpec(
+                    command = clangPath.toString(),
+                    args = args,
+                    workDir = context.paths.projectDir,
+                ),
+            )
 
         if (result.stderr.isNotBlank()) {
             logger.debug(result.stderr)
@@ -108,7 +112,10 @@ class ClangRunner(
         }
     }
 
-    private fun appendToFile(path: Path, content: String) {
+    private fun appendToFile(
+        path: Path,
+        content: String,
+    ) {
         Files.writeString(path, content, StandardOpenOption.CREATE, StandardOpenOption.APPEND)
     }
 }

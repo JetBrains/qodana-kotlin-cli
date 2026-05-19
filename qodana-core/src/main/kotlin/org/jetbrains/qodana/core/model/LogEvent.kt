@@ -10,4 +10,5 @@ data class LogEvent(
 )
 
 enum class LogSource { CONTAINER, PROCESS, INTERNAL }
+
 enum class Stream { STDOUT, STDERR }

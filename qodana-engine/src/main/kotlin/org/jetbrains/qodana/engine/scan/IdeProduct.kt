@@ -38,7 +38,9 @@ data class IdeProduct(
     }
 
     fun is242orNewer() = isNotOlderThan(242)
+
     fun is251orNewer() = isNotOlderThan(251)
+
     fun is233orNewer() = isNotOlderThan(233)
 }
 
@@ -60,33 +62,47 @@ object IdeProductDiscovery {
     private val log = LoggerFactory.getLogger(IdeProductDiscovery::class.java)
     private val mapper = ObjectMapper().registerModule(kotlinModule())
 
-    private val SUPPORTED_IDES = listOf(
-        "idea", "phpstorm", "webstorm", "rider", "pycharm",
-        "rubymine", "goland", "rustrover", "clion",
-    )
+    private val SUPPORTED_IDES =
+        listOf(
+            "idea",
+            "phpstorm",
+            "webstorm",
+            "rider",
+            "pycharm",
+            "rubymine",
+            "goland",
+            "rustrover",
+            "clion",
+        )
 
-    fun guessProduct(ideDir: Path, fileSystem: FileSystem): IdeProduct {
+    fun guessProduct(
+        ideDir: Path,
+        fileSystem: FileSystem,
+    ): IdeProduct {
         val homePath = ideDir.toString()
         val os = System.getProperty("os.name").lowercase()
         val isMac = "mac" in os || "darwin" in os
         val isWindows = "win" in os
 
         // Find IDE binary
-        val searchDir = if (isMac) {
-            ideDir.resolve("MacOS")
-        } else {
-            ideDir.resolve("bin")
-        }
+        val searchDir =
+            if (isMac) {
+                ideDir.resolve("MacOS")
+            } else {
+                ideDir.resolve("bin")
+            }
         val suffix = if (isWindows) "64.exe" else ""
 
-        val baseScriptName = findIde(searchDir, suffix, fileSystem)
-            ?: error("Supported IDE not found in $searchDir")
+        val baseScriptName =
+            findIde(searchDir, suffix, fileSystem)
+                ?: error("Supported IDE not found in $searchDir")
 
-        val ideScript = if (isMac) {
-            ideDir.resolve("MacOS").resolve(baseScriptName).toString()
-        } else {
-            ideDir.resolve("bin").resolve("$baseScriptName$suffix").toString()
-        }
+        val ideScript =
+            if (isMac) {
+                ideDir.resolve("MacOS").resolve(baseScriptName).toString()
+            } else {
+                ideDir.resolve("bin").resolve("$baseScriptName$suffix").toString()
+            }
 
         // Read product-info.json
         val productInfoDir = if (isMac) ideDir.resolve("Resources") else ideDir
@@ -100,23 +116,28 @@ object IdeProductDiscovery {
         val name = properties?.presentableName ?: "Unknown IDE"
         val isEap = productInfo.versionSuffix.contains("EAP", ignoreCase = true)
 
-        val product = IdeProduct(
-            name = name,
-            ideCode = productInfo.productCode,
-            code = qodanaCode,
-            version = productInfo.version,
-            baseScriptName = baseScriptName,
-            ideScript = ideScript,
-            build = productInfo.buildNumber,
-            home = homePath,
-            isEap = isEap,
-        )
+        val product =
+            IdeProduct(
+                name = name,
+                ideCode = productInfo.productCode,
+                code = qodanaCode,
+                version = productInfo.version,
+                baseScriptName = baseScriptName,
+                ideScript = ideScript,
+                build = productInfo.buildNumber,
+                home = homePath,
+                isEap = isEap,
+            )
 
         log.debug("Discovered IDE product: {}", product)
         return product
     }
 
-    private fun findIde(dir: Path, suffix: String, fileSystem: FileSystem): String? {
+    private fun findIde(
+        dir: Path,
+        suffix: String,
+        fileSystem: FileSystem,
+    ): String? {
         for (ide in SUPPORTED_IDES) {
             if (fileSystem.exists(dir.resolve("$ide$suffix"))) {
                 return ide
@@ -126,18 +147,19 @@ object IdeProductDiscovery {
     }
 
     /** Maps IDE product code (from product-info.json) to Qodana product code. */
-    private fun toQodanaCode(baseProduct: String): String = when (baseProduct) {
-        "IC" -> "QDJVMC"
-        "PC" -> "QDPYC"
-        "IU" -> "QDJVM"
-        "PS" -> "QDPHP"
-        "WS" -> "QDJS"
-        "RD" -> "QDNET"
-        "PY" -> "QDPY"
-        "GO" -> "QDGO"
-        "RM" -> "QDRUBY"
-        "CL" -> "QDCPP"
-        "RR" -> "QDRUST"
-        else -> baseProduct
-    }
+    private fun toQodanaCode(baseProduct: String): String =
+        when (baseProduct) {
+            "IC" -> "QDJVMC"
+            "PC" -> "QDPYC"
+            "IU" -> "QDJVM"
+            "PS" -> "QDPHP"
+            "WS" -> "QDJS"
+            "RD" -> "QDNET"
+            "PY" -> "QDPY"
+            "GO" -> "QDGO"
+            "RM" -> "QDRUBY"
+            "CL" -> "QDCPP"
+            "RR" -> "QDRUST"
+            else -> baseProduct
+        }
 }

@@ -28,20 +28,23 @@ data class ContributorCommit(
     val sha256: String,
 )
 
-class ContributorAnalyzer(private val gitClient: GitClient) {
-
+class ContributorAnalyzer(
+    private val gitClient: GitClient,
+) {
     companion object {
         private const val LOG_FORMAT = "%aE||%aN||%H||%ai"
         private const val FIELD_SEPARATOR = "||"
 
-        private val BOT_EMAIL_PATTERNS = listOf(
-            "noreply@github.com",
-            "qodana-support@jetbrains.com",
-        )
-        private val BOT_USERNAME_PATTERNS = listOf(
-            "dependabot",
-            "renovate",
-        )
+        private val BOT_EMAIL_PATTERNS =
+            listOf(
+                "noreply@github.com",
+                "qodana-support@jetbrains.com",
+            )
+        private val BOT_USERNAME_PATTERNS =
+            listOf(
+                "dependabot",
+                "renovate",
+            )
     }
 
     suspend fun analyze(
@@ -50,29 +53,34 @@ class ContributorAnalyzer(private val gitClient: GitClient) {
         excludeBots: Boolean = true,
     ): ContributorsReport {
         val cutoffDate = if (days > 0) LocalDate.now().minusDays(days.toLong()) else null
-        val allCommits = repoDirs.flatMap { repoDir ->
-            collectCommits(repoDir, cutoffDate)
-        }
+        val allCommits =
+            repoDirs.flatMap { repoDir ->
+                collectCommits(repoDir, cutoffDate)
+            }
 
-        val withoutQodanaBot = allCommits.filterNot { commit ->
-            commit.email.equals("qodana-support@jetbrains.com", ignoreCase = true)
-        }
+        val withoutQodanaBot =
+            allCommits.filterNot { commit ->
+                commit.email.equals("qodana-support@jetbrains.com", ignoreCase = true)
+            }
         val filtered = if (excludeBots) withoutQodanaBot.filter { !isBot(it) } else withoutQodanaBot
 
         val grouped = filtered.groupBy { it.authorId }
 
-        val contributors = grouped.map { (_, commits) ->
-            val first = commits.first()
-            Contributor(
-                author = ContributorAuthor(
-                    email = first.email,
-                    username = first.username,
-                ),
-                projects = commits.map { it.project }.distinct().sorted(),
-                count = commits.size,
-                commits = commits.map { ContributorCommit(date = it.date, sha256 = it.sha) },
-            )
-        }.sortedByDescending { it.count }
+        val contributors =
+            grouped
+                .map { (_, commits) ->
+                    val first = commits.first()
+                    Contributor(
+                        author =
+                            ContributorAuthor(
+                                email = first.email,
+                                username = first.username,
+                            ),
+                        projects = commits.map { it.project }.distinct().sorted(),
+                        count = commits.size,
+                        commits = commits.map { ContributorCommit(date = it.date, sha256 = it.sha) },
+                    )
+                }.sortedByDescending { it.count }
 
         return ContributorsReport(
             total = contributors.size,
@@ -80,21 +88,26 @@ class ContributorAnalyzer(private val gitClient: GitClient) {
         )
     }
 
-    private suspend fun collectCommits(repoDir: Path, cutoffDate: LocalDate?): List<ParsedCommit> {
+    private suspend fun collectCommits(
+        repoDir: Path,
+        cutoffDate: LocalDate?,
+    ): List<ParsedCommit> {
         val logOutput = gitClient.log(repoDir, LOG_FORMAT, allBranches = true).getOrElse { return emptyList() }
         val project = resolveProjectName(repoDir)
         val mailmap = loadMailmap(repoDir)
 
-        return logOutput.lines()
+        return logOutput
+            .lines()
             .filter { it.isNotBlank() }
             .mapNotNull { line -> parseLine(line, project, mailmap) }
             .filter { commit ->
                 if (cutoffDate == null) return@filter true
                 try {
-                    val commitDate = LocalDate.parse(
-                        commit.date.substringBefore(" "),
-                        DateTimeFormatter.ISO_LOCAL_DATE,
-                    )
+                    val commitDate =
+                        LocalDate.parse(
+                            commit.date.substringBefore(" "),
+                            DateTimeFormatter.ISO_LOCAL_DATE,
+                        )
                     !commitDate.isBefore(cutoffDate)
                 } catch (_: Exception) {
                     false
@@ -102,17 +115,17 @@ class ContributorAnalyzer(private val gitClient: GitClient) {
             }
     }
 
-    private suspend fun resolveProjectName(repoDir: Path): String {
-        return gitClient.remoteUrl(repoDir)
+    private suspend fun resolveProjectName(repoDir: Path): String =
+        gitClient
+            .remoteUrl(repoDir)
             .map { url -> extractProjectFromUrl(url) }
             .getOrElse { repoDir.fileName?.toString() ?: repoDir.toString() }
-    }
 
-    private fun extractProjectFromUrl(url: String): String {
-        return url.trimEnd('/')
+    private fun extractProjectFromUrl(url: String): String =
+        url
+            .trimEnd('/')
             .removeSuffix(".git")
             .substringAfterLast('/')
-    }
 
     private fun parseLine(
         line: String,
@@ -130,14 +143,15 @@ class ContributorAnalyzer(private val gitClient: GitClient) {
         val authorId = email.ifBlank { username }
         if (authorId.isBlank()) return null
 
-        val parsed = ParsedCommit(
-            email = email,
-            username = username,
-            sha = sha,
-            date = date,
-            authorId = authorId,
-            project = project,
-        )
+        val parsed =
+            ParsedCommit(
+                email = email,
+                username = username,
+                sha = sha,
+                date = date,
+                authorId = authorId,
+                project = project,
+            )
 
         return applyMailmap(parsed, mailmap)
     }
@@ -148,7 +162,8 @@ class ContributorAnalyzer(private val gitClient: GitClient) {
             return emptyList()
         }
         return runCatching {
-            Files.readAllLines(mailmapPath)
+            Files
+                .readAllLines(mailmapPath)
                 .mapNotNull(::parseMailmapRule)
         }.getOrDefault(emptyList())
     }
@@ -158,22 +173,28 @@ class ContributorAnalyzer(private val gitClient: GitClient) {
         if (line.isEmpty() || line.startsWith("#")) return null
 
         val pairRegex = Regex("""([^<]*)<([^>]+)>""")
-        val pairs = pairRegex.findAll(line)
-            .map { match ->
-                NameEmailPair(
-                    name = match.groupValues[1].trim().ifBlank { null },
-                    email = match.groupValues[2].trim().ifBlank { null },
-                )
-            }
-            .toList()
+        val pairs =
+            pairRegex
+                .findAll(line)
+                .map { match ->
+                    NameEmailPair(
+                        name = match.groupValues[1].trim().ifBlank { null },
+                        email = match.groupValues[2].trim().ifBlank { null },
+                    )
+                }.toList()
 
         if (pairs.isEmpty()) return null
 
         val canonical = pairs[0]
-        val old = if (pairs.size >= 2) pairs[1] else NameEmailPair(
-            name = null,
-            email = canonical.email,
-        )
+        val old =
+            if (pairs.size >= 2) {
+                pairs[1]
+            } else {
+                NameEmailPair(
+                    name = null,
+                    email = canonical.email,
+                )
+            }
 
         if (old.email.isNullOrBlank()) return null
 
@@ -185,18 +206,23 @@ class ContributorAnalyzer(private val gitClient: GitClient) {
         )
     }
 
-    private fun applyMailmap(commit: ParsedCommit, rules: List<MailmapRule>): ParsedCommit {
+    private fun applyMailmap(
+        commit: ParsedCommit,
+        rules: List<MailmapRule>,
+    ): ParsedCommit {
         if (rules.isEmpty()) return commit
 
-        val exactRule = rules.firstOrNull {
-            it.oldEmail.equals(commit.email, ignoreCase = true) &&
-                !it.oldName.isNullOrBlank() &&
-                it.oldName.equals(commit.username, ignoreCase = true)
-        }
-        val fallbackRule = rules.firstOrNull {
-            it.oldEmail.equals(commit.email, ignoreCase = true) &&
-                it.oldName.isNullOrBlank()
-        }
+        val exactRule =
+            rules.firstOrNull {
+                it.oldEmail.equals(commit.email, ignoreCase = true) &&
+                    !it.oldName.isNullOrBlank() &&
+                    it.oldName.equals(commit.username, ignoreCase = true)
+            }
+        val fallbackRule =
+            rules.firstOrNull {
+                it.oldEmail.equals(commit.email, ignoreCase = true) &&
+                    it.oldName.isNullOrBlank()
+            }
         val rule = exactRule ?: fallbackRule ?: return commit
 
         val normalizedEmail = rule.canonicalEmail?.takeIf { it.isNotBlank() } ?: commit.email

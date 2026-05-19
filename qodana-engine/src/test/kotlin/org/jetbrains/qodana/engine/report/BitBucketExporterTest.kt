@@ -17,10 +17,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class BitBucketExporterTest {
-
     private val mapper = ObjectMapper().registerModule(kotlinModule())
 
-    private val sarifWithTwoResults = """
+    private val sarifWithTwoResults =
+        """
         {
           "version": "2.1.0",
           "runs": [{
@@ -52,9 +52,10 @@ class BitBucketExporterTest {
             ]
           }]
         }
-    """.trimIndent()
+        """.trimIndent()
 
-    private val sarifEmpty = """
+    private val sarifEmpty =
+        """
         {
           "version": "2.1.0",
           "runs": [{
@@ -62,10 +63,12 @@ class BitBucketExporterTest {
             "results": []
           }]
         }
-    """.trimIndent()
+        """.trimIndent()
 
     @Test
-    fun `export with results posts report and annotations`(@TempDir dir: Path) = runTest {
+    fun `export with results posts report and annotations`(
+        @TempDir dir: Path,
+    ) = runTest {
         Files.writeString(dir.resolve("qodana.sarif.json"), sarifWithTwoResults)
 
         val http = RecordingHttp()
@@ -101,7 +104,9 @@ class BitBucketExporterTest {
     }
 
     @Test
-    fun `export with no results posts PASSED report`(@TempDir dir: Path) = runTest {
+    fun `export with no results posts PASSED report`(
+        @TempDir dir: Path,
+    ) = runTest {
         Files.writeString(dir.resolve("qodana.sarif.json"), sarifEmpty)
 
         val http = RecordingHttp()
@@ -124,8 +129,11 @@ class BitBucketExporterTest {
     }
 
     @Test
-    fun `severity mapping uses qodanaSeverity and sarif level`(@TempDir dir: Path) = runTest {
-        val sarif = """
+    fun `severity mapping uses qodanaSeverity and sarif level`(
+        @TempDir dir: Path,
+    ) = runTest {
+        val sarif =
+            """
             {
               "version": "2.1.0",
               "runs": [{
@@ -139,7 +147,7 @@ class BitBucketExporterTest {
                 ]
               }]
             }
-        """.trimIndent()
+            """.trimIndent()
 
         Files.writeString(dir.resolve("qodana.sarif.json"), sarif)
 
@@ -162,8 +170,11 @@ class BitBucketExporterTest {
     }
 
     @Test
-    fun `export skips unchanged and results without locations`(@TempDir dir: Path) = runTest {
-        val sarif = """
+    fun `export skips unchanged and results without locations`(
+        @TempDir dir: Path,
+    ) = runTest {
+        val sarif =
+            """
             {
               "version": "2.1.0",
               "runs": [{
@@ -175,7 +186,7 @@ class BitBucketExporterTest {
                 ]
               }]
             }
-        """.trimIndent()
+            """.trimIndent()
         Files.writeString(dir.resolve("qodana.sarif.json"), sarif)
 
         val http = RecordingHttp()
@@ -197,10 +208,13 @@ class BitBucketExporterTest {
     }
 
     @Test
-    fun `annotations are capped to 1000 and batched by 100`(@TempDir dir: Path) = runTest {
-        val results = (1..1200).joinToString(",") { i ->
-            """{"ruleId":"R$i","level":"warning","message":{"text":"issue $i"},"partialFingerprints":{"equalIndicator/v2":"fp-$i"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"file$i.kt"},"region":{"startLine":$i}}}]}"""
-        }
+    fun `annotations are capped to 1000 and batched by 100`(
+        @TempDir dir: Path,
+    ) = runTest {
+        val results =
+            (1..1200).joinToString(",") { i ->
+                """{"ruleId":"R$i","level":"warning","message":{"text":"issue $i"},"partialFingerprints":{"equalIndicator/v2":"fp-$i"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"file$i.kt"},"region":{"startLine":$i}}}]}"""
+            }
         val sarif = """{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Qodana","version":"1"}},"results":[$results]}]}"""
         Files.writeString(dir.resolve("qodana.sarif.json"), sarif)
 
@@ -224,7 +238,9 @@ class BitBucketExporterTest {
     }
 
     @Test
-    fun `auth header is Bearer token`(@TempDir dir: Path) = runTest {
+    fun `auth header is Bearer token`(
+        @TempDir dir: Path,
+    ) = runTest {
         Files.writeString(dir.resolve("qodana.sarif.json"), sarifWithTwoResults)
 
         val http = RecordingHttp()
@@ -245,7 +261,9 @@ class BitBucketExporterTest {
     }
 
     @Test
-    fun `URL construction supports cloud and self-hosted base urls`(@TempDir dir: Path) = runTest {
+    fun `URL construction supports cloud and self-hosted base urls`(
+        @TempDir dir: Path,
+    ) = runTest {
         Files.writeString(dir.resolve("qodana.sarif.json"), sarifWithTwoResults)
 
         val cloudHttp = RecordingHttp()
@@ -278,11 +296,12 @@ class BitBucketExporterTest {
 
         val pipelineHttp = RecordingHttp()
         val pipelineEnv = mapOf("BITBUCKET_PIPELINE_UUID" to "{1234-uuid}")
-        val pipelineExporter = BitBucketExporter(
-            sarifService = BitBucketFakeSarifService(),
-            http = pipelineHttp,
-            getEnv = { key -> pipelineEnv[key] },
-        )
+        val pipelineExporter =
+            BitBucketExporter(
+                sarifService = BitBucketFakeSarifService(),
+                http = pipelineHttp,
+                getEnv = { key -> pipelineEnv[key] },
+            )
         pipelineExporter.export(
             resultsDir = dir,
             bitbucketUrl = "https://bitbucket.example.com/scm/PROJ/repo",
@@ -299,11 +318,27 @@ class BitBucketExporterTest {
 
 private class BitBucketFakeSarifService : SarifService {
     override fun read(path: Path): Any = SarifUtil.readReport(path)
-    override fun write(path: Path, report: Any) {}
-    override fun merge(reports: List<Path>, output: Path) {}
-    override fun baselineCompare(report: Path, baseline: Path, includeAbsent: Boolean) =
-        BaselineResult(0, 0, 0)
-    override fun normalizePaths(reportPath: Path, projectDir: Path) {}
+
+    override fun write(
+        path: Path,
+        report: Any,
+    ) {}
+
+    override fun merge(
+        reports: List<Path>,
+        output: Path,
+    ) {}
+
+    override fun baselineCompare(
+        report: Path,
+        baseline: Path,
+        includeAbsent: Boolean,
+    ) = BaselineResult(0, 0, 0)
+
+    override fun normalizePaths(
+        reportPath: Path,
+        projectDir: Path,
+    ) {}
 }
 
 private class RecordingHttp : HttpTransport {
@@ -316,7 +351,10 @@ private class RecordingHttp : HttpTransport {
 
     val posts = mutableListOf<PostCall>()
 
-    override suspend fun get(url: String, headers: Map<String, String>) = HttpResponse(200, "")
+    override suspend fun get(
+        url: String,
+        headers: Map<String, String>,
+    ) = HttpResponse(200, "")
 
     override suspend fun post(
         url: String,
@@ -328,7 +366,11 @@ private class RecordingHttp : HttpTransport {
         return HttpResponse(200, "")
     }
 
-    override suspend fun download(url: String, target: Path, headers: Map<String, String>) {}
+    override suspend fun download(
+        url: String,
+        target: Path,
+        headers: Map<String, String>,
+    ) {}
 
     override suspend fun uploadMultipart(
         url: String,

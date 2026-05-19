@@ -3,45 +3,46 @@ package org.jetbrains.qodana.cli
 import com.github.ajalt.clikt.completion.CompletionCommand
 import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.core.subcommands
+import org.jetbrains.qodana.cli.command.*
+import org.jetbrains.qodana.core.env.QodanaEnv
+import org.jetbrains.qodana.core.fs.NioFileSystem
+import org.jetbrains.qodana.core.process.SystemProcessRunner
+import org.jetbrains.qodana.core.sarif.QodanaSarifService
+import org.jetbrains.qodana.core.terminal.MordantTerminal
 import org.jetbrains.qodana.engine.cloud.CloudClient
 import org.jetbrains.qodana.engine.cloud.LicenseValidator
 import org.jetbrains.qodana.engine.contributors.ContributorAnalyzer
-import org.jetbrains.qodana.engine.report.ReportProcessor
-import org.jetbrains.qodana.engine.report.ReportPublishUseCase
-import org.jetbrains.qodana.engine.report.BitBucketExporter
-import org.jetbrains.qodana.engine.report.CodeClimateExporter
-import org.jetbrains.qodana.engine.scan.SystemUtils
-import org.jetbrains.qodana.engine.scan.ContainerScan
-import org.jetbrains.qodana.engine.scan.NativeScan
-import org.jetbrains.qodana.engine.scan.ScanUseCase
-import org.jetbrains.qodana.engine.startup.IdeInstaller
-import org.jetbrains.qodana.engine.startup.PrepareHost
-import org.jetbrains.qodana.cli.command.*
 import org.jetbrains.qodana.engine.docker.DockerJavaEngine
-import org.jetbrains.qodana.core.fs.NioFileSystem
-import org.jetbrains.qodana.engine.git.SystemGitClient
-import org.jetbrains.qodana.engine.http.OkHttpTransport
-import org.jetbrains.qodana.core.process.SystemProcessRunner
-import org.jetbrains.qodana.engine.publisher.PublisherAdapter
-import org.jetbrains.qodana.engine.reportconverter.ReportConverterAdapter
-import org.jetbrains.qodana.core.sarif.QodanaSarifService
-import org.jetbrains.qodana.core.terminal.MordantTerminal
-import org.jetbrains.qodana.core.env.QodanaEnv
 import org.jetbrains.qodana.engine.env.CiDetector
 import org.jetbrains.qodana.engine.env.RuntimeEnvironment
 import org.jetbrains.qodana.engine.env.RuntimeEnvironmentDetector
+import org.jetbrains.qodana.engine.git.SystemGitClient
+import org.jetbrains.qodana.engine.http.OkHttpTransport
+import org.jetbrains.qodana.engine.publisher.PublisherAdapter
+import org.jetbrains.qodana.engine.report.BitBucketExporter
+import org.jetbrains.qodana.engine.report.CodeClimateExporter
+import org.jetbrains.qodana.engine.report.ReportProcessor
+import org.jetbrains.qodana.engine.report.ReportPublishUseCase
+import org.jetbrains.qodana.engine.reportconverter.ReportConverterAdapter
+import org.jetbrains.qodana.engine.scan.ContainerScan
+import org.jetbrains.qodana.engine.scan.NativeScan
+import org.jetbrains.qodana.engine.scan.ScanUseCase
+import org.jetbrains.qodana.engine.scan.SystemUtils
+import org.jetbrains.qodana.engine.startup.IdeInstaller
+import org.jetbrains.qodana.engine.startup.PrepareHost
 
-private val ROOT_COMMANDS = setOf(
-    "scan",
-    "init",
-    "pull",
-    "show",
-    "send",
-    "contributors",
-    "view",
-    "cloc",
-    "completion",
-)
+private val ROOT_COMMANDS =
+    setOf(
+        "scan",
+        "init",
+        "pull",
+        "show",
+        "send",
+        "contributors",
+        "view",
+        "cloc",
+        "completion",
+    )
 
 private val HELP_OR_VERSION_ARGS = setOf("--help", "-h", "help", "--version", "-v")
 
@@ -72,17 +73,22 @@ private fun normalizeRootArgs(args: Array<String>): Array<String> {
         }
     }
 
-    val normalized = when {
-        working.isEmpty() -> listOf("scan")
-        working.size == 1 && working[0] in HELP_OR_VERSION_ARGS -> working
-        working.first() == "completion" -> working
-        working.any { it in ROOT_COMMANDS } -> working
-        else -> listOf("scan") + working
-    }
+    val normalized =
+        when {
+            working.isEmpty() -> listOf("scan")
+            working.size == 1 && working[0] in HELP_OR_VERSION_ARGS -> working
+            working.first() == "completion" -> working
+            working.any { it in ROOT_COMMANDS } -> working
+            else -> listOf("scan") + working
+        }
     return (rootFlags + normalized).toTypedArray()
 }
 
-private fun shouldCheckUpdates(args: Array<String>, isContainer: Boolean, isCi: Boolean): Boolean {
+private fun shouldCheckUpdates(
+    args: Array<String>,
+    isContainer: Boolean,
+    isCi: Boolean,
+): Boolean {
     if (isContainer || isCi) return false
     return args.none { it == "--disable-update-checks" }
 }
@@ -92,7 +98,11 @@ private fun isRunningAsRoot(): Boolean {
     if (os.contains("win")) return false
     return runCatching {
         val process = ProcessBuilder("id", "-u").redirectErrorStream(true).start()
-        val output = process.inputStream.bufferedReader().readText().trim()
+        val output =
+            process.inputStream
+                .bufferedReader()
+                .readText()
+                .trim()
         process.waitFor() == 0 && output == "0"
     }.getOrDefault(false)
 }
@@ -126,11 +136,15 @@ fun main(args: Array<String>) {
     }
 
     fun createScanUseCase(): ScanUseCase {
-        val token = System.getenv(QodanaEnv.TOKEN)?.takeIf { it.isNotBlank() }
-            ?: System.getenv(QodanaEnv.LICENSE_ONLY_TOKEN)?.takeIf { it.isNotBlank() }
-        val cloudClient = if (!token.isNullOrBlank()) {
-            CloudClient(httpTransport, token = token)
-        } else null
+        val token =
+            System.getenv(QodanaEnv.TOKEN)?.takeIf { it.isNotBlank() }
+                ?: System.getenv(QodanaEnv.LICENSE_ONLY_TOKEN)?.takeIf { it.isNotBlank() }
+        val cloudClient =
+            if (!token.isNullOrBlank()) {
+                CloudClient(httpTransport, token = token)
+            } else {
+                null
+            }
         val ideInstaller = IdeInstaller(httpTransport, fileSystem, terminal)
         val codeClimateExporter = CodeClimateExporter(sarifService)
         val bitBucketExporter = BitBucketExporter(sarifService, httpTransport)
@@ -151,21 +165,22 @@ fun main(args: Array<String>) {
 
     val normalizedArgs = normalizeRootArgs(args)
 
-    QodanaCommand().subcommands(
-        ScanCommand(
-            scanRunner = { context -> createScanUseCase().run(context) },
-            terminal = terminal,
-        ),
-        InitCommand(terminal),
-        PullCommand(containerEngine, terminal),
-        ShowCommand(terminal),
-        SendCommand(reportPublishUseCase, terminal),
-        ContributorsCommand(contributorAnalyzer, terminal),
-        ViewCommand(sarifService, terminal),
-        ClocCommand(terminal),
-        CompletionCommand(
-            name = "completion",
-            help = "Generate the autocompletion script for the specified shell",
-        ),
-    ).main(normalizedArgs)
+    QodanaCommand()
+        .subcommands(
+            ScanCommand(
+                scanRunner = { context -> createScanUseCase().run(context) },
+                terminal = terminal,
+            ),
+            InitCommand(terminal),
+            PullCommand(containerEngine, terminal),
+            ShowCommand(terminal),
+            SendCommand(reportPublishUseCase, terminal),
+            ContributorsCommand(contributorAnalyzer, terminal),
+            ViewCommand(sarifService, terminal),
+            ClocCommand(terminal),
+            CompletionCommand(
+                name = "completion",
+                help = "Generate the autocompletion script for the specified shell",
+            ),
+        ).main(normalizedArgs)
 }

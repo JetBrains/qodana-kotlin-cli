@@ -3,10 +3,8 @@ package org.jetbrains.qodana.core.terminal
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
 class MordantTerminalTest {
-
     @Test
     fun `isInteractive is false when isCi is true`() {
         val terminal = MordantTerminal()
@@ -78,7 +76,10 @@ class MordantTerminalTest {
         return field.get(terminal) as Set<String>
     }
 
-    private fun redact(terminal: MordantTerminal, message: String): String {
+    private fun redact(
+        terminal: MordantTerminal,
+        message: String,
+    ): String {
         val method = MordantTerminal::class.java.getDeclaredMethod("redact", String::class.java)
         method.isAccessible = true
         return method.invoke(terminal, message) as String

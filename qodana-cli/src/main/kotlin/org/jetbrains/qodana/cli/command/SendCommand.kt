@@ -31,7 +31,6 @@ class SendCommand(
     private val httpTransport: HttpTransport = OkHttpTransport(),
     private val runtimeEnvironmentDetector: () -> RuntimeEnvironment = { RuntimeEnvironmentDetector.detect() },
 ) : CliktCommand("send") {
-
     override fun help(context: Context) = "Send Qodana report to Qodana Cloud"
 
     private val linter by option("-l", "--linter", help = "Override linter to use")
@@ -46,49 +45,55 @@ class SendCommand(
     private val analysisId by option("-a", "--analysis-id", help = "Analysis ID")
         .default(UUID.randomUUID().toString())
 
-    override fun run() = runBlocking {
-        val token = loadCloudToken()
-        if (token == null) {
-            terminal.error("QODANA_TOKEN environment variable is not set")
-            throw ProgramResult(1)
-        }
-        validateTokenOrExit(token)
-
-        val absProjectDir = projectDir.toAbsolutePath().normalize()
-        val yaml = CliPathResolver.loadYaml(absProjectDir, configName)
-        val resolvedLinter = CliPathResolver.resolveLinterName(linter, yaml, absProjectDir)
-        val resolvedPaths = CliPathResolver.resolvePaths(
-            projectDir = absProjectDir,
-            linterName = resolvedLinter,
-            resultsDir = resultsDir,
-            cacheDir = null,
-            reportDir = reportDir,
-            runtimeEnvironment = runtimeEnvironmentDetector(),
-        )
-
-        val auth = AuthContext(
-            token = token,
-            endpoint = cloudRootEndpoint(),
-        )
-
-        val result = reportPublisher.publish(
-            analysisId = analysisId,
-            reportPath = resolvedPaths.resultsDir,
-            auth = auth,
-        )
-
-        result.onSuccess {
-            if (it.success) terminal.println("Report published: ${it.url}")
-            else {
-                terminal.error("Failed to publish report")
+    override fun run() =
+        runBlocking {
+            val token = loadCloudToken()
+            if (token == null) {
+                terminal.error("QODANA_TOKEN environment variable is not set")
                 throw ProgramResult(1)
             }
-        }.onFailure {
-            terminal.error("Failed to publish report: ${it.message}")
-            throw ProgramResult(1)
+            validateTokenOrExit(token)
+
+            val absProjectDir = projectDir.toAbsolutePath().normalize()
+            val yaml = CliPathResolver.loadYaml(absProjectDir, configName)
+            val resolvedLinter = CliPathResolver.resolveLinterName(linter, yaml, absProjectDir)
+            val resolvedPaths =
+                CliPathResolver.resolvePaths(
+                    projectDir = absProjectDir,
+                    linterName = resolvedLinter,
+                    resultsDir = resultsDir,
+                    cacheDir = null,
+                    reportDir = reportDir,
+                    runtimeEnvironment = runtimeEnvironmentDetector(),
+                )
+
+            val auth =
+                AuthContext(
+                    token = token,
+                    endpoint = cloudRootEndpoint(),
+                )
+
+            val result =
+                reportPublisher.publish(
+                    analysisId = analysisId,
+                    reportPath = resolvedPaths.resultsDir,
+                    auth = auth,
+                )
+
+            result
+                .onSuccess {
+                    if (it.success) {
+                        terminal.println("Report published: ${it.url}")
+                    } else {
+                        terminal.error("Failed to publish report")
+                        throw ProgramResult(1)
+                    }
+                }.onFailure {
+                    terminal.error("Failed to publish report: ${it.message}")
+                    throw ProgramResult(1)
+                }
+            Unit
         }
-        Unit
-    }
 
     private fun loadCloudToken(): String? {
         val envToken = getEnv(QodanaEnv.TOKEN)?.trim().orEmpty()
@@ -96,9 +101,10 @@ class SendCommand(
             return envToken
         }
 
-        val storedToken = runCatching { tokenStore.load(QodanaEnv.TOKEN)?.trim() }
-            .getOrNull()
-            .orEmpty()
+        val storedToken =
+            runCatching { tokenStore.load(QodanaEnv.TOKEN)?.trim() }
+                .getOrNull()
+                .orEmpty()
         if (storedToken.isNotEmpty()) {
             terminal.warn(TOKEN_STORE_WARNING)
             return storedToken
@@ -107,9 +113,11 @@ class SendCommand(
         if (!terminal.isInteractive) {
             return null
         }
-        val token = terminal.prompt(
-            "Enter the token (will be used for ${projectDir.toAbsolutePath().normalize()}; enter 'q' to exit)"
-        ).trim()
+        val token =
+            terminal
+                .prompt(
+                    "Enter the token (will be used for ${projectDir.toAbsolutePath().normalize()}; enter 'q' to exit)",
+                ).trim()
         if (token.equals("q", ignoreCase = true) || token.isEmpty()) {
             return null
         }
@@ -121,23 +129,25 @@ class SendCommand(
 
     private suspend fun validateTokenOrExit(token: String) {
         val cloudRoot = cloudRootEndpoint()
-        val cloudClient = CloudClient(
-            http = httpTransport,
-            endpoint = cloudRoot,
-            token = token,
-        )
+        val cloudClient =
+            CloudClient(
+                http = httpTransport,
+                endpoint = cloudRoot,
+                token = token,
+            )
         val endpoints = cloudClient.fetchEndpoints().getOrNull()
         if (endpoints == null) {
             terminal.error(INVALID_TOKEN_MESSAGE)
             throw ProgramResult(1)
         }
 
-        val response = runCatching {
-            httpTransport.get(
-                "${endpoints.cloudApiUrl.trimEnd('/')}/projects",
-                headers = mapOf("Authorization" to "Bearer $token"),
-            )
-        }.getOrNull()
+        val response =
+            runCatching {
+                httpTransport.get(
+                    "${endpoints.cloudApiUrl.trimEnd('/')}/projects",
+                    headers = mapOf("Authorization" to "Bearer $token"),
+                )
+            }.getOrNull()
 
         if (response == null || !response.isSuccess) {
             terminal.error(INVALID_TOKEN_MESSAGE)

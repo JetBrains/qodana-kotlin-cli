@@ -1,0 +1,67 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>ComplexCondition:PullCommand.kt$PullCommand$noCliOverrides &amp;&amp; yamlLinter != null &amp;&amp; yamlImage == null &amp;&amp; yamlLinterImage == null</ID>
+    <ID>ComplexCondition:ScanCommand.kt$ScanCommand$wd != null &amp;&amp; wd.isNotEmpty() &amp;&amp; wd != "true" &amp;&amp; wd != "false"</ID>
+    <ID>CyclomaticComplexMethod:PullCommand.kt$PullCommand$override fun run()</ID>
+    <ID>CyclomaticComplexMethod:ScanCommand.kt$ScanCommand$override fun run()</ID>
+    <ID>CyclomaticComplexMethod:ScanCommand.kt$ScanCommand$private fun resolveAnalyzer( yaml: QodanaYaml?, projectDir: Path, ): AnalyzerResolution</ID>
+    <ID>CyclomaticComplexMethod:ScanCommand.kt$ScanCommand$private fun validateFlags()</ID>
+    <ID>CyclomaticComplexMethod:ViewCommand.kt$ViewCommand$override fun run()</ID>
+    <ID>EmptyFunctionBlock:ClocCommandParityTest.kt$ClocRecordingTerminal${}</ID>
+    <ID>EmptyFunctionBlock:InitCommandTest.kt$InitFakeHttpTransport${}</ID>
+    <ID>EmptyFunctionBlock:InitCommandTest.kt$InitFixedTokenStore${}</ID>
+    <ID>EmptyFunctionBlock:InitCommandTest.kt$InitTestTerminal${}</ID>
+    <ID>EmptyFunctionBlock:PullCommandParityTest.kt$PullRecordingTerminal${}</ID>
+    <ID>EmptyFunctionBlock:QodanaCommandTest.kt$QodanaCommandTest.&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:ScanCommandTest.kt$NoOpTerminal${}</ID>
+    <ID>EmptyFunctionBlock:ScanCommandTest.kt$RecordingTerminal${}</ID>
+    <ID>EmptyFunctionBlock:SendCommandTest.kt$SendFakeHttpTransport${}</ID>
+    <ID>EmptyFunctionBlock:SendCommandTest.kt$SendFixedTokenStore${}</ID>
+    <ID>EmptyFunctionBlock:SendCommandTest.kt$SendTestTerminal${}</ID>
+    <ID>EmptyFunctionBlock:ViewCommandParityTest.kt$ViewRecordingTerminal${}</ID>
+    <ID>ImplicitDefaultLocale:ContributorsCommand.kt$ContributorsCommand$String.format( "%-30s %-20s %8d %s", contributor.author.email, contributor.author.username, contributor.count, contributor.projects.joinToString(","), )</ID>
+    <ID>ImplicitDefaultLocale:ContributorsCommand.kt$ContributorsCommand$String.format("%-30s %-20s %8s %s", "Email", "Username", "Commits", "Projects")</ID>
+    <ID>LargeClass:ScanCommand.kt$ScanCommand : CliktCommand</ID>
+    <ID>LongMethod:QodanaCommandTest.kt$QodanaCommandTest$@Test fun `all commands with container`( @TempDir dir: Path, )</ID>
+    <ID>LongMethod:ScanCommand.kt$ScanCommand$override fun run()</ID>
+    <ID>LongMethod:ScanCommand.kt$ScanCommand$private fun resolveAnalyzer( yaml: QodanaYaml?, projectDir: Path, ): AnalyzerResolution</ID>
+    <ID>LongParameterList:CliPathResolver.kt$CliPathResolver$( projectDir: Path, linterName: String, resultsDir: Path?, cacheDir: Path?, reportDir: Path?, runtimeEnvironment: RuntimeEnvironment, )</ID>
+    <ID>MagicNumber:CliPathResolver.kt$CliPathResolver$8</ID>
+    <ID>MagicNumber:ContributorsCommand.kt$ContributorsCommand$90</ID>
+    <ID>MagicNumber:ReportDisplay.kt$ReportDisplay$200</ID>
+    <ID>MagicNumber:ReportDisplay.kt$ReportDisplay$404</ID>
+    <ID>MagicNumber:ScanCommand.kt$ScanCommand$8</ID>
+    <ID>MagicNumber:ShowCommand.kt$ShowCommand$8080</ID>
+    <ID>MaxLineLength:ContributorsCommand.kt$ContributorsCommand$private</ID>
+    <ID>MaxLineLength:InitCommand.kt$InitCommand$"The product to use was already configured before. Run the command with -f flag to re-init the project"</ID>
+    <ID>MaxLineLength:InitCommand.kt$InitCommand$terminal.warn("See https://www.jetbrains.com/help/qodana/supported-technologies.html for more details")</ID>
+    <ID>MaxLineLength:InitCommand.kt$InitCommand.Companion$"Got QODANA_TOKEN from the system keyring, declare QODANA_TOKEN env variable or run qodana init -f to override it"</ID>
+    <ID>MaxLineLength:InitCommandTest.kt$InitCommandTest$assertTrue(terminal.messages.any { it.contains("Could not configure project as it is not supported by Qodana") })</ID>
+    <ID>MaxLineLength:QodanaCommandTest.kt$QodanaCommandTest$stream.anyMatch { it.fileName.toString().contains("GoLand") || it.fileName.toString().startsWith("qodana-QDGO") }</ID>
+    <ID>MaxLineLength:ScanCommand.kt$ScanCommand$"Warning: Using local-changes script is deprecated, please switch to other mechanisms of incremental analysis. "</ID>
+    <ID>MaxLineLength:ScanCommand.kt$ScanCommand$private</ID>
+    <ID>MaxLineLength:ScanCommand.kt$ScanCommand$}</ID>
+    <ID>MaxLineLength:SendCommand.kt$SendCommand.Companion$"Got QODANA_TOKEN from the system keyring, declare QODANA_TOKEN env variable or run qodana init -f to override it"</ID>
+    <ID>NestedBlockDepth:ModeChecksArchitectureTest.kt$ModeChecksArchitectureTest$@Test fun `legacy mode checks are not used in cli implementation`()</ID>
+    <ID>ReturnCount:InitCommand.kt$InitCommand$private fun configureDotNetIfNeeded( projectDir: Path, yamlFile: Path, )</ID>
+    <ID>ReturnCount:InitCommand.kt$InitCommand$private fun loadCloudToken(): String?</ID>
+    <ID>ReturnCount:PullCommand.kt$PullCommand$private fun resolveImageFromLinter(linterValue: String?): String?</ID>
+    <ID>ReturnCount:ReportDisplay.kt$ReportDisplay$fun showReport( terminal: Terminal, resultsDir: Path, reportDir: Path, port: Int, ): Int</ID>
+    <ID>ReturnCount:ScanCommand.kt$ScanCommand$private fun parseWithinDocker(value: String?): Boolean?</ID>
+    <ID>ReturnCount:ScanCommand.kt$ScanCommand$private fun resolveAnalyzer( yaml: QodanaYaml?, projectDir: Path, ): AnalyzerResolution</ID>
+    <ID>ReturnCount:SendCommand.kt$SendCommand$private fun loadCloudToken(): String?</ID>
+    <ID>ThrowsCount:InitCommand.kt$InitCommand$private suspend fun validateTokenOrExit(token: String)</ID>
+    <ID>ThrowsCount:ScanCommand.kt$ScanCommand$private fun resolveAnalyzer( yaml: QodanaYaml?, projectDir: Path, ): AnalyzerResolution</ID>
+    <ID>ThrowsCount:ScanCommand.kt$ScanCommand$private fun validateFlags()</ID>
+    <ID>ThrowsCount:SendCommand.kt$SendCommand$private suspend fun validateTokenOrExit(token: String)</ID>
+    <ID>TooManyFunctions:InitCommand.kt$InitCommand : CliktCommand</ID>
+    <ID>TooManyFunctions:ScanCommand.kt$ScanCommand : CliktCommand</ID>
+    <ID>WildcardImport:Main.kt$import org.jetbrains.qodana.cli.command.*</ID>
+    <ID>WildcardImport:QodanaCommandTest.kt$import kotlin.test.*</ID>
+    <ID>WildcardImport:ScanCommand.kt$import com.github.ajalt.clikt.parameters.options.*</ID>
+    <ID>WildcardImport:ScanCommand.kt$import org.jetbrains.qodana.core.model.*</ID>
+    <ID>WildcardImport:ScanCommand.kt$import org.jetbrains.qodana.engine.model.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -3,7 +3,6 @@ package org.jetbrains.qodana.core.model
 import kotlin.test.*
 
 class ProcessResultTest {
-
     @Test
     fun `isSuccess is true when exitCode is 0`() {
         val result = ProcessResult(exitCode = 0, stdout = "ok", stderr = "")

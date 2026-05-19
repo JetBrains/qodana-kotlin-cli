@@ -10,7 +10,8 @@ class LicenseDataTest {
 
     @Test
     fun `deserialize all fields`() {
-        val json = """
+        val json =
+            """
             {
                 "licenseId": "lid-123",
                 "licenseKey": "key-abc",
@@ -19,7 +20,7 @@ class LicenseDataTest {
                 "organisationIdHash": "orgHash",
                 "licensePlan": "ULTIMATE"
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val data = mapper.readValue<LicenseData>(json)
 
@@ -33,7 +34,8 @@ class LicenseDataTest {
 
     @Test
     fun `ignore unknown properties`() {
-        val json = """
+        val json =
+            """
             {
                 "licenseId": "lid-123",
                 "licenseKey": "key-abc",
@@ -43,7 +45,7 @@ class LicenseDataTest {
                 "licensePlan": "ULTIMATE",
                 "unknownField": "should be ignored"
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val data = mapper.readValue<LicenseData>(json)
 
@@ -52,7 +54,8 @@ class LicenseDataTest {
 
     @Test
     fun `extract license key`() {
-        val json = """
+        val json =
+            """
             {
                 "licenseId": "lid-456",
                 "licenseKey": "extracted-key-value",
@@ -61,7 +64,7 @@ class LicenseDataTest {
                 "organisationIdHash": "oh",
                 "licensePlan": "COMMUNITY"
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val data = mapper.readValue<LicenseData>(json)
 
@@ -73,7 +76,8 @@ class LicenseDataTest {
         val plans = listOf("COMMUNITY", "ULTIMATE", "ULTIMATE_PLUS")
 
         for (plan in plans) {
-            val json = """
+            val json =
+                """
                 {
                     "licenseId": "id",
                     "licenseKey": "key",
@@ -82,7 +86,7 @@ class LicenseDataTest {
                     "organisationIdHash": "oh",
                     "licensePlan": "$plan"
                 }
-            """.trimIndent()
+                """.trimIndent()
 
             val data = mapper.readValue<LicenseData>(json)
 
@@ -92,14 +96,15 @@ class LicenseDataTest {
 
     @Test
     fun `round trip serialization`() {
-        val original = LicenseData(
-            licenseId = "lid-rt",
-            licenseKey = "key-rt",
-            expirationDate = "2026-06-15",
-            projectIdHash = "projRT",
-            organisationIdHash = "orgRT",
-            licensePlan = "ULTIMATE_PLUS",
-        )
+        val original =
+            LicenseData(
+                licenseId = "lid-rt",
+                licenseKey = "key-rt",
+                expirationDate = "2026-06-15",
+                projectIdHash = "projRT",
+                organisationIdHash = "orgRT",
+                licensePlan = "ULTIMATE_PLUS",
+            )
 
         val json = mapper.writeValueAsString(original)
         val deserialized = mapper.readValue<LicenseData>(json)
@@ -109,7 +114,8 @@ class LicenseDataTest {
 
     @Test
     fun `supports organizationIdHash spelling`() {
-        val json = """
+        val json =
+            """
             {
                 "licenseId": "id",
                 "licenseKey": "key",
@@ -118,7 +124,7 @@ class LicenseDataTest {
                 "organizationIdHash": "org-us",
                 "licensePlan": "ULTIMATE"
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val data = mapper.readValue<LicenseData>(json)
         assertEquals("org-us", data.organisationIdHash)
@@ -126,14 +132,15 @@ class LicenseDataTest {
 
     @Test
     fun `missing optional hashes default to empty strings`() {
-        val json = """
+        val json =
+            """
             {
                 "licenseId": "id",
                 "licenseKey": "key",
                 "expirationDate": "2026-12-31",
                 "licensePlan": "ULTIMATE"
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val data = mapper.readValue<LicenseData>(json)
         assertEquals("", data.projectIdHash)

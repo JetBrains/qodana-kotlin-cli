@@ -21,38 +21,42 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class SendCommandTest {
-
     @Test
-    fun `send prefers environment token over stored token`(@TempDir dir: Path) {
+    fun `send prefers environment token over stored token`(
+        @TempDir dir: Path,
+    ) {
         val projectDir = dir.resolve("project").also { Files.createDirectories(it) }
         val resultsDir = dir.resolve("results").also { Files.createDirectories(it) }
         val terminal = SendTestTerminal(isInteractive = false)
-        val env = mapOf(
-            "QODANA_TOKEN" to "env-token",
-            "QODANA_ENDPOINT" to "https://qodana.cloud",
-        )
-        val http = SendFakeHttpTransport(
+        val env =
             mapOf(
-                "https://qodana.cloud/api/versions" to HttpResponse(
-                    200,
-                    """
-                        {
-                          "api": {
-                            "versions": [
-                              {"version":"1.1","url":"https://cloud.api"}
-                            ]
-                          },
-                          "linters": {
-                            "versions": [
-                              {"version":"1.0","url":"https://linters.api"}
-                            ]
-                          }
-                        }
-                    """.trimIndent()
-                ),
-                "https://cloud.api/projects" to HttpResponse(200, """{"name":"sample"}""")
+                "QODANA_TOKEN" to "env-token",
+                "QODANA_ENDPOINT" to "https://qodana.cloud",
             )
-        )
+        val http =
+            SendFakeHttpTransport(
+                mapOf(
+                    "https://qodana.cloud/api/versions" to
+                        HttpResponse(
+                            200,
+                            """
+                            {
+                              "api": {
+                                "versions": [
+                                  {"version":"1.1","url":"https://cloud.api"}
+                                ]
+                              },
+                              "linters": {
+                                "versions": [
+                                  {"version":"1.0","url":"https://linters.api"}
+                                ]
+                              }
+                            }
+                            """.trimIndent(),
+                        ),
+                    "https://cloud.api/projects" to HttpResponse(200, """{"name":"sample"}"""),
+                ),
+            )
         val publisher = SendRecordingReportPublisher()
 
         SendCommand(
@@ -63,7 +67,7 @@ class SendCommandTest {
             httpTransport = http,
             runtimeEnvironmentDetector = { RuntimeEnvironment.HOST },
         ).parse(
-            listOf("-i", projectDir.toString(), "-o", resultsDir.toString())
+            listOf("-i", projectDir.toString(), "-o", resultsDir.toString()),
         )
 
         assertEquals("env-token", publisher.lastToken)
@@ -73,32 +77,36 @@ class SendCommandTest {
     }
 
     @Test
-    fun `send falls back to stored token and prints warning`(@TempDir dir: Path) {
+    fun `send falls back to stored token and prints warning`(
+        @TempDir dir: Path,
+    ) {
         val projectDir = dir.resolve("project").also { Files.createDirectories(it) }
         val resultsDir = dir.resolve("results").also { Files.createDirectories(it) }
         val terminal = SendTestTerminal(isInteractive = false)
-        val http = SendFakeHttpTransport(
-            mapOf(
-                "https://qodana.cloud/api/versions" to HttpResponse(
-                    200,
-                    """
-                        {
-                          "api": {
-                            "versions": [
-                              {"version":"1.1","url":"https://cloud.api"}
-                            ]
-                          },
-                          "linters": {
-                            "versions": [
-                              {"version":"1.0","url":"https://linters.api"}
-                            ]
-                          }
-                        }
-                    """.trimIndent()
+        val http =
+            SendFakeHttpTransport(
+                mapOf(
+                    "https://qodana.cloud/api/versions" to
+                        HttpResponse(
+                            200,
+                            """
+                            {
+                              "api": {
+                                "versions": [
+                                  {"version":"1.1","url":"https://cloud.api"}
+                                ]
+                              },
+                              "linters": {
+                                "versions": [
+                                  {"version":"1.0","url":"https://linters.api"}
+                                ]
+                              }
+                            }
+                            """.trimIndent(),
+                        ),
+                    "https://cloud.api/projects" to HttpResponse(200, """{"name":"sample"}"""),
                 ),
-                "https://cloud.api/projects" to HttpResponse(200, """{"name":"sample"}""")
             )
-        )
         val publisher = SendRecordingReportPublisher()
 
         SendCommand(
@@ -109,7 +117,7 @@ class SendCommandTest {
             httpTransport = http,
             runtimeEnvironmentDetector = { RuntimeEnvironment.HOST },
         ).parse(
-            listOf("-i", projectDir.toString(), "-o", resultsDir.toString())
+            listOf("-i", projectDir.toString(), "-o", resultsDir.toString()),
         )
 
         assertEquals("stored-token", publisher.lastToken)
@@ -117,50 +125,56 @@ class SendCommandTest {
     }
 
     @Test
-    fun `send exits with invalid token message when cloud validation fails`(@TempDir dir: Path) {
+    fun `send exits with invalid token message when cloud validation fails`(
+        @TempDir dir: Path,
+    ) {
         val projectDir = dir.resolve("project").also { Files.createDirectories(it) }
         val resultsDir = dir.resolve("results").also { Files.createDirectories(it) }
         val terminal = SendTestTerminal(isInteractive = false)
-        val env = mapOf(
-            "QODANA_TOKEN" to "bad-token",
-            "QODANA_ENDPOINT" to "https://qodana.cloud",
-        )
-        val http = SendFakeHttpTransport(
+        val env =
             mapOf(
-                "https://qodana.cloud/api/versions" to HttpResponse(
-                    200,
-                    """
-                        {
-                          "api": {
-                            "versions": [
-                              {"version":"1.1","url":"https://cloud.api"}
-                            ]
-                          },
-                          "linters": {
-                            "versions": [
-                              {"version":"1.0","url":"https://linters.api"}
-                            ]
-                          }
-                        }
-                    """.trimIndent()
-                ),
-                "https://cloud.api/projects" to HttpResponse(401, "unauthorized")
+                "QODANA_TOKEN" to "bad-token",
+                "QODANA_ENDPOINT" to "https://qodana.cloud",
             )
-        )
+        val http =
+            SendFakeHttpTransport(
+                mapOf(
+                    "https://qodana.cloud/api/versions" to
+                        HttpResponse(
+                            200,
+                            """
+                            {
+                              "api": {
+                                "versions": [
+                                  {"version":"1.1","url":"https://cloud.api"}
+                                ]
+                              },
+                              "linters": {
+                                "versions": [
+                                  {"version":"1.0","url":"https://linters.api"}
+                                ]
+                              }
+                            }
+                            """.trimIndent(),
+                        ),
+                    "https://cloud.api/projects" to HttpResponse(401, "unauthorized"),
+                ),
+            )
         val publisher = SendRecordingReportPublisher()
 
-        val exception = assertFailsWith<ProgramResult> {
-            SendCommand(
-                reportPublisher = ReportPublishUseCase(publisher),
-                terminal = terminal,
-                getEnv = { key -> env[key] },
-                tokenStore = SendFixedTokenStore(null),
-                httpTransport = http,
-                runtimeEnvironmentDetector = { RuntimeEnvironment.HOST },
-            ).parse(
-                listOf("-i", projectDir.toString(), "-o", resultsDir.toString())
-            )
-        }
+        val exception =
+            assertFailsWith<ProgramResult> {
+                SendCommand(
+                    reportPublisher = ReportPublishUseCase(publisher),
+                    terminal = terminal,
+                    getEnv = { key -> env[key] },
+                    tokenStore = SendFixedTokenStore(null),
+                    httpTransport = http,
+                    runtimeEnvironmentDetector = { RuntimeEnvironment.HOST },
+                ).parse(
+                    listOf("-i", projectDir.toString(), "-o", resultsDir.toString()),
+                )
+            }
 
         assertEquals(1, exception.statusCode)
         assertEquals(0, publisher.calls)
@@ -192,7 +206,12 @@ private class SendFixedTokenStore(
     private val token: String?,
 ) : TokenStore {
     override fun load(key: String): String? = token
-    override fun save(key: String, value: String) {}
+
+    override fun save(
+        key: String,
+        value: String,
+    ) {}
+
     override fun delete(key: String) {}
 }
 
@@ -201,7 +220,10 @@ private class SendFakeHttpTransport(
 ) : HttpTransport {
     val requests = mutableListOf<Pair<String, Map<String, String>>>()
 
-    override suspend fun get(url: String, headers: Map<String, String>): HttpResponse {
+    override suspend fun get(
+        url: String,
+        headers: Map<String, String>,
+    ): HttpResponse {
         requests += url to headers
         return responses[url] ?: HttpResponse(404, "Not Found")
     }
@@ -211,19 +233,19 @@ private class SendFakeHttpTransport(
         body: ByteArray,
         contentType: String,
         headers: Map<String, String>,
-    ): HttpResponse {
-        return HttpResponse(200, "")
-    }
+    ): HttpResponse = HttpResponse(200, "")
 
-    override suspend fun download(url: String, target: Path, headers: Map<String, String>) {}
+    override suspend fun download(
+        url: String,
+        target: Path,
+        headers: Map<String, String>,
+    ) {}
 
     override suspend fun uploadMultipart(
         url: String,
         parts: List<MultipartPart>,
         headers: Map<String, String>,
-    ): HttpResponse {
-        return HttpResponse(200, "")
-    }
+    ): HttpResponse = HttpResponse(200, "")
 }
 
 private class SendTestTerminal(
@@ -257,13 +279,20 @@ private class SendTestTerminal(
         messages += "DEBUG: $message"
     }
 
-    override fun <T> spinner(message: String, action: () -> T): T = action()
+    override fun <T> spinner(
+        message: String,
+        action: () -> T,
+    ): T = action()
 
-    override fun prompt(message: String, default: String?): String {
-        return if (prompts.isNotEmpty()) prompts.removeFirst() else (default ?: "")
-    }
+    override fun prompt(
+        message: String,
+        default: String?,
+    ): String = if (prompts.isNotEmpty()) prompts.removeFirst() else (default ?: "")
 
-    override fun select(message: String, choices: List<String>): String = choices.first()
+    override fun select(
+        message: String,
+        choices: List<String>,
+    ): String = choices.first()
 
     override fun setRedactedTokens(tokens: Set<String>) {}
 }

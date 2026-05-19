@@ -4,11 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.kotlin.kotlinModule
 import com.jetbrains.qodana.sarif.model.Result
 import com.jetbrains.qodana.sarif.model.SarifReport
+import org.jetbrains.qodana.core.port.SarifService
 import org.jetbrains.qodana.engine.cloud.getReportUrl
 import org.jetbrains.qodana.engine.port.HttpTransport
-import org.jetbrains.qodana.core.port.SarifService
-import java.nio.file.Path
 import java.net.URI
+import java.nio.file.Path
 
 class BitBucketExporter(
     private val sarifService: SarifService,
@@ -27,20 +27,22 @@ class BitBucketExporter(
         private const val ANNOTATION_TYPE = "CODE_SMELL"
         private const val BITBUCKET_PIPELINE_UUID = "BITBUCKET_PIPELINE_UUID"
 
-        private val BITBUCKET_SEVERITY = mapOf(
-            "error" to "HIGH",
-            "warning" to "MEDIUM",
-            "note" to "LOW",
-            "critical" to "HIGH",
-            "high" to "HIGH",
-            "moderate" to "MEDIUM",
-            "low" to "LOW",
-            "info" to "INFO",
-        )
+        private val BITBUCKET_SEVERITY =
+            mapOf(
+                "error" to "HIGH",
+                "warning" to "MEDIUM",
+                "note" to "LOW",
+                "critical" to "HIGH",
+                "high" to "HIGH",
+                "moderate" to "MEDIUM",
+                "low" to "LOW",
+                "info" to "INFO",
+            )
     }
 
-    private val mapper: ObjectMapper = ObjectMapper()
-        .registerModule(kotlinModule())
+    private val mapper: ObjectMapper =
+        ObjectMapper()
+            .registerModule(kotlinModule())
 
     suspend fun export(
         resultsDir: Path,
@@ -56,11 +58,12 @@ class BitBucketExporter(
         val report = sarifService.read(sarifPath) as? SarifReport ?: return
         val reportLink = getReportUrl(resultsDir.toString()).ifBlank { "" }
         val annotations = convertToAnnotations(report, reportLink).take(MAX_ANNOTATIONS_TOTAL)
-        val effectiveTitle = if (reportTitle == DEFAULT_REPORT_TITLE) {
-            resolveToolName(report)
-        } else {
-            reportTitle
-        }
+        val effectiveTitle =
+            if (reportTitle == DEFAULT_REPORT_TITLE) {
+                resolveToolName(report)
+            } else {
+                reportTitle
+            }
 
         val baseUrl = "${resolveApiBaseUrl(bitbucketUrl)}/repositories/$workspace/$repoSlug/commit/$commitHash/reports"
 
@@ -83,15 +86,18 @@ class BitBucketExporter(
         totalAnnotations: Int,
         reportLink: String,
     ) {
-        val body = mapper.writeValueAsBytes(mapOf(
-            "title" to reportTitle,
-            "details" to problemsFoundMessage(totalAnnotations),
-            "report_type" to "BUG",
-            "reporter" to BITBUCKET_REPORTER,
-            "logo_url" to BITBUCKET_LOGO_URL,
-            "link" to reportLink,
-            "result" to if (totalAnnotations == 0) "PASSED" else "FAILED",
-        ))
+        val body =
+            mapper.writeValueAsBytes(
+                mapOf(
+                    "title" to reportTitle,
+                    "details" to problemsFoundMessage(totalAnnotations),
+                    "report_type" to "BUG",
+                    "reporter" to BITBUCKET_REPORTER,
+                    "logo_url" to BITBUCKET_LOGO_URL,
+                    "link" to reportLink,
+                    "result" to if (totalAnnotations == 0) "PASSED" else "FAILED",
+                ),
+            )
 
         http.post(
             url = "$baseUrl/$reportId",
@@ -120,17 +126,22 @@ class BitBucketExporter(
         }
     }
 
-    private fun authHeaders(token: String): Map<String, String> = mapOf(
-        "Authorization" to "Bearer $token",
-    )
+    private fun authHeaders(token: String): Map<String, String> =
+        mapOf(
+            "Authorization" to "Bearer $token",
+        )
 
-    private fun convertToAnnotations(report: SarifReport, reportLink: String): List<Map<String, Any>> {
+    private fun convertToAnnotations(
+        report: SarifReport,
+        reportLink: String,
+    ): List<Map<String, Any>> {
         val annotations = mutableListOf<Map<String, Any>>()
 
         for (run in report.runs ?: emptyList()) {
-            val ruleDescriptions = (run.tool?.extensions ?: emptySet())
-                .flatMap { component -> component.rules ?: emptyList() }
-                .associate { rule -> rule.id to (rule.shortDescription?.text ?: "") }
+            val ruleDescriptions =
+                (run.tool?.extensions ?: emptySet())
+                    .flatMap { component -> component.rules ?: emptyList() }
+                    .associate { rule -> rule.id to (rule.shortDescription?.text ?: "") }
 
             for (result in run.results ?: emptyList()) {
                 if (result.locations.isNullOrEmpty() || result.baselineState == Result.BaselineState.UNCHANGED) {
@@ -146,12 +157,17 @@ class BitBucketExporter(
         return annotations
     }
 
-    private fun convertResult(result: Result, ruleDescription: String, reportLink: String): Map<String, Any>? {
+    private fun convertResult(
+        result: Result,
+        ruleDescription: String,
+        reportLink: String,
+    ): Map<String, Any>? {
         val ruleId = result.ruleId ?: return null
         val message = result.message?.text ?: ""
         val location = result.locations?.firstOrNull()?.physicalLocation
-        val fingerprint = readFingerprint(result)
-            ?: throw IllegalStateException("failed to get fingerprint from result: $result")
+        val fingerprint =
+            readFingerprint(result)
+                ?: throw IllegalStateException("failed to get fingerprint from result: $result")
         val path = location?.artifactLocation?.uri ?: ""
         val line = location?.region?.startLine ?: 0
         val severity = mapSeverity(resolveSeverity(result))
@@ -176,9 +192,7 @@ class BitBucketExporter(
         return result.level?.value() ?: "note"
     }
 
-    private fun mapSeverity(severity: String): String {
-        return BITBUCKET_SEVERITY[severity] ?: "LOW"
-    }
+    private fun mapSeverity(severity: String): String = BITBUCKET_SEVERITY[severity] ?: "LOW"
 
     private fun readFingerprint(result: Result): String? {
         val partialFingerprints = result.partialFingerprints ?: return null
@@ -191,13 +205,12 @@ class BitBucketExporter(
         return "$toolName "
     }
 
-    private fun problemsFoundMessage(count: Int): String {
-        return when (count) {
+    private fun problemsFoundMessage(count: Int): String =
+        when (count) {
             0 -> "It seems all right 👌 No new problems found according to the checks applied"
             1 -> "Found 1 new problem according to the checks applied"
             else -> "Found $count new problems according to the checks applied"
         }
-    }
 
     private fun resolveApiBaseUrl(rawUrl: String): String {
         if (isBitBucketPipeline()) {
@@ -219,15 +232,16 @@ class BitBucketExporter(
         return when {
             host == "bitbucket.org" -> DEFAULT_CLOUD_API
             host == "api.bitbucket.org" -> {
-                if (path.endsWith("/2.0")) "$scheme://$hostAndPort$path"
-                else "$scheme://$hostAndPort/2.0"
+                if (path.endsWith("/2.0")) {
+                    "$scheme://$hostAndPort$path"
+                } else {
+                    "$scheme://$hostAndPort/2.0"
+                }
             }
             path.contains("/rest/api/") -> "$scheme://$hostAndPort$path"
             else -> "$scheme://$hostAndPort/rest/api/1.0"
         }
     }
 
-    private fun isBitBucketPipeline(): Boolean {
-        return !getEnv(BITBUCKET_PIPELINE_UUID).isNullOrBlank()
-    }
+    private fun isBitBucketPipeline(): Boolean = !getEnv(BITBUCKET_PIPELINE_UUID).isNullOrBlank()
 }

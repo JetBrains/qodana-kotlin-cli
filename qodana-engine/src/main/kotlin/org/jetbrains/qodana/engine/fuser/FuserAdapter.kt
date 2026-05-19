@@ -22,7 +22,6 @@ import kotlin.math.abs
 class FuserAdapter(
     private val productVersion: String,
 ) : StatisticsReporter {
-
     private val recorderCode = "FUS"
     private val mapper = ObjectMapper()
     private val httpTimeout = Duration.ofSeconds(10)
@@ -40,67 +39,81 @@ class FuserAdapter(
         val metadataJson = httpGet(config.getMetadataEndpoint(productCode)!!)
         val metadata = mapper.readValue(metadataJson, EventGroupRemoteDescriptors::class.java)
 
-        val metadataStorage = CompositeMetadataStorage(
-            metadata,
-            buildParser = { build: String? -> EventLogBuild.fromString(build) },
-            excludedFields = listOf("system_qdcld_project_id"),
-        )
+        val metadataStorage =
+            CompositeMetadataStorage(
+                metadata,
+                buildParser = { build: String? -> EventLogBuild.fromString(build) },
+                excludedFields = listOf("system_qdcld_project_id"),
+            )
         val validator = SensitiveDataValidator(metadataStorage)
 
-        val logEvents = events.map { event ->
-            LogEvent(
-                event["sessionId"] as? String ?: "",
-                this.productVersion,
-                bucket(deviceId).toString(),
-                (event["time"] as? Number)?.toLong() ?: System.currentTimeMillis(),
-                LogEventGroup(event["groupId"] as? String ?: "", "1"),
-                "75",
-                LogEventAction(
-                    event["eventName"] as? String ?: "",
-                    event["state"] as? Boolean ?: false,
-                    data = event.filterValues { it is String }.mapValues { it.value as String }.toMutableMap(),
-                ),
-            )
-        }
+        val logEvents =
+            events.map { event ->
+                LogEvent(
+                    event["sessionId"] as? String ?: "",
+                    this.productVersion,
+                    bucket(deviceId).toString(),
+                    (event["time"] as? Number)?.toLong() ?: System.currentTimeMillis(),
+                    LogEventGroup(event["groupId"] as? String ?: "", "1"),
+                    "75",
+                    LogEventAction(
+                        event["eventName"] as? String ?: "",
+                        event["state"] as? Boolean ?: false,
+                        data = event.filterValues { it is String }.mapValues { it.value as String }.toMutableMap(),
+                    ),
+                )
+            }
 
-        val report = ValidatedFusReport(
-            productCode,
-            deviceId,
-            recorderCode,
-            false,
-            listOf(ValidatedFusRecord(logEvents)),
-        )
+        val report =
+            ValidatedFusReport(
+                productCode,
+                deviceId,
+                recorderCode,
+                false,
+                listOf(ValidatedFusRecord(logEvents)),
+            )
 
         val validated = validator.validateReport(report) ?: return
         httpPost(config.getSendEndpoint(), validated)
     }
 
     private fun httpGet(url: String): String {
-        val client = HttpClient.newBuilder()
-            .connectTimeout(httpTimeout)
-            .followRedirects(HttpClient.Redirect.NORMAL)
-            .build()
-        val request = HttpRequest.newBuilder()
-            .timeout(httpTimeout)
-            .uri(URI.create(url))
-            .header("Accept", "application/json")
-            .GET()
-            .build()
+        val client =
+            HttpClient
+                .newBuilder()
+                .connectTimeout(httpTimeout)
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .build()
+        val request =
+            HttpRequest
+                .newBuilder()
+                .timeout(httpTimeout)
+                .uri(URI.create(url))
+                .header("Accept", "application/json")
+                .GET()
+                .build()
         return client.send(request, HttpResponse.BodyHandlers.ofString()).body()
     }
 
-    private fun httpPost(url: String?, report: ValidatedFusReport) {
+    private fun httpPost(
+        url: String?,
+        report: ValidatedFusReport,
+    ) {
         val entity = FuserSerializer.serialize(report)
-        val client = HttpClient.newBuilder()
-            .connectTimeout(httpTimeout)
-            .followRedirects(HttpClient.Redirect.NORMAL)
-            .build()
-        val request = HttpRequest.newBuilder()
-            .timeout(httpTimeout)
-            .uri(URI.create(url!!))
-            .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(entity))
-            .build()
+        val client =
+            HttpClient
+                .newBuilder()
+                .connectTimeout(httpTimeout)
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .build()
+        val request =
+            HttpRequest
+                .newBuilder()
+                .timeout(httpTimeout)
+                .uri(URI.create(url!!))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(entity))
+                .build()
         client.send(request, HttpResponse.BodyHandlers.ofString())
     }
 

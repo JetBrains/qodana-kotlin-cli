@@ -1,0 +1,16 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>EmptyFunctionBlock:CdnetLinterTest.kt$CdnetLinterTest.&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:CdnetLinterTest.kt$CdnetLinterTest.&lt;no name provided&gt;.&lt;no name provided&gt;${}</ID>
+    <ID>EmptyFunctionBlock:MainTest.kt$RecordingTerminal${}</ID>
+    <ID>LongParameterList:CdnetOptionsTest.kt$CdnetOptionsTest$( yaml: QodanaYaml? = null, noBuild: Boolean = false, noStatistics: Boolean = false, configurationName: String? = null, platformName: String? = null, solutionPath: String? = null, projectPath: String? = null, properties: List&lt;String&gt; = emptyList(), customTools: Map&lt;String, Path&gt; = emptyMap(), )</ID>
+    <ID>LoopWithTooManyJumpStatements:CdnetSarif.kt$CdnetSarif$for</ID>
+    <ID>MatchingDeclarationName:Main.kt$Version</ID>
+    <ID>MaxLineLength:CdnetOptions.kt$CdnetOptions$"Solution/project relative file path is not specified. Use --solution or --project flags or create qodana.yaml file with respective fields"</ID>
+    <ID>ReturnCount:Main.kt$internal fun resolveThirdPartyEapExitCode( terminal: Terminal, buildDateStr: String = System.getProperty("qodana.build.date") ?: System.getenv("QODANA_BUILD_DATE") ?: "", isEap: Boolean = ( System.getProperty("qodana.is.eap") ?: System.getenv("QODANA_IS_EAP") ?: "false" ).toBooleanStrictOrNull() ?: false, checker: EapChecker = EapChecker(terminal), ): Int?</ID>
+    <ID>TooGenericExceptionCaught:CdnetCommand.kt$CdnetCommand$e: Exception</ID>
+    <ID>TooGenericExceptionThrown:CdnetLinter.kt$CdnetLinter$throw RuntimeException("Analysis exited with code: ${result.exitCode}")</ID>
+  </CurrentIssues>
+</SmellBaseline>

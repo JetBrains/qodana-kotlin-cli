@@ -5,7 +5,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class HttpResponseTest {
-
     @Test
     fun `isSuccess for 200`() {
         assertTrue(HttpResponse(200, "ok").isSuccess)

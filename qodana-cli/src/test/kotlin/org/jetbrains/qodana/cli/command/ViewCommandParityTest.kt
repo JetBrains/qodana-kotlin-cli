@@ -10,10 +10,12 @@ import java.nio.file.Path
 import kotlin.test.assertTrue
 
 class ViewCommandParityTest {
-
     @Test
-    fun `view counts only new-or-empty baseline states and skips unchanged from printing`(@TempDir dir: Path) {
-        val sarif = """
+    fun `view counts only new-or-empty baseline states and skips unchanged from printing`(
+        @TempDir dir: Path,
+    ) {
+        val sarif =
+            """
             {
               "version": "2.1.0",
               "runs": [{
@@ -39,7 +41,7 @@ class ViewCommandParityTest {
                 ]
               }]
             }
-        """.trimIndent()
+            """.trimIndent()
         val sarifPath = dir.resolve("report.sarif.json")
         Files.writeString(sarifPath, sarif)
 
@@ -53,8 +55,11 @@ class ViewCommandParityTest {
     }
 
     @Test
-    fun `view prints zero-new-problems message when all results are unchanged`(@TempDir dir: Path) {
-        val sarif = """
+    fun `view prints zero-new-problems message when all results are unchanged`(
+        @TempDir dir: Path,
+    ) {
+        val sarif =
+            """
             {
               "version": "2.1.0",
               "runs": [{
@@ -69,7 +74,7 @@ class ViewCommandParityTest {
                 ]
               }]
             }
-        """.trimIndent()
+            """.trimIndent()
         val sarifPath = dir.resolve("report.sarif.json")
         Files.writeString(sarifPath, sarif)
 
@@ -108,10 +113,23 @@ private class ViewRecordingTerminal : Terminal {
         lines.add(message)
     }
 
-    override fun <T> spinner(message: String, action: () -> T): T = action()
-    override fun prompt(message: String, default: String?): String = default ?: ""
-    override fun select(message: String, choices: List<String>): String = choices.first()
+    override fun <T> spinner(
+        message: String,
+        action: () -> T,
+    ): T = action()
+
+    override fun prompt(
+        message: String,
+        default: String?,
+    ): String = default ?: ""
+
+    override fun select(
+        message: String,
+        choices: List<String>,
+    ): String = choices.first()
+
     override val isInteractive = false
     override var isCi = false
+
     override fun setRedactedTokens(tokens: Set<String>) {}
 }

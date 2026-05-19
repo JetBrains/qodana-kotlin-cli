@@ -5,7 +5,6 @@ import java.time.Duration
 import kotlin.io.path.exists
 
 object ScanContextUtils {
-
     /**
      * Determines the run scenario based on scan configuration.
      * Priority: fullHistory > no startHash (default) > forceLocal > container (default) > reversePr > scoped
@@ -29,9 +28,8 @@ object ScanContextUtils {
     /**
      * Converts timeout in milliseconds to Duration. Zero or negative → max duration.
      */
-    fun getAnalysisTimeout(timeoutMs: Long): Duration {
-        return if (timeoutMs <= 0) Duration.ofMillis(Long.MAX_VALUE) else Duration.ofMillis(timeoutMs)
-    }
+    fun getAnalysisTimeout(timeoutMs: Long): Duration =
+        if (timeoutMs <= 0) Duration.ofMillis(Long.MAX_VALUE) else Duration.ofMillis(timeoutMs)
 
     /**
      * Returns path to ide.vmoptions in the config directory.
@@ -53,7 +51,10 @@ object ScanContextUtils {
      * Calculates project directory path relative to repository root.
      * Returns "." if they are the same directory.
      */
-    fun projectDirRelativeToRepoRoot(projectDir: Path, repoRoot: Path): String {
+    fun projectDirRelativeToRepoRoot(
+        projectDir: Path,
+        repoRoot: Path,
+    ): String {
         val relative = repoRoot.relativize(projectDir).toString()
         return relative.ifEmpty { "." }
     }
@@ -79,6 +80,5 @@ object ScanContextUtils {
     /**
      * Checks if a scenario is scoped or reverse-scoped.
      */
-    fun isScopedScenario(scenario: RunScenario): Boolean =
-        scenario is RunScenario.Scoped || scenario is RunScenario.ReverseScoped
+    fun isScopedScenario(scenario: RunScenario): Boolean = scenario is RunScenario.Scoped || scenario is RunScenario.ReverseScoped
 }

@@ -4,16 +4,15 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
-import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class QodanaSarifServiceTest {
-
     private val service = QodanaSarifService()
 
-    private val minimalSarif = """
+    private val minimalSarif =
+        """
         {
           "version": "2.1.0",
           "${'$'}schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
@@ -29,9 +28,10 @@ class QodanaSarifServiceTest {
             }
           ]
         }
-    """.trimIndent()
+        """.trimIndent()
 
-    private val sarifWithResults = """
+    private val sarifWithResults =
+        """
         {
           "version": "2.1.0",
           "runs": [
@@ -62,10 +62,12 @@ class QodanaSarifServiceTest {
             }
           ]
         }
-    """.trimIndent()
+        """.trimIndent()
 
     @Test
-    fun `read and write round-trip`(@TempDir dir: Path) {
+    fun `read and write round-trip`(
+        @TempDir dir: Path,
+    ) {
         val file = dir.resolve("test.sarif.json")
         Files.writeString(file, minimalSarif)
 
@@ -82,7 +84,9 @@ class QodanaSarifServiceTest {
     }
 
     @Test
-    fun `read sarif with results`(@TempDir dir: Path) {
+    fun `read sarif with results`(
+        @TempDir dir: Path,
+    ) {
         val file = dir.resolve("results.sarif.json")
         Files.writeString(file, sarifWithResults)
 
@@ -99,7 +103,9 @@ class QodanaSarifServiceTest {
     }
 
     @Test
-    fun `merge two sarif reports`(@TempDir dir: Path) {
+    fun `merge two sarif reports`(
+        @TempDir dir: Path,
+    ) {
         val file1 = dir.resolve("report1.sarif.json")
         val file2 = dir.resolve("report2.sarif.json")
         Files.writeString(file1, minimalSarif)
@@ -115,7 +121,9 @@ class QodanaSarifServiceTest {
     }
 
     @Test
-    fun `merge single report`(@TempDir dir: Path) {
+    fun `merge single report`(
+        @TempDir dir: Path,
+    ) {
         val file = dir.resolve("single.sarif.json")
         Files.writeString(file, minimalSarif)
 
@@ -128,15 +136,20 @@ class QodanaSarifServiceTest {
     }
 
     @Test
-    fun `merge empty list does not create output`(@TempDir dir: Path) {
+    fun `merge empty list does not create output`(
+        @TempDir dir: Path,
+    ) {
         val output = dir.resolve("merged.sarif.json")
         service.merge(emptyList(), output)
         assertTrue(!Files.exists(output))
     }
 
     @Test
-    fun `normalize paths replaces backslashes`(@TempDir dir: Path) {
-        val sarif = """
+    fun `normalize paths replaces backslashes`(
+        @TempDir dir: Path,
+    ) {
+        val sarif =
+            """
             {
               "version": "2.1.0",
               "runs": [{
@@ -152,7 +165,7 @@ class QodanaSarifServiceTest {
                 }]
               }]
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val file = dir.resolve("backslash.sarif.json")
         Files.writeString(file, sarif)
@@ -164,9 +177,12 @@ class QodanaSarifServiceTest {
     }
 
     @Test
-    fun `normalize paths strips projectDir prefix`(@TempDir dir: Path) {
+    fun `normalize paths strips projectDir prefix`(
+        @TempDir dir: Path,
+    ) {
         val projectDir = dir.resolve("myproject")
-        val sarif = """
+        val sarif =
+            """
             {
               "version": "2.1.0",
               "runs": [{
@@ -182,7 +198,7 @@ class QodanaSarifServiceTest {
                 }]
               }]
             }
-        """.trimIndent()
+            """.trimIndent()
 
         val file = dir.resolve("prefix.sarif.json")
         Files.writeString(file, sarif)
@@ -194,7 +210,9 @@ class QodanaSarifServiceTest {
     }
 
     @Test
-    fun `baseline compare basic`(@TempDir dir: Path) {
+    fun `baseline compare basic`(
+        @TempDir dir: Path,
+    ) {
         val report = dir.resolve("report.sarif.json")
         val baseline = dir.resolve("baseline.sarif.json")
         Files.writeString(report, sarifWithResults)

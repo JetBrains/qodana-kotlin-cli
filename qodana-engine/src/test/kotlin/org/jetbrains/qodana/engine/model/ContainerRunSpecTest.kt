@@ -6,7 +6,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ContainerRunSpecTest {
-
     @Test
     fun `default spec has empty collections`() {
         val spec = ContainerRunSpec(image = "alpine:latest")
@@ -38,22 +37,24 @@ class ContainerRunSpecTest {
 
     @Test
     fun `spec with dotnet capabilities`() {
-        val spec = ContainerRunSpec(
-            image = "jetbrains/qodana-dotnet:latest",
-            capAdd = listOf("SYS_PTRACE"),
-            securityOpts = listOf("seccomp=unconfined"),
-        )
+        val spec =
+            ContainerRunSpec(
+                image = "jetbrains/qodana-dotnet:latest",
+                capAdd = listOf("SYS_PTRACE"),
+                securityOpts = listOf("seccomp=unconfined"),
+            )
         assertEquals(listOf("SYS_PTRACE"), spec.capAdd)
         assertEquals(listOf("seccomp=unconfined"), spec.securityOpts)
     }
 
     @Test
     fun `spec with port bindings`() {
-        val spec = ContainerRunSpec(
-            image = "alpine:latest",
-            portBindings = mapOf(5005 to 5005),
-            exposedPorts = listOf(5005),
-        )
+        val spec =
+            ContainerRunSpec(
+                image = "alpine:latest",
+                portBindings = mapOf(5005 to 5005),
+                exposedPorts = listOf(5005),
+            )
         assertEquals(5005, spec.portBindings[5005])
         assertEquals(listOf(5005), spec.exposedPorts)
     }

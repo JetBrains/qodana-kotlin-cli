@@ -7,7 +7,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ScopedAnalysisTest {
-
     // --- Script string building ---
 
     @Test
@@ -27,7 +26,10 @@ class ScopedAnalysisTest {
 
     @Test
     fun `reverseScopedScript FIXES stage`() {
-        assertEquals("reverse-scoped:FIXES,changes.json", ScopedAnalysis.reverseScopedScript(ScopedAnalysis.ReverseStage.FIXES, "changes.json"))
+        assertEquals(
+            "reverse-scoped:FIXES,changes.json",
+            ScopedAnalysis.reverseScopedScript(ScopedAnalysis.ReverseStage.FIXES, "changes.json"),
+        )
     }
 
     // --- Scoped stages ---

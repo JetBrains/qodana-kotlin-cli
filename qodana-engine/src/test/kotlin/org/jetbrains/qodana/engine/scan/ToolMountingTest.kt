@@ -10,16 +10,19 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ToolMountingTest {
-
     @Test
-    fun `getToolsMountPath creates directory`(@TempDir dir: Path) {
+    fun `getToolsMountPath creates directory`(
+        @TempDir dir: Path,
+    ) {
         val toolsPath = ToolMounting.getToolsMountPath(dir)
         assertTrue(toolsPath.exists())
         assertTrue(toolsPath.toString().endsWith("tools"))
     }
 
     @Test
-    fun `processAuxiliaryTool creates file`(@TempDir dir: Path) {
+    fun `processAuxiliaryTool creates file`(
+        @TempDir dir: Path,
+    ) {
         val content = "test content".toByteArray()
         val path = ToolMounting.processAuxiliaryTool("test.jar", "test", dir, content)
         assertTrue(path.exists())
@@ -27,7 +30,9 @@ class ToolMountingTest {
     }
 
     @Test
-    fun `processAuxiliaryTool returns same path on re-run`(@TempDir dir: Path) {
+    fun `processAuxiliaryTool returns same path on re-run`(
+        @TempDir dir: Path,
+    ) {
         val content = "test content".toByteArray()
         val path1 = ToolMounting.processAuxiliaryTool("test.jar", "test", dir, content)
         val path2 = ToolMounting.processAuxiliaryTool("test.jar", "test", dir, content)

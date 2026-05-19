@@ -6,14 +6,18 @@ import kotlin.io.path.exists
 import kotlin.io.path.writeBytes
 
 object ToolMounting {
-
     fun getToolsMountPath(cacheDir: Path): Path {
         val toolsDir = cacheDir.resolve("tools")
         Files.createDirectories(toolsDir)
         return toolsDir
     }
 
-    fun processAuxiliaryTool(name: String, subDir: String, cacheDir: Path, content: ByteArray): Path {
+    fun processAuxiliaryTool(
+        name: String,
+        subDir: String,
+        cacheDir: Path,
+        content: ByteArray,
+    ): Path {
         val dir = cacheDir.resolve(subDir)
         Files.createDirectories(dir)
         val toolPath = dir.resolve(name)
@@ -23,7 +27,10 @@ object ToolMounting {
         return toolPath
     }
 
-    fun isInDirectory(base: String, target: String): Boolean {
+    fun isInDirectory(
+        base: String,
+        target: String,
+    ): Boolean {
         val normalizedBase = if (base.endsWith("/")) base else "$base/"
         return target.startsWith(normalizedBase) || target == base
     }

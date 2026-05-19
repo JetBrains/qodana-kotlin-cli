@@ -8,15 +8,22 @@ private const val CONTAINER_REPOSITORY_ROOT = "/data/project"
 private const val CONTAINER_GLOBAL_CONFIG_DIR = "/data/config"
 
 internal interface ExecutionIdeArgBuilder {
-    fun build(context: ScanContext, product: IdeProduct? = null): List<String>
+    fun build(
+        context: ScanContext,
+        product: IdeProduct? = null,
+    ): List<String>
 }
 
 private abstract class BaseExecutionIdeArgBuilder : ExecutionIdeArgBuilder {
-    final override fun build(context: ScanContext, product: IdeProduct?): List<String> = buildList {
-        addCommonArgs(context)
-        addFixStrategy(context, product)
-        addModeSpecificArgs(context)
-    }
+    final override fun build(
+        context: ScanContext,
+        product: IdeProduct?,
+    ): List<String> =
+        buildList {
+            addCommonArgs(context)
+            addFixStrategy(context, product)
+            addModeSpecificArgs(context)
+        }
 
     protected abstract fun MutableList<String>.addModeSpecificArgs(context: ScanContext)
 
@@ -71,11 +78,16 @@ private abstract class BaseExecutionIdeArgBuilder : ExecutionIdeArgBuilder {
         }
     }
 
-    protected open fun MutableList<String>.addFixStrategy(context: ScanContext, product: IdeProduct?) {
-        val applyFixes = context.runtime.applyFixes ||
-            context.runtime.fixesStrategy?.lowercase() == "apply"
-        val cleanup = context.runtime.cleanup ||
-            context.runtime.fixesStrategy?.lowercase() == "cleanup"
+    protected open fun MutableList<String>.addFixStrategy(
+        context: ScanContext,
+        product: IdeProduct?,
+    ) {
+        val applyFixes =
+            context.runtime.applyFixes ||
+                context.runtime.fixesStrategy?.lowercase() == "apply"
+        val cleanup =
+            context.runtime.cleanup ||
+                context.runtime.fixesStrategy?.lowercase() == "cleanup"
         if (applyFixes) {
             add("--fixes-strategy")
             add("apply")
@@ -87,7 +99,10 @@ private abstract class BaseExecutionIdeArgBuilder : ExecutionIdeArgBuilder {
 }
 
 private class NativeExecutionIdeArgBuilder : BaseExecutionIdeArgBuilder() {
-    override fun MutableList<String>.addFixStrategy(context: ScanContext, product: IdeProduct?) {
+    override fun MutableList<String>.addFixStrategy(
+        context: ScanContext,
+        product: IdeProduct?,
+    ) {
         if (product != null && product.is233orNewer()) {
             if (context.runtime.applyFixes) {
                 add("--apply-fixes")
@@ -98,10 +113,12 @@ private class NativeExecutionIdeArgBuilder : BaseExecutionIdeArgBuilder() {
                 return
             }
         }
-        val applyFixes = context.runtime.applyFixes ||
-            context.runtime.fixesStrategy?.lowercase() == "apply"
-        val cleanup = context.runtime.cleanup ||
-            context.runtime.fixesStrategy?.lowercase() == "cleanup"
+        val applyFixes =
+            context.runtime.applyFixes ||
+                context.runtime.fixesStrategy?.lowercase() == "apply"
+        val cleanup =
+            context.runtime.cleanup ||
+                context.runtime.fixesStrategy?.lowercase() == "cleanup"
         if (applyFixes) {
             add("--fixes-strategy")
             add("apply")
@@ -120,9 +137,12 @@ private abstract class BaseContainerExecutionIdeArgBuilder : BaseExecutionIdeArg
             add("--save-report")
         }
 
-        val relativeProjectDir = runCatching {
-            context.paths.repositoryRoot.relativize(context.paths.projectDir).toString()
-        }.getOrDefault("")
+        val relativeProjectDir =
+            runCatching {
+                context.paths.repositoryRoot
+                    .relativize(context.paths.projectDir)
+                    .toString()
+            }.getOrDefault("")
         if (relativeProjectDir.isNotBlank() && relativeProjectDir != ".") {
             add("--project-dir")
             add("$CONTAINER_REPOSITORY_ROOT/$relativeProjectDir")
@@ -209,13 +229,17 @@ private class DockerLauncherExecutionIdeArgBuilder : BaseContainerExecutionIdeAr
  * This object only routes to execution-profile classes and does not contain mode branching logic itself.
  */
 object IdeArgBuilder {
-    private val builders: Map<ExecutionProfile.Kind, ExecutionIdeArgBuilder> = mapOf(
-        ExecutionProfile.Kind.NATIVE to NativeExecutionIdeArgBuilder(),
-        ExecutionProfile.Kind.IN_DOCKER to InDockerExecutionIdeArgBuilder(),
-        ExecutionProfile.Kind.DOCKER_LAUNCHER to DockerLauncherExecutionIdeArgBuilder(),
-    )
+    private val builders: Map<ExecutionProfile.Kind, ExecutionIdeArgBuilder> =
+        mapOf(
+            ExecutionProfile.Kind.NATIVE to NativeExecutionIdeArgBuilder(),
+            ExecutionProfile.Kind.IN_DOCKER to InDockerExecutionIdeArgBuilder(),
+            ExecutionProfile.Kind.DOCKER_LAUNCHER to DockerLauncherExecutionIdeArgBuilder(),
+        )
 
-    fun build(context: ScanContext, product: IdeProduct? = null): List<String> {
+    fun build(
+        context: ScanContext,
+        product: IdeProduct? = null,
+    ): List<String> {
         val builder = builders.getValue(context.executionProfile.kind)
         return builder.build(context, product)
     }

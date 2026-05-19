@@ -12,13 +12,18 @@ import kotlin.test.*
  * or projectDir/resultsDir — those are added by NativeScan.getIdeRunCommand().
  */
 class IdeArgBuilderTest {
-
-    private val product253 = IdeProduct(
-        name = "GoLand", ideCode = "GO", code = "QDGO",
-        version = "2025.3", baseScriptName = "goland",
-        ideScript = "/opt/ide/bin/goland", build = "253.12345",
-        home = "/opt/ide", isEap = false,
-    )
+    private val product253 =
+        IdeProduct(
+            name = "GoLand",
+            ideCode = "GO",
+            code = "QDGO",
+            version = "2025.3",
+            baseScriptName = "goland",
+            ideScript = "/opt/ide/bin/goland",
+            build = "253.12345",
+            home = "/opt/ide",
+            isEap = false,
+        )
 
     @Test
     fun `minimal context produces empty args`() {
@@ -46,9 +51,10 @@ class IdeArgBuilderTest {
 
     @Test
     fun `baseline path is included`() {
-        val context = nativeContext().copy(
-            report = ReportOptions(baselinePath = Path.of("/baselines/baseline.sarif.json"))
-        )
+        val context =
+            nativeContext().copy(
+                report = ReportOptions(baselinePath = Path.of("/baselines/baseline.sarif.json")),
+            )
         val args = IdeArgBuilder.build(context)
         val idx = args.indexOf("--baseline")
         assertTrue(idx >= 0, "Expected --baseline in args")
@@ -57,9 +63,10 @@ class IdeArgBuilderTest {
 
     @Test
     fun `baseline-include-absent flag is included`() {
-        val context = nativeContext().copy(
-            report = ReportOptions(baselinePath = Path.of("/b.sarif"), baselineIncludeAbsent = true)
-        )
+        val context =
+            nativeContext().copy(
+                report = ReportOptions(baselinePath = Path.of("/b.sarif"), baselineIncludeAbsent = true),
+            )
         val args = IdeArgBuilder.build(context)
         assertTrue(args.contains("--baseline-include-absent"))
     }
@@ -128,18 +135,20 @@ class IdeArgBuilderTest {
 
     @Test
     fun `container mode includes properties`() {
-        val context = containerContext().copy(
-            runtime = RuntimeContext(properties = mapOf("key" to "value"))
-        )
+        val context =
+            containerContext().copy(
+                runtime = RuntimeContext(properties = mapOf("key" to "value")),
+            )
         val args = IdeArgBuilder.build(context)
         assertTrue(args.contains("--property=key=value"), "Expected --property=key=value in args")
     }
 
     @Test
     fun `container mode includes diff-start and diff-end`() {
-        val context = containerContext().copy(
-            runtime = RuntimeContext(diffStart = "abc123", diffEnd = "def456")
-        )
+        val context =
+            containerContext().copy(
+                runtime = RuntimeContext(diffStart = "abc123", diffEnd = "def456"),
+            )
         val args = IdeArgBuilder.build(context)
         val startIdx = args.indexOf("--diff-start")
         assertTrue(startIdx >= 0, "Expected --diff-start in args")
@@ -151,9 +160,10 @@ class IdeArgBuilderTest {
 
     @Test
     fun `container mode includes analysis-id`() {
-        val context = containerContext().copy(
-            runtime = RuntimeContext(analysisId = "analysis-123")
-        )
+        val context =
+            containerContext().copy(
+                runtime = RuntimeContext(analysisId = "analysis-123"),
+            )
         val args = IdeArgBuilder.build(context)
         val idx = args.indexOf("--analysis-id")
         assertTrue(idx >= 0)
@@ -162,38 +172,42 @@ class IdeArgBuilderTest {
 
     @Test
     fun `container mode includes code-climate`() {
-        val context = containerContext().copy(
-            report = ReportOptions(outputFormats = setOf(ReportOptions.OutputFormat.CODE_CLIMATE))
-        )
+        val context =
+            containerContext().copy(
+                report = ReportOptions(outputFormats = setOf(ReportOptions.OutputFormat.CODE_CLIMATE)),
+            )
         val args = IdeArgBuilder.build(context)
         assertTrue(args.contains("--code-climate"), "Expected --code-climate in args")
     }
 
     @Test
     fun `container mode includes save-report`() {
-        val context = containerContext().copy(
-            docker = DockerOptions(image = "jetbrains/qodana-jvm:latest"),
-            report = ReportOptions(saveReport = true),
-        )
+        val context =
+            containerContext().copy(
+                docker = DockerOptions(image = "jetbrains/qodana-jvm:latest"),
+                report = ReportOptions(saveReport = true),
+            )
         val args = IdeArgBuilder.build(context)
         assertTrue(args.contains("--save-report"))
     }
 
     @Test
     fun `native mode does not include save-report even when docker image is present`() {
-        val context = nativeContext().copy(
-            docker = DockerOptions(image = "jetbrains/qodana-jvm:latest"),
-            report = ReportOptions(saveReport = true),
-        )
+        val context =
+            nativeContext().copy(
+                docker = DockerOptions(image = "jetbrains/qodana-jvm:latest"),
+                report = ReportOptions(saveReport = true),
+            )
         val args = IdeArgBuilder.build(context, product253)
         assertFalse(args.contains("--save-report"), "Native args must not include --save-report: $args")
     }
 
     @Test
     fun `native mode on 251+ does not include config-dir`() {
-        val context = nativeContext().copy(
-            runtime = RuntimeContext(effectiveConfigDir = Path.of("/tmp/config"))
-        )
+        val context =
+            nativeContext().copy(
+                runtime = RuntimeContext(effectiveConfigDir = Path.of("/tmp/config")),
+            )
         val args = IdeArgBuilder.build(context, product253)
         val idx = args.indexOf("--config-dir")
         assertEquals(-1, idx, "Native args must not include --config-dir: $args")
@@ -201,33 +215,37 @@ class IdeArgBuilderTest {
 
     // --- helpers ---
 
-    private fun nativeContext() = ScanContext(
-        paths = ScanPaths(
-            projectDir = Path.of("/project"),
-            resultsDir = Path.of("/results"),
-            cacheDir = Path.of("/cache"),
-            reportDir = Path.of("/report"),
-        ),
-        auth = AuthContext(token = null, endpoint = "https://qodana.cloud"),
-        runtime = RuntimeContext(),
-        ci = CiContext(),
-        report = ReportOptions(),
-        docker = DockerOptions(),
-        executionProfile = NativeExecutionProfile,
-    )
+    private fun nativeContext() =
+        ScanContext(
+            paths =
+                ScanPaths(
+                    projectDir = Path.of("/project"),
+                    resultsDir = Path.of("/results"),
+                    cacheDir = Path.of("/cache"),
+                    reportDir = Path.of("/report"),
+                ),
+            auth = AuthContext(token = null, endpoint = "https://qodana.cloud"),
+            runtime = RuntimeContext(),
+            ci = CiContext(),
+            report = ReportOptions(),
+            docker = DockerOptions(),
+            executionProfile = NativeExecutionProfile,
+        )
 
-    private fun containerContext() = ScanContext(
-        paths = ScanPaths(
-            projectDir = Path.of("/project"),
-            resultsDir = Path.of("/results"),
-            cacheDir = Path.of("/cache"),
-            reportDir = Path.of("/report"),
-        ),
-        auth = AuthContext(token = null, endpoint = "https://qodana.cloud"),
-        runtime = RuntimeContext(),
-        ci = CiContext(),
-        report = ReportOptions(),
-        docker = DockerOptions(image = "jetbrains/qodana-jvm:latest"),
-        executionProfile = DockerLauncherExecutionProfile,
-    )
+    private fun containerContext() =
+        ScanContext(
+            paths =
+                ScanPaths(
+                    projectDir = Path.of("/project"),
+                    resultsDir = Path.of("/results"),
+                    cacheDir = Path.of("/cache"),
+                    reportDir = Path.of("/report"),
+                ),
+            auth = AuthContext(token = null, endpoint = "https://qodana.cloud"),
+            runtime = RuntimeContext(),
+            ci = CiContext(),
+            report = ReportOptions(),
+            docker = DockerOptions(image = "jetbrains/qodana-jvm:latest"),
+            executionProfile = DockerLauncherExecutionProfile,
+        )
 }

@@ -13,7 +13,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class SystemGitClientTest {
-
     companion object {
         private lateinit var git: SystemGitClient
 
@@ -24,9 +23,13 @@ class SystemGitClientTest {
             git = SystemGitClient(runner)
             // Check git is available
             try {
-                val result = kotlinx.coroutines.runBlocking {
-                    runner.run(org.jetbrains.qodana.core.model.ProcessSpec(command = "git", args = listOf("--version")))
-                }
+                val result =
+                    kotlinx.coroutines.runBlocking {
+                        runner.run(
+                            org.jetbrains.qodana.core.model
+                                .ProcessSpec(command = "git", args = listOf("--version")),
+                        )
+                    }
                 assumeTrue(result.exitCode == 0, "Git is not available")
             } catch (e: Exception) {
                 assumeTrue(false, "Git is not available: ${e.message}")
@@ -40,29 +43,40 @@ class SystemGitClientTest {
         ProcessBuilder("git", "config", "user.name", "Test User").directory(dir.toFile()).start().waitFor()
     }
 
-    private fun commitFile(dir: Path, name: String, content: String) {
+    private fun commitFile(
+        dir: Path,
+        name: String,
+        content: String,
+    ) {
         Files.writeString(dir.resolve(name), content)
         ProcessBuilder("git", "add", name).directory(dir.toFile()).start().waitFor()
         ProcessBuilder("git", "commit", "-m", "add $name").directory(dir.toFile()).start().waitFor()
     }
 
-    private fun gitCmd(dir: Path, vararg args: String): Int {
-        return ProcessBuilder(*args).directory(dir.toFile()).start().waitFor()
-    }
+    private fun gitCmd(
+        dir: Path,
+        vararg args: String,
+    ): Int = ProcessBuilder(*args).directory(dir.toFile()).start().waitFor()
 
     @Test
-    fun `isGitRepo returns true for git repo`(@TempDir dir: Path) = runTest {
+    fun `isGitRepo returns true for git repo`(
+        @TempDir dir: Path,
+    ) = runTest {
         initRepo(dir)
         assertTrue(git.isGitRepo(dir))
     }
 
     @Test
-    fun `isGitRepo returns false for non-repo`(@TempDir dir: Path) = runTest {
+    fun `isGitRepo returns false for non-repo`(
+        @TempDir dir: Path,
+    ) = runTest {
         assertFalse(git.isGitRepo(dir))
     }
 
     @Test
-    fun `currentRevision returns commit hash`(@TempDir dir: Path) = runTest {
+    fun `currentRevision returns commit hash`(
+        @TempDir dir: Path,
+    ) = runTest {
         initRepo(dir)
         commitFile(dir, "test.txt", "hello")
 
@@ -74,7 +88,9 @@ class SystemGitClientTest {
     }
 
     @Test
-    fun `currentBranch returns branch name`(@TempDir dir: Path) = runTest {
+    fun `currentBranch returns branch name`(
+        @TempDir dir: Path,
+    ) = runTest {
         initRepo(dir)
         commitFile(dir, "test.txt", "hello")
 
@@ -85,7 +101,9 @@ class SystemGitClientTest {
     }
 
     @Test
-    fun `revParse HEAD`(@TempDir dir: Path) = runTest {
+    fun `revParse HEAD`(
+        @TempDir dir: Path,
+    ) = runTest {
         initRepo(dir)
         commitFile(dir, "test.txt", "hello")
 
@@ -95,7 +113,9 @@ class SystemGitClientTest {
     }
 
     @Test
-    fun `revParse invalid ref fails`(@TempDir dir: Path) = runTest {
+    fun `revParse invalid ref fails`(
+        @TempDir dir: Path,
+    ) = runTest {
         initRepo(dir)
         commitFile(dir, "test.txt", "hello")
 
@@ -104,7 +124,9 @@ class SystemGitClientTest {
     }
 
     @Test
-    fun `checkout branch`(@TempDir dir: Path) = runTest {
+    fun `checkout branch`(
+        @TempDir dir: Path,
+    ) = runTest {
         initRepo(dir)
         commitFile(dir, "test.txt", "hello")
         ProcessBuilder("git", "checkout", "-b", "feature").directory(dir.toFile()).start().waitFor()
@@ -119,7 +141,9 @@ class SystemGitClientTest {
     }
 
     @Test
-    fun `diff between commits`(@TempDir dir: Path) = runTest {
+    fun `diff between commits`(
+        @TempDir dir: Path,
+    ) = runTest {
         initRepo(dir)
         commitFile(dir, "test.txt", "version1")
         val first = git.revParse(dir, "HEAD").getOrThrow()
@@ -128,12 +152,16 @@ class SystemGitClientTest {
         val result = git.diff(dir, first, "HEAD")
         assertTrue(result.isSuccess)
         val diff = result.getOrThrow()
-        assertTrue(diff.contains("version1") || diff.contains("version2") || diff.contains("test.txt"),
-            "Diff should reference changed content or file")
+        assertTrue(
+            diff.contains("version1") || diff.contains("version2") || diff.contains("test.txt"),
+            "Diff should reference changed content or file",
+        )
     }
 
     @Test
-    fun `log returns commit messages`(@TempDir dir: Path) = runTest {
+    fun `log returns commit messages`(
+        @TempDir dir: Path,
+    ) = runTest {
         initRepo(dir)
         commitFile(dir, "a.txt", "a")
         commitFile(dir, "b.txt", "b")
@@ -146,7 +174,9 @@ class SystemGitClientTest {
     }
 
     @Test
-    fun `remoteUrl on repo without remote`(@TempDir dir: Path) = runTest {
+    fun `remoteUrl on repo without remote`(
+        @TempDir dir: Path,
+    ) = runTest {
         initRepo(dir)
         commitFile(dir, "test.txt", "hello")
 
@@ -156,7 +186,9 @@ class SystemGitClientTest {
     }
 
     @Test
-    fun `reset hard`(@TempDir dir: Path) = runTest {
+    fun `reset hard`(
+        @TempDir dir: Path,
+    ) = runTest {
         initRepo(dir)
         commitFile(dir, "test.txt", "original")
         val originalHash = git.revParse(dir, "HEAD").getOrThrow()
@@ -170,7 +202,9 @@ class SystemGitClientTest {
     }
 
     @Test
-    fun `clean removes untracked files and directories`(@TempDir dir: Path) = runTest {
+    fun `clean removes untracked files and directories`(
+        @TempDir dir: Path,
+    ) = runTest {
         initRepo(dir)
         commitFile(dir, "tracked.txt", "tracked")
 
@@ -187,7 +221,9 @@ class SystemGitClientTest {
     }
 
     @Test
-    fun `submoduleUpdate succeeds on repo without submodules`(@TempDir dir: Path) = runTest {
+    fun `submoduleUpdate succeeds on repo without submodules`(
+        @TempDir dir: Path,
+    ) = runTest {
         initRepo(dir)
         commitFile(dir, "tracked.txt", "tracked")
 
@@ -196,7 +232,9 @@ class SystemGitClientTest {
     }
 
     @Test
-    fun `fetch updates remote refs`(@TempDir dir: Path) = runTest {
+    fun `fetch updates remote refs`(
+        @TempDir dir: Path,
+    ) = runTest {
         val remoteRepo = dir.resolve("remote")
         val cloneRepo = dir.resolve("clone")
         Files.createDirectories(remoteRepo)
@@ -216,9 +254,10 @@ class SystemGitClientTest {
         val fetchResult = git.fetch(cloneRepo, remote = "origin", ref = null, depth = null)
         assertTrue(fetchResult.isSuccess)
 
-        val fetchedHead = git.revParse(cloneRepo, "origin/master").getOrElse {
-            git.revParse(cloneRepo, "origin/main").getOrThrow()
-        }
+        val fetchedHead =
+            git.revParse(cloneRepo, "origin/master").getOrElse {
+                git.revParse(cloneRepo, "origin/main").getOrThrow()
+            }
         assertEquals(remoteHead, fetchedHead)
     }
 }

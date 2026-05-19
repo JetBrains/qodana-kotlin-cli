@@ -3,7 +3,6 @@ package org.jetbrains.qodana.core.model
 import kotlin.test.*
 
 class ExitCodeTest {
-
     @Test
     fun `SUCCESS code is 0`() {
         assertEquals(0, ExitCode.SUCCESS.code)

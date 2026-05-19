@@ -4,8 +4,8 @@ import org.jetbrains.qodana.core.env.QodanaEnv
 import org.jetbrains.qodana.engine.model.CiContext
 
 object CiDetector {
-    fun detect(getEnv: (String) -> String? = System::getenv): CiContext? {
-        return detectGitHub(getEnv)
+    fun detect(getEnv: (String) -> String? = System::getenv): CiContext? =
+        detectGitHub(getEnv)
             ?: detectGitLab(getEnv)
             ?: detectJenkins(getEnv)
             ?: detectAzure(getEnv)
@@ -13,7 +13,6 @@ object CiDetector {
             ?: detectSpace(getEnv)
             ?: detectTeamCity(getEnv)
             ?: detectCircleCI(getEnv)
-    }
 
     /**
      * Extracts Qodana environment from CI context, applying overrides from
@@ -26,13 +25,16 @@ object CiDetector {
     ): CiContext {
         val base = ci ?: CiContext()
         val ciName = base.ciName ?: "cli"
-        val branch = getEnv(QodanaEnv.BRANCH)
-            ?: validateBranch(base.branch ?: "", ciName, getEnv)
+        val branch =
+            getEnv(QodanaEnv.BRANCH)
+                ?: validateBranch(base.branch ?: "", ciName, getEnv)
         val revision = getEnv(QodanaEnv.REVISION) ?: base.revision
-        val remoteUrl = getEnv(QodanaEnv.REMOTE_URL)
-            ?: validateRemoteUrl(base.remoteUrl ?: "", ciName, getEnv)
-        val jobUrl = getEnv(QodanaEnv.JOB_URL)
-            ?: validateJobUrl(base.jobUrl ?: "", ciName, getEnv)
+        val remoteUrl =
+            getEnv(QodanaEnv.REMOTE_URL)
+                ?: validateRemoteUrl(base.remoteUrl ?: "", ciName, getEnv)
+        val jobUrl =
+            getEnv(QodanaEnv.JOB_URL)
+                ?: validateJobUrl(base.jobUrl ?: "", ciName, getEnv)
 
         return CiContext(
             ciName = getEnv(QodanaEnv.ENV) ?: ciName,
@@ -46,18 +48,15 @@ object CiDetector {
     fun isContainer(getEnv: (String) -> String? = System::getenv): Boolean =
         RuntimeEnvironmentDetector.detect(getEnv) == RuntimeEnvironment.IN_DOCKER
 
-    fun isBitBucket(getEnv: (String) -> String? = System::getenv): Boolean =
-        !getEnv("BITBUCKET_PIPELINE_UUID").isNullOrEmpty()
+    fun isBitBucket(getEnv: (String) -> String? = System::getenv): Boolean = !getEnv("BITBUCKET_PIPELINE_UUID").isNullOrEmpty()
 
     fun isBitBucketPipe(getEnv: (String) -> String? = System::getenv): Boolean =
         !getEnv("BITBUCKET_PIPE_STORAGE_DIR").isNullOrEmpty() ||
             !getEnv("BITBUCKET_PIPE_SHARED_STORAGE_DIR").isNullOrEmpty()
 
-    fun isGitLab(getEnv: (String) -> String? = System::getenv): Boolean =
-        getEnv("GITLAB_CI") == "true"
+    fun isGitLab(getEnv: (String) -> String? = System::getenv): Boolean = getEnv("GITLAB_CI") == "true"
 
-    fun getBitBucketRepoFullName(getEnv: (String) -> String? = System::getenv): String =
-        getEnv("BITBUCKET_REPO_FULL_NAME") ?: ""
+    fun getBitBucketRepoFullName(getEnv: (String) -> String? = System::getenv): String = getEnv("BITBUCKET_REPO_FULL_NAME") ?: ""
 
     fun getBitBucketRepoOwner(getEnv: (String) -> String? = System::getenv): String =
         getBitBucketRepoFullName(getEnv).substringBefore("/", "")
@@ -65,7 +64,11 @@ object CiDetector {
     fun getBitBucketRepoName(getEnv: (String) -> String? = System::getenv): String =
         getBitBucketRepoFullName(getEnv).substringAfter("/", "")
 
-    fun validateBranch(branch: String, ciName: String, getEnv: (String) -> String? = System::getenv): String {
+    fun validateBranch(
+        branch: String,
+        ciName: String,
+        getEnv: (String) -> String? = System::getenv,
+    ): String {
         if (branch.isNotEmpty()) return branch
         return when (ciName) {
             "github-actions" -> getEnv("GITHUB_REF_NAME") ?: ""
@@ -77,22 +80,36 @@ object CiDetector {
         }
     }
 
-    fun validateRemoteUrl(remoteUrl: String, ciName: String, getEnv: (String) -> String? = System::getenv): String {
+    fun validateRemoteUrl(
+        remoteUrl: String,
+        ciName: String,
+        getEnv: (String) -> String? = System::getenv,
+    ): String {
         if (ciName.startsWith("space")) {
             return getSpaceRemoteUrl(getEnv)
         }
         if (remoteUrl.isEmpty()) return ""
         return try {
             java.net.URI(remoteUrl)
-            if (remoteUrl.startsWith("http://") || remoteUrl.startsWith("https://") ||
-                remoteUrl.startsWith("ssh://") || remoteUrl.startsWith("git@")
-            ) remoteUrl else ""
+            if (remoteUrl.startsWith("http://") ||
+                remoteUrl.startsWith("https://") ||
+                remoteUrl.startsWith("ssh://") ||
+                remoteUrl.startsWith("git@")
+            ) {
+                remoteUrl
+            } else {
+                ""
+            }
         } catch (_: Exception) {
             ""
         }
     }
 
-    fun validateJobUrl(jobUrl: String, ciName: String, getEnv: (String) -> String? = System::getenv): String {
+    fun validateJobUrl(
+        jobUrl: String,
+        ciName: String,
+        getEnv: (String) -> String? = System::getenv,
+    ): String {
         if (ciName.startsWith("azure")) {
             return getAzureJobUrl(getEnv)
         }
@@ -116,7 +133,7 @@ object CiDetector {
         val server = getEnv("SYSTEM_TEAMFOUNDATIONCOLLECTIONURI") ?: return ""
         val project = getEnv("SYSTEM_TEAMPROJECT") ?: ""
         val buildId = getEnv("BUILD_BUILDID") ?: ""
-        return "${server}${project}/_build/results?buildId=${buildId}"
+        return "${server}$project/_build/results?buildId=$buildId"
     }
 
     fun unsetRubyVariables() {
@@ -167,7 +184,7 @@ object CiDetector {
             branch = env("BUILD_SOURCEBRANCHNAME"),
             revision = env("BUILD_SOURCEVERSION"),
             remoteUrl = env("BUILD_REPOSITORY_URI"),
-            jobUrl = "${server}${project}/_build/results?buildId=${buildId}",
+            jobUrl = "${server}$project/_build/results?buildId=$buildId",
         )
     }
 
@@ -193,7 +210,7 @@ object CiDetector {
             ciName = "space",
             branch = env("JB_SPACE_GIT_BRANCH"),
             revision = env("JB_SPACE_GIT_REVISION"),
-            remoteUrl = "ssh://git@git.${apiUrl}/${projectKey}/${repoName}.git",
+            remoteUrl = "ssh://git@git.$apiUrl/$projectKey/$repoName.git",
             jobUrl = env("JB_SPACE_EXECUTION_URL"),
         )
     }

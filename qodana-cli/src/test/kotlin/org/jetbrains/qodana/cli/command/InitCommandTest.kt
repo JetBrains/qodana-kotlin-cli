@@ -18,21 +18,23 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class InitCommandTest {
-
     @Test
-    fun `init exits for unsupported project`(@TempDir dir: Path) {
+    fun `init exits for unsupported project`(
+        @TempDir dir: Path,
+    ) {
         val projectDir = dir.resolve("project").also { Files.createDirectories(it) }
         val terminal = InitTestTerminal(isInteractive = false)
 
-        val exception = assertFailsWith<ProgramResult> {
-            InitCommand(
-                terminal = terminal,
-                getEnv = { _ -> null },
-                tokenStore = InitFixedTokenStore(null),
-                httpTransport = InitFakeHttpTransport(emptyMap()),
-                runtimeEnvironmentDetector = { RuntimeEnvironment.HOST },
-            ).parse(listOf("-i", projectDir.toString()))
-        }
+        val exception =
+            assertFailsWith<ProgramResult> {
+                InitCommand(
+                    terminal = terminal,
+                    getEnv = { _ -> null },
+                    tokenStore = InitFixedTokenStore(null),
+                    httpTransport = InitFakeHttpTransport(emptyMap()),
+                    runtimeEnvironmentDetector = { RuntimeEnvironment.HOST },
+                ).parse(listOf("-i", projectDir.toString()))
+            }
 
         assertEquals(1, exception.statusCode)
         assertFalse(Files.exists(projectDir.resolve("qodana.yaml")))
@@ -41,47 +43,53 @@ class InitCommandTest {
     }
 
     @Test
-    fun `init validates token for paid linter and fails on invalid token`(@TempDir dir: Path) {
+    fun `init validates token for paid linter and fails on invalid token`(
+        @TempDir dir: Path,
+    ) {
         val projectDir = dir.resolve("project").also { Files.createDirectories(it) }
         Files.writeString(projectDir.resolve("main.py"), "print('ok')")
 
         val terminal = InitTestTerminal(isInteractive = false)
-        val env = mapOf(
-            "QODANA_TOKEN" to "bad-token",
-            "QODANA_ENDPOINT" to "https://qodana.cloud",
-        )
-        val http = InitFakeHttpTransport(
+        val env =
             mapOf(
-                "https://qodana.cloud/api/versions" to HttpResponse(
-                    200,
-                    """
-                        {
-                          "api": {
-                            "versions": [
-                              {"version":"1.1","url":"https://cloud.api"}
-                            ]
-                          },
-                          "linters": {
-                            "versions": [
-                              {"version":"1.0","url":"https://linters.api"}
-                            ]
-                          }
-                        }
-                    """.trimIndent()
-                ),
-                "https://cloud.api/projects" to HttpResponse(401, "unauthorized")
+                "QODANA_TOKEN" to "bad-token",
+                "QODANA_ENDPOINT" to "https://qodana.cloud",
             )
-        )
+        val http =
+            InitFakeHttpTransport(
+                mapOf(
+                    "https://qodana.cloud/api/versions" to
+                        HttpResponse(
+                            200,
+                            """
+                            {
+                              "api": {
+                                "versions": [
+                                  {"version":"1.1","url":"https://cloud.api"}
+                                ]
+                              },
+                              "linters": {
+                                "versions": [
+                                  {"version":"1.0","url":"https://linters.api"}
+                                ]
+                              }
+                            }
+                            """.trimIndent(),
+                        ),
+                    "https://cloud.api/projects" to HttpResponse(401, "unauthorized"),
+                ),
+            )
 
-        val exception = assertFailsWith<ProgramResult> {
-            InitCommand(
-                terminal = terminal,
-                getEnv = { key -> env[key] },
-                tokenStore = InitFixedTokenStore(null),
-                httpTransport = http,
-                runtimeEnvironmentDetector = { RuntimeEnvironment.HOST },
-            ).parse(listOf("-i", projectDir.toString()))
-        }
+        val exception =
+            assertFailsWith<ProgramResult> {
+                InitCommand(
+                    terminal = terminal,
+                    getEnv = { key -> env[key] },
+                    tokenStore = InitFixedTokenStore(null),
+                    httpTransport = http,
+                    runtimeEnvironmentDetector = { RuntimeEnvironment.HOST },
+                ).parse(listOf("-i", projectDir.toString()))
+            }
 
         assertEquals(1, exception.statusCode)
         assertTrue(terminal.messages.any { it.contains("QODANA_TOKEN is invalid, please provide a valid token") })
@@ -91,7 +99,9 @@ class InitCommandTest {
     }
 
     @Test
-    fun `init interactive dotnet setup updates yaml with selected solution`(@TempDir dir: Path) {
+    fun `init interactive dotnet setup updates yaml with selected solution`(
+        @TempDir dir: Path,
+    ) {
         val projectDir = dir.resolve("project").also { Files.createDirectories(it) }
         Files.createDirectories(projectDir.resolve("src"))
         Files.writeString(projectDir.resolve("src/app.sln"), "")
@@ -104,10 +114,11 @@ class InitCommandTest {
             """.trimIndent(),
         )
 
-        val terminal = InitTestTerminal(
-            isInteractive = true,
-            selectAnswers = ArrayDeque(listOf("src/app.sln")),
-        )
+        val terminal =
+            InitTestTerminal(
+                isInteractive = true,
+                selectAnswers = ArrayDeque(listOf("src/app.sln")),
+            )
 
         InitCommand(
             terminal = terminal,
@@ -128,35 +139,41 @@ private class InitFixedTokenStore(
     private val token: String?,
 ) : TokenStore {
     override fun load(key: String): String? = token
-    override fun save(key: String, value: String) {}
+
+    override fun save(
+        key: String,
+        value: String,
+    ) {}
+
     override fun delete(key: String) {}
 }
 
 private class InitFakeHttpTransport(
     private val responses: Map<String, HttpResponse>,
 ) : HttpTransport {
-    override suspend fun get(url: String, headers: Map<String, String>): HttpResponse {
-        return responses[url] ?: HttpResponse(404, "Not Found")
-    }
+    override suspend fun get(
+        url: String,
+        headers: Map<String, String>,
+    ): HttpResponse = responses[url] ?: HttpResponse(404, "Not Found")
 
     override suspend fun post(
         url: String,
         body: ByteArray,
         contentType: String,
         headers: Map<String, String>,
-    ): HttpResponse {
-        return HttpResponse(200, "")
-    }
+    ): HttpResponse = HttpResponse(200, "")
 
-    override suspend fun download(url: String, target: Path, headers: Map<String, String>) {}
+    override suspend fun download(
+        url: String,
+        target: Path,
+        headers: Map<String, String>,
+    ) {}
 
     override suspend fun uploadMultipart(
         url: String,
         parts: List<MultipartPart>,
         headers: Map<String, String>,
-    ): HttpResponse {
-        return HttpResponse(200, "")
-    }
+    ): HttpResponse = HttpResponse(200, "")
 }
 
 private class InitTestTerminal(
@@ -191,15 +208,20 @@ private class InitTestTerminal(
         messages += "DEBUG: $message"
     }
 
-    override fun <T> spinner(message: String, action: () -> T): T = action()
+    override fun <T> spinner(
+        message: String,
+        action: () -> T,
+    ): T = action()
 
-    override fun prompt(message: String, default: String?): String {
-        return if (prompts.isNotEmpty()) prompts.removeFirst() else (default ?: "")
-    }
+    override fun prompt(
+        message: String,
+        default: String?,
+    ): String = if (prompts.isNotEmpty()) prompts.removeFirst() else (default ?: "")
 
-    override fun select(message: String, choices: List<String>): String {
-        return if (selectAnswers.isNotEmpty()) selectAnswers.removeFirst() else choices.first()
-    }
+    override fun select(
+        message: String,
+        choices: List<String>,
+    ): String = if (selectAnswers.isNotEmpty()) selectAnswers.removeFirst() else choices.first()
 
     override fun setRedactedTokens(tokens: Set<String>) {}
 }

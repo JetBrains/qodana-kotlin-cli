@@ -12,13 +12,13 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class CdnetOptionsTest {
-
-    private val defaultPaths = ScanPaths(
-        projectDir = Path.of("/project"),
-        resultsDir = Path.of("/results"),
-        cacheDir = Path.of("/cache"),
-        reportDir = Path.of("/report"),
-    )
+    private val defaultPaths =
+        ScanPaths(
+            projectDir = Path.of("/project"),
+            resultsDir = Path.of("/results"),
+            cacheDir = Path.of("/cache"),
+            reportDir = Path.of("/report"),
+        )
 
     private fun context(
         yaml: QodanaYaml? = null,
@@ -49,35 +49,39 @@ class CdnetOptionsTest {
 
     @Test
     fun `CLI solution wins over yaml solution`() {
-        val ctx = context(
-            solutionPath = "cli.sln",
-            yaml = QodanaYaml(dotnet = YamlDotNet(solution = "yaml.sln")),
-        )
+        val ctx =
+            context(
+                solutionPath = "cli.sln",
+                yaml = QodanaYaml(dotnet = YamlDotNet(solution = "yaml.sln")),
+            )
         assertEquals("cli.sln", CdnetOptions.getSolutionOrProject(ctx))
     }
 
     @Test
     fun `CLI project wins over yaml project`() {
-        val ctx = context(
-            projectPath = "cli.csproj",
-            yaml = QodanaYaml(dotnet = YamlDotNet(project = "yaml.csproj")),
-        )
+        val ctx =
+            context(
+                projectPath = "cli.csproj",
+                yaml = QodanaYaml(dotnet = YamlDotNet(project = "yaml.csproj")),
+            )
         assertEquals("cli.csproj", CdnetOptions.getSolutionOrProject(ctx))
     }
 
     @Test
     fun `falls back to yaml solution when CLI not specified`() {
-        val ctx = context(
-            yaml = QodanaYaml(dotnet = YamlDotNet(solution = "yaml.sln")),
-        )
+        val ctx =
+            context(
+                yaml = QodanaYaml(dotnet = YamlDotNet(solution = "yaml.sln")),
+            )
         assertEquals("yaml.sln", CdnetOptions.getSolutionOrProject(ctx))
     }
 
     @Test
     fun `falls back to yaml project when CLI not specified`() {
-        val ctx = context(
-            yaml = QodanaYaml(dotnet = YamlDotNet(project = "yaml.csproj")),
-        )
+        val ctx =
+            context(
+                yaml = QodanaYaml(dotnet = YamlDotNet(project = "yaml.csproj")),
+            )
         assertEquals("yaml.csproj", CdnetOptions.getSolutionOrProject(ctx))
     }
 
@@ -92,10 +96,11 @@ class CdnetOptionsTest {
     @Test
     fun `basic args with solution contain dotnet inspectcode and solution path`() {
         val cltPath = Path.of("/tools/jb/inspectcode.dll")
-        val ctx = context(
-            solutionPath = "My.sln",
-            customTools = mapOf("clt" to cltPath),
-        )
+        val ctx =
+            context(
+                solutionPath = "My.sln",
+                customTools = mapOf("clt" to cltPath),
+            )
         val args = CdnetOptions.computeArgs(ctx)
 
         assertEquals("dotnet", args[0])
@@ -107,17 +112,19 @@ class CdnetOptionsTest {
     @Test
     fun `framework properties are filtered out`() {
         val cltPath = Path.of("/tools/clt")
-        val ctx = context(
-            solutionPath = "App.sln",
-            customTools = mapOf("clt" to cltPath),
-            properties = listOf(
-                "log.level=debug",
-                "idea.home=/home",
-                "qodana.token=abc",
-                "jetbrains.build=123",
-                "MyProp=value",
-            ),
-        )
+        val ctx =
+            context(
+                solutionPath = "App.sln",
+                customTools = mapOf("clt" to cltPath),
+                properties =
+                    listOf(
+                        "log.level=debug",
+                        "idea.home=/home",
+                        "qodana.token=abc",
+                        "jetbrains.build=123",
+                        "MyProp=value",
+                    ),
+            )
         val args = CdnetOptions.computeArgs(ctx)
         val propsArg = args.find { it.startsWith("--properties:") }!!
 
@@ -131,12 +138,13 @@ class CdnetOptionsTest {
     @Test
     fun `CLI configuration overrides yaml configuration`() {
         val cltPath = Path.of("/tools/clt")
-        val ctx = context(
-            solutionPath = "App.sln",
-            customTools = mapOf("clt" to cltPath),
-            configurationName = "Release",
-            yaml = QodanaYaml(dotnet = YamlDotNet(configuration = "Debug")),
-        )
+        val ctx =
+            context(
+                solutionPath = "App.sln",
+                customTools = mapOf("clt" to cltPath),
+                configurationName = "Release",
+                yaml = QodanaYaml(dotnet = YamlDotNet(configuration = "Debug")),
+            )
         val args = CdnetOptions.computeArgs(ctx)
         val propsArg = args.find { it.startsWith("--properties:") }!!
 
@@ -147,12 +155,13 @@ class CdnetOptionsTest {
     @Test
     fun `CLI platform overrides yaml platform`() {
         val cltPath = Path.of("/tools/clt")
-        val ctx = context(
-            solutionPath = "App.sln",
-            customTools = mapOf("clt" to cltPath),
-            platformName = "x64",
-            yaml = QodanaYaml(dotnet = YamlDotNet(platform = "AnyCPU")),
-        )
+        val ctx =
+            context(
+                solutionPath = "App.sln",
+                customTools = mapOf("clt" to cltPath),
+                platformName = "x64",
+                yaml = QodanaYaml(dotnet = YamlDotNet(platform = "AnyCPU")),
+            )
         val args = CdnetOptions.computeArgs(ctx)
         val propsArg = args.find { it.startsWith("--properties:") }!!
 
@@ -163,11 +172,12 @@ class CdnetOptionsTest {
     @Test
     fun `noStatistics adds telemetry-optout flag`() {
         val cltPath = Path.of("/tools/clt")
-        val ctx = context(
-            solutionPath = "App.sln",
-            customTools = mapOf("clt" to cltPath),
-            noStatistics = true,
-        )
+        val ctx =
+            context(
+                solutionPath = "App.sln",
+                customTools = mapOf("clt" to cltPath),
+                noStatistics = true,
+            )
         val args = CdnetOptions.computeArgs(ctx)
         assertTrue(args.contains("--telemetry-optout"))
     }
@@ -175,11 +185,12 @@ class CdnetOptionsTest {
     @Test
     fun `noBuild adds no-build flag`() {
         val cltPath = Path.of("/tools/clt")
-        val ctx = context(
-            solutionPath = "App.sln",
-            customTools = mapOf("clt" to cltPath),
-            noBuild = true,
-        )
+        val ctx =
+            context(
+                solutionPath = "App.sln",
+                customTools = mapOf("clt" to cltPath),
+                noBuild = true,
+            )
         val args = CdnetOptions.computeArgs(ctx)
         assertTrue(args.contains("--no-build"))
     }
@@ -187,12 +198,14 @@ class CdnetOptionsTest {
     @Test
     fun `error when no solution or project specified`() {
         val cltPath = Path.of("/tools/clt")
-        val ctx = context(
-            customTools = mapOf("clt" to cltPath),
-        )
-        val ex = assertFailsWith<IllegalStateException> {
-            CdnetOptions.computeArgs(ctx)
-        }
+        val ctx =
+            context(
+                customTools = mapOf("clt" to cltPath),
+            )
+        val ex =
+            assertFailsWith<IllegalStateException> {
+                CdnetOptions.computeArgs(ctx)
+            }
         assertTrue(ex.message!!.contains("Solution/project"))
     }
 }

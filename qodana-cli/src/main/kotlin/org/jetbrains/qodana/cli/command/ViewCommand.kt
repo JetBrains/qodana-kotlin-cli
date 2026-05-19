@@ -13,14 +13,17 @@ class ViewCommand(
     private val sarifService: SarifService,
     private val terminal: Terminal,
 ) : CliktCommand("view") {
-
     override fun help(context: Context) = "View SARIF files in CLI"
 
     private val sarifFile by option("-f", "--sarif-file", help = "Path to the SARIF file")
         .default("qodana.sarif.json")
 
     override fun run() {
-        val report = sarifService.read(java.nio.file.Path.of(sarifFile)) as? SarifReport ?: return
+        val report =
+            sarifService.read(
+                java.nio.file.Path
+                    .of(sarifFile),
+            ) as? SarifReport ?: return
         val runs = report.runs ?: emptyList()
 
         terminal.println("")
@@ -49,11 +52,10 @@ class ViewCommand(
         terminal.println(problemsFoundMessage(newProblems))
     }
 
-    private fun problemsFoundMessage(newProblems: Int): String {
-        return when (newProblems) {
+    private fun problemsFoundMessage(newProblems: Int): String =
+        when (newProblems) {
             0 -> "It seems all right 👌 No new problems found according to the checks applied"
             1 -> "Found 1 new problem according to the checks applied"
             else -> "Found $newProblems new problems according to the checks applied"
         }
-    }
 }
