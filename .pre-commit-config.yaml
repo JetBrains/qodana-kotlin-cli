@@ -1,0 +1,42 @@
+default_install_hook_types: [pre-commit, pre-push]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # Auto-fixing hooks — implement .editorconfig policy with mutation.
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: ['--markdown-linebreak-ext=md']
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+      # Check-only safety nets.
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: v3.8.3
+    hooks:
+      - id: prettier
+        types: [markdown]
+
+  - repo: local
+    hooks:
+      - id: gradle-ktlint-format
+        name: gradle ktlintFormat (auto-fix on push)
+        entry: ./gradlew --console=plain ktlintFormat
+        language: system
+        pass_filenames: false
+        types_or: [kotlin]
+        stages: [pre-push]
+      - id: gradle-detekt
+        name: gradle detekt (check on push)
+        entry: ./gradlew --console=plain detekt
+        language: system
+        pass_filenames: false
+        types_or: [kotlin]
+        stages: [pre-push]
