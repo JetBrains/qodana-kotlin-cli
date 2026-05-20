@@ -49,23 +49,54 @@ import kotlin.test.assertTrue
  * for these subcommands. `scan` execution is out of scope (QD-14728).
  */
 class NativeSmokeTest {
-
     private val output = mutableListOf<String>()
 
-    private val terminal = object : Terminal {
-        override fun print(message: String) { output.add(message) }
-        override fun println(message: String) { output.add(message) }
-        override fun error(message: String) { output.add("ERROR: $message") }
-        override fun info(message: String) { output.add("INFO: $message") }
-        override fun warn(message: String) { output.add("WARN: $message") }
-        override fun debug(message: String) { output.add("DEBUG: $message") }
-        override fun <T> spinner(message: String, action: () -> T): T = action()
-        override fun prompt(message: String, default: String?): String = default ?: ""
-        override fun select(message: String, choices: List<String>): String = choices.first()
-        override val isInteractive = false
-        override var isCi = false
-        override fun setRedactedTokens(tokens: Set<String>) {}
-    }
+    private val terminal =
+        object : Terminal {
+            override fun print(message: String) {
+                output.add(message)
+            }
+
+            override fun println(message: String) {
+                output.add(message)
+            }
+
+            override fun error(message: String) {
+                output.add("ERROR: $message")
+            }
+
+            override fun info(message: String) {
+                output.add("INFO: $message")
+            }
+
+            override fun warn(message: String) {
+                output.add("WARN: $message")
+            }
+
+            override fun debug(message: String) {
+                output.add("DEBUG: $message")
+            }
+
+            override fun <T> spinner(
+                message: String,
+                action: () -> T,
+            ): T = action()
+
+            override fun prompt(
+                message: String,
+                default: String?,
+            ): String = default ?: ""
+
+            override fun select(
+                message: String,
+                choices: List<String>,
+            ): String = choices.first()
+
+            override val isInteractive = false
+            override var isCi = false
+
+            override fun setRedactedTokens(tokens: Set<String>) = Unit
+        }
 
     private fun buildRootCommand(): QodanaCommand {
         // Lightweight (constructed eagerly by Main.kt as well).
@@ -106,9 +137,10 @@ class NativeSmokeTest {
 
     @Test
     fun `version flag prints embedded version`() {
-        val ex = assertFailsWith<PrintMessage> {
-            buildRootCommand().parse(listOf("--version"))
-        }
+        val ex =
+            assertFailsWith<PrintMessage> {
+                buildRootCommand().parse(listOf("--version"))
+            }
         // BuildInfo.VERSION is the source of truth — see qodana-cli/build.gradle.kts.
         // Asserting against the constant catches regressions where build-info
         // generation silently emits an empty or wrong version.
@@ -117,9 +149,10 @@ class NativeSmokeTest {
 
     @Test
     fun `root help lists every subcommand`() {
-        val ex = assertFailsWith<PrintHelpMessage> {
-            buildRootCommand().parse(listOf("--help"))
-        }
+        val ex =
+            assertFailsWith<PrintHelpMessage> {
+                buildRootCommand().parse(listOf("--help"))
+            }
         val help = ex.context?.command?.getFormattedHelp() ?: ""
         for (sub in SUBCOMMAND_NAMES) {
             assertContains(help, sub, message = "root --help should list `$sub`")
@@ -142,7 +175,9 @@ class NativeSmokeTest {
     }
 
     @Test
-    fun `init writes qodana yaml for a detected jvm project`(@TempDir dir: Path) {
+    fun `init writes qodana yaml for a detected jvm project`(
+        @TempDir dir: Path,
+    ) {
         // ProjectDetector picks the JVM linter when it sees a Gradle/Maven file.
         val projectDir = Files.createDirectories(dir.resolve("project"))
         projectDir.resolve("build.gradle.kts").writeText("// fixture for native smoke test")
@@ -160,9 +195,10 @@ class NativeSmokeTest {
         // Clikt's error formatter reflects on the option class to print "no such option" — a
         // common surface for MissingReflectionRegistrationError in the native binary. Recording
         // this path under the agent ensures the relevant metadata is captured.
-        val ex = assertFailsWith<UsageError> {
-            buildRootCommand().parse(listOf("scan", "--definitely-not-a-flag"))
-        }
+        val ex =
+            assertFailsWith<UsageError> {
+                buildRootCommand().parse(listOf("scan", "--definitely-not-a-flag"))
+            }
         assertTrue(
             ex is NoSuchOption || (ex.message?.contains("--definitely-not-a-flag") == true),
             "expected NoSuchOption / unknown-flag message, got ${ex::class.simpleName}: ${ex.message}",
@@ -170,7 +206,9 @@ class NativeSmokeTest {
     }
 
     @Test
-    fun `init -f overwrites an existing qodana yaml`(@TempDir dir: Path) {
+    fun `init -f overwrites an existing qodana yaml`(
+        @TempDir dir: Path,
+    ) {
         val projectDir = Files.createDirectories(dir.resolve("project"))
         projectDir.resolve("build.gradle.kts").writeText("// fixture")
         val yaml = projectDir.resolve("qodana.yaml")
@@ -185,16 +223,17 @@ class NativeSmokeTest {
     }
 
     private companion object {
-        val SUBCOMMAND_NAMES = listOf(
-            "scan",
-            "init",
-            "pull",
-            "show",
-            "send",
-            "contributors",
-            "view",
-            "cloc",
-            "completion",
-        )
+        val SUBCOMMAND_NAMES =
+            listOf(
+                "scan",
+                "init",
+                "pull",
+                "show",
+                "send",
+                "contributors",
+                "view",
+                "cloc",
+                "completion",
+            )
     }
 }
