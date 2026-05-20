@@ -22,10 +22,13 @@ java {
 // Phase C (QD-14721) via git describe + a Gradle property.
 version = "2026.2-SNAPSHOT"
 
-// Generate a BuildInfo.kt source file at configure time so the project version
-// is compile-time-constant and works under both JVM and native-image without
-// depending on `-Dqodana.version` propagation through GraalVM class-init order.
-val generatedSrcDir = layout.buildDirectory.dir("generated/sources/buildinfo/kotlin/main")
+// `generateBuildInfo` writes a BuildInfo.kt source file at task-execution time
+// before `compileKotlin` runs. The generated `const val BuildInfo.VERSION` makes
+// the project version a compile-time constant on both JVM and native-image,
+// sidestepping GraalVM class-init ordering for `-Dqodana.version`.
+val generatedSrcDir: Provider<Directory> =
+    layout.buildDirectory.dir("generated/sources/buildinfo/kotlin/main")
+
 val generateBuildInfo by tasks.registering {
     val versionString = project.version.toString()
     val outFile = generatedSrcDir.map { it.file("org/jetbrains/qodana/cli/BuildInfo.kt") }
@@ -48,11 +51,12 @@ val generateBuildInfo by tasks.registering {
     }
 }
 
-sourceSets {
-    named("main") {
-        kotlin.srcDir(generateBuildInfo.map { generatedSrcDir })
-    }
+// Register the generated directory on the main source set and make Kotlin
+// compilation depend on the generator, so the file is fresh before compile.
+sourceSets.named("main") {
+    kotlin.srcDir(generatedSrcDir)
 }
+tasks.named("compileKotlin").configure { dependsOn(generateBuildInfo) }
 
 application {
     mainClass.set("org.jetbrains.qodana.cli.MainKt")

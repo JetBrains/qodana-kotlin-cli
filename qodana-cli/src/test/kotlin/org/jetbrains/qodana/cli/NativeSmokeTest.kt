@@ -1,8 +1,10 @@
 package org.jetbrains.qodana.cli
 
 import com.github.ajalt.clikt.completion.CompletionCommand
+import com.github.ajalt.clikt.core.NoSuchOption
 import com.github.ajalt.clikt.core.PrintHelpMessage
 import com.github.ajalt.clikt.core.PrintMessage
+import com.github.ajalt.clikt.core.UsageError
 import com.github.ajalt.clikt.core.parse
 import com.github.ajalt.clikt.core.subcommands
 import org.jetbrains.qodana.cli.command.ClocCommand
@@ -151,6 +153,20 @@ class NativeSmokeTest {
         assertTrue(Files.exists(yaml), "init should create qodana.yaml")
         val content = Files.readString(yaml)
         assertContains(content, "linter:", message = "qodana.yaml should declare a linter")
+    }
+
+    @Test
+    fun `scan with unknown flag raises a Clikt UsageError`() {
+        // Clikt's error formatter reflects on the option class to print "no such option" — a
+        // common surface for MissingReflectionRegistrationError in the native binary. Recording
+        // this path under the agent ensures the relevant metadata is captured.
+        val ex = assertFailsWith<UsageError> {
+            buildRootCommand().parse(listOf("scan", "--definitely-not-a-flag"))
+        }
+        assertTrue(
+            ex is NoSuchOption || (ex.message?.contains("--definitely-not-a-flag") == true),
+            "expected NoSuchOption / unknown-flag message, got ${ex::class.simpleName}: ${ex.message}",
+        )
     }
 
     @Test

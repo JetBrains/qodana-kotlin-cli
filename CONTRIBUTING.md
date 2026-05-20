@@ -5,17 +5,17 @@
 ### Prerequisites
 
 - **JDK 21** for normal builds and tests. Any vendor works (Temurin, Zulu, GraalVM CE).
-- **GraalVM CE 21** for `nativeCompile`. The Gradle build uses the [foojay toolchain resolver](https://github.com/gradle/foojay-toolchains) so it will auto-download a matching JDK on first run if `JAVA_HOME` doesn't already point at one. The pinned version is `21.0.5-graalce`.
+- **GraalVM CE 21** for `nativeCompile`. The build pins `languageVersion=21` + `vendor=GRAAL_VM` in [qodana-cli/build.gradle.kts](qodana-cli/build.gradle.kts) and the [foojay toolchain resolver](https://github.com/gradle/foojay-toolchains) auto-downloads a matching JDK on first run if `JAVA_HOME` doesn't already point at one. Any GraalVM CE 21 patch release is accepted; foojay picks one of the latest at the time of first build.
 - **`./gradlew`** — checked-in Gradle wrapper handles the rest.
 
 If you prefer to install GraalVM yourself, the cleanest path is [SDKMAN](https://sdkman.io):
 
 ```sh
-sdk install java 21.0.5-graalce
-sdk use java 21.0.5-graalce
+sdk install java 21-graalce
+sdk use java 21-graalce
 ```
 
-The Gradle daemon then picks up GraalVM via the toolchain pin in `qodana-cli/build.gradle.kts`.
+The Gradle daemon then picks up GraalVM via the toolchain pin in [qodana-cli/build.gradle.kts](qodana-cli/build.gradle.kts).
 
 ### Run the test suite
 
