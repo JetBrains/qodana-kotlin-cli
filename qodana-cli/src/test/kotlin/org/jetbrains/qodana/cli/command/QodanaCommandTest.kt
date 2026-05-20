@@ -107,10 +107,39 @@ class QodanaCommandTest {
 
                 override fun delete(key: String) = Unit
             }
+        // Stub HttpTransport: InitCommand only calls into HttpTransport when validating
+        // a Cloud token, and the project-detection tests never set QODANA_TOKEN.
+        val noopHttp =
+            object : org.jetbrains.qodana.engine.port.HttpTransport {
+                override suspend fun get(
+                    url: String,
+                    headers: Map<String, String>,
+                ) = org.jetbrains.qodana.engine.port.HttpResponse(599, "")
+
+                override suspend fun post(
+                    url: String,
+                    body: ByteArray,
+                    contentType: String,
+                    headers: Map<String, String>,
+                ) = org.jetbrains.qodana.engine.port.HttpResponse(599, "")
+
+                override suspend fun download(
+                    url: String,
+                    target: java.nio.file.Path,
+                    headers: Map<String, String>,
+                ) = Unit
+
+                override suspend fun uploadMultipart(
+                    url: String,
+                    parts: List<org.jetbrains.qodana.engine.port.MultipartPart>,
+                    headers: Map<String, String>,
+                ) = org.jetbrains.qodana.engine.port.HttpResponse(599, "")
+            }
         return InitCommand(
             terminal = terminal,
             getEnv = { null },
             tokenStore = emptyTokenStore,
+            httpTransport = noopHttp,
         )
     }
 

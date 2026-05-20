@@ -16,9 +16,12 @@ import org.jetbrains.qodana.engine.contributors.ContributorAnalyzer
 import java.nio.file.Path
 
 class ContributorsCommand(
-    private val contributorAnalyzer: ContributorAnalyzer,
+    private val contributorAnalyzer: () -> ContributorAnalyzer,
     private val terminal: Terminal,
 ) : CliktCommand("contributors") {
+    constructor(contributorAnalyzer: ContributorAnalyzer, terminal: Terminal) :
+        this({ contributorAnalyzer }, terminal)
+
     override fun help(context: Context) = "Count active contributors in the project"
 
     private val projectDirs by option("-i", "--project-dir", help = "Project directory, can be specified multiple times")
@@ -31,7 +34,7 @@ class ContributorsCommand(
         runBlocking {
             val repos = projectDirs.ifEmpty { listOf(Path.of(".")) }
             val report =
-                contributorAnalyzer.analyze(
+                contributorAnalyzer().analyze(
                     repoDirs = repos,
                     days = days,
                     excludeBots = false,

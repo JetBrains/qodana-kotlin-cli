@@ -243,6 +243,18 @@ Module structure: `qodana-core`, `qodana-engine`, `qodana-cli`, `qodana-clang`, 
 **Go**: `test_linter/3rd_party_linter_jbr_integration_test.go` — `TestQodana3rdPartyLinterWithMockedCloud`
 **Status**: Not implemented.
 
+### 1.35 Baseline Tracking (bundled `baseline-cli`)
+
+**Go**: bundles `baseline-cli-1.0.4.jar` (~12 MB) via `//go:embed`; invoked from `internal/platform/baseline.go:36`.
+**Status**: No Kotlin equivalent in [gradle/libs.versions.toml](../gradle/libs.versions.toml). Baseline-aware SARIF comparison + `--baseline` flag handling are absent.
+**Tracked in**: [QD-14726](https://youtrack.jetbrains.com/issue/QD-14726).
+
+### 1.36 Bundled Web UI (`qodana view` rendering)
+
+**Go**: bundles `qodana-web-ui-0.12.5.jar` (~1.4 MB) — Kotlin reads it from a `web-ui.zip` classpath resource via [WebUiExtractor.kt:12](../qodana-engine/src/main/kotlin/org/jetbrains/qodana/engine/fs/WebUiExtractor.kt#L12), but the resource is absent from the source tree. `qodana view` currently fails on both JVM and native binaries when it tries to extract the UI assets.
+**Status**: Need to either add the artifact as a Maven dependency, package the zip during the build, or replace the feature.
+**Tracked in**: [QD-14726](https://youtrack.jetbrains.com/issue/QD-14726).
+
 ---
 
 ## 2. Missing Tests (Kotlin implementation exists, test missing or thin)
