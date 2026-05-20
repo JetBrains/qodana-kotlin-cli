@@ -10,9 +10,11 @@ import org.jetbrains.qodana.core.port.SarifService
 import org.jetbrains.qodana.core.port.Terminal
 
 class ViewCommand(
-    private val sarifService: SarifService,
+    private val sarifService: () -> SarifService,
     private val terminal: Terminal,
 ) : CliktCommand("view") {
+    constructor(sarifService: SarifService, terminal: Terminal) : this({ sarifService }, terminal)
+
     override fun help(context: Context) = "View SARIF files in CLI"
 
     private val sarifFile by option("-f", "--sarif-file", help = "Path to the SARIF file")
@@ -20,7 +22,7 @@ class ViewCommand(
 
     override fun run() {
         val report =
-            sarifService.read(
+            sarifService().read(
                 java.nio.file.Path
                     .of(sarifFile),
             ) as? SarifReport ?: return
