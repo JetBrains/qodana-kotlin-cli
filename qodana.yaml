@@ -1,3 +1,4 @@
 version: "1.0"
 linter: qodana-jvm
 projectJDK: "21"
+bootstrap: ./gradlew --no-daemon assemble testClasses

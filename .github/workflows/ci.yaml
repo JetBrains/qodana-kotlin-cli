@@ -48,6 +48,7 @@ jobs:
     name: Qodana
     runs-on: ubuntu-latest
     needs: [test]
+    timeout-minutes: 30
     continue-on-error: true
     permissions:
       checks: write
@@ -65,11 +66,15 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
+      # Requires the QODANA_TOKEN secret to be set on the repo (project token
+      # from https://qodana.cloud). Without it the linter exits with code 1.
       - uses: JetBrains/qodana-action@v2026.1
         env:
           QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
         with:
           pr-mode: false
+          post-pr-comment: true
+          use-annotations: true
           upload-result: true
 
   native-build:
