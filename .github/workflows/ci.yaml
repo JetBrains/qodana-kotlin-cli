@@ -80,7 +80,7 @@ jobs:
         platform:
           - { name: linux/amd64,   tag: linux-amd64,   runner: ubuntu-latest }
           - { name: linux/arm64,   tag: linux-arm64,   runner: ubuntu-24.04-arm }
-          - { name: darwin/amd64,  tag: darwin-amd64,  runner: macos-13 }
+          - { name: darwin/amd64,  tag: darwin-amd64,  runner: macos-15-intel }
           - { name: darwin/arm64,  tag: darwin-arm64,  runner: macos-15 }
           - { name: windows/amd64, tag: windows-amd64, runner: windows-latest }
         module: [qodana-cli, qodana-clang, qodana-cdnet]
