@@ -58,6 +58,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - uses: actions/setup-java@v4
         with:
@@ -65,7 +66,6 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
       - uses: JetBrains/qodana-action@v2026.1
-        continue-on-error: true
         env:
           QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
         with:
@@ -101,6 +101,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.module }}-${{ matrix.platform.tag }}
-          path: ${{ matrix.module }}/build/native/nativeCompile/${{ matrix.module }}*
+          path: |
+            ${{ matrix.module }}/build/native/nativeCompile/${{ matrix.module }}
+            ${{ matrix.module }}/build/native/nativeCompile/${{ matrix.module }}.exe
           if-no-files-found: error
           retention-days: 14
