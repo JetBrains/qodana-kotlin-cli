@@ -1,7 +1,3 @@
 version: "1.0"
 linter: qodana-jvm
 projectJDK: "21"
-# Compile sources so qodana-jvm sees all classes across the 5 Gradle modules.
-# `classes testClasses` covers main + test source sets without building dist
-# artifacts (which `assemble` would do unnecessarily for static analysis).
-bootstrap: ./gradlew --no-daemon classes testClasses
