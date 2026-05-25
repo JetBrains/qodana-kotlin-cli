@@ -71,3 +71,36 @@ jobs:
         with:
           pr-mode: false
           upload-result: true
+
+  native-build:
+    name: "Build ${{ matrix.module }} (${{ matrix.platform.name }})"
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { name: linux/amd64,   tag: linux-amd64,   runner: ubuntu-latest }
+          - { name: linux/arm64,   tag: linux-arm64,   runner: ubuntu-24.04-arm }
+          - { name: darwin/amd64,  tag: darwin-amd64,  runner: macos-13 }
+          - { name: darwin/arm64,  tag: darwin-arm64,  runner: macos-15 }
+          - { name: windows/amd64, tag: windows-amd64, runner: windows-latest }
+        module: [qodana-cli, qodana-clang, qodana-cdnet]
+    runs-on: ${{ matrix.platform.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm-community'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          native-image-job-reports: 'true'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Native compile
+        run: ./gradlew :${{ matrix.module }}:nativeCompile -Pquick=true
+        shell: bash
+      - name: Upload binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.module }}-${{ matrix.platform.tag }}
+          path: ${{ matrix.module }}/build/native/nativeCompile/${{ matrix.module }}*
+          if-no-files-found: error
+          retention-days: 14
