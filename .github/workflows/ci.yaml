@@ -47,14 +47,11 @@ jobs:
   qodana:
     name: Qodana
     runs-on: ubuntu-latest
-    needs: [test]
-    continue-on-error: true
+    timeout-minutes: 30
     permissions:
-      checks: write
+      contents: read
       pull-requests: write
-      actions: read
-      contents: write
-      security-events: write
+      checks: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -65,11 +62,16 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
-      - uses: JetBrains/qodana-action@v2026.1
+      # Requires the QODANA_TOKEN secret on the repo (project token from
+      # https://qodana.cloud). Without it the linter fails fast with
+      # "Starting from 2023.2 release versions require connection to Qodana Cloud."
+      - uses: JetBrains/qodana-action@v2026.1.0
         env:
           QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
         with:
           pr-mode: false
+          post-pr-comment: true
+          use-annotations: true
           upload-result: true
 
   native-build:
