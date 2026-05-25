@@ -1,3 +1,8 @@
 version: "1.0"
 linter: qodana-jvm
 projectJDK: "21"
+
+dependencyIgnores:
+  # JNA is dual-licensed Apache-2.0 OR LGPL-2.1+; License Audit flags it for the
+  # LGPL option, but we consume it under Apache-2.0.
+  - name: "jna"
