@@ -27,3 +27,7 @@ Thumbs.db
 *.dll
 *.so
 *.dylib
+
+# Claude Code
+.claude/*.local.*
+CLAUDE.local.md
