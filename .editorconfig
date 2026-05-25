@@ -15,4 +15,7 @@ indent_size = 4
 indent_size = 2
 
 [*.md]
+# Markdown formatting is owned by Prettier (see .pre-commit-config.yaml).
+# This override only ensures editorconfig-aware tools don't trim trailing
+# whitespace, which is meaningful in markdown as a hard line break.
 trim_trailing_whitespace = false

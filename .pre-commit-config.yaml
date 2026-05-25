@@ -4,12 +4,12 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-      # Auto-fixing hooks — implement .editorconfig policy with mutation.
+      # Convenience auto-fixers. Policy authority is .editorconfig (validated by editorconfig-checker below).
+      # These behave equivalently to .editorconfig's globally-applicable rules; the exclude on
+      # trailing-whitespace mirrors [*.md] trim_trailing_whitespace = false.
       - id: end-of-file-fixer
       - id: trailing-whitespace
-        args: ['--markdown-linebreak-ext=md']
-      - id: mixed-line-ending
-        args: ['--fix=lf']
+        exclude: '(?i)\.md$'
       # Check-only safety nets.
       - id: check-merge-conflict
       - id: check-yaml
@@ -17,6 +17,12 @@ repos:
       - id: check-added-large-files
       - id: check-executables-have-shebangs
       - id: check-shebang-scripts-are-executable
+
+  - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
+    rev: 3.6.1
+    hooks:
+      - id: editorconfig-checker
+        stages: [pre-commit]
 
   - repo: https://github.com/rbubley/mirrors-prettier
     rev: v3.8.3
