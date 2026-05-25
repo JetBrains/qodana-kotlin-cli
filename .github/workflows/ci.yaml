@@ -14,6 +14,7 @@ permissions:
 
 jobs:
   test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,6 +26,7 @@ jobs:
       - run: ./gradlew test
 
   lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,12 +35,11 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install prek
-        run: pip install prek
       - name: Run prek (commit-stage hooks)
-        run: prek run --all-files --hook-stage pre-commit --show-diff-on-failure
+        uses: j178/prek-action@v2
+        with:
+          extra-args: --all-files --hook-stage pre-commit
       - name: Run prek (push-stage hooks — Gradle lint)
-        run: prek run --all-files --hook-stage pre-push --show-diff-on-failure
+        uses: j178/prek-action@v2
+        with:
+          extra-args: --all-files --hook-stage pre-push
