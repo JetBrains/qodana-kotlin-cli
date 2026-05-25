@@ -4,9 +4,11 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-      # Convenience auto-fixers. Policy authority is .editorconfig (validated by editorconfig-checker below).
-      # These behave equivalently to .editorconfig's globally-applicable rules; the exclude on
-      # trailing-whitespace mirrors [*.md] trim_trailing_whitespace = false.
+      # Convenience auto-fixers for final-newline and trailing-whitespace only.
+      # The full editorconfig policy (charset, EOL, indent_style, ...) is validated
+      # by editorconfig-checker below; these hooks just save typing on the two
+      # cases they cover. The trailing-whitespace exclude mirrors
+      # .editorconfig's [*.md] trim_trailing_whitespace = false.
       - id: end-of-file-fixer
       - id: trailing-whitespace
         exclude: '(?i)\.md$'
@@ -18,6 +20,11 @@ repos:
       - id: check-executables-have-shebangs
       - id: check-shebang-scripts-are-executable
 
+  # Reads .editorconfig directly. .editorconfig-checker.json (auto-discovered)
+  # disables IndentSize: many tracked files legitimately diverge from the
+  # global indent_size = 4 (detekt baselines, gradlew, renovate.json, markdown
+  # lists, LICENSE, embedded XML in Kotlin raw strings). indent_style and all
+  # other rules stay enforced.
   - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
     rev: 3.6.1
     hooks:
