@@ -1,7 +1,24 @@
 {
   "permissions": {
     "allow": [
-      "Skill(superpowers:*)"
+      "Skill(superpowers:*)",
+      "Bash(./gradlew test*)",
+      "Bash(./gradlew :*test*)",
+      "Bash(./gradlew ktlint*)",
+      "Bash(./gradlew :*ktlint*)",
+      "Bash(./gradlew detekt*)",
+      "Bash(./gradlew :*detekt*)",
+      "Bash(./gradlew :*:nativeCompile*)",
+      "Bash(./gradlew :*:nativeRun*)",
+      "Bash(./gradlew help*)",
+      "Bash(./gradlew tasks*)",
+      "Bash(./gradlew :*:tasks*)",
+      "Bash(prek run*)",
+      "Bash(prek install*)",
+      "Bash(prek autoupdate*)",
+      "Bash(python3 -c *yaml*)",
+      "Bash(python3 -c *json*)",
+      "Bash(git worktree*)"
     ]
   }
 }
