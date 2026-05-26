@@ -143,5 +143,6 @@ jobs:
         run: dist/${{ matrix.module }}${{ runner.os == 'Windows' && '.exe' || '' }} scan --help
         shell: bash
       - name: Smoke — init --help
+        if: matrix.module == 'qodana-cli'
         run: dist/${{ matrix.module }}${{ runner.os == 'Windows' && '.exe' || '' }} init --help
         shell: bash
