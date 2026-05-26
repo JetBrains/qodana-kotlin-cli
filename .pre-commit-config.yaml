@@ -4,12 +4,14 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
-      # Auto-fixing hooks — implement .editorconfig policy with mutation.
+      # Convenience auto-fixers for final-newline and trailing-whitespace only.
+      # The full editorconfig policy (charset, EOL, indent_style, ...) is validated
+      # by editorconfig-checker below; these hooks just save typing on the two
+      # cases they cover. The trailing-whitespace exclude mirrors
+      # .editorconfig's [*.md] trim_trailing_whitespace = false.
       - id: end-of-file-fixer
       - id: trailing-whitespace
-        args: ['--markdown-linebreak-ext=md']
-      - id: mixed-line-ending
-        args: ['--fix=lf']
+        exclude: '\.md$'
       # Check-only safety nets.
       - id: check-merge-conflict
       - id: check-yaml
@@ -17,6 +19,16 @@ repos:
       - id: check-added-large-files
       - id: check-executables-have-shebangs
       - id: check-shebang-scripts-are-executable
+
+  # Reads .editorconfig directly. The policy lives entirely in .editorconfig:
+  # it omits indent_size for languages owned by specialized formatters
+  # (Kotlin via ktlint, Markdown via Prettier) and unsets enforcement for
+  # tool-generated / imported files (Gradle wrapper, Apache LICENSE).
+  - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
+    rev: 3.6.1
+    hooks:
+      - id: editorconfig-checker
+        stages: [pre-commit]
 
   - repo: https://github.com/rbubley/mirrors-prettier
     rev: v3.8.3
