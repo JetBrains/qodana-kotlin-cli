@@ -345,6 +345,7 @@ jobs:
           {
             echo "## What's changed"
             echo
+            # shellcheck disable=SC2086 # RANGE is intentionally word-split: empty string → full history.
             LINES=$(git -C source log --pretty=format:'- %s (%h)' ${RANGE} \
               | grep -vE '^- (chore|docs|style|ci|build|refactor|test)(\(.+\))?:' || true)
             if [ -z "$LINES" ]; then
