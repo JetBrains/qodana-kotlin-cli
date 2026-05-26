@@ -105,6 +105,31 @@ ln -s ../lib/svm/bin/native-image-configure native-image-configure
 
 Then re-run with `GRAALVM_HOME` and `JAVA_HOME` pointing at the toolchain.
 
+### Gradle toolchain picks wrong JDK (Corretto / JBR instead of GraalVM)
+
+Gradle's OS-level JDK auto-detection may find another JVM (e.g. Amazon Corretto or JetBrains Runtime) and select it over the foojay-downloaded GraalVM CE. The symptom is:
+
+```
+/path/to/corretto-21.../bin/native-image wasn't found. This probably means that JDK isn't a GraalVM distribution.
+```
+
+Fix: create a local `gradle.properties` (this file is gitignored) that pins the GraalVM path and disables auto-detection:
+
+```properties
+# Point at the foojay-downloaded GraalVM CE 21 (adjust to match your local ~/.gradle/jdks path)
+org.gradle.java.installations.paths=/Users/<you>/.gradle/jdks/graalvm_community-21-aarch64-os_x.2/graalvm-community-openjdk-21.0.2+13.1/Contents/Home
+org.gradle.java.installations.auto-detect=false
+```
+
+Then stop all running Gradle daemons and retry:
+
+```sh
+./gradlew --stop
+./gradlew :qodana-cli:nativeCompile
+```
+
+Alternatively, install GraalVM CE 21 via SDKMAN (`sdk install java 21-graalce`) and set `JAVA_HOME` / `GRAALVM_HOME` before running Gradle.
+
 ### Corporate proxy
 
 `metadataRepository { enabled.set(true) }` fetches from the public GraalVM mirror. Behind a proxy, set the standard Gradle proxy properties (`-Dhttps.proxyHost=...`) or pin a local mirror. See [Gradle's HTTP settings](https://docs.gradle.org/current/userguide/build_environment.html#sec:accessing_the_web_via_a_proxy).
