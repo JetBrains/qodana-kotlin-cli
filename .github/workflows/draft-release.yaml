@@ -1,0 +1,385 @@
+name: Draft Release
+
+# Creates a GitHub release in DRAFT state for a given version. The git tag is NOT created at this point
+# — `gh release create --draft --target $SHA` pins a commit SHA in release metadata but materializes the
+# tag only when `gh release edit --draft=false` runs (see `Publish Release` workflow). This inversion
+# (vs. the classic "push tag → CI fires" model) is intentional and is the cornerstone of QD-14721's
+# release model. See docs/release.md for the rationale.
+#
+# Triggers:
+#   - workflow_dispatch (operator-driven, tagged releases)
+#   - workflow_call (nightly.yaml umbrella)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 2026.3.1 for tagged, or 2026.3.1-nightly for nightly)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as prerelease'
+        required: false
+        type: boolean
+        default: false
+      cli-only:
+        description: 'Only build qodana-cli (skip clang/cdnet). Set true for nightlies.'
+        required: false
+        type: boolean
+        default: false
+      dry-run:
+        description: 'Print assembly results without creating a real release'
+        required: false
+        type: boolean
+        default: false
+      latest:
+        description: 'Mark this release as `latest`. Must be false for cli-only.'
+        required: false
+        type: boolean
+        default: true
+      mode:
+        description: '`tagged` or `nightly` — chooses concurrency group, does not affect asset shape'
+        required: false
+        type: string
+        default: 'tagged'
+  workflow_call:
+    inputs:
+      version: { required: true, type: string }
+      prerelease: { required: false, type: boolean, default: false }
+      cli-only: { required: false, type: boolean, default: false }
+      dry-run: { required: false, type: boolean, default: false }
+      latest: { required: false, type: boolean, default: true }
+      mode: { required: false, type: string, default: 'tagged' }
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.mode }}-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.outputs.outputs.version }}
+      tag: ${{ steps.outputs.outputs.tag }}
+      sha: ${{ steps.outputs.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Validate version format
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='${{ inputs.version }}'
+          if [[ "$VERSION" == *-nightly ]]; then
+            REGEX='^[0-9]+\.[0-9]+(\.[0-9]+)?-nightly$'
+          else
+            REGEX='^[0-9]+\.[0-9]+(\.[0-9]+)?$'
+          fi
+          if [[ ! "$VERSION" =~ $REGEX ]]; then
+            echo "::error::Version '$VERSION' does not match the expected format"
+            exit 1
+          fi
+
+      - name: Enforce cli-only excludes latest
+        if: ${{ inputs.cli-only && inputs.latest }}
+        shell: bash
+        run: |
+          echo "::error::cli-only releases must not be marked as latest"
+          exit 1
+
+      - name: Check version invariant (tagged releases only)
+        if: ${{ !endsWith(inputs.version, '-nightly') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --quiet checkVersion -PrequireExact='${{ inputs.version }}'
+
+      - name: Reject pre-existing release
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='v${{ inputs.version }}'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::Release $TAG already exists. Delete the existing draft or pick a different version."
+            exit 1
+          fi
+
+      - name: Emit outputs
+        id: outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          SHA=$(git rev-parse HEAD)
+          {
+            echo "version=${{ inputs.version }}"
+            echo "tag=v${{ inputs.version }}"
+            echo "sha=$SHA"
+          } >> "$GITHUB_OUTPUT"
+
+  sbom:
+    name: SBOM
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate cli SBOM
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --quiet :qodana-cli:cyclonedxDirectBom -Pversion='${{ needs.validate.outputs.version }}'
+
+      - name: Generate clang/cdnet SBOMs
+        if: ${{ !inputs.cli-only }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew --quiet \
+            :qodana-clang:cyclonedxDirectBom \
+            :qodana-cdnet:cyclonedxDirectBom \
+            -Pversion='${{ needs.validate.outputs.version }}'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: |
+            qodana-cli/build/release/qodana-cli-sbom.json
+            qodana-clang/build/release/qodana-clang-sbom.json
+            qodana-cdnet/build/release/qodana-cdnet-sbom.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  build-cli:
+    name: Build qodana-cli (${{ matrix.platform.name }})
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { name: linux/amd64, tag: linux-amd64, runner: ubuntu-latest, os: linux, arch: amd64 }
+          - { name: linux/arm64, tag: linux-arm64, runner: ubuntu-24.04-arm, os: linux, arch: arm64 }
+          - { name: darwin/amd64, tag: darwin-amd64, runner: macos-15-intel, os: darwin, arch: amd64 }
+          - { name: darwin/arm64, tag: darwin-arm64, runner: macos-15, os: darwin, arch: arm64 }
+          - { name: windows/amd64, tag: windows-amd64, runner: windows-latest, os: windows, arch: amd64 }
+    runs-on: ${{ matrix.platform.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm-community'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Assemble cli release artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :qodana-cli:assembleRelease \
+            -Pversion='${{ needs.validate.outputs.version }}' \
+            -PtargetOs=${{ matrix.platform.os }} \
+            -PtargetArch=${{ matrix.platform.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.platform.tag }}
+          path: qodana-cli/build/release/*
+          if-no-files-found: error
+          retention-days: 14
+
+  build-clang-cdnet:
+    name: Build ${{ matrix.module }} (${{ matrix.platform.name }})
+    needs: validate
+    if: ${{ !inputs.cli-only }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { name: linux/amd64, tag: linux-amd64, runner: ubuntu-latest, os: linux, arch: amd64 }
+          - { name: linux/arm64, tag: linux-arm64, runner: ubuntu-24.04-arm, os: linux, arch: arm64 }
+          - { name: darwin/amd64, tag: darwin-amd64, runner: macos-15-intel, os: darwin, arch: amd64 }
+          - { name: darwin/arm64, tag: darwin-arm64, runner: macos-15, os: darwin, arch: arm64 }
+          - { name: windows/amd64, tag: windows-amd64, runner: windows-latest, os: windows, arch: amd64 }
+        module: [qodana-clang, qodana-cdnet]
+    runs-on: ${{ matrix.platform.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalvm-community'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Assemble ${{ matrix.module }} release binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :${{ matrix.module }}:assembleRelease \
+            -Pversion='${{ needs.validate.outputs.version }}' \
+            -PtargetOs=${{ matrix.platform.os }} \
+            -PtargetArch=${{ matrix.platform.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.module }}-${{ matrix.platform.tag }}
+          path: ${{ matrix.module }}/build/release/*
+          if-no-files-found: error
+          retention-days: 14
+
+  assemble:
+    name: Assemble draft release
+    needs: [validate, sbom, build-cli, build-clang-cdnet]
+    if: |
+      always()
+      && needs.validate.result == 'success'
+      && needs.sbom.result == 'success'
+      && needs.build-cli.result == 'success'
+      && (inputs.cli-only || needs.build-clang-cdnet.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stage and download all artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Verify asset set
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          VERSION='${{ needs.validate.outputs.version }}'
+          if [ '${{ inputs.cli-only }}' = 'true' ]; then
+            EXPECTED_FILES=(
+              qodana_linux_x86_64.tar.gz qodana_linux_arm64.tar.gz
+              qodana_darwin_x86_64.tar.gz qodana_darwin_arm64.tar.gz
+              qodana_windows_x86_64.zip
+              qodana-cli-sbom.json
+            )
+          else
+            EXPECTED_FILES=(
+              qodana_linux_x86_64.tar.gz qodana_linux_arm64.tar.gz
+              qodana_darwin_x86_64.tar.gz qodana_darwin_arm64.tar.gz
+              qodana_windows_x86_64.zip
+              "qodana-clang_${VERSION}_linux_amd64"   "qodana-clang_${VERSION}_linux_arm64"
+              "qodana-clang_${VERSION}_darwin_amd64"  "qodana-clang_${VERSION}_darwin_arm64"
+              "qodana-clang_${VERSION}_windows_amd64.exe"
+              "qodana-cdnet_${VERSION}_linux_amd64"   "qodana-cdnet_${VERSION}_linux_arm64"
+              "qodana-cdnet_${VERSION}_darwin_amd64"  "qodana-cdnet_${VERSION}_darwin_arm64"
+              "qodana-cdnet_${VERSION}_windows_amd64.exe"
+              qodana-cli-sbom.json qodana-clang-sbom.json qodana-cdnet-sbom.json
+            )
+          fi
+          ACTUAL=$(printf '%s\n' * | sort)
+          EXPECTED=$(printf '%s\n' "${EXPECTED_FILES[@]}" | sort)
+          if [ "$ACTUAL" != "$EXPECTED" ]; then
+            echo "::error::Asset set mismatch in dist/:"
+            diff <(printf '%s\n' "$EXPECTED") <(printf '%s\n' "$ACTUAL") || true
+            exit 1
+          fi
+          echo "Asset set verified: $(printf '%s\n' "${EXPECTED_FILES[@]}" | wc -l | tr -d ' ') files"
+
+      - name: Compute checksums.txt
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd dist
+            find . -maxdepth 1 -type f -not -name 'checksums.txt' -print0 \
+              | sort -z \
+              | xargs -0 sha256sum \
+              | sed 's|  \./|  |' \
+              > checksums.txt
+          )
+          echo '--- checksums.txt ---'
+          cat dist/checksums.txt
+          echo '--- end ---'
+
+      - uses: actions/checkout@v4
+        with:
+          path: source
+          ref: ${{ needs.validate.outputs.sha }}
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Generate release-notes.md
+        shell: bash
+        run: |
+          set -euo pipefail
+          PREV=$(git -C source tag --list 'v*' --sort=-v:refname \
+            | grep -vE -- '(-nightly|-tagprobe-)' \
+            | head -n 1 || true)
+          if [ -n "$PREV" ]; then
+            RANGE="$PREV..HEAD"
+          else
+            RANGE=""
+          fi
+          {
+            echo "## What's changed"
+            echo
+            LINES=$(git -C source log --pretty=format:'- %s (%h)' ${RANGE} \
+              | grep -vE '^- (chore|docs|style|ci|build|refactor|test)(\(.+\))?:' || true)
+            if [ -z "$LINES" ]; then
+              echo '- (no user-facing changes)'
+            else
+              echo "$LINES"
+            fi
+          } > release-notes.md
+          echo '--- release-notes.md ---'
+          cat release-notes.md
+          echo '--- end ---'
+
+      - name: Print dist listing (dry-run only)
+        if: ${{ inputs.dry-run }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '--- dist/ contents ---'
+          ls -la dist
+          echo '--- end ---'
+
+      - name: Create draft release
+        if: ${{ !inputs.dry-run }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG='${{ needs.validate.outputs.tag }}'
+          PRERELEASE_FLAG=()
+          if [ '${{ inputs.prerelease }}' = 'true' ]; then PRERELEASE_FLAG=(--prerelease); fi
+          gh release create "$TAG" \
+            --draft \
+            --target '${{ needs.validate.outputs.sha }}' \
+            --latest='${{ inputs.latest }}' \
+            "${PRERELEASE_FLAG[@]}" \
+            --notes-file release-notes.md \
+            --title "$TAG" \
+            dist/*
+          echo "Draft created: https://github.com/${{ github.repository }}/releases/tag/$TAG"
