@@ -4,7 +4,7 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
 
 class QodanaCdnetCommand : CliktCommand("qodana-cdnet") {
-    override fun help(context: Context) = "Qodana for .NET (ReSharper InspectCode) v${Version.VALUE}"
+    override fun help(context: Context) = "Qodana for .NET (ReSharper InspectCode) v${BuildInfo.VERSION}"
 
     override val invokeWithoutSubcommand = true
 

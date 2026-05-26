@@ -2,7 +2,12 @@ plugins {
     id("kotlin-common")
     id("testing")
     id("graalvm-native")
+    id("qodana-buildinfo")
     application
+}
+
+qodanaBuildInfo {
+    packageName.set("org.jetbrains.qodana.cdnet")
 }
 
 application {

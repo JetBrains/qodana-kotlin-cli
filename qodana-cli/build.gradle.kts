@@ -2,6 +2,7 @@ plugins {
     id("kotlin-common")
     id("testing")
     id("graalvm-native")
+    id("qodana-buildinfo")
     application
 }
 
@@ -18,43 +19,13 @@ java {
     }
 }
 
-// Phase A: hardcoded snapshot. Real per-commit / per-tag versioning lands in
-// Phase C (QD-14721) via git describe + a Gradle property.
-version = "2026.2-SNAPSHOT"
-
-// `generateBuildInfo` writes a BuildInfo.kt source file at task-execution time
-// before `compileKotlin` runs. The generated `const val BuildInfo.VERSION` makes
-// the project version a compile-time constant on both JVM and native-image,
-// sidestepping GraalVM class-init ordering for `-Dqodana.version`.
-val generatedSrcDir: Provider<Directory> =
-    layout.buildDirectory.dir("generated/sources/buildinfo/kotlin/main")
-
-val generateBuildInfo by tasks.registering {
-    val versionString = project.version.toString()
-    val outFile = generatedSrcDir.map { it.file("org/jetbrains/qodana/cli/BuildInfo.kt") }
-    inputs.property("version", versionString)
-    outputs.file(outFile)
-    doLast {
-        val target = outFile.get().asFile
-        target.parentFile.mkdirs()
-        target.writeText(
-            """
-            |// Generated — do not edit. Source: qodana-cli/build.gradle.kts
-            |package org.jetbrains.qodana.cli
-            |
-            |internal object BuildInfo {
-            |    const val VERSION: String = "$versionString"
-            |}
-            |
-            """.trimMargin(),
-        )
-    }
+// `project.version` is inherited from root `gradle.properties` (`version=dev` by default; overridden
+// via `-Pversion=...` from CI). The `qodana-buildinfo` convention plugin emits a `BuildInfo.kt` source
+// with `const val VERSION = "<project.version>"` so it bakes into the native image as a compile-time
+// constant. See build-logic/src/main/kotlin/qodana-buildinfo.gradle.kts.
+qodanaBuildInfo {
+    packageName.set("org.jetbrains.qodana.cli")
 }
-
-sourceSets.named("main") {
-    kotlin.srcDir(generatedSrcDir)
-}
-tasks.named("compileKotlin").configure { dependsOn(generateBuildInfo) }
 
 application {
     mainClass.set("org.jetbrains.qodana.cli.MainKt")

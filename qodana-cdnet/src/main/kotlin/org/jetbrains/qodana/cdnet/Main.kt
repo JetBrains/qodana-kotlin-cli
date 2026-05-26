@@ -10,10 +10,6 @@ import org.jetbrains.qodana.core.terminal.MordantTerminal
 import org.jetbrains.qodana.engine.startup.EapChecker
 import kotlin.system.exitProcess
 
-object Version {
-    const val VALUE = "0.1.0-dev"
-}
-
 fun main(args: Array<String>) {
     val processRunner = SystemProcessRunner()
     val fileSystem = NioFileSystem()
