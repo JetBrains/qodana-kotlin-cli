@@ -254,6 +254,71 @@ class NativeSmokeTest {
         }
 
     @Test
+    fun `view command reads a SARIF file via QodanaSarifService`(
+        @TempDir dir: Path,
+    ) {
+        val sarif = dir.resolve("qodana.sarif.json")
+        sarif.writeText(
+            """{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"test"}},"results":[
+                {"ruleId":"R1","level":"warning","message":{"text":"m"},
+                 "locations":[{"physicalLocation":{"artifactLocation":{"uri":"a.kt"},
+                 "region":{"startLine":1}}}]}
+            ]}]}""",
+        )
+        // view returns normally on success — no ProgramResult thrown.
+        buildRootCommand().parse(listOf("view", "-f", sarif.toString()))
+        assertTrue(
+            output.any { it.contains("R1:") },
+            "view should print rule R1; got $output",
+        )
+    }
+
+    @Test
+    fun `pull command pulls an image via docker-java`() {
+        Assumptions.assumeTrue(
+            System.getenv("QODANA_TEST_CONTAINER") == "1",
+            "Skipping (set QODANA_TEST_CONTAINER=1)",
+        )
+        try {
+            runBlocking { DockerJavaEngine().info() }
+        } catch (e: Exception) {
+            fail("QODANA_TEST_CONTAINER=1 but Docker is unreachable: ${e.message}")
+        }
+        // Force-remove the image first so PullResponseItem + ProgressDetail
+        // streaming actually fires (a cached image short-circuits and the
+        // streaming DTOs never deserialize).
+        runCatching {
+            ProcessBuilder("docker", "image", "rm", "alpine:3.20")
+                .redirectErrorStream(true)
+                .start()
+                .waitFor()
+        }
+        // pull returns normally on success.
+        buildRootCommand().parse(listOf("pull", "--image", "alpine:3.20"))
+    }
+
+    @Test
+    fun `show --dir-only exits cleanly on an existing results dir`(
+        @TempDir dir: Path,
+    ) {
+        val projectDir = Files.createDirectories(dir.resolve("project"))
+        val resultsDir = Files.createDirectories(dir.resolve("results"))
+        // show --dir-only returns normally on success; ShowCommand.openDirectory
+        // already swallows xdg-open/open/cmd-start failures so the absence of
+        // xdg-utils on headless CI doesn't fail the test.
+        buildRootCommand().parse(
+            listOf(
+                "show",
+                "-i",
+                projectDir.toString(),
+                "-o",
+                resultsDir.toString(),
+                "--dir-only",
+            ),
+        )
+    }
+
+    @Test
     fun `every docker-java DTO from QD-14728 is reachable for the agent`() {
         // Per QD-14728 ticket text. Class.forName under the agent records the
         // class in reflect-config; pairing this with the smoke tests above
