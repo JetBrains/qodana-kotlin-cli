@@ -6,6 +6,7 @@ import com.github.ajalt.clikt.core.subcommands
 import org.jetbrains.qodana.cli.command.*
 import org.jetbrains.qodana.core.env.QodanaEnv
 import org.jetbrains.qodana.core.fs.NioFileSystem
+import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.core.process.SystemProcessRunner
 import org.jetbrains.qodana.core.sarif.QodanaSarifService
 import org.jetbrains.qodana.core.terminal.MordantTerminal
@@ -30,6 +31,52 @@ import org.jetbrains.qodana.engine.scan.ScanUseCase
 import org.jetbrains.qodana.engine.scan.SystemUtils
 import org.jetbrains.qodana.engine.startup.IdeInstaller
 import org.jetbrains.qodana.engine.startup.PrepareHost
+
+/**
+ * Builds the [ScanUseCase] with the wiring the production `main()` uses.
+ *
+ * Extracted (QD-14728) so `NativeSmokeTest` can construct the same use-case
+ * graph in its `scanRunner` slot without drifting from Main.kt's wiring. Any
+ * future dependency added to scan must be threaded through both the call site
+ * here and the one in `main()`.
+ */
+internal fun buildScanUseCase(
+    httpTransport: OkHttpTransport,
+    containerEngine: DockerJavaEngine,
+    sarifService: QodanaSarifService,
+    reportConverter: ReportConverterAdapter,
+    fileSystem: NioFileSystem,
+    reportPublishUseCase: ReportPublishUseCase,
+    processRunner: SystemProcessRunner,
+    gitClient: SystemGitClient,
+    terminal: Terminal,
+): ScanUseCase {
+    val token =
+        System.getenv(QodanaEnv.TOKEN)?.takeIf { it.isNotBlank() }
+            ?: System.getenv(QodanaEnv.LICENSE_ONLY_TOKEN)?.takeIf { it.isNotBlank() }
+    val cloudClient =
+        if (!token.isNullOrBlank()) {
+            CloudClient(httpTransport, token = token)
+        } else {
+            null
+        }
+    val ideInstaller = IdeInstaller(httpTransport, fileSystem, terminal)
+    val codeClimateExporter = CodeClimateExporter(sarifService)
+    val bitBucketExporter = BitBucketExporter(sarifService, httpTransport)
+
+    return ScanUseCase(
+        prepareHost = PrepareHost(fileSystem, terminal, ideInstaller),
+        nativeScan = NativeScan(processRunner, fileSystem, terminal),
+        containerScan = ContainerScan(containerEngine, terminal),
+        reportProcessor = ReportProcessor(sarifService, reportConverter),
+        reportPublisher = reportPublishUseCase,
+        licenseValidator = cloudClient?.let { LicenseValidator(httpTransport, it) },
+        codeClimateExporter = codeClimateExporter,
+        bitBucketExporter = bitBucketExporter,
+        gitClient = gitClient,
+        terminal = terminal,
+    )
+}
 
 private val ROOT_COMMANDS =
     setOf(
@@ -141,40 +188,24 @@ fun main(args: Array<String>) {
         }
     }
 
-    fun createScanUseCase(): ScanUseCase {
-        val token =
-            System.getenv(QodanaEnv.TOKEN)?.takeIf { it.isNotBlank() }
-                ?: System.getenv(QodanaEnv.LICENSE_ONLY_TOKEN)?.takeIf { it.isNotBlank() }
-        val cloudClient =
-            if (!token.isNullOrBlank()) {
-                CloudClient(httpTransport, token = token)
-            } else {
-                null
-            }
-        val ideInstaller = IdeInstaller(httpTransport, fileSystem, terminal)
-        val codeClimateExporter = CodeClimateExporter(sarifService)
-        val bitBucketExporter = BitBucketExporter(sarifService, httpTransport)
-
-        return ScanUseCase(
-            prepareHost = PrepareHost(fileSystem, terminal, ideInstaller),
-            nativeScan = NativeScan(processRunner, fileSystem, terminal),
-            containerScan = ContainerScan(containerEngine, terminal),
-            reportProcessor = ReportProcessor(sarifService, reportConverter),
-            reportPublisher = reportPublishUseCase,
-            licenseValidator = cloudClient?.let { LicenseValidator(httpTransport, it) },
-            codeClimateExporter = codeClimateExporter,
-            bitBucketExporter = bitBucketExporter,
-            gitClient = gitClient,
-            terminal = terminal,
-        )
-    }
-
     val normalizedArgs = normalizeRootArgs(args)
 
     QodanaCommand()
         .subcommands(
             ScanCommand(
-                scanRunner = { context -> createScanUseCase().run(context) },
+                scanRunner = { context ->
+                    buildScanUseCase(
+                        httpTransport = httpTransport,
+                        containerEngine = containerEngine,
+                        sarifService = sarifService,
+                        reportConverter = reportConverter,
+                        fileSystem = fileSystem,
+                        reportPublishUseCase = reportPublishUseCase,
+                        processRunner = processRunner,
+                        gitClient = gitClient,
+                        terminal = terminal,
+                    ).run(context)
+                },
                 terminal = terminal,
             ),
             InitCommand(terminal),
