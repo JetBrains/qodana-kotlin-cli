@@ -26,11 +26,12 @@ graalvmNative {
         // NOTE: the agent captures some test-infrastructure entries
         // (junit-platform.properties, org.junit.platform.* services, the test
         // classes themselves) that aren't needed in the production binary.
-        // CONTRIBUTING.md documents the manual strip after each regeneration.
+        // The stripTestEntriesFromMetadata task in qodana-cli/build.gradle.kts
+        // finalizes metadataCopy and removes them automatically.
         // The plugin's `accessFilterFiles` knob was tried first but doesn't
         // filter the test-class entries on 0.10.6 against our setup.
         metadataCopy {
-            inputTaskNames.add("test")
+            inputTaskNames.add("parityTest")
             outputDirectories.add("src/main/resources/META-INF/native-image/org.jetbrains.qodana/${project.name}")
             mergeWithExisting.set(true)
         }

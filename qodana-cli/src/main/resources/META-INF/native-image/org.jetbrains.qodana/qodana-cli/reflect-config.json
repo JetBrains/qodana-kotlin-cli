@@ -1,588 +1,4164 @@
 [
-{
-  "name":"[B"
-},
-{
-  "name":"[Lcom.fasterxml.jackson.databind.deser.Deserializers;"
-},
-{
-  "name":"[Lcom.fasterxml.jackson.databind.deser.KeyDeserializers;"
-},
-{
-  "name":"[Lcom.fasterxml.jackson.databind.deser.ValueInstantiators;"
-},
-{
-  "name":"[Lcom.fasterxml.jackson.databind.ser.Serializers;"
-},
-{
-  "name":"[Ljava.lang.Object;"
-},
-{
-  "name":"[Ljava.lang.String;"
-},
-{
-  "name":"[Lsun.security.pkcs.SignerInfo;"
-},
-{
-  "name":"apple.security.AppleProvider",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"com.fasterxml.jackson.databind.ext.Java7SupportImpl",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"com.sun.crypto.provider.AESCipher$General",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"com.sun.crypto.provider.ARCFOURCipher",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"com.sun.crypto.provider.ChaCha20Cipher$ChaCha20Poly1305",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"com.sun.crypto.provider.DESCipher",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"com.sun.crypto.provider.DESedeCipher",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"com.sun.crypto.provider.DHParameters",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"com.sun.crypto.provider.GaloisCounterMode$AESGCM",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"com.sun.crypto.provider.HmacCore$HmacSHA256",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"com.sun.crypto.provider.TlsMasterSecretGenerator",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"com.sun.jna.CallbackProxy",
-  "methods":[{"name":"callback","parameterTypes":["java.lang.Object[]"] }]
-},
-{
-  "name":"java.lang.Boolean"
-},
-{
-  "name":"java.lang.ClassValue"
-},
-{
-  "name":"java.lang.Enum"
-},
-{
-  "name":"java.lang.Integer"
-},
-{
-  "name":"java.lang.Object",
-  "methods":[{"name":"equals","parameterTypes":["java.lang.Object"] }, {"name":"hashCode","parameterTypes":[] }, {"name":"toString","parameterTypes":[] }]
-},
-{
-  "name":"java.lang.SecurityManager"
-},
-{
-  "name":"java.lang.String"
-},
-{
-  "name":"java.lang.Thread",
-  "fields":[{"name":"threadLocalRandomProbe"}]
-},
-{
-  "name":"java.lang.Throwable",
-  "methods":[{"name":"addSuppressed","parameterTypes":["java.lang.Throwable"] }]
-},
-{
-  "name":"java.lang.invoke.MethodHandle",
-  "methods":[{"name":"bindTo","parameterTypes":["java.lang.Object"] }, {"name":"invokeWithArguments","parameterTypes":["java.lang.Object[]"] }]
-},
-{
-  "name":"java.lang.invoke.MethodHandles",
-  "methods":[{"name":"lookup","parameterTypes":[] }, {"name":"privateLookupIn","parameterTypes":["java.lang.Class","java.lang.invoke.MethodHandles$Lookup"] }]
-},
-{
-  "name":"java.lang.invoke.MethodHandles$Lookup",
-  "methods":[{"name":"findSpecial","parameterTypes":["java.lang.Class","java.lang.String","java.lang.invoke.MethodType","java.lang.Class"] }, {"name":"in","parameterTypes":["java.lang.Class"] }, {"name":"unreflectSpecial","parameterTypes":["java.lang.reflect.Method","java.lang.Class"] }]
-},
-{
-  "name":"java.lang.invoke.MethodType",
-  "methods":[{"name":"methodType","parameterTypes":["java.lang.Class","java.lang.Class[]"] }]
-},
-{
-  "name":"java.lang.reflect.Method",
-  "methods":[{"name":"isDefault","parameterTypes":[] }, {"name":"isVarArgs","parameterTypes":[] }]
-},
-{
-  "name":"java.nio.Buffer"
-},
-{
-  "name":"java.security.AlgorithmParametersSpi"
-},
-{
-  "name":"java.security.KeyStoreSpi"
-},
-{
-  "name":"java.security.SecureRandomParameters"
-},
-{
-  "name":"java.security.interfaces.RSAPrivateKey"
-},
-{
-  "name":"java.security.interfaces.RSAPublicKey"
-},
-{
-  "name":"java.sql.Date"
-},
-{
-  "name":"java.sql.Timestamp"
-},
-{
-  "name":"java.util.Date"
-},
-{
-  "name":"java.util.HashSet"
-},
-{
-  "name":"java.util.LinkedHashSet"
-},
-{
-  "name":"java.util.List"
-},
-{
-  "name":"java.util.Map"
-},
-{
-  "name":"java.util.concurrent.ArrayBlockingQueue"
-},
-{
-  "name":"java.util.concurrent.atomic.AtomicBoolean",
-  "fields":[{"name":"value"}]
-},
-{
-  "name":"java.util.concurrent.atomic.AtomicReference",
-  "fields":[{"name":"value"}]
-},
-{
-  "name":"java.util.concurrent.atomic.Striped64",
-  "fields":[{"name":"base"}, {"name":"cellsBusy"}]
-},
-{
-  "name":"java.util.concurrent.locks.AbstractOwnableSynchronizer"
-},
-{
-  "name":"java.util.concurrent.locks.AbstractQueuedSynchronizer"
-},
-{
-  "name":"java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject"
-},
-{
-  "name":"java.util.concurrent.locks.ReentrantLock"
-},
-{
-  "name":"java.util.concurrent.locks.ReentrantLock$NonfairSync"
-},
-{
-  "name":"java.util.concurrent.locks.ReentrantLock$Sync"
-},
-{
-  "name":"javax.security.auth.x500.X500Principal",
-  "fields":[{"name":"thisX500Name"}],
-  "methods":[{"name":"<init>","parameterTypes":["sun.security.x509.X500Name"] }]
-},
-{
-  "name":"kotlin.Any"
-},
-{
-  "name":"kotlin.Boolean"
-},
-{
-  "name":"kotlin.Int"
-},
-{
-  "name":"kotlin.Metadata",
-  "queryAllDeclaredMethods":true,
-  "queryAllPublicMethods":true,
-  "methods":[{"name":"bv","parameterTypes":[] }, {"name":"d1","parameterTypes":[] }, {"name":"d2","parameterTypes":[] }, {"name":"k","parameterTypes":[] }, {"name":"mv","parameterTypes":[] }, {"name":"pn","parameterTypes":[] }, {"name":"xi","parameterTypes":[] }, {"name":"xs","parameterTypes":[] }]
-},
-{
-  "name":"kotlin.SafePublicationLazyImpl",
-  "fields":[{"name":"_value"}]
-},
-{
-  "name":"kotlin.String"
-},
-{
-  "name":"kotlin.annotation.MustBeDocumented",
-  "queryAllPublicMethods":true
-},
-{
-  "name":"kotlin.annotation.Retention",
-  "queryAllPublicMethods":true
-},
-{
-  "name":"kotlin.annotation.Target",
-  "queryAllPublicMethods":true
-},
-{
-  "name":"kotlin.collections.List"
-},
-{
-  "name":"kotlin.collections.Map"
-},
-{
-  "name":"kotlin.jvm.internal.DefaultConstructorMarker"
-},
-{
-  "name":"kotlin.reflect.jvm.internal.ReflectionFactoryImpl",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"kotlin.reflect.jvm.internal.impl.resolve.scopes.DescriptorKindFilter",
-  "allPublicFields":true
-},
-{
-  "name":"kotlinx.coroutines.CompletedExceptionally",
-  "fields":[{"name":"_handled$volatile"}]
-},
-{
-  "name":"kotlinx.coroutines.DispatchedCoroutine",
-  "fields":[{"name":"_decision$volatile"}]
-},
-{
-  "name":"kotlinx.coroutines.EventLoopImplBase",
-  "fields":[{"name":"_delayed$volatile"}, {"name":"_isCompleted$volatile"}, {"name":"_queue$volatile"}]
-},
-{
-  "name":"kotlinx.coroutines.JobSupport",
-  "fields":[{"name":"_parentHandle$volatile"}, {"name":"_state$volatile"}]
-},
-{
-  "name":"kotlinx.coroutines.JobSupport$Finishing",
-  "fields":[{"name":"_exceptionsHolder$volatile"}, {"name":"_isCompleting$volatile"}, {"name":"_rootCause$volatile"}]
-},
-{
-  "name":"kotlinx.coroutines.internal.DispatchedContinuation",
-  "fields":[{"name":"_reusableCancellableContinuation$volatile"}]
-},
-{
-  "name":"kotlinx.coroutines.internal.LimitedDispatcher",
-  "fields":[{"name":"runningWorkers$volatile"}]
-},
-{
-  "name":"kotlinx.coroutines.internal.LockFreeLinkedListNode",
-  "fields":[{"name":"_next$volatile"}, {"name":"_prev$volatile"}, {"name":"_removedRef$volatile"}]
-},
-{
-  "name":"kotlinx.coroutines.internal.LockFreeTaskQueue",
-  "fields":[{"name":"_cur$volatile"}]
-},
-{
-  "name":"kotlinx.coroutines.internal.LockFreeTaskQueueCore",
-  "fields":[{"name":"_next$volatile"}, {"name":"_state$volatile"}]
-},
-{
-  "name":"kotlinx.coroutines.scheduling.CoroutineScheduler",
-  "fields":[{"name":"_isTerminated$volatile"}, {"name":"controlState$volatile"}, {"name":"parkedWorkersStack$volatile"}]
-},
-{
-  "name":"kotlinx.coroutines.scheduling.CoroutineScheduler$Worker",
-  "fields":[{"name":"workerCtl$volatile"}]
-},
-{
-  "name":"kotlinx.coroutines.scheduling.WorkQueue",
-  "fields":[{"name":"blockingTasksInBuffer$volatile"}, {"name":"consumerIndex$volatile"}, {"name":"lastScheduledTask$volatile"}, {"name":"producerIndex$volatile"}]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.InspectScope",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.util.List","java.util.List"] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.QodanaYaml",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","org.jetbrains.qodana.core.model.YamlProfile","java.lang.Integer","org.jetbrains.qodana.core.model.YamlScript","java.util.List","java.util.List","java.lang.String","java.lang.String","java.lang.String","java.lang.String","java.lang.String","java.util.Map","java.util.List","org.jetbrains.qodana.core.model.YamlDotNet","java.lang.String","org.jetbrains.qodana.core.model.YamlPhp","org.jetbrains.qodana.core.model.YamlCpp","java.lang.String","java.lang.String","java.lang.String","java.lang.String","int","boolean","org.jetbrains.qodana.core.model.YamlFailureConditions","java.util.List","java.util.List","java.util.List","java.util.List","java.util.List","java.util.List","java.util.List","boolean","boolean","boolean","org.jetbrains.qodana.core.model.YamlCoverage","org.jetbrains.qodana.core.model.YamlHardcodedPasswords"] }, {"name":"<init>","parameterTypes":["java.lang.String","org.jetbrains.qodana.core.model.YamlProfile","java.lang.Integer","org.jetbrains.qodana.core.model.YamlScript","java.util.List","java.util.List","java.lang.String","java.lang.String","java.lang.String","java.lang.String","java.lang.String","java.util.Map","java.util.List","org.jetbrains.qodana.core.model.YamlDotNet","java.lang.String","org.jetbrains.qodana.core.model.YamlPhp","org.jetbrains.qodana.core.model.YamlCpp","java.lang.String","java.lang.String","java.lang.String","java.lang.String","int","boolean","org.jetbrains.qodana.core.model.YamlFailureConditions","java.util.List","java.util.List","java.util.List","java.util.List","java.util.List","java.util.List","java.util.List","boolean","boolean","boolean","org.jetbrains.qodana.core.model.YamlCoverage","org.jetbrains.qodana.core.model.YamlHardcodedPasswords","int","int","kotlin.jvm.internal.DefaultConstructorMarker"] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.YamlCoverage",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["boolean"] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.YamlCoverageThresholds",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.Integer","java.lang.Integer"] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.YamlCpp",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.lang.String"] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.YamlCustomDependency",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.lang.String","java.lang.String","java.util.List"] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.YamlDependencyIgnore",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.String"] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.YamlDependencyOverride",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.lang.String","java.lang.String","java.util.List"] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.YamlDotNet",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.lang.String","java.lang.String","java.lang.String","java.lang.String"] }, {"name":"component1","parameterTypes":[] }, {"name":"component2","parameterTypes":[] }, {"name":"component3","parameterTypes":[] }, {"name":"component4","parameterTypes":[] }, {"name":"component5","parameterTypes":[] }, {"name":"copy","parameterTypes":["java.lang.String","java.lang.String","java.lang.String","java.lang.String","java.lang.String"] }, {"name":"equals","parameterTypes":["java.lang.Object"] }, {"name":"getConfiguration","parameterTypes":[] }, {"name":"getFrameworks","parameterTypes":[] }, {"name":"getPlatform","parameterTypes":[] }, {"name":"getProject","parameterTypes":[] }, {"name":"getSolution","parameterTypes":[] }, {"name":"hashCode","parameterTypes":[] }, {"name":"isEmpty","parameterTypes":[] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.YamlFailureConditions",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["org.jetbrains.qodana.core.model.YamlSeverityThresholds","org.jetbrains.qodana.core.model.YamlCoverageThresholds"] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.YamlHardcodedPasswords",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["int","int"] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.YamlLicenseOverride",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.lang.String"] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.YamlLicenseRule",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.util.List","java.util.List","java.util.List"] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.YamlModuleToAnalyze",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.String"] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.YamlPhp",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.String"] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.YamlPlugin",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.String"] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.YamlProfile",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.lang.String"] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.YamlScript",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.util.Map"] }]
-},
-{
-  "name":"org.jetbrains.qodana.core.model.YamlSeverityThresholds",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.Integer","java.lang.Integer","java.lang.Integer","java.lang.Integer","java.lang.Integer","java.lang.Integer"] }]
-},
-{
-  "name":"org.jetbrains.qodana.engine.cloud.ApiDescriptions",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["org.jetbrains.qodana.engine.cloud.ApiEndpointDescription","org.jetbrains.qodana.engine.cloud.ApiEndpointDescription"] }, {"name":"<init>","parameterTypes":["org.jetbrains.qodana.engine.cloud.ApiEndpointDescription","org.jetbrains.qodana.engine.cloud.ApiEndpointDescription","int","kotlin.jvm.internal.DefaultConstructorMarker"] }]
-},
-{
-  "name":"org.jetbrains.qodana.engine.cloud.ApiEndpointDescription",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.util.List"] }, {"name":"<init>","parameterTypes":["java.util.List","int","kotlin.jvm.internal.DefaultConstructorMarker"] }]
-},
-{
-  "name":"org.jetbrains.qodana.engine.cloud.ApiVersionDescription",
-  "allDeclaredFields":true,
-  "queryAllDeclaredMethods":true,
-  "queryAllDeclaredConstructors":true,
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.String","java.lang.String"] }, {"name":"<init>","parameterTypes":["java.lang.String","java.lang.String","int","kotlin.jvm.internal.DefaultConstructorMarker"] }]
-},
-{
-  "name":"sun.security.pkcs12.PKCS12KeyStore",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.pkcs12.PKCS12KeyStore$DualFormatPKCS12",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.provider.DSA$SHA224withDSA",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.provider.DSA$SHA256withDSA",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.provider.NativePRNG",
-  "methods":[{"name":"<init>","parameterTypes":[] }, {"name":"<init>","parameterTypes":["java.security.SecureRandomParameters"] }]
-},
-{
-  "name":"sun.security.provider.SHA",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.provider.SHA2$SHA224",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.provider.SHA2$SHA256",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.provider.SHA5$SHA384",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.provider.SHA5$SHA512",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.provider.X509Factory",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.provider.certpath.PKIXCertPathValidator",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.rsa.PSSParameters",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.rsa.RSAKeyFactory$Legacy",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.rsa.RSAPSSSignature",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.rsa.RSASignature$SHA224withRSA",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.rsa.RSASignature$SHA256withRSA",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.ssl.SSLContextImpl$TLSContext",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.ssl.TrustManagerFactoryImpl$PKIXFactory",
-  "methods":[{"name":"<init>","parameterTypes":[] }]
-},
-{
-  "name":"sun.security.util.ObjectIdentifier"
-},
-{
-  "name":"sun.security.x509.AuthorityInfoAccessExtension",
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.Boolean","java.lang.Object"] }]
-},
-{
-  "name":"sun.security.x509.AuthorityKeyIdentifierExtension",
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.Boolean","java.lang.Object"] }]
-},
-{
-  "name":"sun.security.x509.BasicConstraintsExtension",
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.Boolean","java.lang.Object"] }]
-},
-{
-  "name":"sun.security.x509.CRLDistributionPointsExtension",
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.Boolean","java.lang.Object"] }]
-},
-{
-  "name":"sun.security.x509.CertificateExtensions"
-},
-{
-  "name":"sun.security.x509.CertificatePoliciesExtension",
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.Boolean","java.lang.Object"] }]
-},
-{
-  "name":"sun.security.x509.ExtendedKeyUsageExtension",
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.Boolean","java.lang.Object"] }]
-},
-{
-  "name":"sun.security.x509.IssuerAlternativeNameExtension",
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.Boolean","java.lang.Object"] }]
-},
-{
-  "name":"sun.security.x509.KeyUsageExtension",
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.Boolean","java.lang.Object"] }]
-},
-{
-  "name":"sun.security.x509.NetscapeCertTypeExtension",
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.Boolean","java.lang.Object"] }]
-},
-{
-  "name":"sun.security.x509.PrivateKeyUsageExtension",
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.Boolean","java.lang.Object"] }]
-},
-{
-  "name":"sun.security.x509.SubjectAlternativeNameExtension",
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.Boolean","java.lang.Object"] }]
-},
-{
-  "name":"sun.security.x509.SubjectKeyIdentifierExtension",
-  "methods":[{"name":"<init>","parameterTypes":["java.lang.Boolean","java.lang.Object"] }]
-}
+    {
+        "name": "[B"
+    },
+    {
+        "name": "[Lcom.fasterxml.jackson.databind.deser.BeanDeserializerModifier;"
+    },
+    {
+        "name": "[Lcom.fasterxml.jackson.databind.deser.Deserializers;"
+    },
+    {
+        "name": "[Lcom.fasterxml.jackson.databind.deser.KeyDeserializers;"
+    },
+    {
+        "name": "[Lcom.fasterxml.jackson.databind.deser.ValueInstantiators;"
+    },
+    {
+        "name": "[Lcom.fasterxml.jackson.databind.ser.Serializers;"
+    },
+    {
+        "name": "[Lcom.github.dockerjava.api.model.Bind;"
+    },
+    {
+        "name": "[Lcom.github.dockerjava.api.model.Capability;"
+    },
+    {
+        "name": "[Lcom.github.dockerjava.api.model.Device;"
+    },
+    {
+        "name": "[Lcom.github.dockerjava.api.model.ExposedPort;"
+    },
+    {
+        "name": "[Lcom.github.dockerjava.api.model.Link;"
+    },
+    {
+        "name": "[Lcom.github.dockerjava.api.model.LxcConf;"
+    },
+    {
+        "name": "[Lcom.github.dockerjava.api.model.PortBinding;"
+    },
+    {
+        "name": "[Lcom.github.dockerjava.api.model.Ports$Binding;"
+    },
+    {
+        "name": "[Lcom.github.dockerjava.api.model.Ulimit;"
+    },
+    {
+        "name": "[Lcom.github.dockerjava.api.model.Volume;"
+    },
+    {
+        "name": "[Lcom.github.dockerjava.api.model.VolumeBind;"
+    },
+    {
+        "name": "[Lcom.github.dockerjava.api.model.VolumeRW;"
+    },
+    {
+        "name": "[Lcom.github.dockerjava.api.model.VolumesFrom;"
+    },
+    {
+        "name": "[Ljava.lang.Object;"
+    },
+    {
+        "name": "[Ljava.lang.String;"
+    },
+    {
+        "name": "[Lsun.security.pkcs.SignerInfo;"
+    },
+    {
+        "name": "apple.security.AppleProvider",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.fasterxml.jackson.databind.ext.Java7SupportImpl",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.command.CreateContainerCmd",
+        "queryAllDeclaredMethods": true
+    },
+    {
+        "name": "com.github.dockerjava.api.command.CreateContainerResponse",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "setId",
+                "parameterTypes": [
+                    "java.lang.String"
+                ]
+            },
+            {
+                "name": "setWarnings",
+                "parameterTypes": [
+                    "java.lang.String[]"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.command.DockerCmd",
+        "queryAllDeclaredMethods": true
+    },
+    {
+        "name": "com.github.dockerjava.api.command.GraphData",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.command.GraphDriver",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.command.HealthState",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.command.HealthStateLog",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.command.InspectContainerResponse",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.command.InspectContainerResponse$ContainerState",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllPublicConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "com.github.dockerjava.api.command.InspectContainerResponse"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.command.InspectContainerResponse$Mount",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.command.InspectContainerResponse$Node",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllPublicConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.command.InspectImageResponse"
+    },
+    {
+        "name": "com.github.dockerjava.api.command.SyncDockerCmd",
+        "queryAllDeclaredMethods": true
+    },
+    {
+        "name": "com.github.dockerjava.api.exception.NotFoundException"
+    },
+    {
+        "name": "com.github.dockerjava.api.model.AccessMode",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.AuthConfig",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.Bind",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.BindOptions",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.BindPropagation",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.Binds",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "fromPrimitive",
+                "parameterTypes": [
+                    "java.lang.String[]"
+                ]
+            },
+            {
+                "name": "toPrimitive",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.BlkioRateDevice",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.BlkioWeightDevice",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.Capability",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.ClusterInfo",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.ContainerConfig",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.ContainerNetwork",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.ContainerNetwork$Ipam",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.Device",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.DeviceRequest",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.DockerObject",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "methods": [
+            {
+                "name": "getRawValues",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.Driver",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.ExposedPort",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.ExposedPorts",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "toPrimitive",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.ExternalCA",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.ExternalCAProtocol",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.Frame"
+    },
+    {
+        "name": "com.github.dockerjava.api.model.HealthCheck",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.HostConfig",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getAutoRemove",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getBlkioDeviceReadBps",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getBlkioDeviceReadIOps",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getBlkioDeviceWriteBps",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getBlkioDeviceWriteIOps",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getBlkioWeight",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getBlkioWeightDevice",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getCapAdd",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getCapDrop",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getCgroup",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getCgroupParent",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getCgroupnsMode",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getConsoleSize",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getContainerIDFile",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getCpuCount",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getCpuPercent",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getCpuPeriod",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getCpuQuota",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getCpuRealtimePeriod",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getCpuRealtimeRuntime",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getCpuShares",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getCpusetCpus",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getCpusetMems",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getDeviceCgroupRules",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getDeviceRequests",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getDevices",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getDiskQuota",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getDns",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getDnsOptions",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getDnsSearch",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getExtraHosts",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getGroupAdd",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getInit",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getIoMaximumBandwidth",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getIoMaximumIOps",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getIpcMode",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getIsolation",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getKernelMemory",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getLxcConf",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getMemory",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getMemoryReservation",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getMemorySwap",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getMemorySwappiness",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getMounts",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getNanoCPUs",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getNetworkMode",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getOomKillDisable",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getOomScoreAdj",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getPidMode",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getPidsLimit",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getPortBindings",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getPrivileged",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getPublishAllPorts",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getReadonlyRootfs",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getRestartPolicy",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getRuntime",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getSecurityOpts",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getShmSize",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getStorageOpt",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getSysctls",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getTmpFs",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getUlimits",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getUsernsMode",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getUtSMode",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getVolumeDriver",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getVolumesFrom",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.Info",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.InfoRegistryConfig",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.InfoRegistryConfig$IndexConfig",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.InternetProtocol",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.Isolation",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "methods": [
+            {
+                "name": "fromValue",
+                "parameterTypes": [
+                    "java.lang.String"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.Link",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.Links",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.LocalNodeState",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "methods": [
+            {
+                "name": "forValue",
+                "parameterTypes": [
+                    "java.lang.String"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.LogConfig",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "setType",
+                "parameterTypes": [
+                    "com.github.dockerjava.api.model.LogConfig$LoggingType"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.LogConfig$LoggingType",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "methods": [
+            {
+                "name": "fromValue",
+                "parameterTypes": [
+                    "java.lang.String"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.LxcConf",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.Mount",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.MountType",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.NetworkSettings",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.PeerNode",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.Ports",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "fromPrimitive",
+                "parameterTypes": [
+                    "java.util.Map"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.Ports$Binding",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.PropagationMode",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.PullResponseItem",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.ResourceVersion",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.ResponseItem",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.ResponseItem$AuxDetail",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.ResponseItem$ErrorDetail",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.ResponseItem$ProgressDetail",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.RestartPolicy",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.RuntimeInfo",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "setPath",
+                "parameterTypes": [
+                    "java.lang.String"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.SELContext",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.SwarmCAConfig",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.SwarmDispatcherConfig",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.SwarmInfo",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.SwarmOrchestration",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.SwarmRaftConfig",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.SwarmSpec",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.TaskDefaults",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.TmpfsOptions",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.Ulimit",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.Version",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.VersionComponent",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.VersionPlatform",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.Volume",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.VolumeBind",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.VolumeBinds",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.VolumeOptions",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.VolumeRW",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.Volumes",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "toPrimitive",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.api.model.VolumesFrom",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.VolumesRW",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.github.dockerjava.api.model.WaitResponse",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.core.DockerConfigFile",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "setAuths",
+                "parameterTypes": [
+                    "java.util.Map"
+                ]
+            },
+            {
+                "name": "setCurrentContext",
+                "parameterTypes": [
+                    "java.lang.String"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.core.DockerContextMetaFile",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.core.DockerContextMetaFile$Endpoints",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.core.DockerContextMetaFile$Endpoints$Docker",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.github.dockerjava.core.command.AbstrDockerCmd",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true
+    },
+    {
+        "name": "com.github.dockerjava.core.command.CreateContainerCmdImpl",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Address",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Artifact",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ArtifactChange",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ArtifactContent",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ArtifactLocation",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Attachment",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.CodeFlow",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ConfigurationOverride",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Content",
+        "allDeclaredFields": true
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Conversion",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Edge",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.EdgeTraversal",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.EnvironmentVariables",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Exception",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ExternalProperties",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ExternalProperties$Version",
+        "allDeclaredFields": true
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ExternalPropertyFileReference",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ExternalPropertyFileReferences",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.FinalState",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Fix",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.GlobalMessageStrings",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Graph",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.GraphTraversal",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Hashes",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Headers",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Headers__1",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ImmutableState",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ImmutableState__1",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.InitialState",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.InitialState__1",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Invocation",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Level",
+        "allDeclaredFields": true
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Location",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.LocationRelationship",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.LogicalLocation",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Message",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.MessageStrings",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.MultiformatMessageString",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Node",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Notification",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Notification$Level",
+        "allDeclaredFields": true
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.OriginalUriBaseIds",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Parameters",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.PhysicalLocation",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Rectangle",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Region",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Replacement",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ReportingConfiguration",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ReportingDescriptor",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ReportingDescriptorReference",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ReportingDescriptorRelationship",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Result",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Result$BaselineState",
+        "allDeclaredFields": true
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Result$Kind",
+        "allDeclaredFields": true
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ResultProvenance",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Role",
+        "allDeclaredFields": true
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Run",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Run$ColumnKind",
+        "allDeclaredFields": true
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.RunAutomationDetails",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.SarifReport",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.SarifReport$Version",
+        "allDeclaredFields": true
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.SpecialLocations",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Stack",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.StackFrame",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.State",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Suppression",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Suppression$Kind",
+        "allDeclaredFields": true
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Suppression$Status",
+        "allDeclaredFields": true
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ThreadFlow",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ThreadFlowLocation",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ThreadFlowLocation$Importance",
+        "allDeclaredFields": true
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.Tool",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ToolComponent",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.ToolComponentReference",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.TranslationMetadata",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.VersionControlDetails",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.VersionedMap$VersionedMapTypeAdapter",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.WebRequest",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.jetbrains.qodana.sarif.model.WebResponse",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.sun.crypto.provider.AESCipher$General",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.sun.crypto.provider.ARCFOURCipher",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.sun.crypto.provider.ChaCha20Cipher$ChaCha20Poly1305",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.sun.crypto.provider.DESCipher",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.sun.crypto.provider.DESedeCipher",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.sun.crypto.provider.DHParameters",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.sun.crypto.provider.GaloisCounterMode$AESGCM",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.sun.crypto.provider.HmacCore$HmacSHA256",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.sun.crypto.provider.TlsMasterSecretGenerator",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "com.sun.jna.CallbackProxy",
+        "methods": [
+            {
+                "name": "callback",
+                "parameterTypes": [
+                    "java.lang.Object[]"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "java.io.Closeable",
+        "queryAllDeclaredMethods": true
+    },
+    {
+        "name": "java.io.Serializable",
+        "queryAllDeclaredMethods": true
+    },
+    {
+        "name": "java.lang.AutoCloseable",
+        "queryAllDeclaredMethods": true
+    },
+    {
+        "name": "java.lang.Boolean"
+    },
+    {
+        "name": "java.lang.ClassValue"
+    },
+    {
+        "name": "java.lang.Enum"
+    },
+    {
+        "name": "java.lang.Integer"
+    },
+    {
+        "name": "java.lang.Object",
+        "methods": [
+            {
+                "name": "equals",
+                "parameterTypes": [
+                    "java.lang.Object"
+                ]
+            },
+            {
+                "name": "hashCode",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "toString",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "java.lang.SecurityManager"
+    },
+    {
+        "name": "java.lang.String"
+    },
+    {
+        "name": "java.lang.Thread",
+        "fields": [
+            {
+                "name": "threadLocalRandomProbe"
+            }
+        ]
+    },
+    {
+        "name": "java.lang.Throwable",
+        "methods": [
+            {
+                "name": "addSuppressed",
+                "parameterTypes": [
+                    "java.lang.Throwable"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "java.lang.invoke.MethodHandle",
+        "methods": [
+            {
+                "name": "bindTo",
+                "parameterTypes": [
+                    "java.lang.Object"
+                ]
+            },
+            {
+                "name": "invokeWithArguments",
+                "parameterTypes": [
+                    "java.lang.Object[]"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "java.lang.invoke.MethodHandles",
+        "methods": [
+            {
+                "name": "lookup",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "privateLookupIn",
+                "parameterTypes": [
+                    "java.lang.Class",
+                    "java.lang.invoke.MethodHandles$Lookup"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "java.lang.invoke.MethodHandles$Lookup",
+        "methods": [
+            {
+                "name": "findSpecial",
+                "parameterTypes": [
+                    "java.lang.Class",
+                    "java.lang.String",
+                    "java.lang.invoke.MethodType",
+                    "java.lang.Class"
+                ]
+            },
+            {
+                "name": "in",
+                "parameterTypes": [
+                    "java.lang.Class"
+                ]
+            },
+            {
+                "name": "unreflectSpecial",
+                "parameterTypes": [
+                    "java.lang.reflect.Method",
+                    "java.lang.Class"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "java.lang.invoke.MethodType",
+        "methods": [
+            {
+                "name": "methodType",
+                "parameterTypes": [
+                    "java.lang.Class",
+                    "java.lang.Class[]"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "java.lang.reflect.AccessibleObject",
+        "fields": [
+            {
+                "name": "override"
+            }
+        ]
+    },
+    {
+        "name": "java.lang.reflect.Method",
+        "methods": [
+            {
+                "name": "isDefault",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "isVarArgs",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "java.net.UnixDomainSocketAddress",
+        "methods": [
+            {
+                "name": "of",
+                "parameterTypes": [
+                    "java.lang.String"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "java.nio.Buffer"
+    },
+    {
+        "name": "java.security.AlgorithmParametersSpi"
+    },
+    {
+        "name": "java.security.KeyStoreSpi"
+    },
+    {
+        "name": "java.security.SecureRandomParameters"
+    },
+    {
+        "name": "java.security.interfaces.ECPrivateKey"
+    },
+    {
+        "name": "java.security.interfaces.ECPublicKey"
+    },
+    {
+        "name": "java.security.interfaces.RSAPrivateKey"
+    },
+    {
+        "name": "java.security.interfaces.RSAPublicKey"
+    },
+    {
+        "name": "java.sql.Date"
+    },
+    {
+        "name": "java.sql.Timestamp"
+    },
+    {
+        "name": "java.util.Collections$SingletonMap",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "java.util.Date"
+    },
+    {
+        "name": "java.util.HashSet"
+    },
+    {
+        "name": "java.util.LinkedHashMap",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "java.util.LinkedHashSet"
+    },
+    {
+        "name": "java.util.List",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "java.util.Map",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "java.util.Set",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "java.util.concurrent.ArrayBlockingQueue"
+    },
+    {
+        "name": "java.util.concurrent.ForkJoinTask",
+        "fields": [
+            {
+                "name": "aux"
+            },
+            {
+                "name": "status"
+            }
+        ]
+    },
+    {
+        "name": "java.util.concurrent.atomic.AtomicBoolean",
+        "fields": [
+            {
+                "name": "value"
+            }
+        ]
+    },
+    {
+        "name": "java.util.concurrent.atomic.AtomicMarkableReference",
+        "fields": [
+            {
+                "name": "pair"
+            }
+        ]
+    },
+    {
+        "name": "java.util.concurrent.atomic.AtomicReference",
+        "fields": [
+            {
+                "name": "value"
+            }
+        ]
+    },
+    {
+        "name": "java.util.concurrent.atomic.Striped64",
+        "fields": [
+            {
+                "name": "base"
+            },
+            {
+                "name": "cellsBusy"
+            }
+        ]
+    },
+    {
+        "name": "java.util.concurrent.locks.AbstractOwnableSynchronizer"
+    },
+    {
+        "name": "java.util.concurrent.locks.AbstractQueuedSynchronizer"
+    },
+    {
+        "name": "java.util.concurrent.locks.AbstractQueuedSynchronizer$ConditionObject"
+    },
+    {
+        "name": "java.util.concurrent.locks.ReentrantLock"
+    },
+    {
+        "name": "java.util.concurrent.locks.ReentrantLock$NonfairSync"
+    },
+    {
+        "name": "java.util.concurrent.locks.ReentrantLock$Sync"
+    },
+    {
+        "name": "javax.security.auth.x500.X500Principal",
+        "fields": [
+            {
+                "name": "thisX500Name"
+            }
+        ],
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "sun.security.x509.X500Name"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "jdk.internal.misc.Unsafe"
+    },
+    {
+        "name": "kotlin.Any"
+    },
+    {
+        "name": "kotlin.Boolean"
+    },
+    {
+        "name": "kotlin.Int"
+    },
+    {
+        "name": "kotlin.Metadata",
+        "queryAllDeclaredMethods": true,
+        "queryAllPublicMethods": true,
+        "methods": [
+            {
+                "name": "bv",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "d1",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "d2",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "k",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "mv",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "pn",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "xi",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "xs",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "kotlin.SafePublicationLazyImpl",
+        "fields": [
+            {
+                "name": "_value"
+            }
+        ]
+    },
+    {
+        "name": "kotlin.String"
+    },
+    {
+        "name": "kotlin.annotation.MustBeDocumented",
+        "queryAllPublicMethods": true
+    },
+    {
+        "name": "kotlin.annotation.Retention",
+        "queryAllPublicMethods": true
+    },
+    {
+        "name": "kotlin.annotation.Target",
+        "queryAllPublicMethods": true
+    },
+    {
+        "name": "kotlin.collections.List"
+    },
+    {
+        "name": "kotlin.collections.Map"
+    },
+    {
+        "name": "kotlin.coroutines.jvm.internal.BaseContinuationImpl"
+    },
+    {
+        "name": "kotlin.jvm.internal.DefaultConstructorMarker"
+    },
+    {
+        "name": "kotlin.reflect.jvm.internal.ReflectionFactoryImpl",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "kotlin.reflect.jvm.internal.impl.resolve.scopes.DescriptorKindFilter",
+        "allPublicFields": true
+    },
+    {
+        "name": "kotlinx.coroutines.AwaitAll",
+        "fields": [
+            {
+                "name": "notCompletedCount$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.AwaitAll$AwaitAllNode",
+        "fields": [
+            {
+                "name": "_disposer$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.CancellableContinuationImpl",
+        "fields": [
+            {
+                "name": "_decisionAndIndex$volatile"
+            },
+            {
+                "name": "_parentHandle$volatile"
+            },
+            {
+                "name": "_state$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.CompletedExceptionally",
+        "fields": [
+            {
+                "name": "_handled$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.DispatchedCoroutine",
+        "fields": [
+            {
+                "name": "_decision$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.EventLoopImplBase",
+        "fields": [
+            {
+                "name": "_delayed$volatile"
+            },
+            {
+                "name": "_isCompleted$volatile"
+            },
+            {
+                "name": "_queue$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.JobSupport",
+        "fields": [
+            {
+                "name": "_parentHandle$volatile"
+            },
+            {
+                "name": "_state$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.JobSupport$Finishing",
+        "fields": [
+            {
+                "name": "_exceptionsHolder$volatile"
+            },
+            {
+                "name": "_isCompleting$volatile"
+            },
+            {
+                "name": "_rootCause$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.ThreadState",
+        "fields": [
+            {
+                "name": "_state$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.channels.BufferedChannel",
+        "fields": [
+            {
+                "name": "_closeCause$volatile"
+            },
+            {
+                "name": "bufferEnd$volatile"
+            },
+            {
+                "name": "bufferEndSegment$volatile"
+            },
+            {
+                "name": "closeHandler$volatile"
+            },
+            {
+                "name": "completedExpandBuffersAndPauseFlag$volatile"
+            },
+            {
+                "name": "receiveSegment$volatile"
+            },
+            {
+                "name": "receivers$volatile"
+            },
+            {
+                "name": "sendSegment$volatile"
+            },
+            {
+                "name": "sendersAndCloseStatus$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.internal.ConcurrentLinkedListNode",
+        "fields": [
+            {
+                "name": "_next$volatile"
+            },
+            {
+                "name": "_prev$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.internal.DispatchedContinuation",
+        "fields": [
+            {
+                "name": "_reusableCancellableContinuation$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.internal.LimitedDispatcher",
+        "fields": [
+            {
+                "name": "runningWorkers$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.internal.LockFreeLinkedListNode",
+        "fields": [
+            {
+                "name": "_next$volatile"
+            },
+            {
+                "name": "_prev$volatile"
+            },
+            {
+                "name": "_removedRef$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.internal.LockFreeTaskQueue",
+        "fields": [
+            {
+                "name": "_cur$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.internal.LockFreeTaskQueueCore",
+        "fields": [
+            {
+                "name": "_next$volatile"
+            },
+            {
+                "name": "_state$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.internal.Segment",
+        "fields": [
+            {
+                "name": "cleanedAndPointers$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.internal.StackTraceRecoveryKt"
+    },
+    {
+        "name": "kotlinx.coroutines.scheduling.CoroutineScheduler",
+        "fields": [
+            {
+                "name": "_isTerminated$volatile"
+            },
+            {
+                "name": "controlState$volatile"
+            },
+            {
+                "name": "parkedWorkersStack$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.scheduling.CoroutineScheduler$Worker",
+        "fields": [
+            {
+                "name": "workerCtl$volatile"
+            }
+        ]
+    },
+    {
+        "name": "kotlinx.coroutines.scheduling.WorkQueue",
+        "fields": [
+            {
+                "name": "blockingTasksInBuffer$volatile"
+            },
+            {
+                "name": "consumerIndex$volatile"
+            },
+            {
+                "name": "lastScheduledTask$volatile"
+            },
+            {
+                "name": "producerIndex$volatile"
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.InspectScope",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.util.List",
+                    "java.util.List"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.QodanaYaml",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "org.jetbrains.qodana.core.model.YamlProfile",
+                    "java.lang.Integer",
+                    "org.jetbrains.qodana.core.model.YamlScript",
+                    "java.util.List",
+                    "java.util.List",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.util.Map",
+                    "java.util.List",
+                    "org.jetbrains.qodana.core.model.YamlDotNet",
+                    "java.lang.String",
+                    "org.jetbrains.qodana.core.model.YamlPhp",
+                    "org.jetbrains.qodana.core.model.YamlCpp",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "int",
+                    "boolean",
+                    "org.jetbrains.qodana.core.model.YamlFailureConditions",
+                    "java.util.List",
+                    "java.util.List",
+                    "java.util.List",
+                    "java.util.List",
+                    "java.util.List",
+                    "java.util.List",
+                    "java.util.List",
+                    "boolean",
+                    "boolean",
+                    "boolean",
+                    "org.jetbrains.qodana.core.model.YamlCoverage",
+                    "org.jetbrains.qodana.core.model.YamlHardcodedPasswords"
+                ]
+            },
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "org.jetbrains.qodana.core.model.YamlProfile",
+                    "java.lang.Integer",
+                    "org.jetbrains.qodana.core.model.YamlScript",
+                    "java.util.List",
+                    "java.util.List",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.util.Map",
+                    "java.util.List",
+                    "org.jetbrains.qodana.core.model.YamlDotNet",
+                    "java.lang.String",
+                    "org.jetbrains.qodana.core.model.YamlPhp",
+                    "org.jetbrains.qodana.core.model.YamlCpp",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "int",
+                    "boolean",
+                    "org.jetbrains.qodana.core.model.YamlFailureConditions",
+                    "java.util.List",
+                    "java.util.List",
+                    "java.util.List",
+                    "java.util.List",
+                    "java.util.List",
+                    "java.util.List",
+                    "java.util.List",
+                    "boolean",
+                    "boolean",
+                    "boolean",
+                    "org.jetbrains.qodana.core.model.YamlCoverage",
+                    "org.jetbrains.qodana.core.model.YamlHardcodedPasswords",
+                    "int",
+                    "int",
+                    "kotlin.jvm.internal.DefaultConstructorMarker"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.YamlCoverage",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "boolean"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.YamlCoverageThresholds",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.Integer",
+                    "java.lang.Integer"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.YamlCpp",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.lang.String"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.YamlCustomDependency",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.util.List"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.YamlDependencyIgnore",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.YamlDependencyOverride",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.util.List"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.YamlDotNet",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String"
+                ]
+            },
+            {
+                "name": "component1",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "component2",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "component3",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "component4",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "component5",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "copy",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String"
+                ]
+            },
+            {
+                "name": "equals",
+                "parameterTypes": [
+                    "java.lang.Object"
+                ]
+            },
+            {
+                "name": "getConfiguration",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getFrameworks",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getPlatform",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getProject",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "getSolution",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "hashCode",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "isEmpty",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.YamlFailureConditions",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "org.jetbrains.qodana.core.model.YamlSeverityThresholds",
+                    "org.jetbrains.qodana.core.model.YamlCoverageThresholds"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.YamlHardcodedPasswords",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "int",
+                    "int"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.YamlLicenseOverride",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.lang.String"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.YamlLicenseRule",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.util.List",
+                    "java.util.List",
+                    "java.util.List"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.YamlModuleToAnalyze",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.YamlPhp",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.YamlPlugin",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.YamlProfile",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.lang.String"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.YamlScript",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.util.Map"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.core.model.YamlSeverityThresholds",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.Integer",
+                    "java.lang.Integer",
+                    "java.lang.Integer",
+                    "java.lang.Integer",
+                    "java.lang.Integer",
+                    "java.lang.Integer"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.engine.cloud.ApiDescriptions",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "org.jetbrains.qodana.engine.cloud.ApiEndpointDescription",
+                    "org.jetbrains.qodana.engine.cloud.ApiEndpointDescription"
+                ]
+            },
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "org.jetbrains.qodana.engine.cloud.ApiEndpointDescription",
+                    "org.jetbrains.qodana.engine.cloud.ApiEndpointDescription",
+                    "int",
+                    "kotlin.jvm.internal.DefaultConstructorMarker"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.engine.cloud.ApiEndpointDescription",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.util.List"
+                ]
+            },
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.util.List",
+                    "int",
+                    "kotlin.jvm.internal.DefaultConstructorMarker"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.engine.cloud.ApiVersionDescription",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.lang.String"
+                ]
+            },
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.lang.String",
+                    "int",
+                    "kotlin.jvm.internal.DefaultConstructorMarker"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.engine.cloud.LicenseData",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String"
+                ]
+            },
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "int",
+                    "kotlin.jvm.internal.DefaultConstructorMarker"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.sarif.model.CoverageInformation",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.sarif.model.Description",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.sarif.model.FreshCoverage",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.sarif.model.Group",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.sarif.model.Inspection",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.sarif.model.MetaInformation",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.sarif.model.Thresholds",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.sarif.model.TotalCoverage",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.teamcity.qodana.model.ProblemType",
+        "allDeclaredFields": true
+    },
+    {
+        "name": "org.jetbrains.teamcity.qodana.model.Severity",
+        "allDeclaredFields": true
+    },
+    {
+        "name": "org.jetbrains.teamcity.qodana.model.Status",
+        "allDeclaredFields": true
+    },
+    {
+        "name": "org.jetbrains.teamcity.qodana.model.version3.Category",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.teamcity.qodana.model.version3.Code",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.teamcity.qodana.model.version3.Problem",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.teamcity.qodana.model.version3.Source",
+        "allDeclaredFields": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.misc.Unsafe",
+        "fields": [
+            {
+                "name": "theUnsafe"
+            }
+        ],
+        "methods": [
+            {
+                "name": "allocateInstance",
+                "parameterTypes": [
+                    "java.lang.Class"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.pkcs12.PKCS12KeyStore",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.pkcs12.PKCS12KeyStore$DualFormatPKCS12",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.provider.DSA$SHA224withDSA",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.provider.DSA$SHA256withDSA",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.provider.JavaKeyStore$DualFormatJKS",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.provider.JavaKeyStore$JKS",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.provider.MD5",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.provider.NativePRNG",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.security.SecureRandomParameters"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.provider.NativePRNG$NonBlocking",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            },
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.security.SecureRandomParameters"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.provider.SHA",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.provider.SHA2$SHA224",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.provider.SHA2$SHA256",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.provider.SHA5$SHA384",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.provider.SHA5$SHA512",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.provider.X509Factory",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.provider.certpath.PKIXCertPathValidator",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.rsa.PSSParameters",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.rsa.RSAKeyFactory$Legacy",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.rsa.RSAPSSSignature",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.rsa.RSASignature$SHA224withRSA",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.rsa.RSASignature$SHA256withRSA",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.ssl.KeyManagerFactoryImpl$SunX509",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.ssl.SSLContextImpl$DefaultSSLContext",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.ssl.SSLContextImpl$TLSContext",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.ssl.TrustManagerFactoryImpl$PKIXFactory",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.util.ObjectIdentifier"
+    },
+    {
+        "name": "sun.security.x509.AuthorityInfoAccessExtension",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.Boolean",
+                    "java.lang.Object"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.x509.AuthorityKeyIdentifierExtension",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.Boolean",
+                    "java.lang.Object"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.x509.BasicConstraintsExtension",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.Boolean",
+                    "java.lang.Object"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.x509.CRLDistributionPointsExtension",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.Boolean",
+                    "java.lang.Object"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.x509.CertificateExtensions"
+    },
+    {
+        "name": "sun.security.x509.CertificatePoliciesExtension",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.Boolean",
+                    "java.lang.Object"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.x509.ExtendedKeyUsageExtension",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.Boolean",
+                    "java.lang.Object"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.x509.IssuerAlternativeNameExtension",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.Boolean",
+                    "java.lang.Object"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.x509.KeyUsageExtension",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.Boolean",
+                    "java.lang.Object"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.x509.NetscapeCertTypeExtension",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.Boolean",
+                    "java.lang.Object"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.x509.PrivateKeyUsageExtension",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.Boolean",
+                    "java.lang.Object"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.x509.SubjectAlternativeNameExtension",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.Boolean",
+                    "java.lang.Object"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "sun.security.x509.SubjectKeyIdentifierExtension",
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.Boolean",
+                    "java.lang.Object"
+                ]
+            }
+        ]
+    }
 ]
