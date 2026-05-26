@@ -57,3 +57,21 @@ repos:
         pass_filenames: false
         types_or: [kotlin]
         stages: [pre-push]
+      # QD-14721 Phase C — enforce the version invariant (gradle.properties source-of-truth
+      # is either "dev", matches the most recent stable `v*` tag, or is exactly one bump ahead).
+      - id: gradle-check-version
+        name: gradle checkVersion (release invariant)
+        entry: ./gradlew --console=plain --quiet checkVersion
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      # QD-14721 Phase C — guard against accidental reintroduction of the
+      # `qodana.version` / `QODANA_VERSION` runtime read in any *.kt / *.kts / *.java file
+      # outside the two authorized locations (QodanaCommand.kt and SystemUtilsTest.kt).
+      # See docs/release.md for the rationale.
+      - id: no-residual-version-reads
+        name: no residual qodana.version reads
+        entry: bash -c 'set -euo pipefail; MATCHES=$(git grep -nE "(getProperty|getenv)\(.qodana\.version.|QODANA_VERSION" -- "*.kt" "*.kts" "*.java" | grep -v "QodanaCommand\.kt\|SystemUtilsTest\.kt" || true); if [ -n "$MATCHES" ]; then echo "Residual qodana.version / QODANA_VERSION reads found outside QodanaCommand.kt and SystemUtilsTest.kt:"; printf "%s\n" "$MATCHES"; exit 1; fi'
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
