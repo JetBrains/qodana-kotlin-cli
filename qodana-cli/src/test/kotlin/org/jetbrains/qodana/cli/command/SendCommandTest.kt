@@ -2,14 +2,8 @@ package org.jetbrains.qodana.cli.command
 
 import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.core.parse
-import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.engine.env.RuntimeEnvironment
-import org.jetbrains.qodana.engine.model.PublishResult
 import org.jetbrains.qodana.engine.port.HttpResponse
-import org.jetbrains.qodana.engine.port.HttpTransport
-import org.jetbrains.qodana.engine.port.MultipartPart
-import org.jetbrains.qodana.engine.port.ReportPublisher
-import org.jetbrains.qodana.engine.port.TokenStore
 import org.jetbrains.qodana.engine.report.ReportPublishUseCase
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir

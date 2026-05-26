@@ -22,7 +22,10 @@ import java.nio.file.Path
 object SarifCompare {
     private val mapper = ObjectMapper()
 
-    fun normalize(reportPath: Path, projectRoot: Path): List<String> {
+    fun normalize(
+        reportPath: Path,
+        projectRoot: Path,
+    ): List<String> {
         val root = mapper.readTree(reportPath.toFile())
         val tuples = mutableListOf<String>()
         val runs = root.path("runs")
