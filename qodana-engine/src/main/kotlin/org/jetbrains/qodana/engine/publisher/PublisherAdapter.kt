@@ -14,14 +14,26 @@ import java.net.http.HttpClient
 import java.nio.file.Path
 import org.jetbrains.qodana.engine.model.PublishResult as QodanaPublishResult
 
-class PublisherAdapter : ReportPublisher {
+/**
+ * Wraps the `qodana-publisher` library + QDCloudClient so the rest of the
+ * engine can stay decoupled from those types.
+ *
+ * The HTTP clients are constructor-injected (QD-14728) so tests can substitute
+ * `MockQDCloudHttpClient` and drive the full QDCloudClient + Publisher
+ * Jackson-deserialization chain under the GraalVM tracing agent without
+ * touching real cloud. Default values preserve previous behaviour: each
+ * `publish()` call uses a fresh `HttpClient.newHttpClient()` underneath.
+ */
+class PublisherAdapter(
+    private val httpClient: QDCloudHttpClient = QDCloudHttpClient(HttpClient.newHttpClient()),
+    private val s3Client: QDCloudS3Client = QDCloudS3Client(HttpClient.newHttpClient()),
+) : ReportPublisher {
     override suspend fun publish(
         analysisId: String,
         reportPath: Path,
         token: String,
         endpoint: String,
     ): QodanaPublishResult {
-        val httpClient = QDCloudHttpClient(HttpClient.newHttpClient())
         val environment = QDCloudEnvironment(endpoint, httpClient)
         val client = QDCloudClient(httpClient, environment)
 
@@ -33,7 +45,6 @@ class PublisherAdapter : ReportPublisher {
             }
 
         val projectApi = clientV1.projectApi(token)
-        val s3Client = QDCloudS3Client(HttpClient.newHttpClient())
         val publisher = Publisher(projectApi, s3Client)
 
         val params =
