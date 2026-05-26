@@ -1,5 +1,6 @@
 plugins {
     `kotlin-dsl`
+    `jvm-test-suite`
 }
 
 dependencies {
@@ -7,4 +8,12 @@ dependencies {
     implementation(libs.graalvm.native.gradle.plugin)
     implementation(libs.ktlint.gradle.plugin)
     implementation(libs.detekt.gradle.plugin)
+}
+
+testing {
+    suites {
+        val test by getting(JvmTestSuite::class) {
+            useJUnitJupiter(libs.versions.junit)
+        }
+    }
 }
