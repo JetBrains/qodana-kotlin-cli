@@ -64,26 +64,21 @@ Run after bumping any dependency that touches reflection, or after adding code t
 # 1) Generate metadata under the agent.
 #    Keep the --tests filter narrow — running the full suite under the agent
 #    bloats the captured config with test-only entries and Docker DTOs.
-./gradlew -Pagent :qodana-cli:test --rerun-tasks \
+#    Requires GraalVM CE 21; set JAVA_HOME / GRAALVM_HOME to the GraalVM
+#    installation before running (foojay auto-downloads one if not set).
+JAVA_HOME="$(cs java-home --jvm graalvm-ce-java21)" \
+GRAALVM_HOME="$JAVA_HOME" \
+./gradlew -Pagent :qodana-cli:parityTest --rerun-tasks \
     --tests 'org.jetbrains.qodana.cli.NativeSmokeTest' \
     --tests 'org.jetbrains.qodana.cli.command.InitCommandTest'
 
-# 2) Copy captured JSON into src/main/resources.
+# 2) Copy captured JSON into src/main/resources and automatically strip
+#    JUnit + kotlin-test infrastructure entries. The stripTestEntriesFromMetadata
+#    task in qodana-cli/build.gradle.kts runs as a finalizer of metadataCopy.
 ./gradlew :qodana-cli:metadataCopy
 
-# 3) Strip JUnit + kotlin-test infrastructure that the agent captured but the
-#    production binary doesn't need. The graalvm-native plugin's accessFilterFiles
-#    knob doesn't reliably catch these on v0.10.6 — manual cleanup is the
-#    least-bad option until that's fixed upstream. Drop entries matching:
-#      - "org.jetbrains.qodana.cli.NativeSmokeTest"
-#      - "org.jetbrains.qodana.cli.command.InitCommandTest"
-#      - "META-INF/services/org.junit.platform.*"
-#      - "META-INF/services/kotlin.test.AsserterContributor"
-#      - "junit-platform.properties"
-#    Use `git diff` against the previous committed metadata as a guide.
-
-# 4) Inspect the diff and rebuild the native image.
-git status qodana-cli/src/main/resources/META-INF/native-image/
+# 3) Verify the diff looks sane and rebuild the native image.
+git diff qodana-cli/src/main/resources/META-INF/native-image/
 ./gradlew :qodana-cli:nativeCompile
 ```
 

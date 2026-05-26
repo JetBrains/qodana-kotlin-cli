@@ -78,3 +78,126 @@ dependencies {
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit.jupiter)
 }
+
+// =====
+
+// Prefixes of class names that should never appear in production GraalVM metadata.
+// Entries captured by the tracing agent while running tests bleed in through
+// JUnit / kotlin.test / Gradle-worker infrastructure; this list covers all of them.
+val testClassPrefixes =
+    listOf(
+        "org.jetbrains.qodana.cli.NativeSmokeTest",
+        "org.jetbrains.qodana.cli.command.InitCommandTest",
+        "org.jetbrains.qodana.cli.command.SendCommandTest",
+        "org.jetbrains.qodana.cli.command.SendTestSupport",
+        "org.junit.",
+        "org.opentest4j.",
+        "kotlin.test.",
+        "kotlinx.coroutines.test.",
+        "worker.org.gradle.",
+    )
+
+// Substrings that mark a resource-config pattern as test-only.
+val testResourceSubstrings =
+    listOf(
+        "junit-platform.properties",
+        "META-INF/services/kotlin.test.",
+        "META-INF/services/org.junit.platform.",
+    )
+
+/**
+ * Removes test-infrastructure entries from every GraalVM native-image metadata
+ * JSON file after [metadataCopy] writes them to the source tree.  The task is
+ * registered as a finalizer of [metadataCopy] so it runs automatically whenever
+ * the agent pipeline produces new metadata.
+ *
+ * Files modified in-place (relative to the metadata output directory):
+ *   - reflect-config.json  — JSON array keyed on "name"
+ *   - jni-config.json      — JSON array keyed on "name"
+ *   - resource-config.json — JSON object with resources.includes array keyed on "pattern"
+ *
+ * proxy-config.json, serialization-config.json, and predefined-classes-config.json
+ * contain no test-class entries and are left untouched.
+ */
+val stripTestEntriesFromMetadata by tasks.registering {
+    val metadataDir =
+        layout.projectDirectory.dir(
+            "src/main/resources/META-INF/native-image/org.jetbrains.qodana/${project.name}",
+        )
+    inputs.dir(metadataDir)
+    outputs.dir(metadataDir)
+
+    doLast {
+        val slurper = groovy.json.JsonSlurper()
+
+        // strip-config.json helpers =====
+
+        fun isTestName(name: String): Boolean = testClassPrefixes.any { name.startsWith(it) }
+
+        fun isTestPattern(pattern: String): Boolean = testResourceSubstrings.any { it in pattern }
+
+        fun List<*>.toJson(): String = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(this))
+
+        fun Map<*, *>.toJson(): String = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(this))
+
+        // reflect-config.json -----
+        val reflectFile = metadataDir.file("reflect-config.json").asFile
+        if (reflectFile.exists()) {
+            @Suppress("UNCHECKED_CAST")
+            val entries = slurper.parse(reflectFile) as List<Map<String, Any>>
+            val stripped = entries.filterNot { isTestName(it["name"]?.toString().orEmpty()) }
+            if (stripped.size != entries.size) {
+                reflectFile.writeText(stripped.toJson())
+                logger.lifecycle(
+                    "stripTestEntriesFromMetadata: removed {} test entries from reflect-config.json",
+                    entries.size - stripped.size,
+                )
+            }
+        }
+
+        // jni-config.json -----
+        val jniFile = metadataDir.file("jni-config.json").asFile
+        if (jniFile.exists()) {
+            @Suppress("UNCHECKED_CAST")
+            val entries = slurper.parse(jniFile) as List<Map<String, Any>>
+            val stripped = entries.filterNot { isTestName(it["name"]?.toString().orEmpty()) }
+            if (stripped.size != entries.size) {
+                jniFile.writeText(stripped.toJson())
+                logger.lifecycle(
+                    "stripTestEntriesFromMetadata: removed {} test entries from jni-config.json",
+                    entries.size - stripped.size,
+                )
+            }
+        }
+
+        // resource-config.json -----
+        val resourceFile = metadataDir.file("resource-config.json").asFile
+        if (resourceFile.exists()) {
+            @Suppress("UNCHECKED_CAST")
+            val root = slurper.parse(resourceFile) as Map<String, Any>
+
+            @Suppress("UNCHECKED_CAST")
+            val resources = root["resources"] as? Map<String, Any> ?: emptyMap()
+
+            @Suppress("UNCHECKED_CAST")
+            val includes = resources["includes"] as? List<Map<String, Any>> ?: emptyList()
+            val stripped = includes.filterNot { isTestPattern(it["pattern"]?.toString().orEmpty()) }
+            if (stripped.size != includes.size) {
+                val updated: Map<String, Any> =
+                    mapOf(
+                        "resources" to mapOf("includes" to stripped),
+                        "bundles" to (root["bundles"] ?: emptyList<Any>()),
+                    )
+                resourceFile.writeText(updated.toJson())
+                logger.lifecycle(
+                    "stripTestEntriesFromMetadata: removed {} test entries from resource-config.json",
+                    includes.size - stripped.size,
+                )
+            }
+        }
+    }
+}
+
+tasks.named("metadataCopy").configure {
+    finalizedBy(stripTestEntriesFromMetadata)
+}

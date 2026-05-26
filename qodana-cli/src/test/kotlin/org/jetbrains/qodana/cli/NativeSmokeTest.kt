@@ -123,11 +123,8 @@ class NativeSmokeTest {
         val processRunner = SystemProcessRunner()
         val gitClient = SystemGitClient(processRunner)
 
-        // Heavy — kept lazy to mirror Main.kt. The full dependency set is needed
-        // here (not just containerEngine) because QD-14728 wires the real
-        // scanRunner via buildScanUseCase(), which takes nine deps. Lazy values
-        // still gate Phase-A's --help/--version/init flows from constructing
-        // anything heavy.
+        // Heavy — kept lazy to mirror Main.kt. Lazy values still gate
+        // --help/--version/init flows from constructing anything heavy.
         val httpTransport: OkHttpTransport by lazy { OkHttpTransport() }
         val containerEngine: DockerJavaEngine by lazy { DockerJavaEngine() }
         val sarifService: QodanaSarifService by lazy { QodanaSarifService() }
@@ -137,21 +134,23 @@ class NativeSmokeTest {
         val reportPublishUseCase: ReportPublishUseCase by lazy { ReportPublishUseCase(publisher) }
         val contributorAnalyzer: ContributorAnalyzer by lazy { ContributorAnalyzer(gitClient) }
 
+        val scanDeps by lazy {
+            ScanDeps(
+                httpTransport,
+                containerEngine,
+                sarifService,
+                reportConverter,
+                fileSystem,
+                reportPublishUseCase,
+                processRunner,
+                gitClient,
+                terminal,
+            )
+        }
+
         return QodanaCommand().subcommands(
             ScanCommand(
-                scanRunner = { context ->
-                    buildScanUseCase(
-                        httpTransport = httpTransport,
-                        containerEngine = containerEngine,
-                        sarifService = sarifService,
-                        reportConverter = reportConverter,
-                        fileSystem = fileSystem,
-                        reportPublishUseCase = reportPublishUseCase,
-                        processRunner = processRunner,
-                        gitClient = gitClient,
-                        terminal = terminal,
-                    ).run(context)
-                },
+                scanRunner = { context -> buildScanUseCase(scanDeps).run(context) },
                 terminal = terminal,
             ),
             InitCommand(terminal),

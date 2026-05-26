@@ -6,7 +6,6 @@ import com.github.ajalt.clikt.core.subcommands
 import org.jetbrains.qodana.cli.command.*
 import org.jetbrains.qodana.core.env.QodanaEnv
 import org.jetbrains.qodana.core.fs.NioFileSystem
-import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.core.process.SystemProcessRunner
 import org.jetbrains.qodana.core.sarif.QodanaSarifService
 import org.jetbrains.qodana.core.terminal.MordantTerminal
@@ -37,44 +36,33 @@ import org.jetbrains.qodana.engine.startup.PrepareHost
  *
  * Extracted (QD-14728) so `NativeSmokeTest` can construct the same use-case
  * graph in its `scanRunner` slot without drifting from Main.kt's wiring. Any
- * future dependency added to scan must be threaded through both the call site
- * here and the one in `main()`.
+ * future dependency added to scan must be added to [ScanDeps].
  */
-internal fun buildScanUseCase(
-    httpTransport: OkHttpTransport,
-    containerEngine: DockerJavaEngine,
-    sarifService: QodanaSarifService,
-    reportConverter: ReportConverterAdapter,
-    fileSystem: NioFileSystem,
-    reportPublishUseCase: ReportPublishUseCase,
-    processRunner: SystemProcessRunner,
-    gitClient: SystemGitClient,
-    terminal: Terminal,
-): ScanUseCase {
+internal fun buildScanUseCase(deps: ScanDeps): ScanUseCase {
     val token =
         System.getenv(QodanaEnv.TOKEN)?.takeIf { it.isNotBlank() }
             ?: System.getenv(QodanaEnv.LICENSE_ONLY_TOKEN)?.takeIf { it.isNotBlank() }
     val cloudClient =
         if (!token.isNullOrBlank()) {
-            CloudClient(httpTransport, token = token)
+            CloudClient(deps.httpTransport, token = token)
         } else {
             null
         }
-    val ideInstaller = IdeInstaller(httpTransport, fileSystem, terminal)
-    val codeClimateExporter = CodeClimateExporter(sarifService)
-    val bitBucketExporter = BitBucketExporter(sarifService, httpTransport)
+    val ideInstaller = IdeInstaller(deps.httpTransport, deps.fileSystem, deps.terminal)
+    val codeClimateExporter = CodeClimateExporter(deps.sarifService)
+    val bitBucketExporter = BitBucketExporter(deps.sarifService, deps.httpTransport)
 
     return ScanUseCase(
-        prepareHost = PrepareHost(fileSystem, terminal, ideInstaller),
-        nativeScan = NativeScan(processRunner, fileSystem, terminal),
-        containerScan = ContainerScan(containerEngine, terminal),
-        reportProcessor = ReportProcessor(sarifService, reportConverter),
-        reportPublisher = reportPublishUseCase,
-        licenseValidator = cloudClient?.let { LicenseValidator(httpTransport, it) },
+        prepareHost = PrepareHost(deps.fileSystem, deps.terminal, ideInstaller),
+        nativeScan = NativeScan(deps.processRunner, deps.fileSystem, deps.terminal),
+        containerScan = ContainerScan(deps.containerEngine, deps.terminal),
+        reportProcessor = ReportProcessor(deps.sarifService, deps.reportConverter),
+        reportPublisher = deps.reportPublishUseCase,
+        licenseValidator = cloudClient?.let { LicenseValidator(deps.httpTransport, it) },
         codeClimateExporter = codeClimateExporter,
         bitBucketExporter = bitBucketExporter,
-        gitClient = gitClient,
-        terminal = terminal,
+        gitClient = deps.gitClient,
+        terminal = deps.terminal,
     )
 }
 
@@ -154,16 +142,20 @@ private fun isRunningAsRoot(): Boolean {
     }.getOrDefault(false)
 }
 
-fun main(args: Array<String>) {
-    // Eager: lightweight; needed for root checks below.
-    val processRunner = SystemProcessRunner()
-    val gitClient = SystemGitClient(processRunner)
-    val terminal = MordantTerminal()
-
-    // Lazy: heavy constructors that pull large class graphs (Jackson, OkHttp, docker-java,
-    // intellij-report-converter, qodana-publisher). Keeping these lazy means `qodana --help`
-    // and `qodana --version` don't drag the full dependency surface into the native image's
-    // startup path.
+/**
+ * Wires lazy heavy dependencies and all subcommands into a ready-to-run
+ * [QodanaCommand]. Extracted from [main] to keep that function under detekt's
+ * line-length limit.
+ *
+ * All heavy constructors (OkHttp, docker-java, Jackson, publisher) are kept
+ * lazy so `qodana --help` / `--version` don't drag the full dependency surface
+ * into the native-image startup path.
+ */
+private fun buildQodanaCommand(
+    processRunner: SystemProcessRunner,
+    gitClient: SystemGitClient,
+    terminal: MordantTerminal,
+): QodanaCommand {
     val httpTransport: OkHttpTransport by lazy { OkHttpTransport() }
     val containerEngine: DockerJavaEngine by lazy { DockerJavaEngine() }
     val sarifService: QodanaSarifService by lazy { QodanaSarifService() }
@@ -173,6 +165,47 @@ fun main(args: Array<String>) {
     val reportPublishUseCase: ReportPublishUseCase by lazy { ReportPublishUseCase(publisher) }
     val contributorAnalyzer: ContributorAnalyzer by lazy { ContributorAnalyzer(gitClient) }
 
+    val scanDeps by lazy {
+        ScanDeps(
+            httpTransport,
+            containerEngine,
+            sarifService,
+            reportConverter,
+            fileSystem,
+            reportPublishUseCase,
+            processRunner,
+            gitClient,
+            terminal,
+        )
+    }
+
+    return QodanaCommand().subcommands(
+        ScanCommand(
+            scanRunner = { context -> buildScanUseCase(scanDeps).run(context) },
+            terminal = terminal,
+        ),
+        InitCommand(terminal),
+        PullCommand({ containerEngine }, terminal),
+        ShowCommand(terminal),
+        SendCommand(
+            reportPublisher = { reportPublishUseCase },
+            terminal = terminal,
+            httpTransport = { httpTransport },
+        ),
+        ContributorsCommand({ contributorAnalyzer }, terminal),
+        ViewCommand({ sarifService }, terminal),
+        ClocCommand(terminal),
+        CompletionCommand(
+            name = "completion",
+            help = "Generate the autocompletion script for the specified shell",
+        ),
+    )
+}
+
+fun main(args: Array<String>) {
+    val processRunner = SystemProcessRunner()
+    val gitClient = SystemGitClient(processRunner)
+    val terminal = MordantTerminal()
     val runtimeEnvironment = RuntimeEnvironmentDetector.detect()
     val isCi = CiDetector.detect() != null
     terminal.isCi = isCi
@@ -188,40 +221,6 @@ fun main(args: Array<String>) {
         }
     }
 
-    val normalizedArgs = normalizeRootArgs(args)
-
-    QodanaCommand()
-        .subcommands(
-            ScanCommand(
-                scanRunner = { context ->
-                    buildScanUseCase(
-                        httpTransport = httpTransport,
-                        containerEngine = containerEngine,
-                        sarifService = sarifService,
-                        reportConverter = reportConverter,
-                        fileSystem = fileSystem,
-                        reportPublishUseCase = reportPublishUseCase,
-                        processRunner = processRunner,
-                        gitClient = gitClient,
-                        terminal = terminal,
-                    ).run(context)
-                },
-                terminal = terminal,
-            ),
-            InitCommand(terminal),
-            PullCommand({ containerEngine }, terminal),
-            ShowCommand(terminal),
-            SendCommand(
-                reportPublisher = { reportPublishUseCase },
-                terminal = terminal,
-                httpTransport = { httpTransport },
-            ),
-            ContributorsCommand({ contributorAnalyzer }, terminal),
-            ViewCommand({ sarifService }, terminal),
-            ClocCommand(terminal),
-            CompletionCommand(
-                name = "completion",
-                help = "Generate the autocompletion script for the specified shell",
-            ),
-        ).main(normalizedArgs)
+    buildQodanaCommand(processRunner, gitClient, terminal)
+        .main(normalizeRootArgs(args))
 }
