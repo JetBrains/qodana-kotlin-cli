@@ -2,6 +2,7 @@ package internal
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 
@@ -93,9 +94,10 @@ class VersionComputeTest {
     fun rejectPatchSkip() {
         val state = VersionCompute.compute("2026.3.3", "v2026.3.1")
         val invalid = assertInstanceOf(VersionState.Invalid::class.java, state)
-        assert(invalid.message.contains("2026.3.2") || invalid.message.contains("v2026.3.2")) {
-            "Invalid message should mention the closest valid candidate: ${invalid.message}"
-        }
+        assertTrue(
+            invalid.message.contains("2026.3.2") || invalid.message.contains("v2026.3.2"),
+            "Invalid message should mention the closest valid candidate: ${invalid.message}",
+        )
     }
 
     @Test
@@ -119,7 +121,7 @@ class VersionComputeTest {
     fun rejectEmpty() {
         val state = VersionCompute.compute("", "v2026.3.0")
         val invalid = assertInstanceOf(VersionState.Invalid::class.java, state)
-        assert(invalid.message.contains("empty")) { "got: ${invalid.message}" }
+        assertTrue(invalid.message.contains("empty"), "got: ${invalid.message}")
     }
 
     @Test
@@ -152,7 +154,7 @@ class VersionComputeTest {
     fun rejectLeadingZero() {
         val state = VersionCompute.compute("2026.03.0", "v2026.3.0")
         val invalid = assertInstanceOf(VersionState.Invalid::class.java, state)
-        assert(invalid.message.contains("leading zero")) { "got: ${invalid.message}" }
+        assertTrue(invalid.message.contains("leading zero"), "got: ${invalid.message}")
     }
 
     @Test
@@ -160,7 +162,7 @@ class VersionComputeTest {
     fun rejectWhitespace() {
         val state = VersionCompute.compute(" 2026.3.0 ", "v2026.3.0")
         val invalid = assertInstanceOf(VersionState.Invalid::class.java, state)
-        assert(invalid.message.contains("whitespace")) { "got: ${invalid.message}" }
+        assertTrue(invalid.message.contains("whitespace"), "got: ${invalid.message}")
     }
 
     @Test
@@ -168,9 +170,10 @@ class VersionComputeTest {
     fun rejectPreReleaseSuffix() {
         val state = VersionCompute.compute("2026.3.0-rc1", "v2026.3.0")
         val invalid = assertInstanceOf(VersionState.Invalid::class.java, state)
-        assert(invalid.message.contains("suffix") || invalid.message.contains("rc1")) {
-            "got: ${invalid.message}"
-        }
+        assertTrue(
+            invalid.message.contains("suffix") || invalid.message.contains("rc1"),
+            "got: ${invalid.message}",
+        )
     }
 
     // Zero-valued segments (edge of valid) =====

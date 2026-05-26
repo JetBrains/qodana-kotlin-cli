@@ -26,15 +26,31 @@ val ext = extensions.create<QodanaBuildInfoExtension>("qodanaBuildInfo")
 val generatedSrcDir: Provider<Directory> =
     layout.buildDirectory.dir("generated/sources/buildinfo/kotlin/main")
 
+// Escape the version string for safe inclusion in a Kotlin string literal. Defends against
+// `-Pversion='foo"; evil()'` from injecting Kotlin code into BuildInfo.kt. Allowed chars after escape:
+// printable ASCII minus `"` and `\`. Newlines / `$` / non-printables are rejected upstream by
+// `checkVersion`, but escape here too so generateBuildInfo is safe on its own.
+fun escapeForKotlinString(s: String): String =
+    s.replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("\$", "\\\$")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+
 val generateBuildInfo by tasks.registering {
-    val versionString = project.version.toString()
+    // Read version lazily as a provider — required so `-Pversion=…` overrides take effect under
+    // Gradle's configuration cache. Capturing `project.version.toString()` at config time would
+    // silently freeze the value into the cached configuration.
+    val versionProvider = providers.provider { project.version.toString() }
     val packageProvider = ext.packageName
     val outDir = generatedSrcDir
-    inputs.property("version", versionString)
+    inputs.property("version", versionProvider)
     inputs.property("package", packageProvider)
     outputs.dir(outDir)
     doLast {
         val pkg = packageProvider.get()
+        val versionString = versionProvider.get()
+        val escaped = escapeForKotlinString(versionString)
         val packagePath = pkg.replace('.', '/')
         val target = outDir.get().file("$packagePath/BuildInfo.kt").asFile
         target.parentFile.mkdirs()
@@ -44,7 +60,7 @@ val generateBuildInfo by tasks.registering {
             |package $pkg
             |
             |internal object BuildInfo {
-            |    const val VERSION: String = "$versionString"
+            |    const val VERSION: String = "$escaped"
             |}
             |
             """.trimMargin(),

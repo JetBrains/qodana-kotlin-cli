@@ -72,6 +72,9 @@ jobs:
       dry-run: false
       latest: false
       mode: nightly
+      # Pin the SHA observed by compute so draft-release does not re-resolve HEAD in a new job
+      # (which could drift if `main` advanced between jobs).
+      target-sha: ${{ needs.compute.outputs.sha }}
     secrets: inherit
 
   publish:

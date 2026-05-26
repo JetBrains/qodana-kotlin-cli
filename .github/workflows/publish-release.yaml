@@ -95,7 +95,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          # fetch-depth: 0 (instead of 1) so `git rev-parse` can canonicalize a `targetCommitish`
+          # even when it points to a commit that's no longer on `main`'s tip-1 path. Without full
+          # history, a draft created against a stale commit would false-fail verification.
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Verify draft exists with expected SHA and asset set
         shell: bash

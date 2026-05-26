@@ -44,11 +44,17 @@ abstract class CheckVersionTask : DefaultTask() {
                         "Bump gradle.properties (and commit) before dispatching a release.",
                 )
             }
-            if (state !is VersionState.BumpAhead) {
+            // For tagged dispatches: BumpAhead is the normal release-prep state. JustReleased is also
+            // accepted ONLY when there are no prior stable tags (first-ever release), because
+            // VersionCompute treats `lastTag=null` as a JustReleased state for any numeric source.
+            // Without this carve-out, the first dispatch (Task 10 of the plan) would always fail.
+            val firstEverRelease = state is VersionState.JustReleased && tag == null
+            if (state !is VersionState.BumpAhead && !firstEverRelease) {
                 throw GradleException(
-                    "Tagged releases require state=BumpAhead, got $state. " +
-                        "If state=JustReleased, the version is already shipped; bump gradle.properties further. " +
-                        "If state=Dev, set gradle.properties version to a numeric.",
+                    "Tagged releases require state=BumpAhead (or JustReleased on a fresh repo with no " +
+                        "prior `v*` tag), got $state. " +
+                        "If state=JustReleased with a prior tag, the version is already shipped; bump " +
+                        "gradle.properties further. If state=Dev, set gradle.properties version to a numeric.",
                 )
             }
         }
@@ -83,22 +89,32 @@ abstract class NightlyVersionTask : DefaultTask() {
     }
 }
 
+// Strict stable-tag regex: only `vX.Y` or `vX.Y.Z` with non-negative integers, no leading zeros
+// (except segment "0" itself), no suffixes. Any tag with `-rc1`, `-nightly`, `-tagprobe-`, or other
+// trailing modifiers is excluded. Kept as a single source of truth — workflows use the same regex
+// shape in their changelog-range computation.
+private val stableTagRegex = Regex("""^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:\.(?:0|[1-9]\d*))?$""")
+
 fun lastStableTagOrEmpty(): String {
+    val outputFile = java.io.File.createTempFile("qodana-tags", ".txt")
+    outputFile.deleteOnExit()
     val pb = ProcessBuilder("git", "tag", "--list", "v*", "--merged", "HEAD", "--sort=-v:refname")
         .directory(rootDir)
+        .redirectOutput(outputFile)
         .redirectErrorStream(false)
     val proc = pb.start()
-    val out = proc.inputStream.bufferedReader().readText()
-    proc.waitFor()
-    if (proc.exitValue() != 0) {
-        // No tags / git failure → treat as no prior tag. Don't fail here; compute handles null.
-        return ""
+    val exitCode = proc.waitFor()
+    if (exitCode != 0) {
+        // Fail closed: git failure (not-a-repo, missing git, permission denied, etc.) is unexpected
+        // and must not be silently treated as "no tags" — that would weaken the bump-rule check.
+        throw GradleException(
+            "qodana-version-check: `git tag --list 'v*'` exited with code $exitCode. " +
+                "Run from a git checkout with a working git binary on PATH.",
+        )
     }
-    return out.lineSequence()
+    return outputFile.readLines()
         .map { it.trim() }
-        .filter { it.isNotEmpty() }
-        .filter { !it.contains("-nightly") && !it.contains("-tagprobe-") }
-        .firstOrNull()
+        .firstOrNull { it.matches(stableTagRegex) }
         .orEmpty()
 }
 

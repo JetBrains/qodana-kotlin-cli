@@ -41,17 +41,21 @@ interface QodanaReleaseExtension {
 
 val ext = extensions.create<QodanaReleaseExtension>("qodanaRelease")
 
-// Read target OS/arch from project properties — CI passes -PtargetOs / -PtargetArch per matrix cell.
-// At task-execution time, missing properties produce a clear error.
+// Read target OS/arch via `providers.gradleProperty` so reads are tracked by the configuration cache
+// — different `-PtargetOs=X` invocations correctly invalidate cached configurations. At task-execution
+// time, missing properties produce a clear error.
+val targetOsProvider: Provider<String> = providers.gradleProperty("targetOs")
+val targetArchProvider: Provider<String> = providers.gradleProperty("targetArch")
+
 fun requireTargetOs(): String =
-    project.findProperty("targetOs")?.toString()
+    targetOsProvider.orNull
         ?: error(
             "qodana-release: -PtargetOs is required (one of: linux, darwin, windows). " +
                 "CI passes this per matrix cell.",
         )
 
 fun requireTargetArch(): String =
-    project.findProperty("targetArch")?.toString()
+    targetArchProvider.orNull
         ?: error(
             "qodana-release: -PtargetArch is required (one of: amd64, arm64). " +
                 "CI passes this per matrix cell.",

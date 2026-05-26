@@ -42,6 +42,11 @@ on:
         required: false
         type: string
         default: 'tagged'
+      target-sha:
+        description: 'Optional: full 40-char SHA to pin the release to. Defaults to HEAD at validate time.'
+        required: false
+        type: string
+        default: ''
   workflow_call:
     inputs:
       version: { required: true, type: string }
@@ -50,6 +55,7 @@ on:
       dry-run: { required: false, type: boolean, default: false }
       latest: { required: false, type: boolean, default: true }
       mode: { required: false, type: string, default: 'tagged' }
+      target-sha: { required: false, type: string, default: '' }
 
 permissions:
   contents: write
@@ -124,7 +130,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          SHA=$(git rev-parse HEAD)
+          # Prefer the caller-supplied target-sha (e.g., from the nightly umbrella's `compute` job)
+          # over a fresh `git rev-parse HEAD` here. This eliminates a race where validate's HEAD
+          # would differ from the caller's pinned SHA if `main` advanced between jobs.
+          INPUT_SHA='${{ inputs.target-sha }}'
+          if [ -n "$INPUT_SHA" ]; then
+            if ! [[ "$INPUT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::target-sha must be a 40-char full SHA, got '$INPUT_SHA'"
+              exit 1
+            fi
+            SHA="$INPUT_SHA"
+          else
+            SHA=$(git rev-parse HEAD)
+          fi
           {
             echo "version=${{ inputs.version }}"
             echo "tag=v${{ inputs.version }}"
