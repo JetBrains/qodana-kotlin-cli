@@ -3,6 +3,7 @@ plugins {
     id("testing")
     id("graalvm-native")
     id("qodana-buildinfo")
+    id("qodana-release")
     application
 }
 
@@ -25,6 +26,10 @@ java {
 // constant. See build-logic/src/main/kotlin/qodana-buildinfo.gradle.kts.
 qodanaBuildInfo {
     packageName.set("org.jetbrains.qodana.cli")
+}
+
+qodanaRelease {
+    kind.set(QodanaReleaseKind.Cli)
 }
 
 application {

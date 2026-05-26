@@ -3,11 +3,16 @@ plugins {
     id("testing")
     id("graalvm-native")
     id("qodana-buildinfo")
+    id("qodana-release")
     application
 }
 
 qodanaBuildInfo {
     packageName.set("org.jetbrains.qodana.clang")
+}
+
+qodanaRelease {
+    kind.set(QodanaReleaseKind.Tool)
 }
 
 application {

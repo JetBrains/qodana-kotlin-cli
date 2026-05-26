@@ -8,6 +8,7 @@ dependencies {
     implementation(libs.graalvm.native.gradle.plugin)
     implementation(libs.ktlint.gradle.plugin)
     implementation(libs.detekt.gradle.plugin)
+    implementation(libs.cyclonedx.gradle.plugin)
 }
 
 testing {
