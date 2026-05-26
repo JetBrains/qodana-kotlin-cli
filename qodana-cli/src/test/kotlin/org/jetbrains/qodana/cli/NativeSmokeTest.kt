@@ -8,6 +8,7 @@ import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.core.UsageError
 import com.github.ajalt.clikt.core.parse
 import com.github.ajalt.clikt.core.subcommands
+import com.sun.net.httpserver.HttpServer
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.qodana.cli.command.ClocCommand
 import org.jetbrains.qodana.cli.command.ContributorsCommand
@@ -16,22 +17,33 @@ import org.jetbrains.qodana.cli.command.PullCommand
 import org.jetbrains.qodana.cli.command.QodanaCommand
 import org.jetbrains.qodana.cli.command.ScanCommand
 import org.jetbrains.qodana.cli.command.SendCommand
+import org.jetbrains.qodana.cli.command.SendFakeHttpTransport
+import org.jetbrains.qodana.cli.command.SendFixedTokenStore
+import org.jetbrains.qodana.cli.command.SendTestTerminal
 import org.jetbrains.qodana.cli.command.ShowCommand
 import org.jetbrains.qodana.cli.command.ViewCommand
+import org.jetbrains.qodana.cloudclient.MockQDCloudHttpClient
+import org.jetbrains.qodana.cloudclient.QDCloudResponse
+import org.jetbrains.qodana.cloudclient.respond
+import org.jetbrains.qodana.cloudclient.s3.QDCloudS3Client
 import org.jetbrains.qodana.core.fs.NioFileSystem
 import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.core.process.SystemProcessRunner
 import org.jetbrains.qodana.core.sarif.QodanaSarifService
 import org.jetbrains.qodana.engine.contributors.ContributorAnalyzer
 import org.jetbrains.qodana.engine.docker.DockerJavaEngine
+import org.jetbrains.qodana.engine.env.RuntimeEnvironment
 import org.jetbrains.qodana.engine.git.SystemGitClient
 import org.jetbrains.qodana.engine.http.OkHttpTransport
+import org.jetbrains.qodana.engine.port.HttpResponse
 import org.jetbrains.qodana.engine.publisher.PublisherAdapter
 import org.jetbrains.qodana.engine.report.ReportPublishUseCase
 import org.jetbrains.qodana.engine.reportconverter.ReportConverterAdapter
 import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.net.InetSocketAddress
+import java.net.http.HttpClient
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.writeText
@@ -429,6 +441,116 @@ class NativeSmokeTest {
         val content = Files.readString(yaml)
         assertTrue(!content.contains("linter: stale"), "stale linter should have been replaced: $content")
     }
+
+    /**
+     * Exercises the full `send` path end-to-end without touching real cloud:
+     *  - OkHttp/Jackson path (CloudClient token validation) via SendFakeHttpTransport
+     *  - kotlinx.serialization path (QDCloudClient report upload) via MockQDCloudHttpClient
+     *  - S3 PUT path (QDCloudS3ClientImpl) via a local com.sun.net.httpserver.HttpServer
+     *
+     * Running under the GraalVM tracing agent captures all Jackson + kotlinx.serialization
+     * reflection/serde metadata needed for the native binary.
+     */
+    @Test
+    fun `send exercises the full QDCloudClient and Publisher serialisation chain`(
+        @TempDir dir: Path,
+    ) {
+        val projectDir = Files.createDirectories(dir.resolve("project"))
+        val resultsDir = Files.createDirectories(dir.resolve("results"))
+        resultsDir.resolve("qodana.sarif.json").writeText(
+            """{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"test"}},"results":[]}]}""",
+        )
+
+        val s3Server = HttpServer.create(InetSocketAddress(0), 0)
+        s3Server.createContext("/upload/sarif") { exchange ->
+            exchange.requestBody.use { it.readBytes() }
+            exchange.sendResponseHeaders(200, 0)
+            exchange.responseBody.close()
+        }
+        s3Server.start()
+        try {
+            val mockCloudClient = buildSendMockCloudClient(s3Port = s3Server.address.port)
+            val publisherAdapter =
+                PublisherAdapter(
+                    httpClient = mockCloudClient,
+                    s3Client = QDCloudS3Client(HttpClient.newHttpClient()),
+                )
+            val sendTerminal = SendTestTerminal(isInteractive = false)
+
+            SendCommand(
+                reportPublisher = ReportPublishUseCase(publisherAdapter),
+                terminal = sendTerminal,
+                getEnv = { key ->
+                    when (key) {
+                        "QODANA_TOKEN" -> "test-token"
+                        "QODANA_ENDPOINT" -> "https://qodana.cloud"
+                        else -> null
+                    }
+                },
+                tokenStore = SendFixedTokenStore(null),
+                httpTransport = buildSendFakeHttpTransport(),
+                runtimeEnvironmentDetector = { RuntimeEnvironment.HOST },
+            ).parse(listOf("-i", projectDir.toString(), "-o", resultsDir.toString()))
+
+            // SendCommand.run() returns normally on success — no ProgramResult thrown
+            assertTrue(
+                sendTerminal.messages.any { it.contains("Report published:") },
+                "send should print 'Report published:'; got: ${sendTerminal.messages}",
+            )
+            assertTrue(
+                mockCloudClient.requestsCount >= 3,
+                "expected >= 3 MockQDCloudHttpClient requests, got ${mockCloudClient.requestsCount}",
+            )
+        } finally {
+            s3Server.stop(0)
+        }
+    }
+
+    /**
+     * Configures a [MockQDCloudHttpClient] with canned responses for the three
+     * QDCloudClient requests the Publisher makes: api/versions, reports/ (startUpload),
+     * and reports/{id}/finish/ (finishUpload).  S3 upload goes to the local [s3Port].
+     */
+    private fun buildSendMockCloudClient(s3Port: Int): MockQDCloudHttpClient {
+        val client = MockQDCloudHttpClient.empty()
+        // QDCloudByFrontendEnvironment: GET api/versions on the endpoint host
+        client.respond("https://qodana.cloud", "api/versions") { _ ->
+            QDCloudResponse.Success(
+                """{"api":{"versions":[{"version":"1.1","url":"https://cloud.api"}]},""" +
+                    """"linters":{"versions":[{"version":"1.0","url":"https://linters.api"}]}}""",
+            )
+        }
+        // Publisher.startUpload: POST reports/
+        client.respond("https://cloud.api", "reports/") { _ ->
+            QDCloudResponse.Success(
+                """{"reportId":"test-report-id",""" +
+                    """"fileLinks":{"qodana.sarif.json":"http://localhost:$s3Port/upload/sarif"},""" +
+                    """"langsRequired":false}""",
+            )
+        }
+        // Publisher.finishUpload: POST reports/test-report-id/finish/
+        client.respond("https://cloud.api", "reports/test-report-id/finish/") { _ ->
+            QDCloudResponse.Success(
+                """{"token":"report-token-123","url":"https://cloud.api/report/test-report-id"}""",
+            )
+        }
+        return client
+    }
+
+    /** OkHttp/Jackson path: CloudClient.fetchEndpoints() + project token validation. */
+    private fun buildSendFakeHttpTransport(): SendFakeHttpTransport =
+        SendFakeHttpTransport(
+            mapOf(
+                "https://qodana.cloud/api/versions" to
+                    HttpResponse(
+                        200,
+                        """{"api":{"versions":[{"version":"1.1","url":"https://cloud.api"}]},""" +
+                            """"linters":{"versions":[{"version":"1.0","url":"https://linters.api"}]}}""",
+                    ),
+                "https://cloud.api/projects" to
+                    HttpResponse(200, """{"id":"proj1","organizationId":"org1","name":"sample-project"}"""),
+            ),
+        )
 
     private companion object {
         val SUBCOMMAND_NAMES =
