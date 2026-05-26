@@ -4,9 +4,11 @@ import com.github.ajalt.clikt.completion.CompletionCommand
 import com.github.ajalt.clikt.core.NoSuchOption
 import com.github.ajalt.clikt.core.PrintHelpMessage
 import com.github.ajalt.clikt.core.PrintMessage
+import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.core.UsageError
 import com.github.ajalt.clikt.core.parse
 import com.github.ajalt.clikt.core.subcommands
+import kotlinx.coroutines.runBlocking
 import org.jetbrains.qodana.cli.command.ClocCommand
 import org.jetbrains.qodana.cli.command.ContributorsCommand
 import org.jetbrains.qodana.cli.command.InitCommand
@@ -16,6 +18,7 @@ import org.jetbrains.qodana.cli.command.ScanCommand
 import org.jetbrains.qodana.cli.command.SendCommand
 import org.jetbrains.qodana.cli.command.ShowCommand
 import org.jetbrains.qodana.cli.command.ViewCommand
+import org.jetbrains.qodana.core.fs.NioFileSystem
 import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.core.process.SystemProcessRunner
 import org.jetbrains.qodana.core.sarif.QodanaSarifService
@@ -25,14 +28,19 @@ import org.jetbrains.qodana.engine.git.SystemGitClient
 import org.jetbrains.qodana.engine.http.OkHttpTransport
 import org.jetbrains.qodana.engine.publisher.PublisherAdapter
 import org.jetbrains.qodana.engine.report.ReportPublishUseCase
+import org.jetbrains.qodana.engine.reportconverter.ReportConverterAdapter
+import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.writeText
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.test.fail
 
 /**
  * Mirrors Main.kt's subcommand tree construction so we exercise the same
@@ -103,18 +111,35 @@ class NativeSmokeTest {
         val processRunner = SystemProcessRunner()
         val gitClient = SystemGitClient(processRunner)
 
-        // Heavy — kept lazy to mirror Main.kt. None of these will be evaluated for
-        // the `--help`/`--version`/`init --help` flows below.
+        // Heavy — kept lazy to mirror Main.kt. The full dependency set is needed
+        // here (not just containerEngine) because QD-14728 wires the real
+        // scanRunner via buildScanUseCase(), which takes nine deps. Lazy values
+        // still gate Phase-A's --help/--version/init flows from constructing
+        // anything heavy.
         val httpTransport: OkHttpTransport by lazy { OkHttpTransport() }
         val containerEngine: DockerJavaEngine by lazy { DockerJavaEngine() }
         val sarifService: QodanaSarifService by lazy { QodanaSarifService() }
+        val reportConverter: ReportConverterAdapter by lazy { ReportConverterAdapter() }
+        val fileSystem: NioFileSystem by lazy { NioFileSystem() }
         val publisher: PublisherAdapter by lazy { PublisherAdapter() }
         val reportPublishUseCase: ReportPublishUseCase by lazy { ReportPublishUseCase(publisher) }
         val contributorAnalyzer: ContributorAnalyzer by lazy { ContributorAnalyzer(gitClient) }
 
         return QodanaCommand().subcommands(
             ScanCommand(
-                scanRunner = { _ -> error("scan execution is out of Phase-A smoke-test scope") },
+                scanRunner = { context ->
+                    buildScanUseCase(
+                        httpTransport = httpTransport,
+                        containerEngine = containerEngine,
+                        sarifService = sarifService,
+                        reportConverter = reportConverter,
+                        fileSystem = fileSystem,
+                        reportPublishUseCase = reportPublishUseCase,
+                        processRunner = processRunner,
+                        gitClient = gitClient,
+                        terminal = terminal,
+                    ).run(context)
+                },
                 terminal = terminal,
             ),
             InitCommand(terminal),
@@ -133,6 +158,124 @@ class NativeSmokeTest {
                 help = "Generate the autocompletion script for the specified shell",
             ),
         )
+    }
+
+    @Test
+    fun `scan command exercises the full docker-java surface against jvm-community`(
+        @TempDir tempDir: Path,
+    ) {
+        Assumptions.assumeTrue(
+            System.getenv("QODANA_TEST_CONTAINER") == "1",
+            "Skipping native scan smoke (set QODANA_TEST_CONTAINER=1)",
+        )
+        // Fail loudly if the flag is set but Docker isn't reachable, per
+        // CLAUDE.md's "tests must never silently skip on missing dependencies".
+        // info() is suspend, so wrap in runBlocking.
+        try {
+            runBlocking { DockerJavaEngine().info() }
+        } catch (e: Exception) {
+            fail("QODANA_TEST_CONTAINER=1 but Docker is unreachable: ${e.message}")
+        }
+
+        // Gradle's test classpath uses unpacked build/resources/test dirs;
+        // Path.of(URI) on a file:// URL works. Assert loudly if the test ever
+        // runs on a jar'd classpath where this fails silently otherwise.
+        val fixture =
+            this::class.java.classLoader.getResource("scan-smoke-fixture")
+                ?: error("scan-smoke-fixture not on test classpath")
+        check(fixture.protocol == "file") {
+            "scan-smoke-fixture expected to be on a file:// classpath, got $fixture"
+        }
+        // Pre-resolve the macOS /var/folders → /private/var/folders symlink so
+        // `-i` and `--repository-root` come out of normalizePath() with the
+        // same prefix. Otherwise IdeArgBuilder's relativize() generates a
+        // navigate-up container-side --project-dir the linter can't lstat.
+        val projectDir =
+            Files
+                .createDirectories(tempDir.resolve("project"))
+                .toRealPath()
+        Path
+            .of(fixture.toURI())
+            .toFile()
+            .copyRecursively(projectDir.toFile())
+        val resultsDir =
+            Files
+                .createDirectories(tempDir.resolve("results"))
+                .toRealPath()
+
+        // ScanCommand.run() always throws ProgramResult(exitCode) on success;
+        // existing ScanCommandTest.kt + QodanaCommandTest.kt use this pattern.
+        //
+        // --repository-root is set explicitly to the same value as -i so the
+        // CLI doesn't walk up looking for .git and find this monorepo's root
+        // (which would produce a navigate-up relative project dir the linter
+        // inside the container can't resolve).
+        val ex =
+            assertFailsWith<ProgramResult> {
+                buildRootCommand().parse(
+                    listOf(
+                        "scan",
+                        "-i",
+                        projectDir.toString(),
+                        "-o",
+                        resultsDir.toString(),
+                        "--repository-root",
+                        projectDir.toString(),
+                    ),
+                )
+            }
+        assertEquals(0, ex.statusCode, "scan exit code; output: $output")
+
+        val sarif = resultsDir.resolve("qodana.sarif.json")
+        assertTrue(Files.exists(sarif), "scan must produce SARIF at $sarif")
+        val tuples = SarifCompare.normalize(sarif, projectDir)
+        assertTrue(tuples.isNotEmpty(), "expected >=1 finding from fixture; got empty SARIF")
+        // Stable rule the jvm-community linter fires on the fixture
+        // (Hello.equalsBroken uses `==` on String). If the linter version
+        // bumps and the rule renames, this assertion's clear failure points
+        // at the rename rather than the test going green silently.
+        assertTrue(
+            tuples.any { it.startsWith("StringEquality|") },
+            "expected a StringEquality finding; got $tuples",
+        )
+    }
+
+    @Test
+    fun `containerEngine info and version are reachable under the agent`() =
+        runBlocking {
+            Assumptions.assumeTrue(
+                System.getenv("QODANA_TEST_CONTAINER") == "1",
+                "Skipping (set QODANA_TEST_CONTAINER=1)",
+            )
+            // Drives Info + Version DTO deserialization explicitly so the agent
+            // captures them deterministically, not "incidentally" via scan.
+            val info = DockerJavaEngine().info()
+            assertNotNull(info.version)
+        }
+
+    @Test
+    fun `every docker-java DTO from QD-14728 is reachable for the agent`() {
+        // Per QD-14728 ticket text. Class.forName under the agent records the
+        // class in reflect-config; pairing this with the smoke tests above
+        // means each DTO is captured deterministically, not contingent on
+        // which code paths happen to fire at agent capture time.
+        // Class locations verified against docker-java-api 3.4.1 jar:
+        // command responses live under `.api.command.*`; reusable models live
+        // under `.api.model.*`; ProgressDetail is a nested type of ResponseItem.
+        val classes =
+            listOf(
+                "com.github.dockerjava.api.model.PullResponseItem",
+                "com.github.dockerjava.api.model.Frame",
+                "com.github.dockerjava.api.model.WaitResponse",
+                "com.github.dockerjava.api.command.InspectContainerResponse",
+                "com.github.dockerjava.api.model.Info",
+                "com.github.dockerjava.api.model.Version",
+                "com.github.dockerjava.api.command.CreateContainerResponse",
+                "com.github.dockerjava.api.command.InspectImageResponse",
+                "com.github.dockerjava.api.model.ResponseItem\$ProgressDetail",
+                "com.github.dockerjava.api.exception.NotFoundException",
+            )
+        classes.forEach { Class.forName(it) }
     }
 
     @Test

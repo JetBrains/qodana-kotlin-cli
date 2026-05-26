@@ -1,0 +1,88 @@
+package org.jetbrains.qodana.cli
+
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ArrayNode
+import java.nio.file.Path
+
+/**
+ * Canonicalises a SARIF report to a sorted multiset of (ruleId, normalised-uri,
+ * startLine) tuples so JVM and native runs can be compared structurally after
+ * volatile fields are dropped.
+ *
+ * Volatile fields ignored: tool.driver.semanticVersion, run.invocations,
+ * timestamps, partialFingerprints, machine-specific URIs.
+ *
+ * URI normalisation: strip `file://`, normalise platform separators to `/`,
+ * relativise paths under `projectRoot`. Callers pass the same `projectRoot`
+ * for both reports being compared so machine-specific scan locations cancel
+ * out.
+ *
+ * Run flattening: results from all `runs[]` are unioned, not just `runs[0]`.
+ */
+object SarifCompare {
+    private val mapper = ObjectMapper()
+
+    fun normalize(reportPath: Path, projectRoot: Path): List<String> {
+        val root = mapper.readTree(reportPath.toFile())
+        val tuples = mutableListOf<String>()
+        val runs = root.path("runs")
+        if (!runs.isArray) return emptyList()
+        for (run in runs) {
+            val results = run.path("results") as? ArrayNode ?: continue
+            for (result in results) {
+                val ruleId = result.path("ruleId").asText("")
+                val loc =
+                    result
+                        .path("locations")
+                        .firstOrNull()
+                        ?.path("physicalLocation")
+                val rawUri =
+                    loc
+                        ?.path("artifactLocation")
+                        ?.path("uri")
+                        ?.asText("") ?: ""
+                val startLine =
+                    loc
+                        ?.path("region")
+                        ?.path("startLine")
+                        ?.asInt(-1) ?: -1
+                tuples.add("$ruleId|${normalizeUri(rawUri, projectRoot)}|$startLine")
+            }
+        }
+        return tuples.sorted()
+    }
+
+    private fun normalizeUri(
+        raw: String,
+        projectRoot: Path,
+    ): String {
+        var s = raw.removePrefix("file://").replace('\\', '/')
+        val rootStr =
+            projectRoot
+                .toAbsolutePath()
+                .normalize()
+                .toString()
+                .replace('\\', '/')
+        if (s.startsWith(rootStr)) {
+            s = s.removePrefix(rootStr).removePrefix("/")
+        }
+        return s
+    }
+
+    fun assertEquivalent(
+        jvm: Path,
+        native: Path,
+        projectRoot: Path,
+    ) {
+        val a = normalize(jvm, projectRoot)
+        val b = normalize(native, projectRoot)
+        check(a == b) {
+            buildString {
+                appendLine("SARIF results differ between JVM and native runs.")
+                appendLine("JVM total:    ${a.size}; native total: ${b.size}")
+                appendLine("JVM-only:    ${a.filterNot(b::contains)}")
+                appendLine("native-only: ${b.filterNot(a::contains)}")
+            }
+        }
+    }
+}
