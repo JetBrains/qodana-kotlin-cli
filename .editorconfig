@@ -12,11 +12,12 @@ trim_trailing_whitespace = true
 indent_style = space
 
 # 2-space convention for hand-written config files; no specialized formatter
-# owns these. The tool-generated JSON corpus (GraalVM native-image agent
-# output) is unset via the nested .editorconfig at
-# qodana-cli/src/main/resources/META-INF/native-image/.editorconfig.
-# *.xml is intentionally omitted — every tracked instance is a detekt or
-# ktlint baseline (tool-generated).
+# owns these. *.xml is intentionally omitted — every tracked instance is a
+# detekt or ktlint baseline (tool-generated). Tool-generated JSON under
+# qodana-cli/src/main/resources/META-INF/native-image/ (GraalVM agent
+# output) is unset further down — a nested .editorconfig there would be
+# bundled into the published JAR by Gradle's default resource processing,
+# so the exclusion lives here instead.
 [*.{yml,yaml,toml,json}]
 indent_size = 2
 
@@ -41,6 +42,19 @@ indent_size = unset
 
 # Apache 2.0 license text — imported verbatim; we don't dictate its format.
 [LICENSE]
+charset = unset
+end_of_line = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+indent_style = unset
+indent_size = unset
+
+# GraalVM native-image agent regenerates these JSON configs from runtime
+# traces; the format is determined by the tool, not by this project's
+# conventions. A nested .editorconfig in this dir would be bundled into
+# the published JAR (this path is under src/main/resources/), so we exclude
+# from the root config via a path-rooted wildcard instead.
+[qodana-cli/src/main/resources/META-INF/native-image/**]
 charset = unset
 end_of_line = unset
 insert_final_newline = unset
