@@ -11,7 +11,7 @@ repos:
       # .editorconfig's [*.md] trim_trailing_whitespace = false.
       - id: end-of-file-fixer
       - id: trailing-whitespace
-        exclude: '(?i)\.md$'
+        exclude: '\.md$'
       # Check-only safety nets.
       - id: check-merge-conflict
       - id: check-yaml
@@ -20,11 +20,10 @@ repos:
       - id: check-executables-have-shebangs
       - id: check-shebang-scripts-are-executable
 
-  # Reads .editorconfig directly. .editorconfig-checker.json (auto-discovered)
-  # disables IndentSize: many tracked files legitimately diverge from the
-  # global indent_size = 4 (detekt baselines, gradlew, renovate.json, markdown
-  # lists, LICENSE, embedded XML in Kotlin raw strings). indent_style and all
-  # other rules stay enforced.
+  # Reads .editorconfig directly. The policy lives entirely in .editorconfig:
+  # it omits indent_size for languages owned by specialized formatters
+  # (Kotlin via ktlint, Markdown via Prettier) and unsets enforcement for
+  # tool-generated / imported files (Gradle wrapper, Apache LICENSE).
   - repo: https://github.com/editorconfig-checker/editorconfig-checker.python
     rev: 3.6.1
     hooks:

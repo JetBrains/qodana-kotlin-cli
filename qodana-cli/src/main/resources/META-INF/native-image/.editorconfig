@@ -1,0 +1,5 @@
+# GraalVM native-image agent regenerates these JSON configs from runtime
+# traces; the format is determined by the tool, not by this project's
+# conventions. `root = true` stops the parent .editorconfig from applying
+# so no IDE or checker tries to reformat them.
+root = true
