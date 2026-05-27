@@ -234,6 +234,32 @@ jobs:
         with:
           version: latest
 
+      # setup-docker-action@v4 creates a Docker CLI context
+      # (e.g. unix:///Users/runner/.lima/docker-actions-toolkit/docker.sock)
+      # but doesn't export DOCKER_HOST. The native binary uses docker-java,
+      # which honors only $DOCKER_HOST + Unix-socket defaults (no CLI
+      # contexts), so without this the scan fails with
+      # `java.net.SocketException: No such file or directory`. See QD-14728.
+      - name: Export DOCKER_HOST for docker-java (macOS)
+        if: matrix.platform.docker && matrix.platform.setup == 'macos'
+        shell: bash
+        run: |
+          socket=$(docker context inspect --format '{{.Endpoints.docker.Host}}' 2>/dev/null || true)
+          if [ -z "$socket" ]; then
+            for candidate in \
+              "$HOME/.lima/docker-actions-toolkit/docker.sock" \
+              "$HOME/.lima/docker/sock/docker.sock" \
+              "/Users/runner/.lima/docker-actions-toolkit/docker.sock" \
+              "/Users/runner/.lima/docker/sock/docker.sock" \
+              "/var/run/docker.sock"; do
+                [ -S "$candidate" ] && socket="unix://$candidate" && break
+            done
+          fi
+          [ -n "$socket" ] || { echo "::error::No Docker socket found"; exit 1; }
+          echo "Resolved DOCKER_HOST=$socket"
+          echo "DOCKER_HOST=$socket" >> "$GITHUB_ENV"
+          DOCKER_HOST="$socket" docker info > /dev/null
+
       - name: Docker (Windows, Linux engine)
         if: matrix.platform.docker && matrix.platform.setup == 'windows'
         shell: pwsh
