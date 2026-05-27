@@ -193,6 +193,14 @@ jobs:
           done
           echo "Docker is ready."
           docker version
+          # The native binary picks the container user from $UID/$GID
+          # (ContainerImageUtils.getDefaultUser); the shell never exports
+          # those, so without this the container runs as root and writes
+          # root-owned files into the bind-mounted report/cache/results
+          # dirs that the host runner user can no longer clean up. See
+          # the report-native deleteRecursively failure in PR #12 CI.
+          echo "UID=$(id -u)" >> "$GITHUB_ENV"
+          echo "GID=$(id -g)" >> "$GITHUB_ENV"
 
       - name: Docker (macOS via colima)
         if: matrix.platform.docker && matrix.platform.setup == 'colima'
@@ -216,6 +224,13 @@ jobs:
           # docker-java doesn't read Docker CLI contexts; force the unix socket.
           echo "DOCKER_HOST=unix://${HOME}/.colima/default/docker.sock" >> "$GITHUB_ENV"
           docker version
+          # The native binary picks the container user from $UID/$GID
+          # (ContainerImageUtils.getDefaultUser); without exporting them
+          # here the linter container writes its bind-mounted report dir
+          # as root and the host can't clean up afterwards. Same root
+          # cause as the Linux fix above.
+          echo "UID=$(id -u)" >> "$GITHUB_ENV"
+          echo "GID=$(id -g)" >> "$GITHUB_ENV"
 
       - name: Docker (Windows, Linux engine)
         if: matrix.platform.docker && matrix.platform.setup == 'windows'
