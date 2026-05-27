@@ -189,11 +189,12 @@ jobs:
         if: matrix.platform.docker && matrix.platform.setup == 'colima'
         shell: bash
         run: |
-          brew install colima docker
+          brew install colima docker qemu
           # `--vm-type qemu` is more reliable on macOS 15 than the default
           # Apple Virtualization Framework (vz), which has fatal-start
           # regressions on colima 0.10 / macos-15 runners. qemu adds ~30s
-          # to startup but completes deterministically.
+          # to startup but completes deterministically. Requires `brew
+          # install qemu` (no implicit dep on the colima formula).
           colima start --vm-type qemu --cpu 2 --memory 4 --disk 20
           deadline=$(( $(date +%s) + 240 ))
           until docker info >/dev/null 2>&1; do
