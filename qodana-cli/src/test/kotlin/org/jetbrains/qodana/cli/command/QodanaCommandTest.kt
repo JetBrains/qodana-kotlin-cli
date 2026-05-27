@@ -156,6 +156,17 @@ class QodanaCommandTest {
             false
         }
 
+    /**
+     * Asserts Docker is reachable on `@Tag("docker")` tests. Extracted from
+     * the test bodies as a one-liner so detekt's LongMethod stays under the
+     * 60-line threshold without sacrificing the fail-loud guarantee.
+     */
+    private fun requireDocker() {
+        if (!isDockerAvailable()) {
+            fail("@Tag(\"docker\") test ran but Docker is unreachable")
+        }
+    }
+
     // -- Version / Help --
 
     @Test
@@ -279,9 +290,7 @@ class QodanaCommandTest {
     @Test
     @Tag("docker")
     fun `pull image pulls hello-world`() {
-        if (!isDockerAvailable()) {
-            fail("@Tag(\"docker\") test ran but Docker is unreachable")
-        }
+        requireDocker()
 
         val containerEngine = DockerJavaEngine()
         val command = PullCommand(containerEngine, terminal)
@@ -357,9 +366,7 @@ class QodanaCommandTest {
     fun `all commands with container`(
         @TempDir dir: Path,
     ) {
-        if (!isDockerAvailable()) {
-            fail("@Tag(\"docker\") test ran but Docker is unreachable")
-        }
+        requireDocker()
 
         val token = System.getenv("QODANA_LICENSE_ONLY_TOKEN")
         val image =

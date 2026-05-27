@@ -33,9 +33,10 @@ import kotlin.test.fail
 @Execution(ExecutionMode.SAME_THREAD)
 class MetadataHygieneTest {
     companion object {
-        private val PATTERNS = BannedMetadataPatterns.load(
-            Path.of("src/test/resources/banned-metadata-patterns.txt"),
-        )
+        private val PATTERNS =
+            BannedMetadataPatterns.load(
+                Path.of("src/test/resources/banned-metadata-patterns.txt"),
+            )
 
         private val METADATA_DIR =
             Paths.get(
