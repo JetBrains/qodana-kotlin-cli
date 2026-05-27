@@ -79,6 +79,29 @@ subprojects {
             environment("QODANA_LICENSE_ONLY_TOKEN", licenseOnlyToken)
         }
     }
+
+    tasks.register<Test>("nativeBinaryTest") {
+        group = "verification"
+        description =
+            "Runs @Tag(\"native-binary\") tests against a prebuilt qodana-cli native binary. " +
+                "Requires -Dtest.qodana.binary plus harness-specific -D flags; see " +
+                "NativeBinarySendSmokeTest and SarifCompareIntegrationTest for the input list."
+
+        val testTask = tasks.named<Test>("test").get()
+        testClassesDirs = testTask.testClassesDirs
+        classpath = testTask.classpath
+        useJUnitPlatform {
+            includeTags("native-binary")
+        }
+        shouldRunAfter(testTask)
+
+        // Forward the -D test.* system properties from the Gradle invocation to
+        // the test JVM, so CI can pass them on a single `./gradlew :qodana-cli:nativeBinaryTest -D...`.
+        System.getProperties()
+            .stringPropertyNames()
+            .filter { it.startsWith("test.") }
+            .forEach { systemProperty(it, System.getProperty(it)) }
+    }
 }
 
 tasks.register("parityTest") {

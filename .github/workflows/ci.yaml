@@ -108,3 +108,208 @@ jobs:
             ${{ matrix.module }}/build/native/nativeCompile/${{ matrix.module }}.exe
           if-no-files-found: error
           retention-days: 14
+
+  # End-to-end smoke for the qodana-cli native binary on every supported
+  # platform.  Exercises the actual runtime commands (scan, pull, view, send,
+  # show) against a real Docker daemon and a local mock cloud — see
+  # qodana-cli/src/test/kotlin/org/jetbrains/qodana/cli/NativeBinarySendSmokeTest.kt
+  # and qodana-cli/src/test/kotlin/org/jetbrains/qodana/cli/SarifCompareIntegrationTest.kt
+  # for the harnesses this job invokes.
+  #
+  # The `windows-amd64-on-arm` matrix entry validates the user-facing decision
+  # to ship only the amd64 Windows binary: it downloads the amd64 artifact and
+  # runs it on a Windows ARM runner so we detect any emulation regressions.
+  #
+  # Docker setup is OS-dependent:
+  #   - Linux: native engine, ready out of the box.
+  #   - macOS: install + start `colima`; docker-java connects via an explicit
+  #     `DOCKER_HOST` env var because it does NOT read Docker CLI contexts.
+  #   - Windows: switch Docker Desktop into Linux-containers mode; export
+  #     `DOCKER_HOST=npipe:////./pipe/docker_engine` for the same reason.
+  #
+  # Readiness loops use a portable epoch-bounded `until` rather than GNU
+  # `timeout`, which isn't on macOS by default.
+  native-e2e:
+    name: "E2E qodana-cli (${{ matrix.platform.tag }})"
+    needs: native-build
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { tag: linux-amd64,            artifact: qodana-cli-linux-amd64,   runner: ubuntu-latest,    setup: linux }
+          - { tag: linux-arm64,            artifact: qodana-cli-linux-arm64,   runner: ubuntu-24.04-arm, setup: linux }
+          - { tag: darwin-amd64,           artifact: qodana-cli-darwin-amd64,  runner: macos-15-intel,   setup: colima }
+          - { tag: darwin-arm64,           artifact: qodana-cli-darwin-arm64,  runner: macos-15,         setup: colima }
+          - { tag: windows-amd64,          artifact: qodana-cli-windows-amd64, runner: windows-latest,   setup: windows }
+          # User-requested coverage: amd64 binary on a Windows ARM runner. The
+          # `windows-11-arm` label is GA on public repos since 2025-08 and on
+          # private repos since 2026-01, so it's safe to depend on here.
+          - { tag: windows-amd64-on-arm,   artifact: qodana-cli-windows-amd64, runner: windows-11-arm,   setup: windows }
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      # The send-smoke step invokes `./gradlew :qodana-cli:test` to host the
+      # MockQDCloudHttpClient + S3 stub; that needs a JDK on PATH. Linux
+      # runners come pre-provisioned; on macOS / Windows we install it.
+      - name: Setup Java (macOS + Windows)
+        if: matrix.platform.setup == 'colima' || matrix.platform.setup == 'windows'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Docker (linux)
+        if: matrix.platform.setup == 'linux'
+        shell: bash
+        run: |
+          deadline=$(( $(date +%s) + 60 ))
+          until docker info >/dev/null 2>&1; do
+            sleep 1
+            [ "$(date +%s)" -lt "$deadline" ] || {
+              echo "::error::Docker did not become available within 60s"
+              exit 1
+            }
+          done
+          echo "Docker is ready."
+          docker version
+
+      - name: Docker (macOS via colima)
+        if: matrix.platform.setup == 'colima'
+        shell: bash
+        run: |
+          brew install colima docker
+          colima start --cpu 2 --memory 4 --disk 20
+          deadline=$(( $(date +%s) + 180 ))
+          until docker info >/dev/null 2>&1; do
+            sleep 2
+            [ "$(date +%s)" -lt "$deadline" ] || {
+              echo "::error::colima/docker did not become available within 180s"
+              exit 1
+            }
+          done
+          # docker-java doesn't read Docker CLI contexts; force the unix socket.
+          echo "DOCKER_HOST=unix://${HOME}/.colima/default/docker.sock" >> "$GITHUB_ENV"
+          docker version
+
+      - name: Docker (Windows, Linux engine)
+        if: matrix.platform.setup == 'windows'
+        shell: pwsh
+        run: |
+          $cliPath = "C:\Program Files\Docker\Docker\DockerCli.exe"
+          if (Test-Path $cliPath) {
+            & $cliPath -SwitchLinuxEngine
+          } else {
+            Write-Host "DockerCli.exe not found at $cliPath; assuming Linux containers already active."
+          }
+          $deadlineSeconds = 180
+          $sw = [System.Diagnostics.Stopwatch]::StartNew()
+          while ($sw.Elapsed.TotalSeconds -lt $deadlineSeconds) {
+            docker info > $null 2>&1
+            if ($LASTEXITCODE -eq 0) { break }
+            Start-Sleep -Seconds 2
+          }
+          docker info > $null 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Docker not ready in ${deadlineSeconds}s"
+            exit 1
+          }
+          # docker-java needs an explicit DOCKER_HOST on Windows.
+          "DOCKER_HOST=npipe:////./pipe/docker_engine" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          docker version
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.platform.artifact }}
+          path: ./bin
+
+      - name: chmod (POSIX)
+        if: matrix.platform.setup != 'windows'
+        shell: bash
+        run: chmod +x ./bin/qodana-cli
+
+      - name: Resolve binary path
+        id: bin
+        shell: bash
+        run: |
+          if [ -f ./bin/qodana-cli.exe ]; then
+            echo "path=$PWD/bin/qodana-cli.exe" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=$PWD/bin/qodana-cli" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Read linter tag
+        id: tag
+        shell: bash
+        run: |
+          tag=$(grep '^qodana-jvm-community-tag' gradle/libs.versions.toml | awk -F'"' '{print $2}')
+          test -n "$tag" || { echo "::error::failed to read linter tag from libs.versions.toml"; exit 1; }
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Pre-pull linter image
+        shell: bash
+        run: docker pull jetbrains/qodana-jvm-community:${{ steps.tag.outputs.tag }}
+
+      - name: Stage fixture
+        shell: bash
+        run: |
+          rm -rf project results-native results-jvm
+          cp -r qodana-cli/src/test/resources/scan-smoke-fixture project
+          mkdir -p results-native results-jvm
+
+      - name: scan (native)
+        shell: bash
+        run: |
+          ${{ steps.bin.outputs.path }} scan \
+            -i "$PWD/project" \
+            -o "$PWD/results-native" \
+            --repository-root "$PWD/project"
+
+      - name: Assert SARIF (native)
+        shell: bash
+        run: |
+          test -s results-native/qodana.sarif.json
+          grep -q '"results"' results-native/qodana.sarif.json
+          # The fixture's StringEquality target fires for the JVM-community
+          # linter; if the rule renames, the failure here points right at it.
+          grep -q 'StringEquality' results-native/qodana.sarif.json
+
+      - name: scan (JVM, for SARIF parity)
+        shell: bash
+        run: |
+          ./gradlew :qodana-cli:run --args="scan -i $PWD/project -o $PWD/results-jvm --repository-root $PWD/project"
+
+      - name: Assert structural SARIF equivalence (JVM vs native)
+        shell: bash
+        run: |
+          ./gradlew :qodana-cli:nativeBinaryTest --tests 'org.jetbrains.qodana.cli.SarifCompareIntegrationTest' \
+            -Dtest.sarif.jvm="$PWD/results-jvm/qodana.sarif.json" \
+            -Dtest.sarif.native="$PWD/results-native/qodana.sarif.json" \
+            -Dtest.project.dir="$PWD/project"
+
+      - name: pull (force re-pull so streaming Frame DTO fires)
+        shell: bash
+        run: |
+          docker image rm alpine:3.20 || true
+          ${{ steps.bin.outputs.path }} pull --image alpine:3.20
+
+      - name: view
+        shell: bash
+        run: ${{ steps.bin.outputs.path }} view -f results-native/qodana.sarif.json
+
+      - name: send (via NativeBinarySendSmokeTest harness)
+        shell: bash
+        # The harness runs on the JVM (hosts the in-process cloud + S3 stubs)
+        # and forks the native binary as a subprocess against them.
+        run: |
+          ./gradlew :qodana-cli:nativeBinaryTest --tests 'org.jetbrains.qodana.cli.NativeBinarySendSmokeTest' \
+            -Dtest.qodana.binary="${{ steps.bin.outputs.path }}" \
+            -Dtest.project.dir="$PWD/project" \
+            -Dtest.results.dir="$PWD/results-native"
+
+      - name: show --dir-only
+        shell: bash
+        run: ${{ steps.bin.outputs.path }} show -i "$PWD/project" -o "$PWD/results-native" --dir-only
