@@ -30,7 +30,13 @@ graalvmNative {
         // finalizes metadataCopy and removes them automatically.
         // The plugin's `accessFilterFiles` knob was tried first but doesn't
         // filter the test-class entries on 0.10.6 against our setup.
+        //
+        // Capture from BOTH `test` (non-Docker reflection — Clikt, Jackson,
+        // InitCommand's file IO, send via MockQDCloudHttpClient) AND
+        // `parityTest` (Docker-tagged tests — docker-java DTOs). The two sets
+        // are merged into the committed JSON via mergeWithExisting.
         metadataCopy {
+            inputTaskNames.add("test")
             inputTaskNames.add("parityTest")
             outputDirectories.add("src/main/resources/META-INF/native-image/org.jetbrains.qodana/${project.name}")
             mergeWithExisting.set(true)

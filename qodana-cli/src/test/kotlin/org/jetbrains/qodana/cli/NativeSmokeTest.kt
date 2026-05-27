@@ -282,6 +282,35 @@ class NativeSmokeTest {
 
     @Test
     @Tag("docker")
+    fun `imageExists exercises InspectImageResponse and NotFoundException`() =
+        runBlocking {
+            try {
+                DockerJavaEngine().info()
+            } catch (e: Exception) {
+                fail("@Tag(\"docker\") test ran but Docker is unreachable: ${e.message}")
+            }
+            // Pull alpine first so the existence check actually deserialises
+            // the full InspectImageResponse DTO (Codex critical #3: under the
+            // agent this records every accessed field, replacing the prior
+            // bare-name entry with the full reachable-fields metadata).
+            val engine = DockerJavaEngine()
+            engine.pull("alpine:3.20") { /* ignore stream */ }
+            assertTrue(
+                engine.imageExists("alpine:3.20"),
+                "alpine:3.20 should exist after pull (drives InspectImageResponse deserialization)",
+            )
+            // Force the NotFoundException code path (Codex warning): the
+            // exception type is thrown by docker-java when the image cannot
+            // be resolved, exercising its real deserialization path so the
+            // agent records the proper reflect-config entry.
+            assertTrue(
+                !engine.imageExists("definitely-missing-image-tag-qd14728:0.0.0"),
+                "missing image should return false (drives NotFoundException path)",
+            )
+        }
+
+    @Test
+    @Tag("docker")
     fun `pull command pulls an image via docker-java`() {
         try {
             runBlocking { DockerJavaEngine().info() }
