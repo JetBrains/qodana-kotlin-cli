@@ -71,7 +71,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -82,14 +82,15 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
     },
     {
         "name": "com.github.dockerjava.api.command.CreateContainerCmd",
-        "queryAllDeclaredMethods": true
+        "queryAllDeclaredMethods": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.command.CreateContainerResponse",
@@ -100,7 +101,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
@@ -115,35 +116,46 @@
                     "java.lang.String[]"
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.command.DockerCmd",
-        "queryAllDeclaredMethods": true
+        "queryAllDeclaredMethods": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.command.GraphData",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.command.GraphDriver",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.command.HealthState",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.command.HealthStateLog",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.command.InspectContainerResponse",
@@ -154,10 +166,12 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.command.InspectContainerResponse$ContainerState",
@@ -171,7 +185,8 @@
                     "com.github.dockerjava.api.command.InspectContainerResponse"
                 ]
             }
-        ]
+        ],
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.command.InspectContainerResponse$Mount",
@@ -182,16 +197,19 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.command.InspectContainerResponse$Node",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllPublicConstructors": true
+        "queryAllPublicConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.command.InspectImageResponse",
@@ -202,10 +220,12 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.command.RootFS",
@@ -216,14 +236,17 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.command.SyncDockerCmd",
-        "queryAllDeclaredMethods": true
+        "queryAllDeclaredMethods": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.exception.NotFoundException"
@@ -231,30 +254,38 @@
     {
         "name": "com.github.dockerjava.api.model.AccessMode",
         "allDeclaredFields": true,
-        "queryAllDeclaredMethods": true
+        "queryAllDeclaredMethods": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.AuthConfig",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.Bind",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.BindOptions",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.BindPropagation",
         "allDeclaredFields": true,
-        "queryAllDeclaredMethods": true
+        "queryAllDeclaredMethods": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.Binds",
@@ -271,33 +302,42 @@
             {
                 "name": "toPrimitive",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.BlkioRateDevice",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.BlkioWeightDevice",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.Capability",
         "allDeclaredFields": true,
-        "queryAllDeclaredMethods": true
+        "queryAllDeclaredMethods": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.ClusterInfo",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.ContainerConfig",
@@ -308,10 +348,12 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.ContainerNetwork",
@@ -322,28 +364,36 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.ContainerNetwork$Ipam",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.Device",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.DeviceRequest",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.DockerObject",
@@ -353,22 +403,27 @@
             {
                 "name": "getRawValues",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.Driver",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.ExposedPort",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.ExposedPorts",
@@ -379,21 +434,26 @@
             {
                 "name": "toPrimitive",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.ExternalCA",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.ExternalCAProtocol",
         "allDeclaredFields": true,
-        "queryAllDeclaredMethods": true
+        "queryAllDeclaredMethods": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.Frame"
@@ -402,7 +462,9 @@
         "name": "com.github.dockerjava.api.model.HealthCheck",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.HostConfig",
@@ -413,406 +475,408 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getAutoRemove",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getBlkioDeviceReadBps",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getBlkioDeviceReadIOps",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getBlkioDeviceWriteBps",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getBlkioDeviceWriteIOps",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getBlkioWeight",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getBlkioWeightDevice",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getCapAdd",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getCapDrop",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getCgroup",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getCgroupParent",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getCgroupnsMode",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getConsoleSize",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getContainerIDFile",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getCpuCount",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getCpuPercent",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getCpuPeriod",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getCpuQuota",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getCpuRealtimePeriod",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getCpuRealtimeRuntime",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getCpuShares",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getCpusetCpus",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getCpusetMems",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getDeviceCgroupRules",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getDeviceRequests",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getDevices",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getDiskQuota",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getDns",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getDnsOptions",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getDnsSearch",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getExtraHosts",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getGroupAdd",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getInit",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getIoMaximumBandwidth",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getIoMaximumIOps",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getIpcMode",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getIsolation",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getKernelMemory",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getLxcConf",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getMemory",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getMemoryReservation",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getMemorySwap",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getMemorySwappiness",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getMounts",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getNanoCPUs",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getNetworkMode",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getOomKillDisable",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getOomScoreAdj",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getPidMode",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getPidsLimit",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getPortBindings",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getPrivileged",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getPublishAllPorts",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getReadonlyRootfs",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getRestartPolicy",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getRuntime",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getSecurityOpts",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getShmSize",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getStorageOpt",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getSysctls",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getTmpFs",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getUlimits",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getUsernsMode",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getUtSMode",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getVolumeDriver",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getVolumesFrom",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.Info",
@@ -823,10 +887,12 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.InfoRegistryConfig",
@@ -837,10 +903,12 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.InfoRegistryConfig$IndexConfig",
@@ -851,15 +919,18 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.InternetProtocol",
         "allDeclaredFields": true,
-        "queryAllDeclaredMethods": true
+        "queryAllDeclaredMethods": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.Isolation",
@@ -872,19 +943,24 @@
                     "java.lang.String"
                 ]
             }
-        ]
+        ],
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.Link",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.Links",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.LocalNodeState",
@@ -897,7 +973,8 @@
                     "java.lang.String"
                 ]
             }
-        ]
+        ],
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.LogConfig",
@@ -908,7 +985,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
@@ -917,7 +994,9 @@
                     "com.github.dockerjava.api.model.LogConfig$LoggingType"
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.LogConfig$LoggingType",
@@ -930,24 +1009,30 @@
                     "java.lang.String"
                 ]
             }
-        ]
+        ],
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.LxcConf",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.Mount",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.MountType",
         "allDeclaredFields": true,
-        "queryAllDeclaredMethods": true
+        "queryAllDeclaredMethods": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.NetworkSettings",
@@ -958,16 +1043,20 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.PeerNode",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.Ports",
@@ -981,18 +1070,23 @@
                     "java.util.Map"
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.Ports$Binding",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.PropagationMode",
         "allDeclaredFields": true,
-        "queryAllDeclaredMethods": true
+        "queryAllDeclaredMethods": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.PullResponseItem",
@@ -1003,33 +1097,42 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.ResourceVersion",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.ResponseItem",
         "allDeclaredFields": true,
-        "queryAllDeclaredMethods": true
+        "queryAllDeclaredMethods": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.ResponseItem$AuxDetail",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.ResponseItem$ErrorDetail",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.ResponseItem$ProgressDetail",
@@ -1040,10 +1143,12 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.RestartPolicy",
@@ -1054,10 +1159,12 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.RuntimeInfo",
@@ -1068,7 +1175,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
@@ -1077,24 +1184,31 @@
                     "java.lang.String"
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.SELContext",
         "allDeclaredFields": true,
-        "queryAllDeclaredMethods": true
+        "queryAllDeclaredMethods": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.SwarmCAConfig",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.SwarmDispatcherConfig",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.SwarmInfo",
@@ -1105,46 +1219,60 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.SwarmOrchestration",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.SwarmRaftConfig",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.SwarmSpec",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.TaskDefaults",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.TmpfsOptions",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.Ulimit",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.Version",
@@ -1155,10 +1283,12 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.VersionComponent",
@@ -1169,10 +1299,12 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.VersionPlatform",
@@ -1183,10 +1315,12 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.Volume",
@@ -1200,31 +1334,41 @@
                     "java.lang.String"
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.VolumeBind",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.VolumeBinds",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.VolumeOptions",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.VolumeRW",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.Volumes",
@@ -1235,22 +1379,28 @@
             {
                 "name": "toPrimitive",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.VolumesFrom",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.VolumesRW",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.api.model.WaitResponse",
@@ -1261,10 +1411,12 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.core.DockerConfigFile",
@@ -1275,7 +1427,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
@@ -1290,7 +1442,9 @@
                     "java.lang.String"
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.core.DockerContextMetaFile",
@@ -1301,10 +1455,12 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.core.DockerContextMetaFile$Endpoints",
@@ -1315,10 +1471,12 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.core.DockerContextMetaFile$Endpoints$Docker",
@@ -1329,21 +1487,26 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
-        ]
+        ],
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.core.command.AbstrDockerCmd",
         "allDeclaredFields": true,
-        "queryAllDeclaredMethods": true
+        "queryAllDeclaredMethods": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.github.dockerjava.core.command.CreateContainerCmdImpl",
         "allDeclaredFields": true,
         "queryAllDeclaredMethods": true,
-        "queryAllDeclaredConstructors": true
+        "queryAllDeclaredConstructors": true,
+        "allDeclaredConstructors": true,
+        "allDeclaredMethods": true
     },
     {
         "name": "com.jetbrains.qodana.sarif.model.Address",
@@ -1352,7 +1515,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1364,7 +1527,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1376,7 +1539,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1388,7 +1551,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1400,7 +1563,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1412,7 +1575,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1424,7 +1587,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1436,7 +1599,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1452,7 +1615,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1464,7 +1627,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1476,7 +1639,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1488,7 +1651,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1500,7 +1663,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1512,7 +1675,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1528,7 +1691,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1540,7 +1703,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1552,7 +1715,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1564,7 +1727,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1576,7 +1739,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1588,7 +1751,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1600,7 +1763,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1612,7 +1775,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1624,7 +1787,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1636,7 +1799,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1648,7 +1811,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1660,7 +1823,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1672,7 +1835,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1684,7 +1847,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1696,7 +1859,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1712,7 +1875,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1724,7 +1887,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1736,7 +1899,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1748,7 +1911,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1760,7 +1923,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1772,7 +1935,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1784,7 +1947,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1796,7 +1959,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1811,7 +1974,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1823,7 +1986,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1835,7 +1998,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1847,7 +2010,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1859,7 +2022,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1871,7 +2034,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1883,7 +2046,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1895,7 +2058,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1907,7 +2070,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1919,7 +2082,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1931,7 +2094,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1951,7 +2114,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1967,7 +2130,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1983,7 +2146,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -1995,7 +2158,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2011,7 +2174,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2023,7 +2186,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2035,7 +2198,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2047,7 +2210,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2059,7 +2222,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2079,7 +2242,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2091,7 +2254,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2107,7 +2270,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2119,7 +2282,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2131,7 +2294,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2143,7 +2306,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2155,7 +2318,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2166,7 +2329,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2178,7 +2341,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2190,7 +2353,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2201,7 +2364,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2212,7 +2375,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2223,7 +2386,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2234,7 +2397,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2245,7 +2408,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2256,7 +2419,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2267,7 +2430,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2278,7 +2441,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2289,7 +2452,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2341,13 +2504,13 @@
             {
                 "name": "hashCode",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "toString",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2400,7 +2563,7 @@
             {
                 "name": "lookup",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
@@ -2465,13 +2628,13 @@
             {
                 "name": "isDefault",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "isVarArgs",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2523,7 +2686,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2540,7 +2703,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2554,7 +2717,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2565,7 +2728,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2576,7 +2739,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2692,49 +2855,49 @@
             {
                 "name": "bv",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "d1",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "d2",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "k",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "mv",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "pn",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "xi",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "xs",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -2780,7 +2943,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3244,31 +3407,31 @@
             {
                 "name": "component1",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "component2",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "component3",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "component4",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "component5",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
@@ -3290,43 +3453,43 @@
             {
                 "name": "getConfiguration",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getFrameworks",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getPlatform",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getProject",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "getSolution",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "hashCode",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
                 "name": "isEmpty",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3592,7 +3755,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3604,7 +3767,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3616,7 +3779,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3628,7 +3791,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3640,7 +3803,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3652,7 +3815,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3664,7 +3827,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3676,7 +3839,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3700,7 +3863,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3712,7 +3875,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3724,7 +3887,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3736,7 +3899,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3763,7 +3926,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3774,7 +3937,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3785,7 +3948,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3796,7 +3959,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3807,7 +3970,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3818,7 +3981,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3829,7 +3992,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3840,7 +4003,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
@@ -3857,7 +4020,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             },
             {
@@ -3874,7 +4037,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3885,7 +4048,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3896,7 +4059,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3907,7 +4070,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3918,7 +4081,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3929,7 +4092,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3940,7 +4103,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3951,7 +4114,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3962,7 +4125,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3973,7 +4136,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3984,7 +4147,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -3995,7 +4158,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -4006,7 +4169,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -4017,7 +4180,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -4028,7 +4191,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]
@@ -4039,7 +4202,7 @@
             {
                 "name": "<init>",
                 "parameterTypes": [
-
+                    
                 ]
             }
         ]

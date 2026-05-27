@@ -135,6 +135,22 @@ val (testClassPrefixes, testResourceSubstrings) = loadBannedMetadataPatterns(ban
  * proxy-config.json, serialization-config.json, and predefined-classes-config.json
  * contain no test-class entries and are left untouched.
  */
+// Class-name prefixes for which we promote `queryAllDeclared{Methods,Constructors}`
+// to `allDeclared{Methods,Constructors}`. The tracing agent records the
+// strongest mode it actually saw (e.g. `queryAll` if code called
+// `Class.getMethods()`); but docker-java's Jackson deserialiser invokes
+// constructors and methods reflectively at runtime via `Constructor.newInstance`
+// + `Method.invoke`, which requires the stronger `allDeclared*` form. On a
+// developer machine with a logged-in Docker daemon the agent typically sees
+// constructor invocation directly and emits `allDeclared*`; on a CI runner
+// with no Docker auth, the agent only sees the query path. Promoting these
+// prefixes covers both cases reliably.
+val reflectivelyInvokedPackagePrefixes =
+    listOf(
+        "com.github.dockerjava.api.",
+        "com.github.dockerjava.core.",
+    )
+
 val stripTestEntriesFromMetadata by tasks.registering {
     val metadataDir =
         layout.projectDirectory.dir(
@@ -158,18 +174,52 @@ val stripTestEntriesFromMetadata by tasks.registering {
 
         fun Map<*, *>.toJson(): String = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(this))
 
+        fun isReflectivelyInvoked(name: String): Boolean =
+            reflectivelyInvokedPackagePrefixes.any { name.startsWith(it) }
+
+        // For docker-java DTOs the agent often records only `queryAllDeclared*`
+        // (introspection via Class.getMethods()), but Jackson + docker-java
+        // actually invoke constructors and methods via Constructor.newInstance()
+        // and Method.invoke(). Promote query-only entries to the full
+        // `allDeclared*` form so the native binary doesn't throw
+        // MissingReflectionRegistrationError on CI runners where the agent
+        // happened not to see the invocation path locally.
+        fun promoteReflection(entry: Map<String, Any>): Map<String, Any> {
+            val name = entry["name"]?.toString().orEmpty()
+            if (!isReflectivelyInvoked(name)) return entry
+            val updated = entry.toMutableMap()
+            if (updated["queryAllDeclaredConstructors"] == true && updated["allDeclaredConstructors"] != true) {
+                updated["allDeclaredConstructors"] = true
+            }
+            if (updated["queryAllDeclaredMethods"] == true && updated["allDeclaredMethods"] != true) {
+                updated["allDeclaredMethods"] = true
+            }
+            return updated
+        }
+
         // reflect-config.json -----
         val reflectFile = metadataDir.file("reflect-config.json").asFile
         if (reflectFile.exists()) {
             @Suppress("UNCHECKED_CAST")
             val entries = slurper.parse(reflectFile) as List<Map<String, Any>>
             val stripped = entries.filterNot { isTestName(it["name"]?.toString().orEmpty()) }
-            if (stripped.size != entries.size) {
-                reflectFile.writeText(stripped.toJson())
-                logger.lifecycle(
-                    "stripTestEntriesFromMetadata: removed {} test entries from reflect-config.json",
-                    entries.size - stripped.size,
-                )
+            val promoted = stripped.map(::promoteReflection)
+            val promotionsCount =
+                promoted.zip(stripped).count { (after, before) -> after != before }
+            if (stripped.size != entries.size || promotionsCount > 0) {
+                reflectFile.writeText(promoted.toJson())
+                if (stripped.size != entries.size) {
+                    logger.lifecycle(
+                        "stripTestEntriesFromMetadata: removed {} test entries from reflect-config.json",
+                        entries.size - stripped.size,
+                    )
+                }
+                if (promotionsCount > 0) {
+                    logger.lifecycle(
+                        "stripTestEntriesFromMetadata: promoted {} docker-java DTOs to allDeclared{{Methods,Constructors}}",
+                        promotionsCount,
+                    )
+                }
             }
         }
 
