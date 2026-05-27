@@ -141,17 +141,18 @@ jobs:
           - { tag: darwin-amd64,           artifact: qodana-cli-darwin-amd64,  runner: macos-15-intel,   setup: colima,  docker: true  }
           - { tag: darwin-arm64,           artifact: qodana-cli-darwin-arm64,  runner: macos-15,         setup: colima,  docker: true  }
           - { tag: windows-amd64,          artifact: qodana-cli-windows-amd64, runner: windows-latest,   setup: windows, docker: true  }
-          # User-requested coverage: amd64 binary on a Windows ARM runner. The
-          # `windows-11-arm` label is GA on public repos since 2025-08 and on
-          # private repos since 2026-01. Docker Desktop is NOT preinstalled
-          # on this image (confirmed at
-          # https://github.com/actions/partner-runner-images/blob/main/images/arm-windows-11-image.md),
-          # so this matrix entry skips Docker-dependent steps. Non-Docker
-          # commands (--version, --help, view, init, send via local mock)
-          # still run, validating that the amd64 binary actually executes on
-          # Windows ARM — which is the user-facing question that motivated
-          # this entry.
-          - { tag: windows-amd64-on-arm,   artifact: qodana-cli-windows-amd64, runner: windows-11-arm,   setup: windows, docker: false }
+          # NOTE: `windows-amd64-on-arm` (running the amd64 binary on a
+          # `windows-11-arm` runner) is NOT in this matrix. The shipped
+          # binary is built without `-march=compatibility`, so it requires
+          # native x86_64 features (CX8, MMX, SSE*, POPCNT, LZCNT, AVX*,
+          # BMI*, FMA) that the runner's Prism x86 emulation layer doesn't
+          # expose — the binary immediately exits with
+          # "The current machine does not support all of the following CPU
+          # features... Please rebuild the executable with an appropriate
+          # setting of the -march option." Re-enabling this coverage
+          # requires a separate "compatibility-mode" binary build (tracked
+          # in QD-14819). Re-add the entry there. See CONTRIBUTING.md for
+          # the user-facing limitation.
     runs-on: ${{ matrix.platform.runner }}
     timeout-minutes: 45
     steps:
@@ -189,12 +190,16 @@ jobs:
         shell: bash
         run: |
           brew install colima docker
-          colima start --cpu 2 --memory 4 --disk 20
-          deadline=$(( $(date +%s) + 180 ))
+          # `--vm-type qemu` is more reliable on macOS 15 than the default
+          # Apple Virtualization Framework (vz), which has fatal-start
+          # regressions on colima 0.10 / macos-15 runners. qemu adds ~30s
+          # to startup but completes deterministically.
+          colima start --vm-type qemu --cpu 2 --memory 4 --disk 20
+          deadline=$(( $(date +%s) + 240 ))
           until docker info >/dev/null 2>&1; do
             sleep 2
             [ "$(date +%s)" -lt "$deadline" ] || {
-              echo "::error::colima/docker did not become available within 180s"
+              echo "::error::colima/docker did not become available within 240s"
               exit 1
             }
           done
