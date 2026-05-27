@@ -122,10 +122,29 @@ val bannedMetadataPatternsFile = file("src/test/resources/banned-metadata-patter
 val (testClassPrefixes, testResourceSubstrings) = loadBannedMetadataPatterns(bannedMetadataPatternsFile)
 
 /**
+ * Class-name prefixes for which we promote `queryAllDeclared{Methods,Constructors}`
+ * to `allDeclared{Methods,Constructors}`. The tracing agent records the strongest
+ * mode it actually saw (e.g. `queryAll` if code called `Class.getMethods()`); but
+ * docker-java's Jackson deserialiser invokes constructors and methods reflectively
+ * at runtime via `Constructor.newInstance` + `Method.invoke`, which requires the
+ * stronger `allDeclared*` form. On a developer machine with a logged-in Docker
+ * daemon the agent typically sees constructor invocation directly and emits
+ * `allDeclared*`; on a CI runner with no Docker auth, the agent only sees the
+ * query path. Promoting these prefixes covers both cases reliably.
+ */
+val reflectivelyInvokedPackagePrefixes =
+    listOf(
+        "com.github.dockerjava.api.",
+        "com.github.dockerjava.core.",
+    )
+
+/**
  * Removes test-infrastructure entries from every GraalVM native-image metadata
- * JSON file after [metadataCopy] writes them to the source tree.  The task is
- * registered as a finalizer of [metadataCopy] so it runs automatically whenever
- * the agent pipeline produces new metadata.
+ * JSON file after [metadataCopy] writes them to the source tree, and promotes
+ * `queryAllDeclared*` entries for [reflectivelyInvokedPackagePrefixes] classes
+ * to the stronger `allDeclared*` form. The task is registered as a finalizer of
+ * [metadataCopy] so it runs automatically whenever the agent pipeline produces
+ * new metadata.
  *
  * Files modified in-place (relative to the metadata output directory):
  *   - reflect-config.json  — JSON array keyed on "name"
@@ -135,22 +154,6 @@ val (testClassPrefixes, testResourceSubstrings) = loadBannedMetadataPatterns(ban
  * proxy-config.json, serialization-config.json, and predefined-classes-config.json
  * contain no test-class entries and are left untouched.
  */
-// Class-name prefixes for which we promote `queryAllDeclared{Methods,Constructors}`
-// to `allDeclared{Methods,Constructors}`. The tracing agent records the
-// strongest mode it actually saw (e.g. `queryAll` if code called
-// `Class.getMethods()`); but docker-java's Jackson deserialiser invokes
-// constructors and methods reflectively at runtime via `Constructor.newInstance`
-// + `Method.invoke`, which requires the stronger `allDeclared*` form. On a
-// developer machine with a logged-in Docker daemon the agent typically sees
-// constructor invocation directly and emits `allDeclared*`; on a CI runner
-// with no Docker auth, the agent only sees the query path. Promoting these
-// prefixes covers both cases reliably.
-val reflectivelyInvokedPackagePrefixes =
-    listOf(
-        "com.github.dockerjava.api.",
-        "com.github.dockerjava.core.",
-    )
-
 val stripTestEntriesFromMetadata by tasks.registering {
     val metadataDir =
         layout.projectDirectory.dir(
@@ -174,8 +177,7 @@ val stripTestEntriesFromMetadata by tasks.registering {
 
         fun Map<*, *>.toJson(): String = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(this))
 
-        fun isReflectivelyInvoked(name: String): Boolean =
-            reflectivelyInvokedPackagePrefixes.any { name.startsWith(it) }
+        fun isReflectivelyInvoked(name: String): Boolean = reflectivelyInvokedPackagePrefixes.any { name.startsWith(it) }
 
         // For docker-java DTOs the agent often records only `queryAllDeclared*`
         // (introspection via Class.getMethods()), but Jackson + docker-java
