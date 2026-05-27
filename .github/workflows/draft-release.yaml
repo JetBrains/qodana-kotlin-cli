@@ -110,7 +110,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew --quiet checkVersion -PrequireExact='${{ inputs.version }}'
+          ./gradlew checkVersion -PrequireExact='${{ inputs.version }}'
 
       - name: Reject pre-existing release
         shell: bash
@@ -164,14 +164,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew --quiet :qodana-cli:cyclonedxDirectBom -Pversion='${{ needs.validate.outputs.version }}'
+          ./gradlew :qodana-cli:cyclonedxDirectBom -Pversion='${{ needs.validate.outputs.version }}'
 
       - name: Generate clang/cdnet SBOMs
         if: ${{ !inputs.cli-only }}
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew --quiet \
+          ./gradlew \
             :qodana-clang:cyclonedxDirectBom \
             :qodana-cdnet:cyclonedxDirectBom \
             -Pversion='${{ needs.validate.outputs.version }}'
