@@ -179,14 +179,28 @@ jobs:
             :qodana-cdnet:cyclonedxDirectBom \
             -Pversion='${{ needs.validate.outputs.version }}'
 
+      # Stage SBOM files into a flat directory before upload. `actions/upload-artifact@v4` with a
+      # multi-line `path:` preserves the workspace-relative directory hierarchy, which would land the
+      # files at `dist/qodana-cli/build/release/qodana-cli-sbom.json` after download — the assemble
+      # step expects them flat at `dist/qodana-cli-sbom.json`. Staging into one dir + uploading the
+      # dir (trailing slash) puts the files at the artifact root.
+      - name: Stage SBOM files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p sbom-stage
+          cp qodana-cli/build/release/qodana-cli-sbom.json sbom-stage/
+          if [ '${{ inputs.cli-only }}' != 'true' ]; then
+            cp qodana-clang/build/release/qodana-clang-sbom.json sbom-stage/
+            cp qodana-cdnet/build/release/qodana-cdnet-sbom.json sbom-stage/
+          fi
+          ls -la sbom-stage/
+
       - uses: actions/upload-artifact@v4
         with:
           name: sbom
-          path: |
-            qodana-cli/build/release/qodana-cli-sbom.json
-            qodana-clang/build/release/qodana-clang-sbom.json
-            qodana-cdnet/build/release/qodana-cdnet-sbom.json
-          if-no-files-found: ignore
+          path: sbom-stage/
+          if-no-files-found: error
           retention-days: 14
 
   build-cli:
