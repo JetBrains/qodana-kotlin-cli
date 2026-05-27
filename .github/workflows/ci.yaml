@@ -116,14 +116,14 @@ jobs:
   # and qodana-cli/src/test/kotlin/org/jetbrains/qodana/cli/SarifCompareIntegrationTest.kt
   # for the harnesses this job invokes.
   #
-  # The `windows-amd64-on-arm` matrix entry validates the user-facing decision
-  # to ship only the amd64 Windows binary: it downloads the amd64 artifact and
-  # runs it on a Windows ARM runner so we detect any emulation regressions.
-  #
   # Docker setup is OS-dependent:
   #   - Linux: native engine, ready out of the box.
-  #   - macOS: install + start `colima`; docker-java connects via an explicit
-  #     `DOCKER_HOST` env var because it does NOT read Docker CLI contexts.
+  #   - macOS (Intel only): use the vendored ./.github/actions/setup-docker
+  #     action, which pins QEMU 10.1.1 and stands up Lima + Docker via
+  #     docker/setup-docker-action@v4 — the same combo battle-tested by
+  #     the sibling Go CLI repo (JetBrains/qodana-cli). The previous
+  #     hand-rolled colima setup hit a virtiofs/9p limitation that broke
+  #     the IntelliJ DirectoryLock socket inside qodana-jvm-community.
   #   - Windows: switch Docker Desktop into Linux-containers mode; export
   #     `DOCKER_HOST=npipe:////./pipe/docker_engine` for the same reason.
   #
@@ -138,7 +138,15 @@ jobs:
         platform:
           - { tag: linux-amd64,            artifact: qodana-cli-linux-amd64,   runner: ubuntu-latest,    setup: linux,   docker: true  }
           - { tag: linux-arm64,            artifact: qodana-cli-linux-arm64,   runner: ubuntu-24.04-arm, setup: linux,   docker: true  }
-          - { tag: darwin-amd64,           artifact: qodana-cli-darwin-amd64,  runner: macos-15-intel,   setup: colima,  docker: true  }
+          # `macos-15-large` is GitHub's paid Intel macOS larger runner.
+          # `macos-15-intel` (the smaller Intel runner) lacks reliable
+          # nested-virt support and the previous colima-based setup hit
+          # a virtiofs/9p limitation that broke the IntelliJ DirectoryLock
+          # socket inside the qodana-jvm-community linter container (see
+          # QD-14728 history). The sibling Go CLI repo runs on this same
+          # runner with `docker/setup-docker-action@v4` + a pinned QEMU
+          # 10.1.1 (vendored as ./.github/actions/setup-docker here).
+          - { tag: darwin-amd64,           artifact: qodana-cli-darwin-amd64,  runner: macos-15-large,   setup: macos,   docker: true  }
           # `macos-15` is GitHub's hosted Apple-Silicon (M1) arm64 runner,
           # itself a guest VM. Docker on macOS needs a Linux VM (colima /
           # Docker Desktop), which in turn needs nested virtualisation
@@ -146,20 +154,15 @@ jobs:
           # support at all, and the M3+ hardware capability isn't exposed
           # by GitHub's hypervisor yet — see
           # https://github.com/actions/runner-images/issues/9460 and the
-          # colima abiosoft/colima#1427 thread. Both VM backends fail:
-          #   * `--vm-type qemu` (lima 2.1.1): hostagent panics immediately
-          #     with "panic: send on closed channel" at qemu_driver.go:382
-          #     because Hypervisor.framework (`hvf` accelerator) returns
-          #     `HV_UNSUPPORTED`.
-          #   * `--vm-type vz`: Virtualization.framework refuses with
-          #     "Virtualization is not available on this hardware".
-          # Until GitHub exposes nested-virt on macos-15 arm64 (or we
-          # provision self-hosted M3+ runners), Docker-dependent E2E steps
-          # are gated off here. The non-Docker checks (--version, --help,
-          # view, send via NativeBinarySendSmokeTest) still run so we keep
-          # binary-level coverage on Apple Silicon. Tracked in QD-14821
-          # alongside any self-hosted-runner provisioning.
-          - { tag: darwin-arm64,           artifact: qodana-cli-darwin-arm64,  runner: macos-15,         setup: colima,  docker: false }
+          # colima abiosoft/colima#1427 thread. The sibling Go CLI repo
+          # confirms the same: it gates `container-engine: none` for this
+          # runner. Until GitHub exposes nested-virt on macos-15 arm64
+          # (or we provision self-hosted M3+ runners), Docker-dependent
+          # E2E steps are gated off here. The non-Docker checks
+          # (--version, --help, view, send via NativeBinarySendSmokeTest)
+          # still run so we keep binary-level coverage on Apple Silicon.
+          # Tracked in QD-14821 alongside any self-hosted-runner provisioning.
+          - { tag: darwin-arm64,           artifact: qodana-cli-darwin-arm64,  runner: macos-15,         setup: macos,   docker: false }
           # `windows-latest` runs the Docker engine in Windows-containers mode
           # and does NOT support Linux containers — GitHub's hosted Windows
           # runners are nested VMs and the hypervisor blocks WSL2 / Hyper-V
@@ -191,7 +194,7 @@ jobs:
       # MockQDCloudHttpClient + S3 stub; that needs a JDK on PATH. Linux
       # runners come pre-provisioned; on macOS / Windows we install it.
       - name: Setup Java (macOS + Windows)
-        if: matrix.platform.setup == 'colima' || matrix.platform.setup == 'windows'
+        if: matrix.platform.setup == 'macos' || matrix.platform.setup == 'windows'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -222,49 +225,14 @@ jobs:
           echo "UID=$(id -u)" >> "$GITHUB_ENV"
           echo "GID=$(id -g)" >> "$GITHUB_ENV"
 
-      - name: Docker (macOS via colima)
-        if: matrix.platform.docker && matrix.platform.setup == 'colima'
-        shell: bash
-        run: |
-          brew install colima docker qemu
-          # Different VM driver per architecture:
-          #   - Apple Silicon (arm64): use Apple's native Virtualization.framework
-          #     (`--vm-type vz --arch aarch64`). qemu on lima 2.1.1 panics
-          #     immediately on macos-15 arm64 runners with
-          #     "panic: send on closed channel" in qemu_driver.go:382 —
-          #     see colima/colima#1211 + PR #12 CI run 26512208523.
-          #     The qodana-jvm-community linter image is published for
-          #     linux/arm64 too (see `docker manifest inspect`), so this
-          #     runs the linter natively without amd64 emulation.
-          #   - Intel (x86_64): keep qemu — vz on colima 0.10 / macos-15
-          #     Intel runners had fatal-start regressions. qemu adds ~30s
-          #     to startup but completes deterministically.
-          arch=$(uname -m)
-          if [ "$arch" = "arm64" ]; then
-            colima start --vm-type vz --arch aarch64 --cpu 2 --memory 4 --disk 20
-          else
-            colima start --vm-type qemu --cpu 2 --memory 4 --disk 20
-          fi
-          deadline=$(( $(date +%s) + 240 ))
-          until docker info >/dev/null 2>&1; do
-            sleep 2
-            [ "$(date +%s)" -lt "$deadline" ] || {
-              echo "::error::colima/docker did not become available within 240s"
-              exit 1
-            }
-          done
-          # docker-java doesn't read Docker CLI contexts; force the unix socket.
-          echo "DOCKER_HOST=unix://${HOME}/.colima/default/docker.sock" >> "$GITHUB_ENV"
-          docker version
-          # NOTE: Do NOT export $UID/$GID on macOS. The host UID (501) has
-          # no /etc/passwd entry inside the linter image, so the IDE's
-          # bootstrap can't resolve $HOME and crashes when binding the
-          # DirectoryLock socket at /root/.config/idea/.lock (observed on
-          # PR #12 CI run 26516781088). colima's virtiofs handles bind-
-          # mount UID mapping transparently — root-owned writes inside the
-          # container do NOT appear root-owned on the host filesystem, so
-          # the cleanup issue the Linux step fights with doesn't apply
-          # here. Only Linux runners need the UID/GID export.
+      # Vendored from JetBrains/qodana-cli (Go). Pins QEMU 10.1.1 + uses
+      # docker/setup-docker-action@v4. Apache-2.0; see the action file
+      # header for full attribution.
+      - name: Docker (macOS via vendored setup-docker action)
+        if: matrix.platform.docker && matrix.platform.setup == 'macos'
+        uses: ./.github/actions/setup-docker
+        with:
+          version: latest
 
       - name: Docker (Windows, Linux engine)
         if: matrix.platform.docker && matrix.platform.setup == 'windows'
