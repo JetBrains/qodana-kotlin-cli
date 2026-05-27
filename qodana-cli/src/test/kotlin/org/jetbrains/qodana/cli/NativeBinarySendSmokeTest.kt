@@ -138,21 +138,17 @@ class NativeBinarySendSmokeTest {
                 """{"id":"proj1","organizationId":"org1","name":"sample-project"}""",
             )
         }
-        cloudServer.createContext("/v1/projects") { ex ->
-            // QDCloudClient.v1().projectApi(token).reports.*. The cloud-client
-            // library uses /v1/projects/{token}/... — accept any sub-path under
-            // /v1/projects and route based on the trailing segment.
-            handleV1Projects(ex, cloudUrl = cloudUrl, s3Url = s3Url)
-        }
         cloudServer.createContext("/") { ex ->
-            // Default handler: anything we forgot to wire up. Surfacing the
-            // path here makes it cheap to fix locally rather than chasing a
-            // generic "404" failure on CI.
-            ex.respondJson(404, """{"error":"unhandled path: ${ex.requestURI.path}"}""")
+            // Publisher endpoints live directly under the cloud root (no
+            // /v1/projects/{token}/ prefix). Empirically the native binary
+            // POSTs to "/reports/" and "/reports/{id}/finish/" — observed via
+            // a tcpdump-style HTTP mock on darwin-arm64. Anything else here
+            // surfaces the unhandled path so failures are easy to localise.
+            handlePublisherOrDefault(ex, cloudUrl = cloudUrl, s3Url = s3Url)
         }
     }
 
-    private fun handleV1Projects(
+    private fun handlePublisherOrDefault(
         ex: HttpExchange,
         cloudUrl: String,
         s3Url: String,
@@ -171,7 +167,7 @@ class NativeBinarySendSmokeTest {
                     """{"token":"finished-token","url":"$cloudUrl/reports/r1"}""",
                 )
             }
-            else -> ex.respondJson(404, """{"error":"unknown sub-path: $path"}""")
+            else -> ex.respondJson(404, """{"error":"unhandled path: $path"}""")
         }
     }
 
