@@ -256,13 +256,15 @@ jobs:
           # docker-java doesn't read Docker CLI contexts; force the unix socket.
           echo "DOCKER_HOST=unix://${HOME}/.colima/default/docker.sock" >> "$GITHUB_ENV"
           docker version
-          # The native binary picks the container user from $UID/$GID
-          # (ContainerImageUtils.getDefaultUser); without exporting them
-          # here the linter container writes its bind-mounted report dir
-          # as root and the host can't clean up afterwards. Same root
-          # cause as the Linux fix above.
-          echo "UID=$(id -u)" >> "$GITHUB_ENV"
-          echo "GID=$(id -g)" >> "$GITHUB_ENV"
+          # NOTE: Do NOT export $UID/$GID on macOS. The host UID (501) has
+          # no /etc/passwd entry inside the linter image, so the IDE's
+          # bootstrap can't resolve $HOME and crashes when binding the
+          # DirectoryLock socket at /root/.config/idea/.lock (observed on
+          # PR #12 CI run 26516781088). colima's virtiofs handles bind-
+          # mount UID mapping transparently — root-owned writes inside the
+          # container do NOT appear root-owned on the host filesystem, so
+          # the cleanup issue the Linux step fights with doesn't apply
+          # here. Only Linux runners need the UID/GID export.
 
       - name: Docker (Windows, Linux engine)
         if: matrix.platform.docker && matrix.platform.setup == 'windows'
