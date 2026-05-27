@@ -139,7 +139,27 @@ jobs:
           - { tag: linux-amd64,            artifact: qodana-cli-linux-amd64,   runner: ubuntu-latest,    setup: linux,   docker: true  }
           - { tag: linux-arm64,            artifact: qodana-cli-linux-arm64,   runner: ubuntu-24.04-arm, setup: linux,   docker: true  }
           - { tag: darwin-amd64,           artifact: qodana-cli-darwin-amd64,  runner: macos-15-intel,   setup: colima,  docker: true  }
-          - { tag: darwin-arm64,           artifact: qodana-cli-darwin-arm64,  runner: macos-15,         setup: colima,  docker: true  }
+          # `macos-15` is GitHub's hosted Apple-Silicon (M1) arm64 runner,
+          # itself a guest VM. Docker on macOS needs a Linux VM (colima /
+          # Docker Desktop), which in turn needs nested virtualisation
+          # support from the host hypervisor. M1 Macs have no nested-virt
+          # support at all, and the M3+ hardware capability isn't exposed
+          # by GitHub's hypervisor yet — see
+          # https://github.com/actions/runner-images/issues/9460 and the
+          # colima abiosoft/colima#1427 thread. Both VM backends fail:
+          #   * `--vm-type qemu` (lima 2.1.1): hostagent panics immediately
+          #     with "panic: send on closed channel" at qemu_driver.go:382
+          #     because Hypervisor.framework (`hvf` accelerator) returns
+          #     `HV_UNSUPPORTED`.
+          #   * `--vm-type vz`: Virtualization.framework refuses with
+          #     "Virtualization is not available on this hardware".
+          # Until GitHub exposes nested-virt on macos-15 arm64 (or we
+          # provision self-hosted M3+ runners), Docker-dependent E2E steps
+          # are gated off here. The non-Docker checks (--version, --help,
+          # view, send via NativeBinarySendSmokeTest) still run so we keep
+          # binary-level coverage on Apple Silicon. Tracked in QD-14821
+          # alongside any self-hosted-runner provisioning.
+          - { tag: darwin-arm64,           artifact: qodana-cli-darwin-arm64,  runner: macos-15,         setup: colima,  docker: false }
           # `windows-latest` runs the Docker engine in Windows-containers mode
           # and does NOT support Linux containers — GitHub's hosted Windows
           # runners are nested VMs and the hypervisor blocks WSL2 / Hyper-V
