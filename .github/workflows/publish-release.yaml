@@ -10,7 +10,7 @@ name: Publish Release
 
 on:
   workflow_dispatch:
-    inputs:
+    inputs: &inputs
       version:
         description: 'Version (e.g. 2026.3.1 for tagged, or 2026.3.1-nightly for nightly)'
         required: true
@@ -40,13 +40,7 @@ on:
         type: string
         default: 'tagged'
   workflow_call:
-    inputs:
-      version: { required: true, type: string }
-      prerelease: { required: false, type: boolean, default: false }
-      latest: { required: false, type: boolean, default: true }
-      expected-sha: { required: true, type: string }
-      cli-only: { required: false, type: boolean, default: false }
-      mode: { required: false, type: string, default: 'tagged' }
+    inputs: *inputs
 
 permissions:
   contents: write
