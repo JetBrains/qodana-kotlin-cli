@@ -39,7 +39,7 @@ import org.jetbrains.qodana.engine.port.HttpResponse
 import org.jetbrains.qodana.engine.publisher.PublisherAdapter
 import org.jetbrains.qodana.engine.report.ReportPublishUseCase
 import org.jetbrains.qodana.engine.reportconverter.ReportConverterAdapter
-import org.junit.jupiter.api.Assumptions
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.net.InetSocketAddress
@@ -56,17 +56,19 @@ import kotlin.test.fail
 
 /**
  * Mirrors Main.kt's subcommand tree construction so we exercise the same
- * reflective surface the native binary will hit on the Phase-A code paths:
+ * reflective surface the native binary will hit at runtime:
  *
  *   - `--version`, `--help`
  *   - `<subcommand> --help` for each registered subcommand
- *   - `init` against a fixture project directory
+ *   - `init`, `view`, `show`, `send` (no Docker required)
+ *   - `scan`, `pull`, `info`, `version` (require a running Docker daemon —
+ *     tagged `@Tag("docker")`; executed by the `parityTest` Gradle task)
  *
  * Under `-Pagent`, this captures reachability metadata for Clikt's
- * option/argument reflection plus InitCommand's file-IO path. Heavy deps
- * (DockerJavaEngine, OkHttpTransport, etc.) stay behind `by lazy` and are
- * not constructed by any test here — matching the native binary's behaviour
- * for these subcommands. `scan` execution is out of scope (QD-14728).
+ * option/argument reflection, every runtime serde DTO from docker-java /
+ * Apache HttpClient 5 / QDCloudClient, and the Publisher S3 upload chain.
+ * QD-14728 extended scope from Phase A's `--help`/`--version`/`init` to the
+ * full set of runtime commands.
  */
 class NativeSmokeTest {
     private val output = mutableListOf<String>()
@@ -172,20 +174,17 @@ class NativeSmokeTest {
     }
 
     @Test
+    @Tag("docker")
     fun `scan command exercises the full docker-java surface against jvm-community`(
         @TempDir tempDir: Path,
     ) {
-        Assumptions.assumeTrue(
-            System.getenv("QODANA_TEST_CONTAINER") == "1",
-            "Skipping native scan smoke (set QODANA_TEST_CONTAINER=1)",
-        )
-        // Fail loudly if the flag is set but Docker isn't reachable, per
-        // CLAUDE.md's "tests must never silently skip on missing dependencies".
-        // info() is suspend, so wrap in runBlocking.
+        // @Tag("docker") routes this test through the parityTest Gradle
+        // task, which is the only task that runs it. Fail loudly if Docker
+        // isn't reachable, per CLAUDE.md "tests must never silently skip".
         try {
             runBlocking { DockerJavaEngine().info() }
         } catch (e: Exception) {
-            fail("QODANA_TEST_CONTAINER=1 but Docker is unreachable: ${e.message}")
+            fail("@Tag(\"docker\") test ran but Docker is unreachable: ${e.message}")
         }
 
         // Gradle's test classpath uses unpacked build/resources/test dirs;
@@ -252,12 +251,9 @@ class NativeSmokeTest {
     }
 
     @Test
+    @Tag("docker")
     fun `containerEngine info and version are reachable under the agent`() =
         runBlocking {
-            Assumptions.assumeTrue(
-                System.getenv("QODANA_TEST_CONTAINER") == "1",
-                "Skipping (set QODANA_TEST_CONTAINER=1)",
-            )
             // Drives Info + Version DTO deserialization explicitly so the agent
             // captures them deterministically, not "incidentally" via scan.
             val info = DockerJavaEngine().info()
@@ -285,15 +281,12 @@ class NativeSmokeTest {
     }
 
     @Test
+    @Tag("docker")
     fun `pull command pulls an image via docker-java`() {
-        Assumptions.assumeTrue(
-            System.getenv("QODANA_TEST_CONTAINER") == "1",
-            "Skipping (set QODANA_TEST_CONTAINER=1)",
-        )
         try {
             runBlocking { DockerJavaEngine().info() }
         } catch (e: Exception) {
-            fail("QODANA_TEST_CONTAINER=1 but Docker is unreachable: ${e.message}")
+            fail("@Tag(\"docker\") test ran but Docker is unreachable: ${e.message}")
         }
         // Force-remove the image first so PullResponseItem + ProgressDetail
         // streaming actually fires (a cached image short-circuits and the
@@ -460,7 +453,10 @@ class NativeSmokeTest {
             """{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"test"}},"results":[]}]}""",
         )
 
-        val s3Server = HttpServer.create(InetSocketAddress(0), 0)
+        // Bind explicitly to 127.0.0.1 (not 0.0.0.0/InetSocketAddress(0))
+        // so IPv4/IPv6 hostname resolution can't cause flaky test failures
+        // when "localhost" prefers ::1 but the server only listened on 0.0.0.0.
+        val s3Server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         s3Server.createContext("/upload/sarif") { exchange ->
             exchange.requestBody.use { it.readBytes() }
             exchange.sendResponseHeaders(200, 0)
@@ -523,7 +519,7 @@ class NativeSmokeTest {
         client.respond("https://cloud.api", "reports/") { _ ->
             QDCloudResponse.Success(
                 """{"reportId":"test-report-id",""" +
-                    """"fileLinks":{"qodana.sarif.json":"http://localhost:$s3Port/upload/sarif"},""" +
+                    """"fileLinks":{"qodana.sarif.json":"http://127.0.0.1:$s3Port/upload/sarif"},""" +
                     """"langsRequired":false}""",
             )
         }

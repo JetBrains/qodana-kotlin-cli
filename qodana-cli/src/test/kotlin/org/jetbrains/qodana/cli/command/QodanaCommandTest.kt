@@ -33,6 +33,7 @@ import org.jetbrains.qodana.engine.scan.ScanUseCase
 import org.jetbrains.qodana.engine.startup.IdeInstaller
 import org.jetbrains.qodana.engine.startup.PrepareHost
 import org.junit.jupiter.api.Assumptions.assumeTrue
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
@@ -276,8 +277,11 @@ class QodanaCommandTest {
     // -- PullCommand: real Docker pull (mirrors Go's TestPullImage) --
 
     @Test
+    @Tag("docker")
     fun `pull image pulls hello-world`() {
-        assumeTrue(isDockerAvailable(), "Docker not available, skipping")
+        if (!isDockerAvailable()) {
+            fail("@Tag(\"docker\") test ran but Docker is unreachable")
+        }
 
         val containerEngine = DockerJavaEngine()
         val command = PullCommand(containerEngine, terminal)
@@ -346,17 +350,16 @@ class QodanaCommandTest {
     }
 
     // -- Full container test (mirrors Go's TestAllCommandsWithContainer) --
-    // Gated behind QODANA_TEST_CONTAINER env var, just like Go
+    // @Tag("docker") routes through parityTest; fail-loud if Docker is missing.
 
     @Test
+    @Tag("docker")
     fun `all commands with container`(
         @TempDir dir: Path,
     ) {
-        assumeTrue(
-            !System.getenv("QODANA_TEST_CONTAINER").isNullOrEmpty(),
-            "Skipping container test (set QODANA_TEST_CONTAINER=1 to enable)",
-        )
-        assumeTrue(isDockerAvailable(), "Docker not available, skipping")
+        if (!isDockerAvailable()) {
+            fail("@Tag(\"docker\") test ran but Docker is unreachable")
+        }
 
         val token = System.getenv("QODANA_LICENSE_ONLY_TOKEN")
         val image =

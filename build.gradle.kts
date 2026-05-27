@@ -43,14 +43,29 @@ subprojects {
         }
     }
 
+    // Default `test` task: skip docker-tagged tests so a contributor can
+    // run `./gradlew test` without Docker installed. The `docker` tag is
+    // attached via JUnit 5's @Tag("docker") on each Docker-touching class.
+    plugins.withId("java") {
+        tasks.named<Test>("test") {
+            useJUnitPlatform {
+                excludeTags("docker")
+            }
+        }
+    }
+
     tasks.register<Test>("parityTest") {
         group = "verification"
-        description = "Runs tests with parity-oriented environment (no gated skips by token/container flags)."
+        description = "Runs Docker-tagged integration tests (requires a running Docker daemon)."
 
         val testTask = tasks.named<Test>("test").get()
         testClassesDirs = testTask.testClassesDirs
         classpath = testTask.classpath
-        useJUnitPlatform()
+        // Run ONLY @Tag("docker") tests. They fail loudly if Docker is
+        // unreachable, per CLAUDE.md "tests must never silently skip".
+        useJUnitPlatform {
+            includeTags("docker")
+        }
         shouldRunAfter(testTask)
 
         environment("QODANA_TEST_CONTAINER", envOrDotEnv("QODANA_TEST_CONTAINER") ?: "1")

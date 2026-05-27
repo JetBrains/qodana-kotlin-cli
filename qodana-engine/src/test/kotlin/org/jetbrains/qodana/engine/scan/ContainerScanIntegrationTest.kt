@@ -8,28 +8,34 @@ import org.jetbrains.qodana.engine.docker.DockerJavaEngine
 import org.jetbrains.qodana.engine.model.*
 import org.jetbrains.qodana.engine.port.ContainerEngine
 import org.jetbrains.qodana.engine.port.ContainerEngineInfo
-import org.junit.jupiter.api.Assumptions.assumeTrue
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.fail
 import kotlin.time.Duration.Companion.minutes
 
 /**
  * Integration test for ContainerScan that verifies the full container lifecycle:
  * pull → create → start → logs → wait → remove.
  *
+ * `@Tag("docker")` routes the class through the `parityTest` Gradle task,
+ * which is the only task that executes Docker-tagged tests. If Docker is
+ * unreachable when the test runs, the suite fails loudly.
+ *
  * Uses a recording ContainerEngine wrapper around the real DockerJavaEngine
  * to verify all operations happen in the correct order.
  */
+@Tag("docker")
 class ContainerScanIntegrationTest {
     @Test
     fun `container scan runs full lifecycle with alpine`(
         @TempDir tempDir: Path,
     ) = runTest(timeout = 2.minutes) {
-        val engine = createDockerEngine() ?: return@runTest
+        val engine = createDockerEngine()
 
         val projectDir = tempDir.resolve("project").also { Files.createDirectories(it) }
         val resultsDir = tempDir.resolve("results").also { Files.createDirectories(it) }
@@ -83,7 +89,7 @@ class ContainerScanIntegrationTest {
     fun `container produces SARIF output to mounted volume`(
         @TempDir tempDir: Path,
     ) = runTest(timeout = 2.minutes) {
-        val engine = createDockerEngine() ?: return@runTest
+        val engine = createDockerEngine()
 
         val resultsDir = tempDir.resolve("results").also { Files.createDirectories(it) }
 
@@ -132,7 +138,7 @@ class ContainerScanIntegrationTest {
     fun `container captures stderr and non-zero exit codes`(
         @TempDir tempDir: Path,
     ) = runTest(timeout = 2.minutes) {
-        val engine = createDockerEngine() ?: return@runTest
+        val engine = createDockerEngine()
 
         engine.pull("alpine:3.20") {}
 
@@ -194,14 +200,13 @@ class ContainerScanIntegrationTest {
         }
     }
 
-    private fun createDockerEngine(): ContainerEngine? =
+    private fun createDockerEngine(): ContainerEngine =
         try {
             val engine = createRealDockerEngine()
             kotlinx.coroutines.runBlocking { engine.info() }
             engine
         } catch (e: Exception) {
-            assumeTrue(false, "Docker not available: ${e.message}")
-            null
+            fail("@Tag(\"docker\") test ran but Docker is unreachable: ${e.message}")
         }
 
     private fun createRealDockerEngine(): ContainerEngine = DockerJavaEngine()
