@@ -99,6 +99,12 @@ Both the scan smoke test and the CI `native-e2e` job pin `jetbrains/qodana-jvm-c
 
 The native binary supports the full runtime command set: `--help`, `--version`, `init` (Phase A, [QD-14643](https://youtrack.jetbrains.com/issue/QD-14643)), plus `scan`, `view`, `send`, `pull`, `show` execution (added in [QD-14728](https://youtrack.jetbrains.com/issue/QD-14728)). The CI `native-e2e` job exercises every command end-to-end against a real Docker daemon and a local mock cloud on each supported platform.
 
+### Platform notes — windows-amd64-on-arm
+
+The CI matrix includes a `windows-amd64-on-arm` entry: the `qodana-cli-windows-amd64` binary running on a `windows-11-arm` runner. This validates that ARM Windows users running the shipped amd64 binary under emulation see no reflection regressions.
+
+Docker Desktop is **not** preinstalled on the `windows-11-arm` runner image (see the official tools list at [actions/partner-runner-images](https://github.com/actions/partner-runner-images/blob/main/images/arm-windows-11-image.md)). Docker-dependent steps (`scan`, `pull`, SARIF parity) are skipped on this matrix entry. Non-Docker steps (`--version`, `--help`, `view`, `send` via the local mock cloud, `show --dir-only`) still run, which is sufficient to verify the binary executes and Clikt + Jackson + QDCloudClient reflection metadata is correct under emulation.
+
 ## Troubleshooting
 
 ### `Cannot query the value of this property because it has no value available`

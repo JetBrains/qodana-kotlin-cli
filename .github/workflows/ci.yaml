@@ -136,15 +136,22 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { tag: linux-amd64,            artifact: qodana-cli-linux-amd64,   runner: ubuntu-latest,    setup: linux }
-          - { tag: linux-arm64,            artifact: qodana-cli-linux-arm64,   runner: ubuntu-24.04-arm, setup: linux }
-          - { tag: darwin-amd64,           artifact: qodana-cli-darwin-amd64,  runner: macos-15-intel,   setup: colima }
-          - { tag: darwin-arm64,           artifact: qodana-cli-darwin-arm64,  runner: macos-15,         setup: colima }
-          - { tag: windows-amd64,          artifact: qodana-cli-windows-amd64, runner: windows-latest,   setup: windows }
+          - { tag: linux-amd64,            artifact: qodana-cli-linux-amd64,   runner: ubuntu-latest,    setup: linux,   docker: true  }
+          - { tag: linux-arm64,            artifact: qodana-cli-linux-arm64,   runner: ubuntu-24.04-arm, setup: linux,   docker: true  }
+          - { tag: darwin-amd64,           artifact: qodana-cli-darwin-amd64,  runner: macos-15-intel,   setup: colima,  docker: true  }
+          - { tag: darwin-arm64,           artifact: qodana-cli-darwin-arm64,  runner: macos-15,         setup: colima,  docker: true  }
+          - { tag: windows-amd64,          artifact: qodana-cli-windows-amd64, runner: windows-latest,   setup: windows, docker: true  }
           # User-requested coverage: amd64 binary on a Windows ARM runner. The
           # `windows-11-arm` label is GA on public repos since 2025-08 and on
-          # private repos since 2026-01, so it's safe to depend on here.
-          - { tag: windows-amd64-on-arm,   artifact: qodana-cli-windows-amd64, runner: windows-11-arm,   setup: windows }
+          # private repos since 2026-01. Docker Desktop is NOT preinstalled
+          # on this image (confirmed at
+          # https://github.com/actions/partner-runner-images/blob/main/images/arm-windows-11-image.md),
+          # so this matrix entry skips Docker-dependent steps. Non-Docker
+          # commands (--version, --help, view, init, send via local mock)
+          # still run, validating that the amd64 binary actually executes on
+          # Windows ARM — which is the user-facing question that motivated
+          # this entry.
+          - { tag: windows-amd64-on-arm,   artifact: qodana-cli-windows-amd64, runner: windows-11-arm,   setup: windows, docker: false }
     runs-on: ${{ matrix.platform.runner }}
     timeout-minutes: 45
     steps:
@@ -163,7 +170,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Docker (linux)
-        if: matrix.platform.setup == 'linux'
+        if: matrix.platform.docker && matrix.platform.setup == 'linux'
         shell: bash
         run: |
           deadline=$(( $(date +%s) + 60 ))
@@ -178,7 +185,7 @@ jobs:
           docker version
 
       - name: Docker (macOS via colima)
-        if: matrix.platform.setup == 'colima'
+        if: matrix.platform.docker && matrix.platform.setup == 'colima'
         shell: bash
         run: |
           brew install colima docker
@@ -196,7 +203,7 @@ jobs:
           docker version
 
       - name: Docker (Windows, Linux engine)
-        if: matrix.platform.setup == 'windows'
+        if: matrix.platform.docker && matrix.platform.setup == 'windows'
         shell: pwsh
         run: |
           $cliPath = "C:\Program Files\Docker\Docker\DockerCli.exe"
@@ -250,6 +257,7 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Pre-pull linter image
+        if: matrix.platform.docker
         shell: bash
         run: docker pull jetbrains/qodana-jvm-community:${{ steps.tag.outputs.tag }}
 
@@ -260,7 +268,23 @@ jobs:
           cp -r qodana-cli/src/test/resources/scan-smoke-fixture project
           mkdir -p results-native results-jvm
 
+      # Non-Docker sanity checks run on every platform, including the
+      # Docker-less windows-amd64-on-arm runner. They validate that the
+      # binary itself executes and Clikt's reflection metadata is correct.
+      - name: --version
+        shell: bash
+        run: ${{ steps.bin.outputs.path }} --version
+
+      - name: --help
+        shell: bash
+        run: ${{ steps.bin.outputs.path }} --help
+
+      - name: init --help
+        shell: bash
+        run: ${{ steps.bin.outputs.path }} init --help
+
       - name: scan (native)
+        if: matrix.platform.docker
         shell: bash
         run: |
           ${{ steps.bin.outputs.path }} scan \
@@ -269,6 +293,7 @@ jobs:
             --repository-root "$PWD/project"
 
       - name: Assert SARIF (native)
+        if: matrix.platform.docker
         shell: bash
         run: |
           test -s results-native/qodana.sarif.json
@@ -278,11 +303,13 @@ jobs:
           grep -q 'StringEquality' results-native/qodana.sarif.json
 
       - name: scan (JVM, for SARIF parity)
+        if: matrix.platform.docker
         shell: bash
         run: |
           ./gradlew :qodana-cli:run --args="scan -i $PWD/project -o $PWD/results-jvm --repository-root $PWD/project"
 
       - name: Assert structural SARIF equivalence (JVM vs native)
+        if: matrix.platform.docker
         shell: bash
         run: |
           ./gradlew :qodana-cli:nativeBinaryTest --tests 'org.jetbrains.qodana.cli.SarifCompareIntegrationTest' \
@@ -291,10 +318,19 @@ jobs:
             -Dtest.project.dir="$PWD/project"
 
       - name: pull (force re-pull so streaming Frame DTO fires)
+        if: matrix.platform.docker
         shell: bash
         run: |
           docker image rm alpine:3.20 || true
           ${{ steps.bin.outputs.path }} pull --image alpine:3.20
+
+      # On Docker-less platforms, write a minimal SARIF stub for view/show to
+      # consume so we still exercise their code paths.
+      - name: Stub SARIF (no-Docker platforms)
+        if: ${{ !matrix.platform.docker }}
+        shell: bash
+        run: |
+          printf '%s' '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"test"}},"results":[]}]}' > results-native/qodana.sarif.json
 
       - name: view
         shell: bash
@@ -303,7 +339,8 @@ jobs:
       - name: send (via NativeBinarySendSmokeTest harness)
         shell: bash
         # The harness runs on the JVM (hosts the in-process cloud + S3 stubs)
-        # and forks the native binary as a subprocess against them.
+        # and forks the native binary as a subprocess against them. No Docker
+        # required — runs on every platform including windows-amd64-on-arm.
         run: |
           ./gradlew :qodana-cli:nativeBinaryTest --tests 'org.jetbrains.qodana.cli.NativeBinarySendSmokeTest' \
             -Dtest.qodana.binary="${{ steps.bin.outputs.path }}" \
