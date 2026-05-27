@@ -214,15 +214,9 @@ jobs:
           - { name: windows/amd64, tag: windows-amd64, runner: windows-latest, os: windows, arch: amd64 }
     runs-on: ${{ matrix.platform.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-native-build
         with:
           ref: ${{ needs.validate.outputs.sha }}
-      - uses: graalvm/setup-graalvm@v1
-        with:
-          java-version: '21'
-          distribution: 'graalvm-community'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: gradle/actions/setup-gradle@v4
       - name: Assemble cli release artifact
         shell: bash
         run: |
@@ -254,15 +248,9 @@ jobs:
         module: [qodana-clang, qodana-cdnet]
     runs-on: ${{ matrix.platform.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-native-build
         with:
           ref: ${{ needs.validate.outputs.sha }}
-      - uses: graalvm/setup-graalvm@v1
-        with:
-          java-version: '21'
-          distribution: 'graalvm-community'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: gradle/actions/setup-gradle@v4
       - name: Assemble ${{ matrix.module }} release binary
         shell: bash
         run: |

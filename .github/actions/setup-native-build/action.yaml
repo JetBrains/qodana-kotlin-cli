@@ -1,0 +1,38 @@
+name: Set up native-build toolchain
+description: |
+  Common setup for native-image build cells: checkout (optionally at a specific ref), GraalVM CE 21,
+  and Gradle. Used by both `ci.yaml`'s `native-build` matrix and `draft-release.yaml`'s `build-cli` /
+  `build-clang-cdnet` matrices to keep the setup story in a single place.
+
+inputs:
+  ref:
+    description: 'Git ref to check out. Empty string = event default (current branch or PR head).'
+    required: false
+    default: ''
+  fetch-depth:
+    description: 'actions/checkout fetch-depth. Default 1 (shallow) — release builds pin to a SHA.'
+    required: false
+    default: '1'
+  github-token:
+    description: 'Token for graalvm/setup-graalvm. Defaults to GITHUB_TOKEN.'
+    required: false
+    default: ${{ github.token }}
+  native-image-job-reports:
+    description: 'Pass-through to graalvm/setup-graalvm `native-image-job-reports`. CI native-build uses true; release jobs leave false.'
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.ref }}
+        fetch-depth: ${{ inputs.fetch-depth }}
+    - uses: graalvm/setup-graalvm@v1
+      with:
+        java-version: '21'
+        distribution: 'graalvm-community'
+        github-token: ${{ inputs.github-token }}
+        native-image-job-reports: ${{ inputs.native-image-job-reports }}
+    - uses: gradle/actions/setup-gradle@v4
