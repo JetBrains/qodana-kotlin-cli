@@ -1,6 +1,8 @@
 import org.gradle.api.tasks.testing.Test
 
-// Root project — no plugins applied here
+plugins {
+    id("qodana-version-check")
+}
 
 fun loadDotEnv(path: java.io.File): Map<String, String> {
     if (!path.exists() || !path.isFile) return emptyMap()

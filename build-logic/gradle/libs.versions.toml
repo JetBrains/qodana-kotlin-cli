@@ -3,9 +3,13 @@ kotlin = "2.1.20"
 graalvm-native = "0.10.6"
 ktlint-gradle = "12.1.1"
 detekt = "1.23.7"
+junit = "5.11.4"
+cyclonedx = "3.2.4"
 
 [libraries]
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 graalvm-native-gradle-plugin = { module = "org.graalvm.buildtools:native-gradle-plugin", version.ref = "graalvm-native" }
 ktlint-gradle-plugin = { module = "org.jlleitschuh.gradle:ktlint-gradle", version.ref = "ktlint-gradle" }
 detekt-gradle-plugin = { module = "io.gitlab.arturbosch.detekt:detekt-gradle-plugin", version.ref = "detekt" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+cyclonedx-gradle-plugin = { module = "org.cyclonedx:cyclonedx-gradle-plugin", version.ref = "cyclonedx" }
