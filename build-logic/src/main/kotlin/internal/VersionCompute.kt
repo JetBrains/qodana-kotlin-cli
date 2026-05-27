@@ -22,56 +22,54 @@ package internal
  * Nightly tags (`v…-nightly`) and probe tags (`v…-tagprobe-…`) must be filtered out by the caller before
  * being passed as `lastStableTag`.
  */
-internal object VersionCompute {
-    fun compute(source: String, lastStableTag: String?): VersionState {
-        // Whitespace check first — `trim` must NOT silently fix invalid input.
-        if (source != source.trim()) return VersionState.Invalid("source has leading/trailing whitespace")
-        if (source.isEmpty()) return VersionState.Invalid("source-of-truth is empty")
-        if (source == "dev") return VersionState.Dev
+internal fun computeVersionState(source: String, lastStableTag: String?): VersionState {
+    // Whitespace check first — `trim` must NOT silently fix invalid input.
+    if (source != source.trim()) return VersionState.Invalid("source has leading/trailing whitespace")
+    if (source.isEmpty()) return VersionState.Invalid("source-of-truth is empty")
+    if (source == "dev") return VersionState.Dev
 
-        val sourceParsed = JbSemVer.parse(source)
-            ?: return VersionState.Invalid(parseError(source))
+    val sourceParsed = JbSemVer.parse(source)
+        ?: return VersionState.Invalid(parseError(source))
 
-        if (lastStableTag == null) {
-            // First-ever release: any well-formed numeric source counts as JustReleased.
-            return VersionState.JustReleased(nextBase = "v${sourceParsed.canonical().bumpPatch()}")
-        }
-
-        val lastParsed = JbSemVer.parse(lastStableTag.removePrefix("v"))
-            ?: return VersionState.Invalid("lastStableTag '$lastStableTag' is not a parseable v<semver>")
-
-        val sourceCanon = sourceParsed.canonical()
-        val lastCanon = lastParsed.canonical()
-
-        if (sourceCanon == lastCanon) {
-            return VersionState.JustReleased(nextBase = "v${sourceCanon.bumpPatch()}")
-        }
-
-        val validBumps = lastCanon.validBumps()
-        if (sourceCanon in validBumps) {
-            return VersionState.BumpAhead(nextBase = "v$sourceCanon")
-        }
-
-        val candidates = validBumps.joinToString(", ") { "v$it" }
-        return VersionState.Invalid(
-            "source v$sourceCanon is not a valid bump from v$lastCanon " +
-                "(expected one of: $candidates, or equal to v$lastCanon for JustReleased state)",
-        )
+    if (lastStableTag == null) {
+        // First-ever release: any well-formed numeric source counts as JustReleased.
+        return VersionState.JustReleased(nextBase = "v${sourceParsed.canonical().bumpPatch()}")
     }
 
-    private fun parseError(source: String): String {
-        // Surface a specific reason when easy. Otherwise fall back to a generic message.
-        if (source.contains('-')) {
-            val suffix = source.substringAfter('-')
-            return "source has suffix '-$suffix' (pre-release suffixes are not allowed)"
-        }
-        for (seg in source.split('.')) {
-            if (seg.length > 1 && seg.startsWith('0')) {
-                return "source has leading zero in segment '$seg'"
-            }
-        }
-        return "source '$source' is not 'dev' or numeric.dot form (2 or 3 segments)"
+    val lastParsed = JbSemVer.parse(lastStableTag.removePrefix("v"))
+        ?: return VersionState.Invalid("lastStableTag '$lastStableTag' is not a parseable v<semver>")
+
+    val sourceCanon = sourceParsed.canonical()
+    val lastCanon = lastParsed.canonical()
+
+    if (sourceCanon == lastCanon) {
+        return VersionState.JustReleased(nextBase = "v${sourceCanon.bumpPatch()}")
     }
+
+    val validBumps = lastCanon.validBumps()
+    if (sourceCanon in validBumps) {
+        return VersionState.BumpAhead(nextBase = "v$sourceCanon")
+    }
+
+    val candidates = validBumps.joinToString(", ") { "v$it" }
+    return VersionState.Invalid(
+        "source v$sourceCanon is not a valid bump from v$lastCanon " +
+            "(expected one of: $candidates, or equal to v$lastCanon for JustReleased state)",
+    )
+}
+
+private fun parseError(source: String): String {
+    // Surface a specific reason when easy. Otherwise fall back to a generic message.
+    if (source.contains('-')) {
+        val suffix = source.substringAfter('-')
+        return "source has suffix '-$suffix' (pre-release suffixes are not allowed)"
+    }
+    for (seg in source.split('.')) {
+        if (seg.length > 1 && seg.startsWith('0')) {
+            return "source has leading zero in segment '$seg'"
+        }
+    }
+    return "source '$source' is not 'dev' or numeric.dot form (2 or 3 segments)"
 }
 
 internal sealed class VersionState {
