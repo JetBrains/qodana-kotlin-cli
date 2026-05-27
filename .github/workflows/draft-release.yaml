@@ -66,6 +66,10 @@ concurrency:
 
 env:
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # `gh` derives the repo from git remotes by default; the assemble job runs at the workspace root
+  # with no checkout there (only `source/` is checked out for changelog generation), so gh would fail
+  # with "not a git repository". GH_REPO makes the repo explicit and skips git lookup.
+  GH_REPO: ${{ github.repository }}
 
 jobs:
   validate:
