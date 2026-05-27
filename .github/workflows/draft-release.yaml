@@ -214,9 +214,10 @@ jobs:
           - { name: windows/amd64, tag: windows-amd64, runner: windows-latest, os: windows, arch: amd64 }
     runs-on: ${{ matrix.platform.runner }}
     steps:
-      - uses: ./.github/actions/setup-native-build
+      - uses: actions/checkout@v4
         with:
           ref: ${{ needs.validate.outputs.sha }}
+      - uses: ./.github/actions/setup-native-build
       - name: Assemble cli release artifact
         shell: bash
         run: |
@@ -248,9 +249,10 @@ jobs:
         module: [qodana-clang, qodana-cdnet]
     runs-on: ${{ matrix.platform.runner }}
     steps:
-      - uses: ./.github/actions/setup-native-build
+      - uses: actions/checkout@v4
         with:
           ref: ${{ needs.validate.outputs.sha }}
+      - uses: ./.github/actions/setup-native-build
       - name: Assemble ${{ matrix.module }} release binary
         shell: bash
         run: |

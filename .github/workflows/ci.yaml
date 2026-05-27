@@ -88,6 +88,7 @@ jobs:
         module: [qodana-cli, qodana-clang, qodana-cdnet]
     runs-on: ${{ matrix.platform.runner }}
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup-native-build
         with:
           native-image-job-reports: 'true'
