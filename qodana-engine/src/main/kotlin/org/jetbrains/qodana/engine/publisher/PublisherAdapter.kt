@@ -21,8 +21,10 @@ import org.jetbrains.qodana.engine.model.PublishResult as QodanaPublishResult
  * The HTTP clients are constructor-injected (QD-14728) so tests can substitute
  * `MockQDCloudHttpClient` and drive the full QDCloudClient + Publisher
  * Jackson-deserialization chain under the GraalVM tracing agent without
- * touching real cloud. Default values preserve previous behaviour: each
- * `publish()` call uses a fresh `HttpClient.newHttpClient()` underneath.
+ * touching real cloud. The default `httpClient` and `s3Client` values are
+ * constructed at PublisherAdapter instantiation (Kotlin evaluates default
+ * argument expressions at object construction, not per `publish()` call) and
+ * shared across every `publish()` invocation on this adapter instance.
  */
 class PublisherAdapter(
     private val httpClient: QDCloudHttpClient = QDCloudHttpClient(HttpClient.newHttpClient()),

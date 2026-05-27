@@ -79,7 +79,11 @@ private val ROOT_COMMANDS =
         "completion",
     )
 
-private val HELP_OR_VERSION_ARGS = setOf("--help", "-h", "help", "--version", "-v")
+// Clikt doesn't treat the bare word `help` as a special subcommand — it would
+// fall through to the "no such command 'help'" error if a user typed
+// `qodana help`. Only `--help`/`-h`/`--version`/`-v` are the actual short
+// circuits that normalizeRootArgs needs to recognise.
+private val HELP_OR_VERSION_ARGS = setOf("--help", "-h", "--version", "-v")
 
 private fun normalizeRootArgs(args: Array<String>): Array<String> {
     if (args.isEmpty()) return arrayOf("scan")
