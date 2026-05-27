@@ -279,9 +279,14 @@ jobs:
       - name: Stage fixture
         shell: bash
         run: |
-          rm -rf project results-native results-jvm
+          # Ensure no root-owned residue from previous runs blocks the cleanup.
+          # The qodana-jvm-community container writes its cache as root inside
+          # ~/.cache/JetBrains/Qodana/<id>/results/report; passing explicit
+          # --cache-dir / --report-dir inside $PWD keeps everything under a
+          # path we can delete without sudo afterward.
+          sudo rm -rf project results-native results-jvm cache-native cache-jvm report-native report-jvm || rm -rf project results-native results-jvm cache-native cache-jvm report-native report-jvm
           cp -r qodana-cli/src/test/resources/scan-smoke-fixture project
-          mkdir -p results-native results-jvm
+          mkdir -p results-native results-jvm cache-native cache-jvm report-native report-jvm
 
       # Non-Docker sanity checks run on every platform, including the
       # Docker-less windows-amd64-on-arm runner. They validate that the
@@ -305,6 +310,8 @@ jobs:
           ${{ steps.bin.outputs.path }} scan \
             -i "$PWD/project" \
             -o "$PWD/results-native" \
+            --cache-dir "$PWD/cache-native" \
+            --report-dir "$PWD/report-native" \
             --repository-root "$PWD/project"
 
       - name: Assert SARIF (native)
