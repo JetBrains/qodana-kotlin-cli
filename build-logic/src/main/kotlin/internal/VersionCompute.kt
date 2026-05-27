@@ -29,7 +29,7 @@ internal object VersionCompute {
         if (source.isEmpty()) return VersionState.Invalid("source-of-truth is empty")
         if (source == "dev") return VersionState.Dev
 
-        val sourceParsed = SemVer.parse(source)
+        val sourceParsed = JbSemVer.parse(source)
             ?: return VersionState.Invalid(parseError(source))
 
         if (lastStableTag == null) {
@@ -37,7 +37,7 @@ internal object VersionCompute {
             return VersionState.JustReleased(nextBase = "v${sourceParsed.canonical().bumpPatch()}")
         }
 
-        val lastParsed = SemVer.parse(lastStableTag.removePrefix("v"))
+        val lastParsed = JbSemVer.parse(lastStableTag.removePrefix("v"))
             ?: return VersionState.Invalid("lastStableTag '$lastStableTag' is not a parseable v<semver>")
 
         val sourceCanon = sourceParsed.canonical()
@@ -89,28 +89,38 @@ internal sealed class VersionState {
 }
 
 /**
- * Normalized 3-segment semver. Always stored as `[major, minor, patch]`; omitted patch normalizes to 0.
+ * JetBrains-flavored semver. Three numeric segments stored as `[major, minor, patch]`; omitted patch
+ * normalizes to 0. Deviates from the canonical semver.org spec in two ways:
+ *   1. `major` is a CalVer-style year (`2026`, `2027`, …) — not a "breaking-change-counter".
+ *   2. The patch segment may be omitted in the source (`2026.2` ⇔ `2026.2.0`).
+ *
+ * Pre-release suffixes (`-rc1`, `-nightly`, etc.) are NOT accepted in source-of-truth or in stable tag
+ * names; they're a separate concept handled by the workflow layer (the `-nightly` suffix appended after
+ * `nightlyVersion`'s output).
+ *
+ * The `Jb` prefix is deliberate: do not confuse this with `org.gradle.util.GradleVersion` or any
+ * library-provided SemVer type.
  */
-internal data class SemVer(val major: Int, val minor: Int, val patch: Int) : Comparable<SemVer> {
+internal data class JbSemVer(val major: Int, val minor: Int, val patch: Int) : Comparable<JbSemVer> {
     override fun toString(): String = "$major.$minor.$patch"
 
-    override fun compareTo(other: SemVer): Int =
+    override fun compareTo(other: JbSemVer): Int =
         compareValuesBy(this, other, { it.major }, { it.minor }, { it.patch })
 
-    fun bumpPatch(): SemVer = copy(patch = patch + 1)
+    fun bumpPatch(): JbSemVer = copy(patch = patch + 1)
 
-    fun validBumps(): List<SemVer> = listOf(
-        SemVer(major, minor, patch + 1), // patch bump
-        SemVer(major, minor + 1, 0),     // minor bump
-        SemVer(major + 1, 0, 0),         // major bump
+    fun validBumps(): List<JbSemVer> = listOf(
+        JbSemVer(major, minor, patch + 1), // patch bump
+        JbSemVer(major, minor + 1, 0),     // minor bump
+        JbSemVer(major + 1, 0, 0),         // major bump
     )
 
     /** Identity, but lets callers chain `.canonical()` defensively. */
-    fun canonical(): SemVer = this
+    fun canonical(): JbSemVer = this
 
     companion object {
         /** Parses `"2026.3"` (→ `2026.3.0`) or `"2026.3.1"`. Returns null on any malformation. */
-        fun parse(s: String): SemVer? {
+        fun parse(s: String): JbSemVer? {
             val parts = s.split('.')
             if (parts.size !in 2..3) return null
             val ints = parts.map { seg ->
@@ -122,8 +132,8 @@ internal data class SemVer(val major: Int, val minor: Int, val patch: Int) : Com
                 seg.toIntOrNull() ?: return null
             }
             return when (ints.size) {
-                2 -> SemVer(ints[0], ints[1], 0)
-                3 -> SemVer(ints[0], ints[1], ints[2])
+                2 -> JbSemVer(ints[0], ints[1], 0)
+                3 -> JbSemVer(ints[0], ints[1], ints[2])
                 else -> null
             }
         }
