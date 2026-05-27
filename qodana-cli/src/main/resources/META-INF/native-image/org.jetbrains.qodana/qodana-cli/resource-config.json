@@ -68,9 +68,6 @@
                 "pattern": "\\Qorg/apache/hc/client5/version.properties\\E"
             },
             {
-                "pattern": "\\Qscan-smoke-fixture\\E"
-            },
-            {
                 "pattern": "\\Qsimplelogger.properties\\E"
             },
             {
@@ -91,6 +88,6 @@
         ]
     },
     "bundles": [
-
+        
     ]
 }

@@ -81,29 +81,45 @@ dependencies {
 
 // =====
 
-// Prefixes of class names that should never appear in production GraalVM metadata.
-// Entries captured by the tracing agent while running tests bleed in through
-// JUnit / kotlin.test / Gradle-worker infrastructure; this list covers all of them.
-val testClassPrefixes =
-    listOf(
-        "org.jetbrains.qodana.cli.NativeSmokeTest",
-        "org.jetbrains.qodana.cli.command.InitCommandTest",
-        "org.jetbrains.qodana.cli.command.SendCommandTest",
-        "org.jetbrains.qodana.cli.command.SendTestSupport",
-        "org.junit.",
-        "org.opentest4j.",
-        "kotlin.test.",
-        "kotlinx.coroutines.test.",
-        "worker.org.gradle.",
-    )
+/**
+ * Parses the canonical banned-patterns file consumed by both this strip task
+ * and [`MetadataHygieneTest`](src/test/kotlin/org/jetbrains/qodana/cli/MetadataHygieneTest.kt).
+ *
+ * Format: `# ...` is a comment; blank lines are ignored; section markers are
+ * `[class-prefixes]` and `[resource-substrings]`. The same parser logic lives
+ * in `BannedMetadataPatterns.kt` (test source); the duplication is unavoidable
+ * because a Gradle script can't import a test class. Any change to the parse
+ * rules must be mirrored.
+ */
+fun loadBannedMetadataPatterns(file: java.io.File): Pair<List<String>, List<String>> {
+    require(file.exists()) { "banned-metadata-patterns.txt is missing at ${file.absolutePath}" }
+    val classPrefixes = mutableListOf<String>()
+    val resourceSubstrings = mutableListOf<String>()
+    var section: MutableList<String>? = null
+    file.readLines().forEach { raw ->
+        val line = raw.trim()
+        if (line.isEmpty() || line.startsWith("#")) return@forEach
+        when (line) {
+            "[class-prefixes]" -> section = classPrefixes
+            "[resource-substrings]" -> section = resourceSubstrings
+            else -> {
+                checkNotNull(section) {
+                    "banned-metadata-patterns.txt: entry \"$line\" appears before any section marker"
+                }.add(line)
+            }
+        }
+    }
+    check(classPrefixes.isNotEmpty()) {
+        "banned-metadata-patterns.txt: [class-prefixes] section is empty or missing"
+    }
+    check(resourceSubstrings.isNotEmpty()) {
+        "banned-metadata-patterns.txt: [resource-substrings] section is empty or missing"
+    }
+    return classPrefixes to resourceSubstrings
+}
 
-// Substrings that mark a resource-config pattern as test-only.
-val testResourceSubstrings =
-    listOf(
-        "junit-platform.properties",
-        "META-INF/services/kotlin.test.",
-        "META-INF/services/org.junit.platform.",
-    )
+val bannedMetadataPatternsFile = file("src/test/resources/banned-metadata-patterns.txt")
+val (testClassPrefixes, testResourceSubstrings) = loadBannedMetadataPatterns(bannedMetadataPatternsFile)
 
 /**
  * Removes test-infrastructure entries from every GraalVM native-image metadata
@@ -125,6 +141,8 @@ val stripTestEntriesFromMetadata by tasks.registering {
             "src/main/resources/META-INF/native-image/org.jetbrains.qodana/${project.name}",
         )
     inputs.dir(metadataDir)
+    // Track the canonical pattern list so edits invalidate this task.
+    inputs.file(bannedMetadataPatternsFile)
     outputs.dir(metadataDir)
 
     doLast {

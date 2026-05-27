@@ -1,67 +1,41 @@
 package org.jetbrains.qodana.cli
 
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.parallel.Execution
+import org.junit.jupiter.api.parallel.ExecutionMode
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import java.nio.file.Path
 import java.nio.file.Paths
 import kotlin.io.path.exists
 import kotlin.io.path.readText
+import kotlin.test.assertTrue
 import kotlin.test.fail
 
 /**
  * Guards the GraalVM native-image metadata directory against test-infrastructure
- * entries bleeding in from tracing-agent runs.
+ * entries and test-only resources bleeding in from tracing-agent runs.
  *
- * The tracing agent captures reflection / resource / JNI accesses while tests run.
- * Any test-only class (JUnit Platform, kotlin.test, our own NativeSmokeTest /
- * InitCommandTest / SendCommandTest, Gradle worker internals) that happens to be
+ * The tracing agent captures reflection / resource / JNI accesses while tests
+ * run. Any test-only class (JUnit Platform, kotlin.test, our own NativeSmokeTest
+ * / InitCommandTest / SendCommandTest, Gradle worker internals) or test-only
+ * resource (scan-smoke-fixture, junit-platform.properties) that happens to be
  * accessed during the test run will be recorded and — without an explicit strip
  * step — would end up in the committed JSON files, causing the native binary to
- * bundle test infrastructure.
+ * bundle test infrastructure into production.
  *
- * This test ensures that the [stripTestEntriesFromMetadata] Gradle task (defined
- * in qodana-cli/build.gradle.kts) was applied before the metadata was committed.
- * It runs as part of the regular JVM test suite so that CI fails immediately if
- * a contributor regenerates metadata without stripping.
+ * The canonical banned list lives in
+ * `qodana-cli/src/test/resources/banned-metadata-patterns.txt` and is loaded
+ * via [BannedMetadataPatterns.load].  The `stripTestEntriesFromMetadata`
+ * Gradle task in `qodana-cli/build.gradle.kts` reads the same file at build
+ * time so the strip and the test share a single source of truth.
  */
+@Execution(ExecutionMode.SAME_THREAD)
 class MetadataHygieneTest {
     companion object {
-        /**
-         * Class-name prefixes that must never appear in reflect-config.json or
-         * jni-config.json.  Keep in sync with `testClassPrefixes` in
-         * qodana-cli/build.gradle.kts.
-         */
-        private val BANNED_CLASS_PREFIXES =
-            listOf(
-                // Our own test classes
-                "org.jetbrains.qodana.cli.NativeSmokeTest",
-                "org.jetbrains.qodana.cli.MetadataHygieneTest",
-                "org.jetbrains.qodana.cli.command.InitCommandTest",
-                "org.jetbrains.qodana.cli.command.SendCommandTest",
-                "org.jetbrains.qodana.cli.command.SendTestSupport",
-                // JUnit Jupiter / Platform
-                "org.junit.",
-                // opentest4j (JUnit assertion infrastructure)
-                "org.opentest4j.",
-                // kotlin.test
-                "kotlin.test.",
-                // kotlinx-coroutines test support
-                "kotlinx.coroutines.test.",
-                // Gradle worker process (injected when agent runs inside a Gradle build)
-                "worker.org.gradle.",
-            )
-
-        /**
-         * Substrings that must never appear inside a resource-config.json pattern.
-         * Keep in sync with `testResourceSubstrings` in qodana-cli/build.gradle.kts.
-         */
-        private val BANNED_RESOURCE_SUBSTRINGS =
-            listOf(
-                "junit-platform.properties",
-                "META-INF/services/kotlin.test.",
-                "META-INF/services/org.junit.platform.",
-                "META-INF/services/org.junit.jupiter.",
-            )
+        private val PATTERNS = BannedMetadataPatterns.load(
+            Path.of("src/test/resources/banned-metadata-patterns.txt"),
+        )
 
         private val METADATA_DIR =
             Paths.get(
@@ -69,7 +43,7 @@ class MetadataHygieneTest {
             )
 
         @JvmStatic
-        fun arrayConfigFiles() =
+        fun arrayConfigFiles(): List<Path> =
             listOf(
                 METADATA_DIR.resolve("reflect-config.json"),
                 METADATA_DIR.resolve("jni-config.json"),
@@ -82,16 +56,21 @@ class MetadataHygieneTest {
      */
     @ParameterizedTest(name = "{0}")
     @MethodSource("arrayConfigFiles")
-    fun `array config file contains no banned class names`(configFile: java.nio.file.Path) {
-        if (!configFile.exists()) return // file absent → nothing to check
+    fun `array config file contains no banned class names`(configFile: Path) {
+        assertTrue(
+            configFile.exists(),
+            "expected native-image metadata file $configFile to exist; if it's been removed, " +
+                "either delete this test parameter or regenerate the metadata via " +
+                "`./gradlew :qodana-cli:metadataCopy`",
+        )
 
         val json = configFile.readText()
         val violations = mutableListOf<String>()
-        for (prefix in BANNED_CLASS_PREFIXES) {
+        for (prefix in PATTERNS.classPrefixes) {
             // Quick text scan first to avoid pulling in a JSON library at test time.
             // The "name" value in these files is always a simple quoted string.
             if (("\"$prefix" in json) || ("\\\"$prefix" in json)) {
-                // Confirm by finding each occurrence
+                // Confirm by finding each occurrence.
                 val pattern = Regex(""""name"\s*:\s*"([^"]+)"""")
                 pattern
                     .findAll(json)
@@ -121,7 +100,12 @@ class MetadataHygieneTest {
     @Test
     fun `resource-config contains no banned patterns`() {
         val configFile = METADATA_DIR.resolve("resource-config.json")
-        if (!configFile.exists()) return
+        assertTrue(
+            configFile.exists(),
+            "expected native-image metadata file $configFile to exist; if it's been removed, " +
+                "either delete this test or regenerate the metadata via " +
+                "`./gradlew :qodana-cli:metadataCopy`",
+        )
 
         val json = configFile.readText()
         val violations = mutableListOf<String>()
@@ -129,7 +113,7 @@ class MetadataHygieneTest {
         val pattern = Regex(""""pattern"\s*:\s*"([^"]+)"""")
         for (match in pattern.findAll(json)) {
             val patternValue = match.groupValues[1]
-            for (banned in BANNED_RESOURCE_SUBSTRINGS) {
+            for (banned in PATTERNS.resourceSubstrings) {
                 if (banned in patternValue) {
                     violations.add(
                         "resource-config.json: banned pattern \"$patternValue\" (contains \"$banned\")",
