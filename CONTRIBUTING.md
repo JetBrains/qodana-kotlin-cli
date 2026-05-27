@@ -99,9 +99,11 @@ Both the scan smoke test and the CI `native-e2e` job pin `jetbrains/qodana-jvm-c
 
 The native binary supports the full runtime command set: `--help`, `--version`, `init` (Phase A, [QD-14643](https://youtrack.jetbrains.com/issue/QD-14643)), plus `scan`, `view`, `send`, `pull`, `show` execution (added in [QD-14728](https://youtrack.jetbrains.com/issue/QD-14728)). The CI `native-e2e` job exercises every command end-to-end against a real Docker daemon and a local mock cloud on each supported platform.
 
-### Known limitation — Windows ARM
+### CI platform notes
 
-There is no native `qodana-cli` build for Windows ARM. ARM Windows users are expected to run the `qodana-cli-windows-amd64` binary under Windows 11's Prism x86 emulation. **That binary does not currently run on Windows ARM** — it exits immediately with:
+**Windows** (the `windows-latest` runner): GitHub-hosted Windows runners are nested VMs whose hypervisor blocks the additional virtualisation Docker Desktop would need to run Linux containers (see [community/discussions/25491](https://github.com/orgs/community/discussions/25491)). The runner's bundled Docker engine is in Windows-containers mode, and the `jetbrains/qodana-jvm-community` image is linux/amd64-only — so on this runner the `native-e2e` job exercises only the binary-only commands (`--version`, `--help`, `view`, `send` via the local mock cloud, `show --dir-only`). Docker-dependent steps (`scan`, `pull`, SARIF parity) are gated off via `matrix.platform.docker: false`.
+
+**Windows on ARM**: There is no native arm64 build of `qodana-cli`. ARM Windows users are expected to run the amd64 binary under Windows 11's Prism x86 emulation, but **that binary does not currently run on Windows ARM** — it exits immediately with:
 
 ```
 The current machine does not support all of the following CPU features that
@@ -110,9 +112,9 @@ BMI1, BMI2, FMA]. Please rebuild the executable with an appropriate setting
 of the -march option.
 ```
 
-The fix is to add a `-march=compatibility` (or `x86-64`) variant of the amd64 build that drops the high-end CPU-feature requirements. This is tracked separately in [QD-14819](https://youtrack.jetbrains.com/issue/QD-14819); until that's done, the CI `native-e2e` matrix does NOT include a `windows-amd64-on-arm` entry, since it would always fail at the first binary invocation regardless of metadata changes.
+The fix is to add a `-march=compatibility` (or `x86-64`) variant of the amd64 build that drops the high-end CPU-feature requirements. This is tracked separately in [QD-14819](https://youtrack.jetbrains.com/issue/QD-14819); until that's done, the CI `native-e2e` matrix does NOT include a `windows-amd64-on-arm` entry, since it would always fail at the first binary invocation regardless of metadata changes. Docker Desktop is also not preinstalled on the `windows-11-arm` runner (see [actions/partner-runner-images](https://github.com/actions/partner-runner-images/blob/main/images/arm-windows-11-image.md)), so the re-added entry will need the same Docker-less treatment as `windows-amd64`.
 
-Note also that Docker Desktop is **not** preinstalled on the `windows-11-arm` runner image (see the official tools list at [actions/partner-runner-images](https://github.com/actions/partner-runner-images/blob/main/images/arm-windows-11-image.md)). When QD-14819 lands, the re-added matrix entry will have to skip Docker-dependent steps and exercise only the binary-only commands (`--version`, `--help`, `view`, `send` via the local mock cloud, `show --dir-only`).
+**macOS**: The runners don't ship with Docker, so the workflow installs `colima` + `qemu` (qemu-vm-type works around colima 0.10.x VZ-driver flakiness on `macos-15` runners). Cold colima startup adds ~2-3 minutes per job. `DOCKER_HOST` is explicitly exported to the unix socket inside `~/.colima/default/` because docker-java doesn't read Docker CLI contexts.
 
 ## Troubleshooting
 

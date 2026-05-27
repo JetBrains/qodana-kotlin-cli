@@ -140,7 +140,16 @@ jobs:
           - { tag: linux-arm64,            artifact: qodana-cli-linux-arm64,   runner: ubuntu-24.04-arm, setup: linux,   docker: true  }
           - { tag: darwin-amd64,           artifact: qodana-cli-darwin-amd64,  runner: macos-15-intel,   setup: colima,  docker: true  }
           - { tag: darwin-arm64,           artifact: qodana-cli-darwin-arm64,  runner: macos-15,         setup: colima,  docker: true  }
-          - { tag: windows-amd64,          artifact: qodana-cli-windows-amd64, runner: windows-latest,   setup: windows, docker: true  }
+          # `windows-latest` runs the Docker engine in Windows-containers mode
+          # and does NOT support Linux containers — GitHub's hosted Windows
+          # runners are nested VMs and the hypervisor blocks WSL2 / Hyper-V
+          # nested virtualisation that Docker Desktop would need (see
+          # https://github.com/orgs/community/discussions/25491). The linter
+          # image is linux/amd64, so Docker-dependent steps on this entry
+          # would always fail with "no matching manifest for windows". We
+          # gate them off (docker: false) — non-Docker commands still run
+          # to verify the binary itself executes on Windows.
+          - { tag: windows-amd64,          artifact: qodana-cli-windows-amd64, runner: windows-latest,   setup: windows, docker: false }
           # NOTE: `windows-amd64-on-arm` (running the amd64 binary on a
           # `windows-11-arm` runner) is NOT in this matrix. The shipped
           # binary is built without `-march=compatibility`, so it requires
