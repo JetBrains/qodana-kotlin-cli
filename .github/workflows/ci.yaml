@@ -207,12 +207,24 @@ jobs:
         shell: bash
         run: |
           brew install colima docker qemu
-          # `--vm-type qemu` is more reliable on macOS 15 than the default
-          # Apple Virtualization Framework (vz), which has fatal-start
-          # regressions on colima 0.10 / macos-15 runners. qemu adds ~30s
-          # to startup but completes deterministically. Requires `brew
-          # install qemu` (no implicit dep on the colima formula).
-          colima start --vm-type qemu --cpu 2 --memory 4 --disk 20
+          # Different VM driver per architecture:
+          #   - Apple Silicon (arm64): use Apple's native Virtualization.framework
+          #     (`--vm-type vz --arch aarch64`). qemu on lima 2.1.1 panics
+          #     immediately on macos-15 arm64 runners with
+          #     "panic: send on closed channel" in qemu_driver.go:382 —
+          #     see colima/colima#1211 + PR #12 CI run 26512208523.
+          #     The qodana-jvm-community linter image is published for
+          #     linux/arm64 too (see `docker manifest inspect`), so this
+          #     runs the linter natively without amd64 emulation.
+          #   - Intel (x86_64): keep qemu — vz on colima 0.10 / macos-15
+          #     Intel runners had fatal-start regressions. qemu adds ~30s
+          #     to startup but completes deterministically.
+          arch=$(uname -m)
+          if [ "$arch" = "arm64" ]; then
+            colima start --vm-type vz --arch aarch64 --cpu 2 --memory 4 --disk 20
+          else
+            colima start --vm-type qemu --cpu 2 --memory 4 --disk 20
+          fi
           deadline=$(( $(date +%s) + 240 ))
           until docker info >/dev/null 2>&1; do
             sleep 2
