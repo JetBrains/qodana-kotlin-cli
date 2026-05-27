@@ -43,13 +43,14 @@ subprojects {
         }
     }
 
-    // Default `test` task: skip docker-tagged tests so a contributor can
-    // run `./gradlew test` without Docker installed. The `docker` tag is
-    // attached via JUnit 5's @Tag("docker") on each Docker-touching class.
+    // Default `test` task: skip Docker-tagged tests so a contributor can
+    // run `./gradlew test` without Docker installed, and skip
+    // `native-binary`-tagged tests because they need a prebuilt native
+    // binary supplied via -D flags (only available in CI).
     plugins.withId("java") {
         tasks.named<Test>("test") {
             useJUnitPlatform {
-                excludeTags("docker")
+                excludeTags("docker", "native-binary")
             }
         }
     }
