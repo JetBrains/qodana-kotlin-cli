@@ -90,7 +90,5 @@ jobs:
       version: ${{ needs.compute.outputs.version }}
       prerelease: true
       latest: false
-      expected-sha: ${{ needs.compute.outputs.sha }}
-      cli-only: true
       mode: nightly
     secrets: inherit
