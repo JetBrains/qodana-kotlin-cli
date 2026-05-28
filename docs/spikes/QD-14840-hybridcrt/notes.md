@@ -54,15 +54,15 @@ _TODO: full list of /MD references found, with file paths and line numbers._
 
 ## Time tracking
 
-| Step | Target | Actual |
-|------|--------|--------|
-| Task 0 (setup) | 2-3h | _TODO_ |
-| Task 0.7 (probe) | 3-5h | _TODO_ |
-| Step 1 (OpenJDK, conditional) | ≤8h or 0h | _TODO_ |
-| Step 2 (GraalVM) | ≤6h | _TODO_ |
-| Step 3 (qodana-cli + verify) | ≤4h | _TODO_ |
-| Step 4 (writeup) | 1h | _TODO_ |
-| **Total** | 1.5-4 days | _TODO_ |
+| Step                          | Target     | Actual |
+| ----------------------------- | ---------- | ------ |
+| Task 0 (setup)                | 2-3h       | _TODO_ |
+| Task 0.7 (probe)              | 3-5h       | _TODO_ |
+| Step 1 (OpenJDK, conditional) | ≤8h or 0h  | _TODO_ |
+| Step 2 (GraalVM)              | ≤6h        | _TODO_ |
+| Step 3 (qodana-cli + verify)  | ≤4h        | _TODO_ |
+| Step 4 (writeup)              | 1h         | _TODO_ |
+| **Total**                     | 1.5-4 days | _TODO_ |
 
 ## Verdict (Step 4)
 

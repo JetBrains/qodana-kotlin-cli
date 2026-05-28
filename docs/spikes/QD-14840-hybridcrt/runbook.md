@@ -30,7 +30,7 @@ The original brief suggested `qodana-clang` as a "small" test target. **Verified
 
 A `qodana-cli.exe` produced by the patched-GraalVM-(±-patched-JDK-25) chain that:
 
-1. **`dumpbin /imports qodana-cli.exe`** AND **`dumpbin /dependents qodana-cli.exe`** AND a PortEx cross-check list NONE of the DLLs matched by this regex: `(?i)(vcruntime|msvcp|concrt|msvcr|vcomp|mfc|mfcm|vcamp|vccorlib|atl)[0-9_]*\.dll`. Allowed: `api-ms-win-crt-*.dll`, `kernel32.dll`, `advapi32.dll`, `ws2_32.dll`, `ucrtbase.dll`, Windows-native DLLs. (The regex matches PR #13's existing VC_RUNTIME_REGEX plus the broader MSVC variants Codex flagged: `msvcp140_*`, `vcruntime140_*` arbitrary suffix, `vccorlib140`.)
+1. **`dumpbin /imports qodana-cli.exe`** AND **`dumpbin /dependents qodana-cli.exe`** AND a PortEx cross-check list NONE of the DLLs matched by this regex: `(?i)(vcruntime|msvcp|concrt|msvcr|vcomp|mfc|mfcm|vcamp|vccorlib|atl)[0-9_]*\.dll`. Allowed: `api-ms-win-crt-*.dll`, `kernel32.dll`, `advapi32.dll`, `ws2_32.dll`, `ucrtbase.dll`, Windows-native DLLs. (The regex matches PR #13's existing VC*RUNTIME_REGEX plus the broader MSVC variants Codex flagged: `msvcp140*\_`, `vcruntime140\_\_`arbitrary suffix,`vccorlib140`.)
 
 2. **`qodana-cli.exe --help` exits cleanly** on:
    - `mcr.microsoft.com/windows/servercore:ltsc2022` container with `--isolation=process` (NOT default Hyper-V isolation; we want to match real customer environments where Server Core runs without Hyper-V)
@@ -70,9 +70,11 @@ ARM64 Windows; JDKs other than 25; code signing; performance benchmarking; `qoda
 - Worktree: `.tmp/claude/worktrees/QD-14840-hybridcrt/` on branch `azhukova/QD-14840`, based on `origin/azhukova/QD-14812`.
 
 **PR #13 fragility check** (do this before each subsequent Step on Windows):
+
 ```
 gh pr view 13 --json state,mergeStateStatus,headRefOid
 ```
+
 - If PR #13 has merged: rebase the spike branch onto `main` (`git rebase main`).
 - If `headRefOid` differs from the branch's tip when we created the worktree: force-pushed; rebase onto the new tip.
 
@@ -81,6 +83,7 @@ gh pr view 13 --json state,mergeStateStatus,headRefOid
 Requirements: Windows 10/11 x64 or Server 2019+; ≥16 GB RAM (32 GB recommended); ≥100 GB free disk; VS 2022 Build Tools ("Desktop development with C++" workload); Cygwin (for OpenJDK configure); Git for Windows; Python 3.9+ (for `mx`); 7-zip; Docker Desktop (Server Core test).
 
 Host options (record choice in `notes.md`):
+
 - Azure D8s_v5 VM (~$0.40/hr) — burnable
 - Local VM (Parallels/VMware/Hyper-V)
 - Internal JetBrains Windows builder if available
@@ -150,6 +153,7 @@ Procedure:
 6. `dumpbin /dependents HelloWorld.exe > evidence\probe-helloworld-dependents.txt`
 
 **Branching decision**:
+
 - If both imports + dependents show NO `vc*` runtime DLLs → **GraalVM-only is sufficient.** Skip Step 1 entirely. Use the vanilla JDK + patched GraalVM in Step 3. The plan's expected effort drops to ~1.5 days.
 - If imports DO show `vcruntime140*` → **JDK rebuild is necessary.** Proceed to Step 1.
 
@@ -406,6 +410,7 @@ Three artifacts:
 3. **Worktree contents**: patches under `patches/`, evidence under `evidence/`, scripts under `scripts/`, `notes.md` with real-time observations.
 
 **Topics for free-form discussion**:
+
 - Vendoring strategy: forks vs patches-in-repo
 - CI cost: cold build wall-clock (1.5-4h); GitHub Actions cache 10 GB cap; cache key (hash of patches + upstream SHAs)
 - License obligations: OpenJDK GPL-2.0+CE + GraalVM EPL-2.0/GPL-2.0+CE — ship modified source (public fork satisfies); `qodana-cli.exe` doesn't inherit GPL (Classpath Exception)
@@ -432,6 +437,7 @@ Per CLAUDE.local.md workflow rule:
 ## Time tracking (record in `notes.md`)
 
 Targets:
+
 - Task 0 (setup + pre-flight + GraalVM-only probe): 3-7h depending on probe outcome
 - Step 1 (OpenJDK rebuild, conditional): ≤8h or 0h (skipped)
 - Step 2 (GraalVM): ≤6h (often shorter since Task 0.7 may have done most of it)
