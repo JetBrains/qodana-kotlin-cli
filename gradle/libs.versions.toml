@@ -16,7 +16,7 @@ fus-reporting = "77"
 fus-metadata-client = "10"
 ap-scheme-tools = "0.0.3"
 intellij-report-converter = "0.11.76.1"
-junit = "5.11.4"
+junit = "6.1.0"
 
 [libraries]
 # Kotlin

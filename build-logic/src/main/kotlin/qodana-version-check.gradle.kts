@@ -7,14 +7,15 @@
 // `nightlyVersion`: prints `NIGHTLY_VERSION=v<base>` to stdout. The umbrella nightly workflow extracts the
 // base via `grep '^NIGHTLY_VERSION='` and appends `-nightly` once.
 //
-// Both tasks share the same compute logic from `internal.VersionCompute` and the same tag query:
-//   git tag --list 'v*' --merged HEAD --sort=-v:refname | grep -vE -- '(-nightly|-tagprobe-)' | head -n 1
+// Both tasks share the same compute logic from `internal.computeVersionState` and the same tag query:
+//   git tag --list 'v*' --merged HEAD --sort=-v:refname   (filtered by `stableTagRegex` below)
 //
-// `--merged HEAD` ignores tags reachable only via unrelated branches. The `-tagprobe-` filter guards
-// against debris from the empirical-probe task (Task 1 of the plan).
+// `--merged HEAD` ignores tags reachable only via unrelated branches. The strict `stableTagRegex`
+// only accepts `vX.Y` / `vX.Y.Z` form — so `-nightly`, `-tagprobe-`, `-rc1`, and any other suffixed
+// tags are rejected automatically without a separate grep step.
 
-import internal.VersionCompute
 import internal.VersionState
+import internal.computeVersionState
 
 abstract class CheckVersionTask : DefaultTask() {
     @get:Input
@@ -31,7 +32,7 @@ abstract class CheckVersionTask : DefaultTask() {
     fun run() {
         val src = source.get()
         val tag = lastStableTag.get().ifBlank { null }
-        val state = VersionCompute.compute(src, tag)
+        val state = computeVersionState(src, tag)
         if (state is VersionState.Invalid) {
             throw GradleException("Version invariant violated: ${state.message}")
         }
@@ -46,7 +47,7 @@ abstract class CheckVersionTask : DefaultTask() {
             }
             // For tagged dispatches: BumpAhead is the normal release-prep state. JustReleased is also
             // accepted ONLY when there are no prior stable tags (first-ever release), because
-            // VersionCompute treats `lastTag=null` as a JustReleased state for any numeric source.
+            // computeVersionState treats `lastTag=null` as a JustReleased state for any numeric source.
             // Without this carve-out, the first dispatch (Task 10 of the plan) would always fail.
             val firstEverRelease = state is VersionState.JustReleased && tag == null
             if (state !is VersionState.BumpAhead && !firstEverRelease) {
@@ -74,7 +75,7 @@ abstract class NightlyVersionTask : DefaultTask() {
     fun run() {
         val src = source.get()
         val tag = lastStableTag.get().ifBlank { null }
-        val nextBase = when (val state = VersionCompute.compute(src, tag)) {
+        val nextBase = when (val state = computeVersionState(src, tag)) {
             is VersionState.Dev -> throw GradleException(
                 "cannot generate nightly version while gradle.properties has version=dev. " +
                     "Bump gradle.properties to a numeric version (e.g. the next planned release) first.",
@@ -98,10 +99,14 @@ private val stableTagRegex = Regex("""^v(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:\.(?:0|
 fun lastStableTagOrEmpty(): String {
     val outputFile = java.io.File.createTempFile("qodana-tags", ".txt")
     outputFile.deleteOnExit()
+    // `redirectErrorStream(true)` merges stderr into the output file. If we left stderr as a pipe,
+    // a large stderr (rare but possible — e.g., git warning torrent) would fill the OS pipe buffer
+    // and deadlock waitFor() forever. Merging is fine here: we only care about exit code + first
+    // matching stdout line; stderr in the output file is filtered out by the regex anyway.
     val pb = ProcessBuilder("git", "tag", "--list", "v*", "--merged", "HEAD", "--sort=-v:refname")
         .directory(rootDir)
         .redirectOutput(outputFile)
-        .redirectErrorStream(false)
+        .redirectErrorStream(true)
     val proc = pb.start()
     val exitCode = proc.waitFor()
     if (exitCode != 0) {
@@ -109,7 +114,8 @@ fun lastStableTagOrEmpty(): String {
         // and must not be silently treated as "no tags" — that would weaken the bump-rule check.
         throw GradleException(
             "qodana-version-check: `git tag --list 'v*'` exited with code $exitCode. " +
-                "Run from a git checkout with a working git binary on PATH.",
+                "Run from a git checkout with a working git binary on PATH. " +
+                "Output:\n${outputFile.readText()}",
         )
     }
     return outputFile.readLines()

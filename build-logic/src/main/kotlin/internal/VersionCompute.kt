@@ -22,56 +22,63 @@ package internal
  * Nightly tags (`v…-nightly`) and probe tags (`v…-tagprobe-…`) must be filtered out by the caller before
  * being passed as `lastStableTag`.
  */
-internal object VersionCompute {
-    fun compute(source: String, lastStableTag: String?): VersionState {
-        // Whitespace check first — `trim` must NOT silently fix invalid input.
-        if (source != source.trim()) return VersionState.Invalid("source has leading/trailing whitespace")
-        if (source.isEmpty()) return VersionState.Invalid("source-of-truth is empty")
-        if (source == "dev") return VersionState.Dev
+internal fun computeVersionState(source: String, lastStableTag: String?): VersionState {
+    // Whitespace check first — `trim` must NOT silently fix invalid input.
+    if (source != source.trim()) return VersionState.Invalid("source has leading/trailing whitespace")
+    if (source.isEmpty()) return VersionState.Invalid("source-of-truth is empty")
+    if (source == "dev") return VersionState.Dev
 
-        val sourceParsed = SemVer.parse(source)
-            ?: return VersionState.Invalid(parseError(source))
+    val sourceParsed = JbSemVer.parse(source)
+        ?: return VersionState.Invalid(parseError(source))
 
-        if (lastStableTag == null) {
-            // First-ever release: any well-formed numeric source counts as JustReleased.
-            return VersionState.JustReleased(nextBase = "v${sourceParsed.canonical().bumpPatch()}")
-        }
+    if (lastStableTag == null) {
+        // First-ever release: any well-formed numeric source counts as JustReleased.
+        return VersionState.JustReleased(nextBase = "v${sourceParsed.canonical().bumpPatch()}")
+    }
 
-        val lastParsed = SemVer.parse(lastStableTag.removePrefix("v"))
-            ?: return VersionState.Invalid("lastStableTag '$lastStableTag' is not a parseable v<semver>")
-
-        val sourceCanon = sourceParsed.canonical()
-        val lastCanon = lastParsed.canonical()
-
-        if (sourceCanon == lastCanon) {
-            return VersionState.JustReleased(nextBase = "v${sourceCanon.bumpPatch()}")
-        }
-
-        val validBumps = lastCanon.validBumps()
-        if (sourceCanon in validBumps) {
-            return VersionState.BumpAhead(nextBase = "v$sourceCanon")
-        }
-
-        val candidates = validBumps.joinToString(", ") { "v$it" }
+    // Enforce the `v` prefix on lastStableTag — callers should pass the tag verbatim ("v2026.3.0",
+    // not "2026.3.0"). The contract is documented at the top of this file. Tolerating a missing
+    // prefix would hide caller mistakes where the tag query returned something unexpected.
+    if (!lastStableTag.startsWith("v")) {
         return VersionState.Invalid(
-            "source v$sourceCanon is not a valid bump from v$lastCanon " +
-                "(expected one of: $candidates, or equal to v$lastCanon for JustReleased state)",
+            "lastStableTag '$lastStableTag' must start with 'v' " +
+                "(caller contract: pass the tag verbatim as produced by `git tag --list 'v*'`)",
         )
     }
+    val lastParsed = JbSemVer.parse(lastStableTag.removePrefix("v"))
+        ?: return VersionState.Invalid("lastStableTag '$lastStableTag' is not a parseable v<semver>")
 
-    private fun parseError(source: String): String {
-        // Surface a specific reason when easy. Otherwise fall back to a generic message.
-        if (source.contains('-')) {
-            val suffix = source.substringAfter('-')
-            return "source has suffix '-$suffix' (pre-release suffixes are not allowed)"
-        }
-        for (seg in source.split('.')) {
-            if (seg.length > 1 && seg.startsWith('0')) {
-                return "source has leading zero in segment '$seg'"
-            }
-        }
-        return "source '$source' is not 'dev' or numeric.dot form (2 or 3 segments)"
+    val sourceCanon = sourceParsed.canonical()
+    val lastCanon = lastParsed.canonical()
+
+    if (sourceCanon == lastCanon) {
+        return VersionState.JustReleased(nextBase = "v${sourceCanon.bumpPatch()}")
     }
+
+    val validBumps = lastCanon.validBumps()
+    if (sourceCanon in validBumps) {
+        return VersionState.BumpAhead(nextBase = "v$sourceCanon")
+    }
+
+    val candidates = validBumps.joinToString(", ") { "v$it" }
+    return VersionState.Invalid(
+        "source v$sourceCanon is not a valid bump from v$lastCanon " +
+            "(expected one of: $candidates, or equal to v$lastCanon for JustReleased state)",
+    )
+}
+
+private fun parseError(source: String): String {
+    // Surface a specific reason when easy. Otherwise fall back to a generic message.
+    if (source.contains('-')) {
+        val suffix = source.substringAfter('-')
+        return "source has suffix '-$suffix' (pre-release suffixes are not allowed)"
+    }
+    for (seg in source.split('.')) {
+        if (seg.length > 1 && seg.startsWith('0')) {
+            return "source has leading zero in segment '$seg'"
+        }
+    }
+    return "source '$source' is not 'dev' or numeric.dot form (2 or 3 segments)"
 }
 
 internal sealed class VersionState {
@@ -89,28 +96,38 @@ internal sealed class VersionState {
 }
 
 /**
- * Normalized 3-segment semver. Always stored as `[major, minor, patch]`; omitted patch normalizes to 0.
+ * JetBrains-flavored semver. Three numeric segments stored as `[major, minor, patch]`; omitted patch
+ * normalizes to 0. Deviates from the canonical semver.org spec in two ways:
+ *   1. `major` is a CalVer-style year (`2026`, `2027`, …) — not a "breaking-change-counter".
+ *   2. The patch segment may be omitted in the source (`2026.2` ⇔ `2026.2.0`).
+ *
+ * Pre-release suffixes (`-rc1`, `-nightly`, etc.) are NOT accepted in source-of-truth or in stable tag
+ * names; they're a separate concept handled by the workflow layer (the `-nightly` suffix appended after
+ * `nightlyVersion`'s output).
+ *
+ * The `Jb` prefix is deliberate: do not confuse this with `org.gradle.util.GradleVersion` or any
+ * library-provided SemVer type.
  */
-internal data class SemVer(val major: Int, val minor: Int, val patch: Int) : Comparable<SemVer> {
+internal data class JbSemVer(val major: Int, val minor: Int, val patch: Int) : Comparable<JbSemVer> {
     override fun toString(): String = "$major.$minor.$patch"
 
-    override fun compareTo(other: SemVer): Int =
+    override fun compareTo(other: JbSemVer): Int =
         compareValuesBy(this, other, { it.major }, { it.minor }, { it.patch })
 
-    fun bumpPatch(): SemVer = copy(patch = patch + 1)
+    fun bumpPatch(): JbSemVer = copy(patch = patch + 1)
 
-    fun validBumps(): List<SemVer> = listOf(
-        SemVer(major, minor, patch + 1), // patch bump
-        SemVer(major, minor + 1, 0),     // minor bump
-        SemVer(major + 1, 0, 0),         // major bump
+    fun validBumps(): List<JbSemVer> = listOf(
+        JbSemVer(major, minor, patch + 1), // patch bump
+        JbSemVer(major, minor + 1, 0),     // minor bump
+        JbSemVer(major + 1, 0, 0),         // major bump
     )
 
     /** Identity, but lets callers chain `.canonical()` defensively. */
-    fun canonical(): SemVer = this
+    fun canonical(): JbSemVer = this
 
     companion object {
         /** Parses `"2026.3"` (→ `2026.3.0`) or `"2026.3.1"`. Returns null on any malformation. */
-        fun parse(s: String): SemVer? {
+        fun parse(s: String): JbSemVer? {
             val parts = s.split('.')
             if (parts.size !in 2..3) return null
             val ints = parts.map { seg ->
@@ -122,8 +139,8 @@ internal data class SemVer(val major: Int, val minor: Int, val patch: Int) : Com
                 seg.toIntOrNull() ?: return null
             }
             return when (ints.size) {
-                2 -> SemVer(ints[0], ints[1], 0)
-                3 -> SemVer(ints[0], ints[1], ints[2])
+                2 -> JbSemVer(ints[0], ints[1], 0)
+                3 -> JbSemVer(ints[0], ints[1], ints[2])
                 else -> null
             }
         }

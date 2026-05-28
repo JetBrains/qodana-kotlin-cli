@@ -5,7 +5,7 @@
 The release pipeline is split into two stages:
 
 1. **Draft** — `.github/workflows/draft-release.yaml`. Builds native binaries for 5 OS/arch cells × 3 modules (cli, clang, cdnet), generates CycloneDX SBOMs, computes `checksums.txt`, and creates a GitHub release in **draft** state at a pinned commit SHA. **No git tag exists yet** — `gh release create --draft --target $SHA` stores the target SHA in release metadata only.
-2. **Publish** — `.github/workflows/publish-release.yaml`. Verifies the draft (`isDraft=true`, `targetCommitish==expected-sha`, full asset name list matches), then runs `gh release edit --draft=false`, which causes GitHub to **materialize the git tag** at the pinned SHA.
+2. **Publish** — `.github/workflows/publish-release.yaml`. Runs `gh release edit --draft=false`, which causes GitHub to **materialize the git tag** at the pinned SHA. This step does **NOT** validate anything — the draft was validated when created, and the operator inspected it on the release page before dispatching. Publish is the "CEO pushes the red button" stage: dumb, fast, unconditional.
 
 This inverts the classic "push tag → CI fires" model. The benefits:
 
@@ -23,7 +23,7 @@ Nightly releases (`.github/workflows/nightly.yaml`) chain `Draft` → `Publish` 
 2. **Commit and push.** The pre-push `checkVersion` hook validates the bump rule. If the version skips a segment (e.g., `2026.3.0` → `2026.3.2`), the push is rejected.
 3. **Dispatch `Draft Release`.** From GitHub Actions UI or `gh workflow run draft-release.yaml -f version=<your-version>`. Defaults: `prerelease=false`, `cli-only=false`, `dry-run=false`, `latest=true`.
 4. **Inspect the draft.** Open the draft release page on GitHub. Verify the 19 assets are present (15 binaries/archives + 3 SBOMs + 1 checksums.txt) and the `Target` shows the commit SHA you expect.
-5. **Dispatch `Publish Release`.** Pass `version`, the full 40-char `expected-sha` from the draft page, and the same `prerelease`/`latest` flags used at draft time.
+5. **Dispatch `Publish Release`.** Pass `version` and the same `prerelease`/`latest` flags used at draft time. No SHA confirmation — the draft is the contract.
 
 ## Aborting a release
 
@@ -39,7 +39,7 @@ gh release delete v<version> --yes --cleanup-tag
 
 The `nightly.yaml` umbrella workflow fires daily at **03:07 UTC** (`cron: '7 3 * * *'`) and is also manually triggerable via `gh workflow run nightly.yaml`.
 
-The `compute` job runs `./gradlew --quiet nightlyVersion`, which emits a marker line `NIGHTLY_VERSION=v<base>`. The workflow strips the `v` prefix, appends `-nightly`, and passes the result downstream — e.g., source-of-truth is `2026.3.0` → nightly version is `2026.3.1-nightly` (one patch bump beyond the last release).
+The `compute` job runs `./gradlew --console=plain nightlyVersion`, captures the full output, and greps for the marker line `NIGHTLY_VERSION=v<base>` that the Gradle task prints. The workflow strips the `v` prefix, appends `-nightly`, and passes the result downstream — e.g., source-of-truth is `2026.3.0` → nightly version is `2026.3.1-nightly` (one patch bump beyond the last release). `--console=plain` keeps ANSI escapes out of the marker line; `--quiet` is intentionally NOT used so the captured output surfaces full Gradle logs when the marker grep fails.
 
 **Important:** if `gradle.properties` `version=dev`, the nightly workflow fails on `compute` with "cannot generate nightly version while gradle.properties has version=dev". This is by design — there must be a planned next release for nightlies to anchor against.
 

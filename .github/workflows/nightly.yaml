@@ -43,7 +43,9 @@ jobs:
         run: |
           set -euo pipefail
           # `--console=plain` prevents ANSI escape sequences from polluting the marker line.
-          OUT=$(./gradlew --quiet --console=plain nightlyVersion 2>&1)
+          # `--console=plain` keeps the marker line free of ANSI escapes; `--quiet` is intentionally
+          # absent so the full Gradle output is captured and surfaced when the marker grep fails.
+          OUT=$(./gradlew --console=plain nightlyVersion 2>&1)
           BASE=$(printf '%s\n' "$OUT" | grep '^NIGHTLY_VERSION=' | head -n 1 | cut -d= -f2)
           if [ -z "$BASE" ]; then
             echo "::error::nightlyVersion did not emit a NIGHTLY_VERSION= marker. Output:"
@@ -87,7 +89,5 @@ jobs:
       version: ${{ needs.compute.outputs.version }}
       prerelease: true
       latest: false
-      expected-sha: ${{ needs.compute.outputs.sha }}
-      cli-only: true
       mode: nightly
     secrets: inherit
