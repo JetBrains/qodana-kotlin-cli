@@ -322,14 +322,31 @@ jobs:
       - name: Stage fixture
         shell: bash
         run: |
+          # Pick a work dir that the Docker container can bind-mount as
+          # writable. On macOS the runner uses Lima as the Linux VM (via
+          # docker/setup-docker-action@v4); Lima's default config mounts ~
+          # (= /Users/runner, where $GITHUB_WORKSPACE lives) as READ-ONLY
+          # and only /tmp/lima as writable — so any container bind-mount
+          # rooted under $GITHUB_WORKSPACE fails with
+          #   "make mountpoint ... read-only file system"
+          # the moment the linter tries to write report-native into it.
+          # Stage everything under /tmp/lima instead. On Linux/Windows
+          # $GITHUB_WORKSPACE is writable end-to-end, so keep it there.
+          if [ "${{ matrix.platform.setup }}" = "macos" ]; then
+            WORK="/tmp/lima/qodana-e2e-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          else
+            WORK="$PWD"
+          fi
+          mkdir -p "$WORK"
           # Ensure no root-owned residue from previous runs blocks the cleanup.
           # The qodana-jvm-community container writes its cache as root inside
           # ~/.cache/JetBrains/Qodana/<id>/results/report; passing explicit
-          # --cache-dir / --report-dir inside $PWD keeps everything under a
+          # --cache-dir / --report-dir inside $WORK keeps everything under a
           # path we can delete without sudo afterward.
-          sudo rm -rf project results-native results-jvm cache-native cache-jvm report-native report-jvm || rm -rf project results-native results-jvm cache-native cache-jvm report-native report-jvm
-          cp -r qodana-cli/src/test/resources/scan-smoke-fixture project
-          mkdir -p results-native results-jvm cache-native cache-jvm report-native report-jvm
+          sudo rm -rf "$WORK/project" "$WORK/results-native" "$WORK/results-jvm" "$WORK/cache-native" "$WORK/cache-jvm" "$WORK/report-native" "$WORK/report-jvm" || rm -rf "$WORK/project" "$WORK/results-native" "$WORK/results-jvm" "$WORK/cache-native" "$WORK/cache-jvm" "$WORK/report-native" "$WORK/report-jvm"
+          cp -r qodana-cli/src/test/resources/scan-smoke-fixture "$WORK/project"
+          mkdir -p "$WORK/results-native" "$WORK/results-jvm" "$WORK/cache-native" "$WORK/cache-jvm" "$WORK/report-native" "$WORK/report-jvm"
+          echo "QODANA_E2E_WORK=$WORK" >> "$GITHUB_ENV"
 
       # Non-Docker sanity checks run on every platform, including the
       # Docker-less windows-amd64-on-arm runner. They validate that the
@@ -351,36 +368,36 @@ jobs:
         shell: bash
         run: |
           ${{ steps.bin.outputs.path }} scan \
-            -i "$PWD/project" \
-            -o "$PWD/results-native" \
-            --cache-dir "$PWD/cache-native" \
-            --report-dir "$PWD/report-native" \
-            --repository-root "$PWD/project"
+            -i "$QODANA_E2E_WORK/project" \
+            -o "$QODANA_E2E_WORK/results-native" \
+            --cache-dir "$QODANA_E2E_WORK/cache-native" \
+            --report-dir "$QODANA_E2E_WORK/report-native" \
+            --repository-root "$QODANA_E2E_WORK/project"
 
       - name: Assert SARIF (native)
         if: matrix.platform.docker
         shell: bash
         run: |
-          test -s results-native/qodana.sarif.json
-          grep -q '"results"' results-native/qodana.sarif.json
+          test -s "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
+          grep -q '"results"' "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
           # The fixture's StringEquality target fires for the JVM-community
           # linter; if the rule renames, the failure here points right at it.
-          grep -q 'StringEquality' results-native/qodana.sarif.json
+          grep -q 'StringEquality' "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
 
       - name: scan (JVM, for SARIF parity)
         if: matrix.platform.docker
         shell: bash
         run: |
-          ./gradlew :qodana-cli:run --args="scan -i $PWD/project -o $PWD/results-jvm --repository-root $PWD/project"
+          ./gradlew :qodana-cli:run --args="scan -i $QODANA_E2E_WORK/project -o $QODANA_E2E_WORK/results-jvm --repository-root $QODANA_E2E_WORK/project"
 
       - name: Assert structural SARIF equivalence (JVM vs native)
         if: matrix.platform.docker
         shell: bash
         run: |
           ./gradlew :qodana-cli:nativeBinaryTest --tests 'org.jetbrains.qodana.cli.SarifCompareIntegrationTest' \
-            -Dtest.sarif.jvm="$PWD/results-jvm/qodana.sarif.json" \
-            -Dtest.sarif.native="$PWD/results-native/qodana.sarif.json" \
-            -Dtest.project.dir="$PWD/project"
+            -Dtest.sarif.jvm="$QODANA_E2E_WORK/results-jvm/qodana.sarif.json" \
+            -Dtest.sarif.native="$QODANA_E2E_WORK/results-native/qodana.sarif.json" \
+            -Dtest.project.dir="$QODANA_E2E_WORK/project"
 
       - name: pull (force re-pull so streaming Frame DTO fires)
         if: matrix.platform.docker
@@ -395,11 +412,11 @@ jobs:
         if: ${{ !matrix.platform.docker }}
         shell: bash
         run: |
-          printf '%s' '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"test"}},"results":[]}]}' > results-native/qodana.sarif.json
+          printf '%s' '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"test"}},"results":[]}]}' > "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
 
       - name: view
         shell: bash
-        run: ${{ steps.bin.outputs.path }} view -f results-native/qodana.sarif.json
+        run: ${{ steps.bin.outputs.path }} view -f "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
 
       - name: send (via NativeBinarySendSmokeTest harness)
         shell: bash
@@ -409,9 +426,9 @@ jobs:
         run: |
           ./gradlew :qodana-cli:nativeBinaryTest --tests 'org.jetbrains.qodana.cli.NativeBinarySendSmokeTest' \
             -Dtest.qodana.binary="${{ steps.bin.outputs.path }}" \
-            -Dtest.project.dir="$PWD/project" \
-            -Dtest.results.dir="$PWD/results-native"
+            -Dtest.project.dir="$QODANA_E2E_WORK/project" \
+            -Dtest.results.dir="$QODANA_E2E_WORK/results-native"
 
       - name: show --dir-only
         shell: bash
-        run: ${{ steps.bin.outputs.path }} show -i "$PWD/project" -o "$PWD/results-native" --dir-only
+        run: ${{ steps.bin.outputs.path }} show -i "$QODANA_E2E_WORK/project" -o "$QODANA_E2E_WORK/results-native" --dir-only
