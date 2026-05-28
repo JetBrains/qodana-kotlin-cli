@@ -338,6 +338,13 @@ jobs:
             WORK="$PWD"
           fi
           mkdir -p "$WORK"
+          # Resolve symlinks (on macOS /tmp is a symlink to /private/tmp).
+          # The Kotlin CLI's normalizePath() canonicalizes repositoryRoot via
+          # Path.toRealPath() but not projectDir; if the two disagree the
+          # IdeArgBuilder relativization emits a navigate-up path the linter
+          # container can't lstat. Same root cause Phase 2 NativeSmokeTest hit;
+          # pwd -P is the shell equivalent of toRealPath(). No-op on Linux.
+          WORK=$(cd "$WORK" && pwd -P)
           # Ensure no root-owned residue from previous runs blocks the cleanup.
           # The qodana-jvm-community container writes its cache as root inside
           # ~/.cache/JetBrains/Qodana/<id>/results/report; passing explicit
