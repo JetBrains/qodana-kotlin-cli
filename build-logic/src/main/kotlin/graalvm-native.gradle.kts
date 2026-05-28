@@ -1,3 +1,5 @@
+import internal.BundleWindowsCrt
+
 plugins {
     id("org.graalvm.buildtools.native")
 }
@@ -52,4 +54,20 @@ graalvmNative {
             // nativeCompile fails on build-time-initialization for a specific class.
         }
     }
+}
+
+// QD-14812: GraalVM 21 (and current master) hard-codes /MD on Windows, mirroring the JDK's own /MD
+// build (OpenJDK make/autoconf/flags-cflags.m4:591). The produced .exe therefore imports
+// VCRUNTIME140.dll + VCRUNTIME140_1.dll, which only ship with the Microsoft VC++ Redistributable for
+// VS 2015–2022 — absent on Server Core, LTSC SKUs, and stripped Windows containers. App-local
+// bundling is the only viable mitigation; static /MT is upstream-impossible (oracle/graal#1762,
+// open since 2019).
+//
+// Registered on all hosts so qodana-release.gradle.kts can reference it unconditionally. The task
+// only succeeds on Windows hosts — it fails loudly otherwise (no silent skip per CLAUDE.md).
+tasks.register<BundleWindowsCrt>("bundleWindowsCrt") {
+    group = "build"
+    description = "Copy Microsoft Visual C++ runtime DLLs next to the GraalVM-built Windows binary (QD-14812)."
+    dependsOn("nativeCompile")
+    outputDir.set(layout.buildDirectory.dir("native/nativeCompile"))
 }

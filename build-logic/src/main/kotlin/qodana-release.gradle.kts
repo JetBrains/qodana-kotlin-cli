@@ -7,11 +7,16 @@
 // Naming (matches GoReleaser's `.goreleaser.yaml` verbatim — DO NOT change without re-aligning the
 // download-URL contract with existing Go-pipeline consumers):
 //   Cli  → `qodana_<os>_<arch>.tar.gz` (linux/darwin) or `qodana_<os>_<arch>.zip` (windows).
-//          Archive contains exactly one file: `qodana` (or `qodana.exe` on windows) at mode 0755.
-//          The amd64 → x86_64 mapping ONLY applies to the cli archive name — kept for Go-pipeline
-//          parity. The binary inside the archive is just `qodana[.exe]`.
-//   Tool → `<module>_<version>_<os>_<arch>[.exe]` raw binary in `build/release/`. NO archive, NO arch
-//          renaming (amd64 stays amd64). Mirrors GoReleaser's `formats: ['binary']` for clang/cdnet.
+//          Archive contains `qodana` (or `qodana.exe` on windows) at mode 0755. On Windows the
+//          archive also includes `vcruntime140.dll` + `vcruntime140_1.dll` next to `qodana.exe`
+//          (QD-14812 app-local bundling — GraalVM 21 hard-codes /MD and the binary cannot run on
+//          hosts without the VC++ Redistributable otherwise). The amd64 → x86_64 mapping ONLY
+//          applies to the cli archive name — kept for Go-pipeline parity.
+//   Tool → On linux/darwin: `<module>_<version>_<os>_<arch>` raw binary in `build/release/`.
+//          Mirrors GoReleaser's `formats: ['binary']`. On windows: `<module>_<version>_<os>_<arch>.zip`
+//          containing `<module>_<version>_<os>_<arch>.exe` + the two VC++ runtime DLLs — same
+//          rationale as the cli archive. This is a deliberate divergence from `.goreleaser.yaml`
+//          (was `.exe`, now `.zip`); coordinate with Go-pipeline consumers.
 //
 // Tasks:
 //   releaseBinary    Sync task. dependsOn(nativeCompile). Renames the GraalVM output to its final name
@@ -71,11 +76,19 @@ fun cliArchiveArch(arch: String): String = if (arch == "amd64") "x86_64" else ar
 val releaseStagingDir: Provider<Directory> = layout.buildDirectory.dir("release-staging")
 val releaseDir: Provider<Directory> = layout.buildDirectory.dir("release")
 
-// releaseBinary: rename nativeCompile output to final filename (Tool) or stage as qodana[.exe] (Cli).
+// releaseBinary: rename nativeCompile output to final filename (Tool, non-Windows) or stage as
+// qodana[.exe] / <module>_<version>_<os>_<arch>.exe (Cli, or Tool on Windows for further zipping).
 val releaseBinary = tasks.register<Sync>("releaseBinary") {
     group = "release"
     description = "Rename the GraalVM native binary to its Go-pipeline asset name."
     dependsOn("nativeCompile")
+    // QD-14812: on Windows we also drag in the bundled VC++ runtime DLLs that
+    // graalvm-native's bundleWindowsCrt placed next to the .exe.
+    dependsOn(
+        providers.provider {
+            if (targetOsProvider.orNull == "windows") listOf("bundleWindowsCrt") else emptyList()
+        },
+    )
 
     val targetOs = providers.provider { requireTargetOs() }
     val targetArch = providers.provider { requireTargetArch() }
@@ -91,19 +104,34 @@ val releaseBinary = tasks.register<Sync>("releaseBinary") {
     from(nativeOutputDir) {
         include(project.name)
         include("${project.name}.exe")
+        // QD-14812: bundleWindowsCrt populates these on Windows. The glob matches nothing on
+        // linux/darwin (no DLLs produced), so Sync is a no-op for non-Windows.
+        include("*.dll")
     }
 
-    // Override the destination at config time — different per Cli vs Tool kind.
+    // Override the destination at config time:
+    //   Cli                  → releaseStagingDir (then releaseArchive wraps it)
+    //   Tool + windows       → releaseStagingDir (then releaseToolZip wraps it)
+    //   Tool + linux/darwin  → releaseDir directly (raw binary distribution, unchanged)
     into(
         kindProvider.map { kind ->
             when (kind!!) {
                 QodanaReleaseKind.Cli -> releaseStagingDir.get().asFile
-                QodanaReleaseKind.Tool -> releaseDir.get().asFile
+                QodanaReleaseKind.Tool ->
+                    if (requireTargetOs() == "windows") {
+                        releaseStagingDir.get().asFile
+                    } else {
+                        releaseDir.get().asFile
+                    }
             }
         },
     )
 
     rename { originalName ->
+        // QD-14812: bundled VC++ DLLs keep their canonical filenames so Windows resolves them.
+        if (originalName.endsWith(".dll", ignoreCase = true)) {
+            return@rename originalName
+        }
         val os = targetOs.get()
         val arch = targetArch.get()
         val version = versionString.get()
@@ -152,7 +180,7 @@ val releaseTar = tasks.register<Tar>("releaseTar") {
 
 val releaseZip = tasks.register<Zip>("releaseZip") {
     group = "release"
-    description = "Zip archive of the qodana-cli native binary (windows)."
+    description = "Zip archive of the qodana-cli native binary + bundled VC++ runtime DLLs (windows)."
     onlyIf {
         ext.kind.orNull == QodanaReleaseKind.Cli && requireTargetOs() == "windows"
     }
@@ -167,6 +195,35 @@ val releaseZip = tasks.register<Zip>("releaseZip") {
     destinationDirectory.set(releaseDir)
     from(releaseStagingDir) {
         include("qodana.exe")
+        // QD-14812: app-local VC++ runtime alongside the binary.
+        include("*.dll")
+    }
+}
+
+// QD-14812: Windows-tool zip equivalent of releaseZip. Tool kind on linux/darwin still ships a
+// raw binary (releaseBinary writes directly to releaseDir for that path); on windows we wrap the
+// renamed .exe + bundled DLLs in a zip with the same naming stem the raw .exe used to have.
+val releaseToolZip = tasks.register<Zip>("releaseToolZip") {
+    group = "release"
+    description = "Zip archive of a qodana-tool windows binary + bundled VC++ runtime DLLs."
+    onlyIf {
+        ext.kind.orNull == QodanaReleaseKind.Tool && requireTargetOs() == "windows"
+    }
+    dependsOn(releaseBinary)
+    archiveBaseName.set(
+        providers.provider {
+            val os = requireTargetOs()
+            val arch = requireTargetArch()
+            "${project.name}_${project.version}_${os}_$arch"
+        },
+    )
+    archiveVersion.set("")
+    destinationDirectory.set(releaseDir)
+    from(releaseStagingDir) {
+        // The renamed .exe carries the version + os + arch already (via releaseBinary's rename
+        // block); match it loosely so we don't have to re-derive the exact string here.
+        include("${project.name}_*_windows_*.exe")
+        include("*.dll")
     }
 }
 
@@ -185,7 +242,8 @@ tasks.withType<BaseCyclonedxTask>().configureEach {
     jsonOutput.set(releaseDir.map { it.file("${project.name}-sbom.json") })
 }
 
-// assembleRelease lifecycle.
+// assembleRelease lifecycle. Tool on Windows ships a zip (QD-14812 DLL bundle); everything else
+// continues to ship per the historical Go-pipeline naming.
 val assembleRelease = tasks.register("assembleRelease") {
     group = "release"
     description = "Build the release-ready native artifact(s) for this module in build/release/."
@@ -193,7 +251,8 @@ val assembleRelease = tasks.register("assembleRelease") {
         ext.kind.map { kind ->
             when (kind!!) {
                 QodanaReleaseKind.Cli -> releaseArchive
-                QodanaReleaseKind.Tool -> releaseBinary
+                QodanaReleaseKind.Tool ->
+                    if (requireTargetOs() == "windows") releaseToolZip else releaseBinary
             }
         },
     )
