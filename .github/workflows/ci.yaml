@@ -225,14 +225,34 @@ jobs:
           echo "UID=$(id -u)" >> "$GITHUB_ENV"
           echo "GID=$(id -g)" >> "$GITHUB_ENV"
 
+      # Ensure /private/tmp/lima exists on the host before Lima starts.
+      # Lima creates the guest mountpoint but does not create the host
+      # source dir; if it's missing, `limactl start --mount` errors out.
+      - name: Pre-create Lima mount source (macOS)
+        if: matrix.platform.docker && matrix.platform.setup == 'macos'
+        shell: bash
+        run: mkdir -p /private/tmp/lima
+
       # Vendored from JetBrains/qodana-cli (Go). Pins QEMU 10.1.1 + uses
       # docker/setup-docker-action@v4. Apache-2.0; see the action file
       # header for full attribution.
+      #
+      # LIMA_START_ARGS adds /private/tmp/lima as a writable Lima mount.
+      # Why: on macOS /tmp is a symlink to /private/tmp. The Kotlin CLI's
+      # normalizeRepositoryRoot() canonicalizes via Path.toRealPath() before
+      # it bind-mounts the project dir, so docker-java ends up requesting
+      # hostPath=/private/tmp/lima/qodana-e2e-XXX. Lima's default config only
+      # exposes /tmp/lima to the guest VM; without this extra mount the
+      # Docker daemon inside Lima finds an empty directory there and the
+      # linter reports "No files to check with Qodana found in /data/project".
+      # See QD-14728 iteration 7 diagnosis.
       - name: Docker (macOS via vendored setup-docker action)
         if: matrix.platform.docker && matrix.platform.setup == 'macos'
         uses: ./.github/actions/setup-docker
         with:
           version: latest
+        env:
+          LIMA_START_ARGS: --mount /private/tmp/lima:w
 
       # setup-docker-action@v4 creates a Docker CLI context
       # (e.g. unix:///Users/runner/.lima/docker-actions-toolkit/docker.sock)
