@@ -36,6 +36,15 @@ internal fun computeVersionState(source: String, lastStableTag: String?): Versio
         return VersionState.JustReleased(nextBase = "v${sourceParsed.canonical().bumpPatch()}")
     }
 
+    // Enforce the `v` prefix on lastStableTag — callers should pass the tag verbatim ("v2026.3.0",
+    // not "2026.3.0"). The contract is documented at the top of this file. Tolerating a missing
+    // prefix would hide caller mistakes where the tag query returned something unexpected.
+    if (!lastStableTag.startsWith("v")) {
+        return VersionState.Invalid(
+            "lastStableTag '$lastStableTag' must start with 'v' " +
+                "(caller contract: pass the tag verbatim as produced by `git tag --list 'v*'`)",
+        )
+    }
     val lastParsed = JbSemVer.parse(lastStableTag.removePrefix("v"))
         ?: return VersionState.Invalid("lastStableTag '$lastStableTag' is not a parseable v<semver>")
 

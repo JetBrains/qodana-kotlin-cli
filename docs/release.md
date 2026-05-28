@@ -39,7 +39,7 @@ gh release delete v<version> --yes --cleanup-tag
 
 The `nightly.yaml` umbrella workflow fires daily at **03:07 UTC** (`cron: '7 3 * * *'`) and is also manually triggerable via `gh workflow run nightly.yaml`.
 
-The `compute` job runs `./gradlew --quiet nightlyVersion`, which emits a marker line `NIGHTLY_VERSION=v<base>`. The workflow strips the `v` prefix, appends `-nightly`, and passes the result downstream — e.g., source-of-truth is `2026.3.0` → nightly version is `2026.3.1-nightly` (one patch bump beyond the last release).
+The `compute` job runs `./gradlew --console=plain nightlyVersion`, captures the full output, and greps for the marker line `NIGHTLY_VERSION=v<base>` that the Gradle task prints. The workflow strips the `v` prefix, appends `-nightly`, and passes the result downstream — e.g., source-of-truth is `2026.3.0` → nightly version is `2026.3.1-nightly` (one patch bump beyond the last release). `--console=plain` keeps ANSI escapes out of the marker line; `--quiet` is intentionally NOT used so the captured output surfaces full Gradle logs when the marker grep fails.
 
 **Important:** if `gradle.properties` `version=dev`, the nightly workflow fails on `compute` with "cannot generate nightly version while gradle.properties has version=dev". This is by design — there must be a planned next release for nightlies to anchor against.
 

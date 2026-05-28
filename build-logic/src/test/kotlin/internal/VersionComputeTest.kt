@@ -186,4 +186,17 @@ class VersionComputeTest {
             computeVersionState("2026.4.0", "v2026.4.0"),
         )
     }
+
+    // lastStableTag contract =====
+
+    @Test
+    @DisplayName("lastStableTag without 'v' prefix is rejected (caller contract)")
+    fun rejectLastTagWithoutVPrefix() {
+        val state = computeVersionState("2026.3.0", "2026.3.0")
+        val invalid = assertInstanceOf(VersionState.Invalid::class.java, state)
+        assertTrue(
+            invalid.message.contains("must start with 'v'"),
+            "got: ${invalid.message}",
+        )
+    }
 }

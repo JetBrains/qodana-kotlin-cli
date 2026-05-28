@@ -43,9 +43,8 @@ jobs:
         run: |
           set -euo pipefail
           # `--console=plain` prevents ANSI escape sequences from polluting the marker line.
-          # `--console=plain` keeps the marker line free of ANSI escapes. We do NOT use `--quiet`:
-          # full Gradle output is captured to stderr/stdout and surfaced if the grep fails, which makes
-          # CI failures debuggable without re-running.
+          # `--console=plain` keeps the marker line free of ANSI escapes; `--quiet` is intentionally
+          # absent so the full Gradle output is captured and surfaced when the marker grep fails.
           OUT=$(./gradlew --console=plain nightlyVersion 2>&1)
           BASE=$(printf '%s\n' "$OUT" | grep '^NIGHTLY_VERSION=' | head -n 1 | cut -d= -f2)
           if [ -z "$BASE" ]; then
