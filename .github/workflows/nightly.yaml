@@ -1,0 +1,93 @@
+name: Nightly Release
+
+# Chains Draft Release → Publish Release for an automated cli-only nightly. There is no human
+# checkpoint between draft and publish for nightlies — the umbrella runs both in sequence. Clang and
+# cdnet are NOT built for nightlies (matches GoReleaser's `skip: IsNightly`).
+#
+# Requires `gradle.properties` `version=` to be set to a numeric value (not `dev`); `nightlyVersion`
+# refuses to emit a version while the source-of-truth is still `dev`. Operators must bump
+# `gradle.properties` to a numeric version before this workflow can run successfully.
+
+on:
+  schedule:
+    - cron: '7 3 * * *' # 03:07 UTC daily
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  compute:
+    name: Compute version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.compute.outputs.version }}
+      sha: ${{ steps.compute.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+
+      - id: compute
+        shell: bash
+        run: |
+          set -euo pipefail
+          # `--console=plain` prevents ANSI escape sequences from polluting the marker line.
+          # `--console=plain` keeps the marker line free of ANSI escapes; `--quiet` is intentionally
+          # absent so the full Gradle output is captured and surfaced when the marker grep fails.
+          OUT=$(./gradlew --console=plain nightlyVersion 2>&1)
+          BASE=$(printf '%s\n' "$OUT" | grep '^NIGHTLY_VERSION=' | head -n 1 | cut -d= -f2)
+          if [ -z "$BASE" ]; then
+            echo "::error::nightlyVersion did not emit a NIGHTLY_VERSION= marker. Output:"
+            printf '%s\n' "$OUT"
+            exit 1
+          fi
+          BASE_NO_V="${BASE#v}"
+          VERSION="${BASE_NO_V}-nightly"
+          SHA=$(git rev-parse HEAD)
+          {
+            echo "version=$VERSION"
+            echo "sha=$SHA"
+          } >> "$GITHUB_OUTPUT"
+          echo "Computed: version=$VERSION sha=$SHA"
+
+  draft:
+    name: Draft
+    needs: compute
+    uses: ./.github/workflows/draft-release.yaml
+    permissions:
+      contents: write
+    with:
+      version: ${{ needs.compute.outputs.version }}
+      prerelease: true
+      cli-only: true
+      dry-run: false
+      latest: false
+      mode: nightly
+      # Pin the SHA observed by compute so draft-release does not re-resolve HEAD in a new job
+      # (which could drift if `main` advanced between jobs).
+      target-sha: ${{ needs.compute.outputs.sha }}
+    secrets: inherit
+
+  publish:
+    name: Publish
+    needs: [compute, draft]
+    uses: ./.github/workflows/publish-release.yaml
+    permissions:
+      contents: write
+    with:
+      version: ${{ needs.compute.outputs.version }}
+      prerelease: true
+      latest: false
+      mode: nightly
+    secrets: inherit

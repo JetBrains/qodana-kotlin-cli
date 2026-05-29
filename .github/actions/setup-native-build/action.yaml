@@ -1,0 +1,30 @@
+name: Set up native-build toolchain
+description: |
+  Common toolchain setup for native-image build cells: GraalVM CE 21 + Gradle. Used by both
+  `ci.yaml`'s `native-build` matrix and `draft-release.yaml`'s `build-cli` / `build-clang-cdnet`
+  matrices to keep the setup story in a single place.
+
+  IMPORTANT: callers MUST run `actions/checkout@v4` themselves before invoking this action — local
+  composite actions are resolved from the workspace, so the repo must already be on disk. This
+  composite does NOT bundle checkout for that reason.
+
+inputs:
+  github-token:
+    description: 'Token for graalvm/setup-graalvm. Defaults to GITHUB_TOKEN.'
+    required: false
+    default: ${{ github.token }}
+  native-image-job-reports:
+    description: 'Pass-through to graalvm/setup-graalvm `native-image-job-reports`. CI native-build uses true; release jobs leave false.'
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - uses: graalvm/setup-graalvm@v1
+      with:
+        java-version: '21'
+        distribution: 'graalvm-community'
+        github-token: ${{ inputs.github-token }}
+        native-image-job-reports: ${{ inputs.native-image-job-reports }}
+    - uses: gradle/actions/setup-gradle@v4

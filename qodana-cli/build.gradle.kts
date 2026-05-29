@@ -2,6 +2,8 @@ plugins {
     id("kotlin-common")
     id("testing")
     id("graalvm-native")
+    id("qodana-buildinfo")
+    id("qodana-release")
     application
 }
 
@@ -14,41 +16,13 @@ java {
     }
 }
 
-// Hardcoded for now; QD-14721 will replace this with git-describe + a property.
-version = "2026.2-SNAPSHOT"
-
-// Generates a `const val BuildInfo.VERSION` source file so the version is a
-// compile-time constant — sidesteps GraalVM class-init ordering for
-// `-Dqodana.version` on native-image.
-val generatedSrcDir: Provider<Directory> =
-    layout.buildDirectory.dir("generated/sources/buildinfo/kotlin/main")
-
-val generateBuildInfo by tasks.registering {
-    val versionString = project.version.toString()
-    val outFile = generatedSrcDir.map { it.file("org/jetbrains/qodana/cli/BuildInfo.kt") }
-    inputs.property("version", versionString)
-    outputs.file(outFile)
-    doLast {
-        val target = outFile.get().asFile
-        target.parentFile.mkdirs()
-        target.writeText(
-            """
-            |// Generated — do not edit. Source: qodana-cli/build.gradle.kts
-            |package org.jetbrains.qodana.cli
-            |
-            |internal object BuildInfo {
-            |    const val VERSION: String = "$versionString"
-            |}
-            |
-            """.trimMargin(),
-        )
-    }
+qodanaBuildInfo {
+    packageName.set("org.jetbrains.qodana.cli")
 }
 
-sourceSets.named("main") {
-    kotlin.srcDir(generatedSrcDir)
+qodanaRelease {
+    kind.set(QodanaReleaseKind.Cli)
 }
-tasks.named("compileKotlin").configure { dependsOn(generateBuildInfo) }
 
 application {
     mainClass.set("org.jetbrains.qodana.cli.MainKt")

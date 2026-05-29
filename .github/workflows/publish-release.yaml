@@ -1,0 +1,65 @@
+name: Publish Release
+
+# Flips an existing DRAFT release to published, materializing the git tag at the SHA that was pinned
+# at draft-creation time. **Does NOT validate anything** — the draft was validated when created
+# (asset set + filename allowlist + targetCommitish), and the operator inspected the draft on the
+# GitHub release page before dispatching this workflow. This is the "CEO pushes the red button" stage
+# (per QD-14721's bindreams/hole-style design): publish is dumb, fast, and unconditional.
+#
+# Triggers:
+#   - workflow_dispatch (operator-driven, after inspecting the draft)
+#   - workflow_call (nightly.yaml umbrella)
+
+on:
+  workflow_dispatch:
+    inputs: &inputs
+      version:
+        description: 'Version (e.g. 2026.3.1 for tagged, or 2026.3.1-nightly for nightly)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Mark as prerelease'
+        required: false
+        type: boolean
+        default: false
+      latest:
+        description: 'Mark this release as `latest`'
+        required: false
+        type: boolean
+        default: true
+      mode:
+        description: '`tagged` or `nightly` — chooses concurrency group'
+        required: false
+        type: string
+        default: 'tagged'
+  workflow_call:
+    inputs: *inputs
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-${{ inputs.mode }}-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Flip release to published
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="v${{ inputs.version }}"
+          PRERELEASE_FLAG=()
+          if [ '${{ inputs.prerelease }}' = 'true' ]; then PRERELEASE_FLAG=(--prerelease); fi
+          gh release edit "$TAG" \
+            --draft=false \
+            --latest='${{ inputs.latest }}' \
+            "${PRERELEASE_FLAG[@]}"
+          echo "Published: https://github.com/${{ github.repository }}/releases/tag/$TAG"
