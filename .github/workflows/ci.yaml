@@ -79,10 +79,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # darwin-amd64 dropped: QD-14862. The IntelliJ DirectoryLock socket
+        # inside the qodana-jvm-community linter container can't bind on
+        # the Lima+QEMU+overlayfs stack that hosted macOS Intel runners
+        # provide (JetBrains IJPL-161337 + IJPL-34916). Intel Mac users
+        # should use the JVM CLI or upgrade to Apple Silicon.
         platform:
           - { name: linux/amd64,   tag: linux-amd64,   runner: ubuntu-latest }
           - { name: linux/arm64,   tag: linux-arm64,   runner: ubuntu-24.04-arm }
-          - { name: darwin/amd64,  tag: darwin-amd64,  runner: macos-15-intel }
           - { name: darwin/arm64,  tag: darwin-arm64,  runner: macos-15 }
           - { name: windows/amd64, tag: windows-amd64, runner: windows-latest }
         module: [qodana-cli, qodana-clang, qodana-cdnet]
@@ -118,14 +122,12 @@ jobs:
   #
   # Docker setup is OS-dependent:
   #   - Linux: native engine, ready out of the box.
-  #   - macOS (Intel only): use the vendored ./.github/actions/setup-docker
-  #     action, which pins QEMU 10.1.1 and stands up Lima + Docker via
-  #     docker/setup-docker-action@v4 — the same combo battle-tested by
-  #     the sibling Go CLI repo (JetBrains/qodana-cli). The previous
-  #     hand-rolled colima setup hit a virtiofs/9p limitation that broke
-  #     the IntelliJ DirectoryLock socket inside qodana-jvm-community.
-  #   - Windows: switch Docker Desktop into Linux-containers mode; export
-  #     `DOCKER_HOST=npipe:////./pipe/docker_engine` for the same reason.
+  #   - Windows: hosted Windows runners can't run Linux containers
+  #     (community/discussions/25491); Docker steps are gated off.
+  #   - macOS arm64: hosted runners lack nested virt (QD-14821); Docker
+  #     steps are gated off there too.
+  #   - macOS Intel: dropped entirely (QD-14862). IntelliJ DirectoryLock
+  #     socket can't bind on Lima+QEMU+overlayfs — JetBrains IJPL-161337.
   #
   # Readiness loops use a portable epoch-bounded `until` rather than GNU
   # `timeout`, which isn't on macOS by default.
@@ -138,15 +140,6 @@ jobs:
         platform:
           - { tag: linux-amd64,            artifact: qodana-cli-linux-amd64,   runner: ubuntu-latest,    setup: linux,   docker: true  }
           - { tag: linux-arm64,            artifact: qodana-cli-linux-arm64,   runner: ubuntu-24.04-arm, setup: linux,   docker: true  }
-          # `macos-15-large` is GitHub's paid Intel macOS larger runner.
-          # `macos-15-intel` (the smaller Intel runner) lacks reliable
-          # nested-virt support and the previous colima-based setup hit
-          # a virtiofs/9p limitation that broke the IntelliJ DirectoryLock
-          # socket inside the qodana-jvm-community linter container (see
-          # QD-14728 history). The sibling Go CLI repo runs on this same
-          # runner with `docker/setup-docker-action@v4` + a pinned QEMU
-          # 10.1.1 (vendored as ./.github/actions/setup-docker here).
-          - { tag: darwin-amd64,           artifact: qodana-cli-darwin-amd64,  runner: macos-15-large,   setup: macos,   docker: true  }
           # `macos-15` is GitHub's hosted Apple-Silicon (M1) arm64 runner,
           # itself a guest VM. Docker on macOS needs a Linux VM (colima /
           # Docker Desktop), which in turn needs nested virtualisation
@@ -225,61 +218,6 @@ jobs:
           echo "UID=$(id -u)" >> "$GITHUB_ENV"
           echo "GID=$(id -g)" >> "$GITHUB_ENV"
 
-      # Ensure /private/tmp/lima exists on the host before Lima starts.
-      # Lima creates the guest mountpoint but does not create the host
-      # source dir; if it's missing, `limactl start --mount` errors out.
-      - name: Pre-create Lima mount source (macOS)
-        if: matrix.platform.docker && matrix.platform.setup == 'macos'
-        shell: bash
-        run: mkdir -p /private/tmp/lima
-
-      # Vendored from JetBrains/qodana-cli (Go). Pins QEMU 10.1.1 + uses
-      # docker/setup-docker-action@v4. Apache-2.0; see the action file
-      # header for full attribution.
-      #
-      # LIMA_START_ARGS adds /private/tmp/lima as a writable Lima mount.
-      # Why: on macOS /tmp is a symlink to /private/tmp. The Kotlin CLI's
-      # normalizeRepositoryRoot() canonicalizes via Path.toRealPath() before
-      # it bind-mounts the project dir, so docker-java ends up requesting
-      # hostPath=/private/tmp/lima/qodana-e2e-XXX. Lima's default config only
-      # exposes /tmp/lima to the guest VM; without this extra mount the
-      # Docker daemon inside Lima finds an empty directory there and the
-      # linter reports "No files to check with Qodana found in /data/project".
-      # See QD-14728 iteration 7 diagnosis.
-      - name: Docker (macOS via vendored setup-docker action)
-        if: matrix.platform.docker && matrix.platform.setup == 'macos'
-        uses: ./.github/actions/setup-docker
-        with:
-          version: latest
-        env:
-          LIMA_START_ARGS: --mount /private/tmp/lima:w
-
-      # setup-docker-action@v4 creates a Docker CLI context
-      # (e.g. unix:///Users/runner/.lima/docker-actions-toolkit/docker.sock)
-      # but doesn't export DOCKER_HOST. The native binary uses docker-java,
-      # which honors only $DOCKER_HOST + Unix-socket defaults (no CLI
-      # contexts), so without this the scan fails with
-      # `java.net.SocketException: No such file or directory`. See QD-14728.
-      - name: Export DOCKER_HOST for docker-java (macOS)
-        if: matrix.platform.docker && matrix.platform.setup == 'macos'
-        shell: bash
-        run: |
-          socket=$(docker context inspect --format '{{.Endpoints.docker.Host}}' 2>/dev/null || true)
-          if [ -z "$socket" ]; then
-            for candidate in \
-              "$HOME/.lima/docker-actions-toolkit/docker.sock" \
-              "$HOME/.lima/docker/sock/docker.sock" \
-              "/Users/runner/.lima/docker-actions-toolkit/docker.sock" \
-              "/Users/runner/.lima/docker/sock/docker.sock" \
-              "/var/run/docker.sock"; do
-                [ -S "$candidate" ] && socket="unix://$candidate" && break
-            done
-          fi
-          [ -n "$socket" ] || { echo "::error::No Docker socket found"; exit 1; }
-          echo "Resolved DOCKER_HOST=$socket"
-          echo "DOCKER_HOST=$socket" >> "$GITHUB_ENV"
-          DOCKER_HOST="$socket" docker info > /dev/null
-
       - name: Docker (Windows, Linux engine)
         if: matrix.platform.docker && matrix.platform.setup == 'windows'
         shell: pwsh
@@ -342,34 +280,16 @@ jobs:
       - name: Stage fixture
         shell: bash
         run: |
-          # Pick a work dir that the Docker container can bind-mount as
-          # writable. On macOS the runner uses Lima as the Linux VM (via
-          # docker/setup-docker-action@v4); Lima's default config mounts ~
-          # (= /Users/runner, where $GITHUB_WORKSPACE lives) as READ-ONLY
-          # and only /tmp/lima as writable — so any container bind-mount
-          # rooted under $GITHUB_WORKSPACE fails with
-          #   "make mountpoint ... read-only file system"
-          # the moment the linter tries to write report-native into it.
-          # Stage everything under /tmp/lima instead. On Linux/Windows
-          # $GITHUB_WORKSPACE is writable end-to-end, so keep it there.
-          if [ "${{ matrix.platform.setup }}" = "macos" ]; then
-            WORK="/tmp/lima/qodana-e2e-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          else
-            WORK="$PWD"
-          fi
-          mkdir -p "$WORK"
-          # Resolve symlinks (on macOS /tmp is a symlink to /private/tmp).
-          # The Kotlin CLI's normalizePath() canonicalizes repositoryRoot via
-          # Path.toRealPath() but not projectDir; if the two disagree the
-          # IdeArgBuilder relativization emits a navigate-up path the linter
-          # container can't lstat. Same root cause Phase 2 NativeSmokeTest hit;
-          # pwd -P is the shell equivalent of toRealPath(). No-op on Linux.
-          WORK=$(cd "$WORK" && pwd -P)
-          # Ensure no root-owned residue from previous runs blocks the cleanup.
-          # The qodana-jvm-community container writes its cache as root inside
-          # ~/.cache/JetBrains/Qodana/<id>/results/report; passing explicit
-          # --cache-dir / --report-dir inside $WORK keeps everything under a
-          # path we can delete without sudo afterward.
+          # Linux/Windows runners have $GITHUB_WORKSPACE writable end-to-end,
+          # so stage the fixture directly there. macOS Intel was dropped
+          # (QD-14862) due to upstream Lima/IntelliJ DirectoryLock issues
+          # (IJPL-161337). macOS arm64 is gated to docker:false (QD-14821).
+          WORK="$PWD"
+          # The linter container writes cache/report as root inside its own
+          # ~/.cache/JetBrains/Qodana/<id>/...; passing explicit --cache-dir
+          # and --report-dir under $WORK keeps everything in a path we can
+          # delete without sudo afterward. The rm below handles residue from
+          # any previous run on the same runner.
           sudo rm -rf "$WORK/project" "$WORK/results-native" "$WORK/results-jvm" "$WORK/cache-native" "$WORK/cache-jvm" "$WORK/report-native" "$WORK/report-jvm" || rm -rf "$WORK/project" "$WORK/results-native" "$WORK/results-jvm" "$WORK/cache-native" "$WORK/cache-jvm" "$WORK/report-native" "$WORK/report-jvm"
           cp -r qodana-cli/src/test/resources/scan-smoke-fixture "$WORK/project"
           mkdir -p "$WORK/results-native" "$WORK/results-jvm" "$WORK/cache-native" "$WORK/cache-jvm" "$WORK/report-native" "$WORK/report-jvm"
