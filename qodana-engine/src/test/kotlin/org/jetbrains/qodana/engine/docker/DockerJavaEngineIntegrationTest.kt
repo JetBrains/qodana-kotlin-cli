@@ -6,8 +6,8 @@ import org.jetbrains.qodana.engine.model.ContainerRunSpec
 import org.jetbrains.qodana.engine.model.MountSpec
 import org.jetbrains.qodana.engine.model.ResourceLimits
 import org.jetbrains.qodana.engine.port.EngineType
-import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeAll
+import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
@@ -16,12 +16,18 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.test.fail
 import kotlin.time.Duration.Companion.minutes
 
 /**
  * Integration tests for DockerJavaEngine against a real Docker daemon.
- * Skipped automatically if Docker is not available.
+ *
+ * `@Tag("docker")` routes the class through the `parityTest` Gradle task,
+ * which is the only task that executes Docker-tagged tests. If Docker is
+ * unreachable when the test runs, the suite fails loudly (per CLAUDE.md
+ * "tests must never silently skip on missing dependencies").
  */
+@Tag("docker")
 class DockerJavaEngineIntegrationTest {
     companion object {
         private lateinit var engine: DockerJavaEngine
@@ -32,10 +38,10 @@ class DockerJavaEngineIntegrationTest {
         fun checkDocker() {
             engine = DockerJavaEngine()
             try {
-                // Blocking check — if Docker is not running, skip all tests
+                // Blocking check — fail loudly if Docker is not running.
                 kotlinx.coroutines.runBlocking { engine.info() }
             } catch (e: Exception) {
-                assumeTrue(false, "Docker is not available: ${e.message}")
+                fail("@Tag(\"docker\") test ran but Docker is unreachable: ${e.message}")
             }
         }
     }

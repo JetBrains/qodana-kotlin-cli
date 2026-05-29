@@ -1,0 +1,50 @@
+# Canonical list of class-name prefixes and resource-substrings that must not
+# appear in committed GraalVM native-image metadata for qodana-cli.
+#
+# Consumed by:
+#   - qodana-cli/build.gradle.kts (stripTestEntriesFromMetadata task)
+#   - qodana-cli/src/test/kotlin/org/jetbrains/qodana/cli/MetadataHygieneTest.kt
+#
+# Format: one entry per line; lines starting with `#` are comments; blank lines
+# are ignored. Sections delimited by `[class-prefixes]` and
+# `[resource-substrings]` markers. Order within a section is irrelevant.
+#
+# A `class-prefixes` entry matches a metadata "name" field that starts with
+# the given string (used for reflect-config.json + jni-config.json).
+# A `resource-substrings` entry matches when the substring is contained
+# anywhere inside a resource-config.json "pattern" field.
+
+[class-prefixes]
+# Our own test classes
+org.jetbrains.qodana.cli.BannedMetadataPatterns
+org.jetbrains.qodana.cli.NativeSmokeTest
+org.jetbrains.qodana.cli.MetadataHygieneTest
+org.jetbrains.qodana.cli.SarifCompare
+org.jetbrains.qodana.cli.SarifCompareIntegrationTest
+org.jetbrains.qodana.cli.NativeBinarySendSmokeTest
+org.jetbrains.qodana.cli.command.InitCommandTest
+org.jetbrains.qodana.cli.command.SendCommandTest
+org.jetbrains.qodana.cli.command.SendFakeHttpTransport
+org.jetbrains.qodana.cli.command.SendFixedTokenStore
+org.jetbrains.qodana.cli.command.SendRecordingReportPublisher
+org.jetbrains.qodana.cli.command.SendTestTerminal
+# JUnit Jupiter / Platform
+org.junit.
+# opentest4j (JUnit assertion infrastructure)
+org.opentest4j.
+# kotlin.test
+kotlin.test.
+# kotlinx-coroutines test support
+kotlinx.coroutines.test.
+# Gradle worker process (injected when the agent runs inside a Gradle build)
+worker.org.gradle.
+
+[resource-substrings]
+junit-platform.properties
+META-INF/services/kotlin.test.
+META-INF/services/org.junit.platform.
+META-INF/services/org.junit.jupiter.
+# QD-14728: the JVM-scan fixture is a test-only directory copied into a
+# temp dir at runtime; it must never be bundled into the production native
+# binary's resource section.
+scan-smoke-fixture
