@@ -5,12 +5,8 @@ plugins {
     application
 }
 
-// Pin GraalVM as the toolchain vendor so foojay (settings.gradle.kts) downloads
-// GraalVM CE 21 when JAVA_HOME doesn't already point at one. Default Temurin
-// toolchains have no `native-image`. When Phase E (QD-14725) adds
-// nativeCompile for qodana-clang and qodana-cdnet, the same block needs to
-// land there too — the build-logic precompiled plugin can't host the pin
-// because the `java { }` DSL accessor isn't available in that context.
+// Pin GraalVM vendor so foojay downloads it when JAVA_HOME points elsewhere.
+// Default Temurin toolchains have no `native-image`.
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(21))
@@ -18,14 +14,12 @@ java {
     }
 }
 
-// Phase A: hardcoded snapshot. Real per-commit / per-tag versioning lands in
-// Phase C (QD-14721) via git describe + a Gradle property.
+// Hardcoded for now; QD-14721 will replace this with git-describe + a property.
 version = "2026.2-SNAPSHOT"
 
-// `generateBuildInfo` writes a BuildInfo.kt source file at task-execution time
-// before `compileKotlin` runs. The generated `const val BuildInfo.VERSION` makes
-// the project version a compile-time constant on both JVM and native-image,
-// sidestepping GraalVM class-init ordering for `-Dqodana.version`.
+// Generates a `const val BuildInfo.VERSION` source file so the version is a
+// compile-time constant — sidesteps GraalVM class-init ordering for
+// `-Dqodana.version` on native-image.
 val generatedSrcDir: Provider<Directory> =
     layout.buildDirectory.dir("generated/sources/buildinfo/kotlin/main")
 
@@ -81,16 +75,8 @@ dependencies {
 
 // =====
 
-/**
- * Parses the canonical banned-patterns file consumed by both this strip task
- * and [`MetadataHygieneTest`](src/test/kotlin/org/jetbrains/qodana/cli/MetadataHygieneTest.kt).
- *
- * Format: `# ...` is a comment; blank lines are ignored; section markers are
- * `[class-prefixes]` and `[resource-substrings]`. The same parser logic lives
- * in `BannedMetadataPatterns.kt` (test source); the duplication is unavoidable
- * because a Gradle script can't import a test class. Any change to the parse
- * rules must be mirrored.
- */
+// Mirrored in `BannedMetadataPatterns.kt` (test source); a Gradle script
+// can't import a test class, so any change to the format goes in both.
 fun loadBannedMetadataPatterns(file: java.io.File): Pair<List<String>, List<String>> {
     require(file.exists()) { "banned-metadata-patterns.txt is missing at ${file.absolutePath}" }
     val classPrefixes = mutableListOf<String>()
@@ -121,39 +107,20 @@ fun loadBannedMetadataPatterns(file: java.io.File): Pair<List<String>, List<Stri
 val bannedMetadataPatternsFile = file("src/test/resources/banned-metadata-patterns.txt")
 val (testClassPrefixes, testResourceSubstrings) = loadBannedMetadataPatterns(bannedMetadataPatternsFile)
 
-/**
- * Class-name prefixes for which we promote `queryAllDeclared{Methods,Constructors}`
- * to `allDeclared{Methods,Constructors}`. The tracing agent records the strongest
- * mode it actually saw (e.g. `queryAll` if code called `Class.getMethods()`); but
- * docker-java's Jackson deserialiser invokes constructors and methods reflectively
- * at runtime via `Constructor.newInstance` + `Method.invoke`, which requires the
- * stronger `allDeclared*` form. On a developer machine with a logged-in Docker
- * daemon the agent typically sees constructor invocation directly and emits
- * `allDeclared*`; on a CI runner with no Docker auth, the agent only sees the
- * query path. Promoting these prefixes covers both cases reliably.
- */
+// docker-java's Jackson chain invokes constructors and methods via
+// Constructor.newInstance/Method.invoke at runtime, but the agent only
+// captures the `queryAll*` (introspection) variant on CI runners without
+// warm Docker auth. Promote these prefixes to `allDeclared*` so the native
+// binary works both locally and in CI.
 val reflectivelyInvokedPackagePrefixes =
     listOf(
         "com.github.dockerjava.api.",
         "com.github.dockerjava.core.",
     )
 
-/**
- * Removes test-infrastructure entries from every GraalVM native-image metadata
- * JSON file after [metadataCopy] writes them to the source tree, and promotes
- * `queryAllDeclared*` entries for [reflectivelyInvokedPackagePrefixes] classes
- * to the stronger `allDeclared*` form. The task is registered as a finalizer of
- * [metadataCopy] so it runs automatically whenever the agent pipeline produces
- * new metadata.
- *
- * Files modified in-place (relative to the metadata output directory):
- *   - reflect-config.json  — JSON array keyed on "name"
- *   - jni-config.json      — JSON array keyed on "name"
- *   - resource-config.json — JSON object with resources.includes array keyed on "pattern"
- *
- * proxy-config.json, serialization-config.json, and predefined-classes-config.json
- * contain no test-class entries and are left untouched.
- */
+// Strips test-infrastructure entries from the committed metadata JSON and
+// promotes the docker-java prefixes above. Wired as a finalizer of
+// `metadataCopy` so it runs automatically on every agent regen.
 val stripTestEntriesFromMetadata by tasks.registering {
     val metadataDir =
         layout.projectDirectory.dir(
@@ -179,13 +146,6 @@ val stripTestEntriesFromMetadata by tasks.registering {
 
         fun isReflectivelyInvoked(name: String): Boolean = reflectivelyInvokedPackagePrefixes.any { name.startsWith(it) }
 
-        // For docker-java DTOs the agent often records only `queryAllDeclared*`
-        // (introspection via Class.getMethods()), but Jackson + docker-java
-        // actually invoke constructors and methods via Constructor.newInstance()
-        // and Method.invoke(). Promote query-only entries to the full
-        // `allDeclared*` form so the native binary doesn't throw
-        // MissingReflectionRegistrationError on CI runners where the agent
-        // happened not to see the invocation path locally.
         fun promoteReflection(entry: Map<String, Any>): Map<String, Any> {
             val name = entry["name"]?.toString().orEmpty()
             if (!isReflectivelyInvoked(name)) return entry

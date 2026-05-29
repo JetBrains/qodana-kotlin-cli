@@ -15,29 +15,13 @@ import kotlin.test.assertTrue
 import kotlin.test.fail
 
 /**
- * End-to-end smoke test for the `send` command **as executed by the native
- * binary**, not the JVM.  Hosts a tiny in-process HTTP server on the JVM
- * side that impersonates both the Qodana Cloud control plane and the S3
- * upload endpoint, then forks `qodana-cli send` as a subprocess pointing at
- * the local server via `QODANA_ENDPOINT`.
+ * Drives `send` on the native binary (not the JVM) by hosting in-process
+ * cloud + S3 stubs and forking the binary against them. A missing
+ * reflect-config entry surfaces as a fast `MissingReflectionRegistrationError`
+ * in the subprocess output.
  *
- * Used by the CI `native-e2e` job (.github/workflows/ci.yaml) on every
- * platform to verify the native binary can complete the full send flow —
- * which exercises every QDCloudClient and Publisher reflection path. If a
- * reflect-config entry is missing in the committed metadata, the subprocess
- * fails fast with `MissingReflectionRegistrationError` and the test reports
- * the captured stdout/stderr.
- *
- * Inputs via `-D` system properties so CI can pass platform-specific paths:
- *
- *   -Dtest.qodana.binary    Absolute path to the native binary
- *   -Dtest.project.dir      Directory the `-i` flag should point at
- *   -Dtest.results.dir      Directory the `-o` flag should point at; must
- *                           already contain a `qodana.sarif.json`
- *
- * Tagged `native-binary` (not `docker`) so the default `test` task skips it
- * — the native binary itself is the dependency, fed by CI from the
- * `native-build` job's artifact.
+ * CI inputs: `-Dtest.qodana.binary`, `-Dtest.project.dir`, `-Dtest.results.dir`
+ * (the last must already contain a `qodana.sarif.json`).
  */
 @Tag("native-binary")
 class NativeBinarySendSmokeTest {
@@ -54,8 +38,7 @@ class NativeBinarySendSmokeTest {
                 ?: Files.createDirectories(dir.resolve("results"))
         ensureSarif(resultsDir)
 
-        // Stand up two servers on free ports bound to 127.0.0.1 (not 0.0.0.0)
-        // so IPv4/IPv6 hostname-resolution flakiness can't bite the subprocess.
+        // Bind to 127.0.0.1 (not 0.0.0.0) to avoid IPv4/IPv6 resolution races.
         val cloudServer = newServer()
         val s3Server = newServer()
         val cloudUrl = "http://127.0.0.1:${cloudServer.address.port}"
@@ -95,8 +78,7 @@ class NativeBinarySendSmokeTest {
     }
 
     private fun ensureSarif(resultsDir: Path) {
-        // The fixture in CI already provides a qodana.sarif.json from the
-        // earlier scan step; locally we write a minimal stub.
+        // Locally the test may run without a prior scan step; write a stub.
         val sarif = resultsDir.resolve("qodana.sarif.json")
         if (!Files.exists(sarif)) {
             sarif.writeText(
@@ -106,7 +88,6 @@ class NativeBinarySendSmokeTest {
     }
 
     private fun wireS3(s3Server: HttpServer) {
-        // S3: accept the PUT, respond 200.
         s3Server.createContext("/upload/sarif") { exchange ->
             exchange.requestBody.use { it.readBytes() }
             exchange.sendResponseHeaders(200, 0)
@@ -119,12 +100,7 @@ class NativeBinarySendSmokeTest {
         cloudUrl: String,
         s3Url: String,
     ) {
-        // Cloud: dispatch on the path.  These are the endpoints the binary
-        // exercises during `send`, plus a default handler to surface unexpected
-        // requests in test output instead of silently 404'ing.
         cloudServer.createContext("/api/versions") { ex ->
-            // CloudClient.fetchEndpoints + QDCloudByFrontendEnvironment both
-            // hit /api/versions; both expect the same BackendUrls shape.
             ex.respondJson(
                 200,
                 """{"api":{"versions":[{"version":"1.1","url":"$cloudUrl"}]},""" +
@@ -132,18 +108,15 @@ class NativeBinarySendSmokeTest {
             )
         }
         cloudServer.createContext("/projects") { ex ->
-            // SendCommand validates the project token by hitting /projects.
             ex.respondJson(
                 200,
                 """{"id":"proj1","organizationId":"org1","name":"sample-project"}""",
             )
         }
+        // Publisher posts to "/reports/" and "/reports/{id}/finish/" under
+        // the cloud root (no /v1/projects/{token}/ prefix). The default
+        // handler 404s any other path so unhandled requests are loud.
         cloudServer.createContext("/") { ex ->
-            // Publisher endpoints live directly under the cloud root (no
-            // /v1/projects/{token}/ prefix). Empirically the native binary
-            // POSTs to "/reports/" and "/reports/{id}/finish/" — observed via
-            // a tcpdump-style HTTP mock on darwin-arm64. Anything else here
-            // surfaces the unhandled path so failures are easy to localise.
             handlePublisherOrDefault(ex, cloudUrl = cloudUrl, s3Url = s3Url)
         }
     }

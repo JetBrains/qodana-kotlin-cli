@@ -55,20 +55,10 @@ import kotlin.test.assertTrue
 import kotlin.test.fail
 
 /**
- * Mirrors Main.kt's subcommand tree construction so we exercise the same
- * reflective surface the native binary will hit at runtime:
- *
- *   - `--version`, `--help`
- *   - `<subcommand> --help` for each registered subcommand
- *   - `init`, `view`, `show`, `send` (no Docker required)
- *   - `scan`, `pull`, `info`, `version` (require a running Docker daemon —
- *     tagged `@Tag("docker")`; executed by the `parityTest` Gradle task)
- *
- * Under `-Pagent`, this captures reachability metadata for Clikt's
- * option/argument reflection, every runtime serde DTO from docker-java /
- * Apache HttpClient 5 / QDCloudClient, and the Publisher S3 upload chain.
- * QD-14728 extended scope from Phase A's `--help`/`--version`/`init` to the
- * full set of runtime commands.
+ * Mirrors Main.kt's subcommand tree so a `-Pagent` run captures the full
+ * reflective surface the native binary hits at runtime (Clikt option classes,
+ * docker-java / HttpClient5 / QDCloudClient serde DTOs, Publisher S3 chain).
+ * Docker-touching cases are tagged `@Tag("docker")`; the rest run under `test`.
  */
 class NativeSmokeTest {
     private val output = mutableListOf<String>()
@@ -121,12 +111,11 @@ class NativeSmokeTest {
         }
 
     private fun buildRootCommand(): QodanaCommand {
-        // Lightweight (constructed eagerly by Main.kt as well).
         val processRunner = SystemProcessRunner()
         val gitClient = SystemGitClient(processRunner)
 
-        // Heavy — kept lazy to mirror Main.kt. Lazy values still gate
-        // --help/--version/init flows from constructing anything heavy.
+        // Lazy to mirror Main.kt so --help/--version/init don't drag in
+        // OkHttp/docker-java/Jackson construction.
         val httpTransport: OkHttpTransport by lazy { OkHttpTransport() }
         val containerEngine: DockerJavaEngine by lazy { DockerJavaEngine() }
         val sarifService: QodanaSarifService by lazy { QodanaSarifService() }
@@ -178,28 +167,17 @@ class NativeSmokeTest {
     fun `scan command exercises the full docker-java surface against jvm-community`(
         @TempDir tempDir: Path,
     ) {
-        // @Tag("docker") routes this test through the parityTest Gradle
-        // task, which is the only task that runs it. Fail loudly if Docker
-        // isn't reachable, per CLAUDE.md "tests must never silently skip".
-        try {
-            runBlocking { DockerJavaEngine().info() }
-        } catch (e: Exception) {
-            fail("@Tag(\"docker\") test ran but Docker is unreachable: ${e.message}")
-        }
+        requireDocker()
 
-        // Gradle's test classpath uses unpacked build/resources/test dirs;
-        // Path.of(URI) on a file:// URL works. Assert loudly if the test ever
-        // runs on a jar'd classpath where this fails silently otherwise.
         val fixture =
             this::class.java.classLoader.getResource("scan-smoke-fixture")
                 ?: error("scan-smoke-fixture not on test classpath")
         check(fixture.protocol == "file") {
             "scan-smoke-fixture expected to be on a file:// classpath, got $fixture"
         }
-        // Pre-resolve the macOS /var/folders → /private/var/folders symlink so
-        // `-i` and `--repository-root` come out of normalizePath() with the
-        // same prefix. Otherwise IdeArgBuilder's relativize() generates a
-        // navigate-up container-side --project-dir the linter can't lstat.
+        // toRealPath() avoids the macOS /var/folders → /private/var/folders
+        // mismatch that makes IdeArgBuilder's relativize() generate a
+        // navigate-up container-side --project-dir.
         val projectDir =
             Files
                 .createDirectories(tempDir.resolve("project"))
@@ -213,13 +191,8 @@ class NativeSmokeTest {
                 .createDirectories(tempDir.resolve("results"))
                 .toRealPath()
 
-        // ScanCommand.run() always throws ProgramResult(exitCode) on success;
-        // existing ScanCommandTest.kt + QodanaCommandTest.kt use this pattern.
-        //
-        // --repository-root is set explicitly to the same value as -i so the
-        // CLI doesn't walk up looking for .git and find this monorepo's root
-        // (which would produce a navigate-up relative project dir the linter
-        // inside the container can't resolve).
+        // Pin --repository-root to projectDir so the CLI doesn't walk up,
+        // find this monorepo's .git, and emit a navigate-up project dir.
         val ex =
             assertFailsWith<ProgramResult> {
                 buildRootCommand().parse(
@@ -240,22 +213,26 @@ class NativeSmokeTest {
         assertTrue(Files.exists(sarif), "scan must produce SARIF at $sarif")
         val tuples = SarifCompare.normalize(sarif, projectDir)
         assertTrue(tuples.isNotEmpty(), "expected >=1 finding from fixture; got empty SARIF")
-        // Stable rule the jvm-community linter fires on the fixture
-        // (Hello.equalsBroken uses `==` on String). If the linter version
-        // bumps and the rule renames, this assertion's clear failure points
-        // at the rename rather than the test going green silently.
         assertTrue(
             tuples.any { it.startsWith("StringEquality|") },
             "expected a StringEquality finding; got $tuples",
         )
     }
 
+    private fun requireDocker() {
+        try {
+            runBlocking { DockerJavaEngine().info() }
+        } catch (e: Exception) {
+            fail("@Tag(\"docker\") test ran but Docker is unreachable: ${e.message}")
+        }
+    }
+
+    // Drives Info + Version DTO deserialization deterministically (not just
+    // incidentally via scan), so the agent captures both regardless.
     @Test
     @Tag("docker")
     fun `containerEngine info and version are reachable under the agent`() =
         runBlocking {
-            // Drives Info + Version DTO deserialization explicitly so the agent
-            // captures them deterministically, not "incidentally" via scan.
             val info = DockerJavaEngine().info()
             assertNotNull(info.version)
         }
@@ -272,7 +249,6 @@ class NativeSmokeTest {
                  "region":{"startLine":1}}}]}
             ]}]}""",
         )
-        // view returns normally on success — no ProgramResult thrown.
         buildRootCommand().parse(listOf("view", "-f", sarif.toString()))
         assertTrue(
             output.any { it.contains("R1:") },
@@ -280,65 +256,51 @@ class NativeSmokeTest {
         )
     }
 
+    // Drives InspectImageResponse + NotFoundException through their real
+    // deserialization paths so the agent gets full reachable-fields metadata
+    // rather than the bare-name entries Class.forName alone would produce.
     @Test
     @Tag("docker")
     fun `imageExists exercises InspectImageResponse and NotFoundException`() =
         runBlocking {
-            try {
-                DockerJavaEngine().info()
-            } catch (e: Exception) {
-                fail("@Tag(\"docker\") test ran but Docker is unreachable: ${e.message}")
-            }
-            // Pull alpine first so the existence check actually deserialises
-            // the full InspectImageResponse DTO (Codex critical #3: under the
-            // agent this records every accessed field, replacing the prior
-            // bare-name entry with the full reachable-fields metadata).
+            requireDockerSuspend()
             val engine = DockerJavaEngine()
             engine.pull("alpine:3.20") { /* ignore stream */ }
-            assertTrue(
-                engine.imageExists("alpine:3.20"),
-                "alpine:3.20 should exist after pull (drives InspectImageResponse deserialization)",
-            )
-            // Force the NotFoundException code path (Codex warning): the
-            // exception type is thrown by docker-java when the image cannot
-            // be resolved, exercising its real deserialization path so the
-            // agent records the proper reflect-config entry.
-            assertTrue(
-                !engine.imageExists("definitely-missing-image-tag-qd14728:0.0.0"),
-                "missing image should return false (drives NotFoundException path)",
-            )
+            assertTrue(engine.imageExists("alpine:3.20"))
+            assertTrue(!engine.imageExists("definitely-missing-image-tag-qd14728:0.0.0"))
         }
+
+    private suspend fun requireDockerSuspend() {
+        try {
+            DockerJavaEngine().info()
+        } catch (e: Exception) {
+            fail("@Tag(\"docker\") test ran but Docker is unreachable: ${e.message}")
+        }
+    }
 
     @Test
     @Tag("docker")
     fun `pull command pulls an image via docker-java`() {
-        try {
-            runBlocking { DockerJavaEngine().info() }
-        } catch (e: Exception) {
-            fail("@Tag(\"docker\") test ran but Docker is unreachable: ${e.message}")
-        }
-        // Force-remove the image first so PullResponseItem + ProgressDetail
-        // streaming actually fires (a cached image short-circuits and the
-        // streaming DTOs never deserialize).
+        requireDocker()
+        // Force-remove first so PullResponseItem + ProgressDetail streaming
+        // fires (a cached image short-circuits and the DTOs never deserialize).
         runCatching {
             ProcessBuilder("docker", "image", "rm", "alpine:3.20")
                 .redirectErrorStream(true)
                 .start()
                 .waitFor()
         }
-        // pull returns normally on success.
         buildRootCommand().parse(listOf("pull", "--image", "alpine:3.20"))
     }
 
+    // ShowCommand.openDirectory swallows xdg-open/open/cmd-start failures,
+    // so the absence of xdg-utils on headless CI doesn't fail this test.
     @Test
     fun `show --dir-only exits cleanly on an existing results dir`(
         @TempDir dir: Path,
     ) {
         val projectDir = Files.createDirectories(dir.resolve("project"))
         val resultsDir = Files.createDirectories(dir.resolve("results"))
-        // show --dir-only returns normally on success; ShowCommand.openDirectory
-        // already swallows xdg-open/open/cmd-start failures so the absence of
-        // xdg-utils on headless CI doesn't fail the test.
         buildRootCommand().parse(
             listOf(
                 "show",
@@ -351,15 +313,11 @@ class NativeSmokeTest {
         )
     }
 
+    // Class.forName under the agent records the class in reflect-config,
+    // giving every docker-java DTO from the ticket deterministic baseline
+    // coverage independent of which code paths happen to fire at capture.
     @Test
     fun `every docker-java DTO from QD-14728 is reachable for the agent`() {
-        // Per QD-14728 ticket text. Class.forName under the agent records the
-        // class in reflect-config; pairing this with the smoke tests above
-        // means each DTO is captured deterministically, not contingent on
-        // which code paths happen to fire at agent capture time.
-        // Class locations verified against docker-java-api 3.4.1 jar:
-        // command responses live under `.api.command.*`; reusable models live
-        // under `.api.model.*`; ProgressDetail is a nested type of ResponseItem.
         val classes =
             listOf(
                 "com.github.dockerjava.api.model.PullResponseItem",
@@ -382,9 +340,6 @@ class NativeSmokeTest {
             assertFailsWith<PrintMessage> {
                 buildRootCommand().parse(listOf("--version"))
             }
-        // BuildInfo.VERSION is the source of truth — see qodana-cli/build.gradle.kts.
-        // Asserting against the constant catches regressions where build-info
-        // generation silently emits an empty or wrong version.
         assertContains(ex.message ?: "", BuildInfo.VERSION)
     }
 
@@ -401,12 +356,8 @@ class NativeSmokeTest {
     }
 
     @Test
-    fun `per-subcommand help exits cleanly for every Phase-A subcommand`() {
+    fun `per-subcommand help exits cleanly for every subcommand`() {
         for (sub in SUBCOMMAND_NAMES) {
-            // Each subcommand's --help prints via PrintHelpMessage. The fact that
-            // parse() throws (rather than crashing with MissingReflectionRegistrationError)
-            // is the proof Phase A cares about — Clikt's option-class reflection is
-            // captured by the agent run for the native image.
             assertFailsWith<PrintHelpMessage>(
                 message = "`$sub --help` must throw PrintHelpMessage",
             ) {
@@ -419,7 +370,6 @@ class NativeSmokeTest {
     fun `init writes qodana yaml for a detected jvm project`(
         @TempDir dir: Path,
     ) {
-        // ProjectDetector picks the JVM linter when it sees a Gradle/Maven file.
         val projectDir = Files.createDirectories(dir.resolve("project"))
         projectDir.resolve("build.gradle.kts").writeText("// fixture for native smoke test")
 
@@ -431,11 +381,11 @@ class NativeSmokeTest {
         assertContains(content, "linter:", message = "qodana.yaml should declare a linter")
     }
 
+    // Clikt's "no such option" error formatter reflects on the option class
+    // — a common MissingReflectionRegistrationError surface in the native
+    // binary, so this path needs to run under the agent.
     @Test
     fun `scan with unknown flag raises a Clikt UsageError`() {
-        // Clikt's error formatter reflects on the option class to print "no such option" — a
-        // common surface for MissingReflectionRegistrationError in the native binary. Recording
-        // this path under the agent ensures the relevant metadata is captured.
         val ex =
             assertFailsWith<UsageError> {
                 buildRootCommand().parse(listOf("scan", "--definitely-not-a-flag"))
@@ -457,21 +407,16 @@ class NativeSmokeTest {
 
         buildRootCommand().parse(listOf("init", "-i", projectDir.toString(), "-f"))
 
-        // Either updates the existing file in place or rewrites it — both are valid;
-        // the assertion is that the linter field no longer says "stale".
+        // In-place update and rewrite are both valid; the invariant is that
+        // "linter: stale" is gone.
         val content = Files.readString(yaml)
         assertTrue(!content.contains("linter: stale"), "stale linter should have been replaced: $content")
     }
 
-    /**
-     * Exercises the full `send` path end-to-end without touching real cloud:
-     *  - OkHttp/Jackson path (CloudClient token validation) via SendFakeHttpTransport
-     *  - kotlinx.serialization path (QDCloudClient report upload) via MockQDCloudHttpClient
-     *  - S3 PUT path (QDCloudS3ClientImpl) via a local com.sun.net.httpserver.HttpServer
-     *
-     * Running under the GraalVM tracing agent captures all Jackson + kotlinx.serialization
-     * reflection/serde metadata needed for the native binary.
-     */
+    // Drives the three transports `send` touches — SendFakeHttpTransport
+    // (CloudClient/OkHttp+Jackson), MockQDCloudHttpClient (QDCloudClient/
+    // kotlinx.serialization), and a local HttpServer (S3 PUT) — without
+    // hitting real cloud, so the agent records each serde path.
     @Test
     fun `send exercises the full QDCloudClient and Publisher serialisation chain`(
         @TempDir dir: Path,
@@ -482,9 +427,8 @@ class NativeSmokeTest {
             """{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"test"}},"results":[]}]}""",
         )
 
-        // Bind explicitly to 127.0.0.1 (not 0.0.0.0/InetSocketAddress(0))
-        // so IPv4/IPv6 hostname resolution can't cause flaky test failures
-        // when "localhost" prefers ::1 but the server only listened on 0.0.0.0.
+        // 127.0.0.1 (not localhost / 0.0.0.0) avoids the IPv4/IPv6 race
+        // where ::1 resolution wins but the server only bound IPv4.
         val s3Server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         s3Server.createContext("/upload/sarif") { exchange ->
             exchange.requestBody.use { it.readBytes() }
@@ -516,7 +460,6 @@ class NativeSmokeTest {
                 runtimeEnvironmentDetector = { RuntimeEnvironment.HOST },
             ).parse(listOf("-i", projectDir.toString(), "-o", resultsDir.toString()))
 
-            // SendCommand.run() returns normally on success — no ProgramResult thrown
             assertTrue(
                 sendTerminal.messages.any { it.contains("Report published:") },
                 "send should print 'Report published:'; got: ${sendTerminal.messages}",
@@ -530,21 +473,17 @@ class NativeSmokeTest {
         }
     }
 
-    /**
-     * Configures a [MockQDCloudHttpClient] with canned responses for the three
-     * QDCloudClient requests the Publisher makes: api/versions, reports/ (startUpload),
-     * and reports/{id}/finish/ (finishUpload).  S3 upload goes to the local [s3Port].
-     */
+    // Canned QDCloudClient responses matching the paths Publisher hits:
+    // GET api/versions → POST reports/ (startUpload) → POST reports/{id}/finish/
+    // (finishUpload). S3 fileLink points at the local [s3Port].
     private fun buildSendMockCloudClient(s3Port: Int): MockQDCloudHttpClient {
         val client = MockQDCloudHttpClient.empty()
-        // QDCloudByFrontendEnvironment: GET api/versions on the endpoint host
         client.respond("https://qodana.cloud", "api/versions") { _ ->
             QDCloudResponse.Success(
                 """{"api":{"versions":[{"version":"1.1","url":"https://cloud.api"}]},""" +
                     """"linters":{"versions":[{"version":"1.0","url":"https://linters.api"}]}}""",
             )
         }
-        // Publisher.startUpload: POST reports/
         client.respond("https://cloud.api", "reports/") { _ ->
             QDCloudResponse.Success(
                 """{"reportId":"test-report-id",""" +
@@ -552,7 +491,6 @@ class NativeSmokeTest {
                     """"langsRequired":false}""",
             )
         }
-        // Publisher.finishUpload: POST reports/test-report-id/finish/
         client.respond("https://cloud.api", "reports/test-report-id/finish/") { _ ->
             QDCloudResponse.Success(
                 """{"token":"report-token-123","url":"https://cloud.api/report/test-report-id"}""",
@@ -561,7 +499,6 @@ class NativeSmokeTest {
         return client
     }
 
-    /** OkHttp/Jackson path: CloudClient.fetchEndpoints() + project token validation. */
     private fun buildSendFakeHttpTransport(): SendFakeHttpTransport =
         SendFakeHttpTransport(
             mapOf(

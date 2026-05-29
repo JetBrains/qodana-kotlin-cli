@@ -5,19 +5,11 @@ import com.fasterxml.jackson.databind.node.ArrayNode
 import java.nio.file.Path
 
 /**
- * Canonicalises a SARIF report to a sorted multiset of (ruleId, normalised-uri,
- * startLine) tuples so JVM and native runs can be compared structurally after
- * volatile fields are dropped.
- *
- * Volatile fields ignored: tool.driver.semanticVersion, run.invocations,
- * timestamps, partialFingerprints, machine-specific URIs.
- *
- * URI normalisation: strip `file://`, normalise platform separators to `/`,
- * relativise paths under `projectRoot`. Callers pass the same `projectRoot`
- * for both reports being compared so machine-specific scan locations cancel
- * out.
- *
- * Run flattening: results from all `runs[]` are unioned, not just `runs[0]`.
+ * Reduces a SARIF report to a sorted multiset of (ruleId, uri, startLine)
+ * tuples for structural comparison. URIs are relativised under `projectRoot`
+ * so machine-specific scan locations cancel; volatile fields (timestamps,
+ * `tool.driver.semanticVersion`, `run.invocations`, `partialFingerprints`)
+ * are dropped; results from all `runs[]` are flattened.
  */
 object SarifCompare {
     private val mapper = ObjectMapper()

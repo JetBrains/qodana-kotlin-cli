@@ -5,26 +5,10 @@ import org.junit.jupiter.api.Test
 import java.nio.file.Path
 
 /**
- * Asserts structural equivalence of the SARIF output produced by the JVM
- * (`./gradlew :qodana-cli:run`) and native (`./qodana-cli`) entry points
- * for the same fixture project.
- *
- * The CI `native-e2e` job (see .github/workflows/ci.yaml) runs scan twice —
- * once via the JVM, once via the native binary — against
- * `qodana-cli/src/test/resources/scan-smoke-fixture`, then invokes this test
- * with `-Dtest.sarif.jvm`, `-Dtest.sarif.native`, and `-Dtest.project.dir`
- * pointing at the two output reports and the project root.
- *
- * Use [SarifCompare] for the canonicalisation. The structural compare drops
- * volatile fields (timestamps, semanticVersion, scan locations) and yields a
- * sorted multiset of `(ruleId, normalised-uri, startLine)` tuples; a mismatch
- * indicates that the native binary's reflection metadata is incomplete or
- * that an inspection rule fires differently between the two runtimes.
- *
- * Tagged `native-binary` so the default `test` task skips it — it requires
- * inputs only the CI native-e2e job has. Run via:
- *   `./gradlew :qodana-cli:test --tests SarifCompareIntegrationTest
- *       -Dtest.sarif.jvm=... -Dtest.sarif.native=... -Dtest.project.dir=...`
+ * Asserts JVM vs native SARIF parity via [SarifCompare]. Inputs come from the
+ * CI `native-e2e` job (which runs scan twice and passes both reports via
+ * `-Dtest.sarif.{jvm,native}` + `-Dtest.project.dir`). Tagged `native-binary`
+ * so default `test` skips it; only CI has the artifacts.
  */
 @Tag("native-binary")
 class SarifCompareIntegrationTest {

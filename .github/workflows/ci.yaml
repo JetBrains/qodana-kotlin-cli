@@ -113,79 +113,28 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  # End-to-end smoke for the qodana-cli native binary on every supported
-  # platform.  Exercises the actual runtime commands (scan, pull, view, send,
-  # show) against a real Docker daemon and a local mock cloud — see
-  # qodana-cli/src/test/kotlin/org/jetbrains/qodana/cli/NativeBinarySendSmokeTest.kt
-  # and qodana-cli/src/test/kotlin/org/jetbrains/qodana/cli/SarifCompareIntegrationTest.kt
-  # for the harnesses this job invokes.
-  #
-  # Docker setup is OS-dependent:
-  #   - Linux: native engine, ready out of the box.
-  #   - Windows: hosted Windows runners can't run Linux containers
-  #     (community/discussions/25491); Docker steps are gated off.
-  #   - macOS arm64: hosted runners lack nested virt (QD-14821); Docker
-  #     steps are gated off there too.
-  #   - macOS Intel: dropped entirely (QD-14862). IntelliJ DirectoryLock
-  #     socket can't bind on Lima+QEMU+overlayfs — JetBrains IJPL-161337.
-  #
-  # Readiness loops use a portable epoch-bounded `until` rather than GNU
-  # `timeout`, which isn't on macOS by default.
   native-e2e:
     name: "E2E qodana-cli (${{ matrix.platform.tag }})"
     needs: native-build
     strategy:
       fail-fast: false
+      # Docker is gated off on darwin-arm64 (QD-14821, no nested virt) and
+      # windows-amd64 (hosted Windows can't run Linux containers); both still
+      # run the non-Docker binary checks. darwin-amd64 and windows-amd64-on-arm
+      # aren't in the matrix at all (QD-14862, QD-14819).
       matrix:
         platform:
-          - { tag: linux-amd64,            artifact: qodana-cli-linux-amd64,   runner: ubuntu-latest,    setup: linux,   docker: true  }
-          - { tag: linux-arm64,            artifact: qodana-cli-linux-arm64,   runner: ubuntu-24.04-arm, setup: linux,   docker: true  }
-          # `macos-15` is GitHub's hosted Apple-Silicon (M1) arm64 runner,
-          # itself a guest VM. Docker on macOS needs a Linux VM (colima /
-          # Docker Desktop), which in turn needs nested virtualisation
-          # support from the host hypervisor. M1 Macs have no nested-virt
-          # support at all, and the M3+ hardware capability isn't exposed
-          # by GitHub's hypervisor yet — see
-          # https://github.com/actions/runner-images/issues/9460 and the
-          # colima abiosoft/colima#1427 thread. The sibling Go CLI repo
-          # confirms the same: it gates `container-engine: none` for this
-          # runner. Until GitHub exposes nested-virt on macos-15 arm64
-          # (or we provision self-hosted M3+ runners), Docker-dependent
-          # E2E steps are gated off here. The non-Docker checks
-          # (--version, --help, view, send via NativeBinarySendSmokeTest)
-          # still run so we keep binary-level coverage on Apple Silicon.
-          # Tracked in QD-14821 alongside any self-hosted-runner provisioning.
-          - { tag: darwin-arm64,           artifact: qodana-cli-darwin-arm64,  runner: macos-15,         setup: macos,   docker: false }
-          # `windows-latest` runs the Docker engine in Windows-containers mode
-          # and does NOT support Linux containers — GitHub's hosted Windows
-          # runners are nested VMs and the hypervisor blocks WSL2 / Hyper-V
-          # nested virtualisation that Docker Desktop would need (see
-          # https://github.com/orgs/community/discussions/25491). The linter
-          # image is linux/amd64, so Docker-dependent steps on this entry
-          # would always fail with "no matching manifest for windows". We
-          # gate them off (docker: false) — non-Docker commands still run
-          # to verify the binary itself executes on Windows.
-          - { tag: windows-amd64,          artifact: qodana-cli-windows-amd64, runner: windows-latest,   setup: windows, docker: false }
-          # NOTE: `windows-amd64-on-arm` (running the amd64 binary on a
-          # `windows-11-arm` runner) is NOT in this matrix. The shipped
-          # binary is built without `-march=compatibility`, so it requires
-          # native x86_64 features (CX8, MMX, SSE*, POPCNT, LZCNT, AVX*,
-          # BMI*, FMA) that the runner's Prism x86 emulation layer doesn't
-          # expose — the binary immediately exits with
-          # "The current machine does not support all of the following CPU
-          # features... Please rebuild the executable with an appropriate
-          # setting of the -march option." Re-enabling this coverage
-          # requires a separate "compatibility-mode" binary build (tracked
-          # in QD-14819). Re-add the entry there. See CONTRIBUTING.md for
-          # the user-facing limitation.
+          - { tag: linux-amd64,   artifact: qodana-cli-linux-amd64,   runner: ubuntu-latest,    setup: linux,   docker: true  }
+          - { tag: linux-arm64,   artifact: qodana-cli-linux-arm64,   runner: ubuntu-24.04-arm, setup: linux,   docker: true  }
+          - { tag: darwin-arm64,  artifact: qodana-cli-darwin-arm64,  runner: macos-15,         setup: macos,   docker: false }
+          - { tag: windows-amd64, artifact: qodana-cli-windows-amd64, runner: windows-latest,   setup: windows, docker: false }
     runs-on: ${{ matrix.platform.runner }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
-      # The send-smoke step invokes `./gradlew :qodana-cli:test` to host the
-      # MockQDCloudHttpClient + S3 stub; that needs a JDK on PATH. Linux
-      # runners come pre-provisioned; on macOS / Windows we install it.
+      # macOS + Windows runners don't ship with a usable JDK; the send-smoke
+      # step needs one to host the JVM-side mock cloud + S3 stub.
       - name: Setup Java (macOS + Windows)
         if: matrix.platform.setup == 'macos' || matrix.platform.setup == 'windows'
         uses: actions/setup-java@v4
@@ -207,14 +156,10 @@ jobs:
               exit 1
             }
           done
-          echo "Docker is ready."
           docker version
-          # The native binary picks the container user from $UID/$GID
-          # (ContainerImageUtils.getDefaultUser); the shell never exports
-          # those, so without this the container runs as root and writes
-          # root-owned files into the bind-mounted report/cache/results
-          # dirs that the host runner user can no longer clean up. See
-          # the report-native deleteRecursively failure in PR #12 CI.
+          # Without exporting UID/GID, ContainerImageUtils.getDefaultUser
+          # falls through to root and the bind-mounted report/cache/results
+          # dirs end up root-owned — host can't clean them up afterwards.
           echo "UID=$(id -u)" >> "$GITHUB_ENV"
           echo "GID=$(id -g)" >> "$GITHUB_ENV"
 
@@ -280,24 +225,14 @@ jobs:
       - name: Stage fixture
         shell: bash
         run: |
-          # Linux/Windows runners have $GITHUB_WORKSPACE writable end-to-end,
-          # so stage the fixture directly there. macOS Intel was dropped
-          # (QD-14862) due to upstream Lima/IntelliJ DirectoryLock issues
-          # (IJPL-161337). macOS arm64 is gated to docker:false (QD-14821).
           WORK="$PWD"
-          # The linter container writes cache/report as root inside its own
-          # ~/.cache/JetBrains/Qodana/<id>/...; passing explicit --cache-dir
-          # and --report-dir under $WORK keeps everything in a path we can
-          # delete without sudo afterward. The rm below handles residue from
-          # any previous run on the same runner.
+          # `sudo rm` covers root-owned residue from a prior failed scan on
+          # the same runner; the `||` fallback handles platforms without sudo.
           sudo rm -rf "$WORK/project" "$WORK/results-native" "$WORK/results-jvm" "$WORK/cache-native" "$WORK/cache-jvm" "$WORK/report-native" "$WORK/report-jvm" || rm -rf "$WORK/project" "$WORK/results-native" "$WORK/results-jvm" "$WORK/cache-native" "$WORK/cache-jvm" "$WORK/report-native" "$WORK/report-jvm"
           cp -r qodana-cli/src/test/resources/scan-smoke-fixture "$WORK/project"
           mkdir -p "$WORK/results-native" "$WORK/results-jvm" "$WORK/cache-native" "$WORK/cache-jvm" "$WORK/report-native" "$WORK/report-jvm"
           echo "QODANA_E2E_WORK=$WORK" >> "$GITHUB_ENV"
 
-      # Non-Docker sanity checks run on every platform, including the
-      # Docker-less windows-amd64-on-arm runner. They validate that the
-      # binary itself executes and Clikt's reflection metadata is correct.
       - name: --version
         shell: bash
         run: ${{ steps.bin.outputs.path }} --version
@@ -327,8 +262,6 @@ jobs:
         run: |
           test -s "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
           grep -q '"results"' "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
-          # The fixture's StringEquality target fires for the JVM-community
-          # linter; if the rule renames, the failure here points right at it.
           grep -q 'StringEquality' "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
 
       - name: scan (JVM, for SARIF parity)
@@ -346,15 +279,15 @@ jobs:
             -Dtest.sarif.native="$QODANA_E2E_WORK/results-native/qodana.sarif.json" \
             -Dtest.project.dir="$QODANA_E2E_WORK/project"
 
-      - name: pull (force re-pull so streaming Frame DTO fires)
+      # Force-removing alpine first ensures the pull actually streams (a
+      # cached image short-circuits and the PullResponseItem DTO never fires).
+      - name: pull
         if: matrix.platform.docker
         shell: bash
         run: |
           docker image rm alpine:3.20 || true
           ${{ steps.bin.outputs.path }} pull --image alpine:3.20
 
-      # On Docker-less platforms, write a minimal SARIF stub for view/show to
-      # consume so we still exercise their code paths.
       - name: Stub SARIF (no-Docker platforms)
         if: ${{ !matrix.platform.docker }}
         shell: bash
@@ -367,9 +300,6 @@ jobs:
 
       - name: send (via NativeBinarySendSmokeTest harness)
         shell: bash
-        # The harness runs on the JVM (hosts the in-process cloud + S3 stubs)
-        # and forks the native binary as a subprocess against them. No Docker
-        # required — runs on every platform including windows-amd64-on-arm.
         run: |
           ./gradlew :qodana-cli:nativeBinaryTest --tests 'org.jetbrains.qodana.cli.NativeBinarySendSmokeTest' \
             -Dtest.qodana.binary="${{ steps.bin.outputs.path }}" \

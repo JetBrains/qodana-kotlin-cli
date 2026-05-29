@@ -13,22 +13,10 @@ import kotlin.test.assertTrue
 import kotlin.test.fail
 
 /**
- * Guards the GraalVM native-image metadata directory against test-infrastructure
- * entries and test-only resources bleeding in from tracing-agent runs.
- *
- * The tracing agent captures reflection / resource / JNI accesses while tests
- * run. Any test-only class (JUnit Platform, kotlin.test, our own NativeSmokeTest
- * / InitCommandTest / SendCommandTest, Gradle worker internals) or test-only
- * resource (scan-smoke-fixture, junit-platform.properties) that happens to be
- * accessed during the test run will be recorded and — without an explicit strip
- * step — would end up in the committed JSON files, causing the native binary to
- * bundle test infrastructure into production.
- *
- * The canonical banned list lives in
- * `qodana-cli/src/test/resources/banned-metadata-patterns.txt` and is loaded
- * via [BannedMetadataPatterns.load].  The `stripTestEntriesFromMetadata`
- * Gradle task in `qodana-cli/build.gradle.kts` reads the same file at build
- * time so the strip and the test share a single source of truth.
+ * Catches test-infrastructure leaks (JUnit, kotlin.test, test FQCNs,
+ * `scan-smoke-fixture`, etc.) in the committed GraalVM metadata. The banned
+ * patterns live in `src/test/resources/banned-metadata-patterns.txt` so the
+ * `stripTestEntriesFromMetadata` Gradle task and this test stay in sync.
  */
 @Execution(ExecutionMode.SAME_THREAD)
 class MetadataHygieneTest {
@@ -51,10 +39,6 @@ class MetadataHygieneTest {
             )
     }
 
-    /**
-     * Checks reflect-config.json and jni-config.json: both are flat JSON arrays
-     * of objects with a "name" key.
-     */
     @ParameterizedTest(name = "{0}")
     @MethodSource("arrayConfigFiles")
     fun `array config file contains no banned class names`(configFile: Path) {
@@ -68,10 +52,9 @@ class MetadataHygieneTest {
         val json = configFile.readText()
         val violations = mutableListOf<String>()
         for (prefix in PATTERNS.classPrefixes) {
-            // Quick text scan first to avoid pulling in a JSON library at test time.
-            // The "name" value in these files is always a simple quoted string.
+            // Substring pre-check avoids regex-parsing every config file for
+            // every prefix when nothing matches.
             if (("\"$prefix" in json) || ("\\\"$prefix" in json)) {
-                // Confirm by finding each occurrence.
                 val pattern = Regex(""""name"\s*:\s*"([^"]+)"""")
                 pattern
                     .findAll(json)
@@ -94,10 +77,6 @@ class MetadataHygieneTest {
         }
     }
 
-    /**
-     * Checks resource-config.json: a JSON object whose resources.includes array
-     * contains objects with a "pattern" key.
-     */
     @Test
     fun `resource-config contains no banned patterns`() {
         val configFile = METADATA_DIR.resolve("resource-config.json")

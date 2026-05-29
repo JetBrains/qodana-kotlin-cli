@@ -32,11 +32,8 @@ import org.jetbrains.qodana.engine.startup.IdeInstaller
 import org.jetbrains.qodana.engine.startup.PrepareHost
 
 /**
- * Builds the [ScanUseCase] with the wiring the production `main()` uses.
- *
- * Extracted (QD-14728) so `NativeSmokeTest` can construct the same use-case
- * graph in its `scanRunner` slot without drifting from Main.kt's wiring. Any
- * future dependency added to scan must be added to [ScanDeps].
+ * Wiring shared between production `main()` and `NativeSmokeTest`'s scanRunner.
+ * Any new scan dependency goes in [ScanDeps] so both call sites stay in sync.
  */
 internal fun buildScanUseCase(deps: ScanDeps): ScanUseCase {
     val token =
@@ -79,10 +76,6 @@ private val ROOT_COMMANDS =
         "completion",
     )
 
-// Clikt doesn't treat the bare word `help` as a special subcommand — it would
-// fall through to the "no such command 'help'" error if a user typed
-// `qodana help`. Only `--help`/`-h`/`--version`/`-v` are the actual short
-// circuits that normalizeRootArgs needs to recognise.
 private val HELP_OR_VERSION_ARGS = setOf("--help", "-h", "--version", "-v")
 
 private fun normalizeRootArgs(args: Array<String>): Array<String> {
@@ -146,15 +139,8 @@ private fun isRunningAsRoot(): Boolean {
     }.getOrDefault(false)
 }
 
-/**
- * Wires lazy heavy dependencies and all subcommands into a ready-to-run
- * [QodanaCommand]. Extracted from [main] to keep that function under detekt's
- * line-length limit.
- *
- * All heavy constructors (OkHttp, docker-java, Jackson, publisher) are kept
- * lazy so `qodana --help` / `--version` don't drag the full dependency surface
- * into the native-image startup path.
- */
+// Heavy deps are `by lazy` so `qodana --help` / `--version` don't drag the
+// full dependency surface into the native-image startup path.
 private fun buildQodanaCommand(
     processRunner: SystemProcessRunner,
     gitClient: SystemGitClient,
