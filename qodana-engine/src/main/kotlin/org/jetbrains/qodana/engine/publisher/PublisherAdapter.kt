@@ -14,14 +14,20 @@ import java.net.http.HttpClient
 import java.nio.file.Path
 import org.jetbrains.qodana.engine.model.PublishResult as QodanaPublishResult
 
-class PublisherAdapter : ReportPublisher {
+/**
+ * The HTTP clients are constructor-injected so tests can substitute
+ * `MockQDCloudHttpClient` and drive the full Jackson chain without real cloud.
+ */
+class PublisherAdapter(
+    private val httpClient: QDCloudHttpClient = QDCloudHttpClient(HttpClient.newHttpClient()),
+    private val s3Client: QDCloudS3Client = QDCloudS3Client(HttpClient.newHttpClient()),
+) : ReportPublisher {
     override suspend fun publish(
         analysisId: String,
         reportPath: Path,
         token: String,
         endpoint: String,
     ): QodanaPublishResult {
-        val httpClient = QDCloudHttpClient(HttpClient.newHttpClient())
         val environment = QDCloudEnvironment(endpoint, httpClient)
         val client = QDCloudClient(httpClient, environment)
 
@@ -33,7 +39,6 @@ class PublisherAdapter : ReportPublisher {
             }
 
         val projectApi = clientV1.projectApi(token)
-        val s3Client = QDCloudS3Client(HttpClient.newHttpClient())
         val publisher = Publisher(projectApi, s3Client)
 
         val params =

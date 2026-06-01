@@ -9,6 +9,6 @@
         <error line="24" column="1" source="standard:no-wildcard-imports" />
     </file>
     <file name="src/test/kotlin/org/jetbrains/qodana/cli/command/QodanaCommandTest.kt">
-        <error line="42" column="1" source="standard:no-wildcard-imports" />
+        <error line="43" column="1" source="standard:no-wildcard-imports" />
     </file>
 </baseline>

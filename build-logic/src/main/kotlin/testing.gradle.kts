@@ -13,12 +13,14 @@ tasks.withType<Test>().configureEach {
     }
     testLogging {
         events("passed", "skipped", "failed")
+        exceptionFormat = TestExceptionFormat.FULL
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+        // NativeWindowsDepsTest dumps its `.exe`'s sorted DLL import list into the
+        // failure message; showStandardStreams is the only way that survives intact.
+        // Gated so regular test logs don't drown in stdout.
         if (nativeTestsEnabled) {
-            // FULL + showStandardStreams ensures NativeWindowsDepsTest's failure
-            // message — which embeds the produced `.exe`'s sorted DLL import list —
-            // reaches the CI log untruncated. That list is the Phase B evidence.
-            // Scoped to native-deps runs so the rest of CI's test logs stay quiet.
-            exceptionFormat = TestExceptionFormat.FULL
             showStandardStreams = true
         }
     }

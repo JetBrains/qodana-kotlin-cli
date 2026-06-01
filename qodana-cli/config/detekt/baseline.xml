@@ -24,7 +24,7 @@
     <ID>ImplicitDefaultLocale:ContributorsCommand.kt$ContributorsCommand$String.format( "%-30s %-20s %8d %s", contributor.author.email, contributor.author.username, contributor.count, contributor.projects.joinToString(","), )</ID>
     <ID>ImplicitDefaultLocale:ContributorsCommand.kt$ContributorsCommand$String.format("%-30s %-20s %8s %s", "Email", "Username", "Commits", "Projects")</ID>
     <ID>LargeClass:ScanCommand.kt$ScanCommand : CliktCommand</ID>
-    <ID>LongMethod:QodanaCommandTest.kt$QodanaCommandTest$@Test fun `all commands with container`( @TempDir dir: Path, )</ID>
+    <ID>LongMethod:QodanaCommandTest.kt$QodanaCommandTest$@Test @Tag("docker") fun `all commands with container`( @TempDir dir: Path, )</ID>
     <ID>LongMethod:ScanCommand.kt$ScanCommand$override fun run()</ID>
     <ID>LongMethod:ScanCommand.kt$ScanCommand$private fun resolveAnalyzer( yaml: QodanaYaml?, projectDir: Path, ): AnalyzerResolution</ID>
     <ID>LongParameterList:CliPathResolver.kt$CliPathResolver$( projectDir: Path, linterName: String, resultsDir: Path?, cacheDir: Path?, reportDir: Path?, runtimeEnvironment: RuntimeEnvironment, )</ID>

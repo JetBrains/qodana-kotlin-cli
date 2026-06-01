@@ -79,10 +79,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # darwin-amd64 dropped: QD-14862. The IntelliJ DirectoryLock socket
+        # inside the qodana-jvm-community linter container can't bind on
+        # the Lima+QEMU+overlayfs stack that hosted macOS Intel runners
+        # provide (JetBrains IJPL-161337 + IJPL-34916). Intel Mac users
+        # should use the JVM CLI or upgrade to Apple Silicon.
         platform:
           - { name: linux/amd64,   tag: linux-amd64,   runner: ubuntu-latest }
           - { name: linux/arm64,   tag: linux-arm64,   runner: ubuntu-24.04-arm }
-          - { name: darwin/amd64,  tag: darwin-amd64,  runner: macos-15-intel }
           - { name: darwin/arm64,  tag: darwin-arm64,  runner: macos-15 }
           - { name: windows/amd64, tag: windows-amd64, runner: windows-latest }
         module: [qodana-cli, qodana-clang, qodana-cdnet]
@@ -140,3 +144,200 @@ jobs:
             ${{ matrix.module }}/build/native/nativeCompile/*.dll
           if-no-files-found: error
           retention-days: 14
+
+  native-e2e:
+    name: "E2E qodana-cli (${{ matrix.platform.tag }})"
+    needs: native-build
+    strategy:
+      fail-fast: false
+      # Docker is gated off on darwin-arm64 (QD-14821, no nested virt) and
+      # windows-amd64 (hosted Windows can't run Linux containers); both still
+      # run the non-Docker binary checks. darwin-amd64 and windows-amd64-on-arm
+      # aren't in the matrix at all (QD-14862, QD-14819).
+      matrix:
+        platform:
+          - { tag: linux-amd64,   artifact: qodana-cli-linux-amd64,   runner: ubuntu-latest,    setup: linux,   docker: true  }
+          - { tag: linux-arm64,   artifact: qodana-cli-linux-arm64,   runner: ubuntu-24.04-arm, setup: linux,   docker: true  }
+          - { tag: darwin-arm64,  artifact: qodana-cli-darwin-arm64,  runner: macos-15,         setup: macos,   docker: false }
+          - { tag: windows-amd64, artifact: qodana-cli-windows-amd64, runner: windows-latest,   setup: windows, docker: false }
+    runs-on: ${{ matrix.platform.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      # macOS + Windows runners don't ship with a usable JDK; the send-smoke
+      # step needs one to host the JVM-side mock cloud + S3 stub.
+      - name: Setup Java (macOS + Windows)
+        if: matrix.platform.setup == 'macos' || matrix.platform.setup == 'windows'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Docker (linux)
+        if: matrix.platform.docker && matrix.platform.setup == 'linux'
+        shell: bash
+        run: |
+          deadline=$(( $(date +%s) + 60 ))
+          until docker info >/dev/null 2>&1; do
+            sleep 1
+            [ "$(date +%s)" -lt "$deadline" ] || {
+              echo "::error::Docker did not become available within 60s"
+              exit 1
+            }
+          done
+          docker version
+          # Without exporting UID/GID, ContainerImageUtils.getDefaultUser
+          # falls through to root and the bind-mounted report/cache/results
+          # dirs end up root-owned — host can't clean them up afterwards.
+          echo "UID=$(id -u)" >> "$GITHUB_ENV"
+          echo "GID=$(id -g)" >> "$GITHUB_ENV"
+
+      - name: Docker (Windows, Linux engine)
+        if: matrix.platform.docker && matrix.platform.setup == 'windows'
+        shell: pwsh
+        run: |
+          $cliPath = "C:\Program Files\Docker\Docker\DockerCli.exe"
+          if (Test-Path $cliPath) {
+            & $cliPath -SwitchLinuxEngine
+          } else {
+            Write-Host "DockerCli.exe not found at $cliPath; assuming Linux containers already active."
+          }
+          $deadlineSeconds = 180
+          $sw = [System.Diagnostics.Stopwatch]::StartNew()
+          while ($sw.Elapsed.TotalSeconds -lt $deadlineSeconds) {
+            docker info > $null 2>&1
+            if ($LASTEXITCODE -eq 0) { break }
+            Start-Sleep -Seconds 2
+          }
+          docker info > $null 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Docker not ready in ${deadlineSeconds}s"
+            exit 1
+          }
+          # docker-java needs an explicit DOCKER_HOST on Windows.
+          "DOCKER_HOST=npipe:////./pipe/docker_engine" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          docker version
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.platform.artifact }}
+          path: ./bin
+
+      - name: chmod (POSIX)
+        if: matrix.platform.setup != 'windows'
+        shell: bash
+        run: chmod +x ./bin/qodana-cli
+
+      - name: Resolve binary path
+        id: bin
+        shell: bash
+        run: |
+          if [ -f ./bin/qodana-cli.exe ]; then
+            echo "path=$PWD/bin/qodana-cli.exe" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=$PWD/bin/qodana-cli" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Read linter tag
+        id: tag
+        shell: bash
+        run: |
+          tag=$(grep '^qodana-jvm-community-tag' gradle/libs.versions.toml | awk -F'"' '{print $2}')
+          test -n "$tag" || { echo "::error::failed to read linter tag from libs.versions.toml"; exit 1; }
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Pre-pull linter image
+        if: matrix.platform.docker
+        shell: bash
+        run: docker pull jetbrains/qodana-jvm-community:${{ steps.tag.outputs.tag }}
+
+      - name: Stage fixture
+        shell: bash
+        run: |
+          WORK="$PWD"
+          # `sudo rm` covers root-owned residue from a prior failed scan on
+          # the same runner; the `||` fallback handles platforms without sudo.
+          sudo rm -rf "$WORK/project" "$WORK/results-native" "$WORK/results-jvm" "$WORK/cache-native" "$WORK/cache-jvm" "$WORK/report-native" "$WORK/report-jvm" || rm -rf "$WORK/project" "$WORK/results-native" "$WORK/results-jvm" "$WORK/cache-native" "$WORK/cache-jvm" "$WORK/report-native" "$WORK/report-jvm"
+          cp -r qodana-cli/src/test/resources/scan-smoke-fixture "$WORK/project"
+          mkdir -p "$WORK/results-native" "$WORK/results-jvm" "$WORK/cache-native" "$WORK/cache-jvm" "$WORK/report-native" "$WORK/report-jvm"
+          echo "QODANA_E2E_WORK=$WORK" >> "$GITHUB_ENV"
+
+      - name: --version
+        shell: bash
+        run: ${{ steps.bin.outputs.path }} --version
+
+      - name: --help
+        shell: bash
+        run: ${{ steps.bin.outputs.path }} --help
+
+      - name: init --help
+        shell: bash
+        run: ${{ steps.bin.outputs.path }} init --help
+
+      - name: scan (native)
+        if: matrix.platform.docker
+        shell: bash
+        run: |
+          ${{ steps.bin.outputs.path }} scan \
+            -i "$QODANA_E2E_WORK/project" \
+            -o "$QODANA_E2E_WORK/results-native" \
+            --cache-dir "$QODANA_E2E_WORK/cache-native" \
+            --report-dir "$QODANA_E2E_WORK/report-native" \
+            --repository-root "$QODANA_E2E_WORK/project"
+
+      - name: Assert SARIF (native)
+        if: matrix.platform.docker
+        shell: bash
+        run: |
+          test -s "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
+          grep -q '"results"' "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
+          grep -q 'StringEquality' "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
+
+      - name: scan (JVM, for SARIF parity)
+        if: matrix.platform.docker
+        shell: bash
+        run: |
+          ./gradlew :qodana-cli:run --args="scan -i $QODANA_E2E_WORK/project -o $QODANA_E2E_WORK/results-jvm --repository-root $QODANA_E2E_WORK/project"
+
+      - name: Assert structural SARIF equivalence (JVM vs native)
+        if: matrix.platform.docker
+        shell: bash
+        run: |
+          ./gradlew :qodana-cli:nativeBinaryTest --tests 'org.jetbrains.qodana.cli.SarifCompareIntegrationTest' \
+            -Dtest.sarif.jvm="$QODANA_E2E_WORK/results-jvm/qodana.sarif.json" \
+            -Dtest.sarif.native="$QODANA_E2E_WORK/results-native/qodana.sarif.json" \
+            -Dtest.project.dir="$QODANA_E2E_WORK/project"
+
+      # Force-removing alpine first ensures the pull actually streams (a
+      # cached image short-circuits and the PullResponseItem DTO never fires).
+      - name: pull
+        if: matrix.platform.docker
+        shell: bash
+        run: |
+          docker image rm alpine:3.20 || true
+          ${{ steps.bin.outputs.path }} pull --image alpine:3.20
+
+      - name: Stub SARIF (no-Docker platforms)
+        if: ${{ !matrix.platform.docker }}
+        shell: bash
+        run: |
+          printf '%s' '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"test"}},"results":[]}]}' > "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
+
+      - name: view
+        shell: bash
+        run: ${{ steps.bin.outputs.path }} view -f "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
+
+      - name: send (via NativeBinarySendSmokeTest harness)
+        shell: bash
+        run: |
+          ./gradlew :qodana-cli:nativeBinaryTest --tests 'org.jetbrains.qodana.cli.NativeBinarySendSmokeTest' \
+            -Dtest.qodana.binary="${{ steps.bin.outputs.path }}" \
+            -Dtest.project.dir="$QODANA_E2E_WORK/project" \
+            -Dtest.results.dir="$QODANA_E2E_WORK/results-native"
+
+      - name: show --dir-only
+        shell: bash
+        run: ${{ steps.bin.outputs.path }} show -i "$QODANA_E2E_WORK/project" -o "$QODANA_E2E_WORK/results-native" --dir-only

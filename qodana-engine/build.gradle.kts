@@ -22,7 +22,10 @@ dependencies {
 
     // publisher
     implementation(libs.qodana.publisher)
-    implementation(libs.qodana.cloud.client)
+    // QD-14728: api (not implementation) so qodana-cli can see
+    // QDCloudHttpClient/QDCloudS3Client types referenced in
+    // PublisherAdapter's now-injectable constructor signature.
+    api(libs.qodana.cloud.client)
 
     // fuser
     implementation(libs.fus.reporting.anonymization)
