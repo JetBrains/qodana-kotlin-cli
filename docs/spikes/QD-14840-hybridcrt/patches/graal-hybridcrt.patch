@@ -1,0 +1,56 @@
+From spike QD-14840: HybridCRT linker invocation for SubstrateVM on Windows.
+
+Switches the cl.exe/link.exe invocation from /MD (dynamic CRT, pulls vcruntime140.dll) to /MT
+(static CRT, no DLL dependency on vcruntime), while keeping UCRT dynamic via the ucrt.lib import
+lib (which loads ucrtbase.dll at runtime — ships with Windows 10 1803+ / Server 2016+).
+
+Per Microsoft's HybridCRT spec
+(https://github.com/microsoft/WindowsAppSDK/blob/main/docs/Coding-Guidelines/HybridCRT.md):
+  Release: /MT + /NODEFAULTLIB:libucrt.lib + /defaultlib:ucrt.lib
+
+Note: the original `/NODEFAULTLIB:LIBCMT` directive is intentionally REMOVED. With /MD that
+directive was preventing the static CRT from being pulled in by mistake; with /MT we WANT LIBCMT
+(it provides libvcruntime and libcpmt statically).
+
+The original code's comment "Must use /MD in order to link with JDK native libraries built that
+way" describes the JDK-side /MD constraint. Task 0.7 of the QD-14840 runbook empirically tests
+whether SubstrateVM-only HybridCRT is sufficient or whether the JDK also needs to be rebuilt
+with HybridCRT.
+
+Target file: substratevm/src/com.oracle.svm.hosted/src/com/oracle/svm/hosted/image/CCLinkerInvocation.java
+Repo: oracle/graal, branch release/graal-vm/25.0, base commit dbf49c84 ("release GraalVM 25.0.3")
+
+diff --git a/substratevm/src/com.oracle.svm.hosted/src/com/oracle/svm/hosted/image/CCLinkerInvocation.java b/substratevm/src/com.oracle.svm.hosted/src/com/oracle/svm/hosted/image/CCLinkerInvocation.java
+--- a/substratevm/src/com.oracle.svm.hosted/src/com/oracle/svm/hosted/image/CCLinkerInvocation.java
++++ b/substratevm/src/com.oracle.svm.hosted/src/com/oracle/svm/hosted/image/CCLinkerInvocation.java
+@@ -496,13 +496,15 @@ class CCLinkerInvocation {
+         protected void setOutputKind(List<String> cmd) {
+             switch (imageKind) {
+                 case EXECUTABLE:
+                 case STATIC_EXECUTABLE:
+-                    // cmd.add("/MT");
+-                    // Must use /MD in order to link with JDK native libraries built that way
+-                    cmd.add("/MD");
++                    // HybridCRT (QD-14840): /MT pulls libvcruntime and libcpmt in statically (no
++                    // DLL dep on vcruntime140); the /NODEFAULTLIB + /defaultlib pair below strips
++                    // the static UCRT and brings it back as a dynamic import (ucrtbase.dll).
++                    cmd.add("/MT");
+                     break;
+                 case IMAGE_LAYER:
+                 case SHARED_LIBRARY:
+-                    cmd.add("/MD");
++                    cmd.add("/MT");
+                     cmd.add("/LD");
+                     break;
+                 default:
+@@ -529,7 +531,9 @@ class CCLinkerInvocation {
+             /* Add linker options. */
+             cmd.add("/link");
+             cmd.add("/INCREMENTAL:NO");
+-            cmd.add("/NODEFAULTLIB:LIBCMT");
++            // HybridCRT (QD-14840): strip the static UCRT pulled in by /MT; link UCRT dynamically.
++            cmd.add("/NODEFAULTLIB:libucrt.lib");
++            cmd.add("/defaultlib:ucrt.lib");
+
+             /* Use page size alignment to support memory mapping of the image heap. */
+             cmd.add("/FILEALIGN:4096");
