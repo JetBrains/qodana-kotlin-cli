@@ -53,4 +53,7 @@ dependencies {
 
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit.jupiter)
+    // QD-14812: NativeWindowsDepsTest delegates to the shared assertion in qodana-core's
+    // testFixtures. PortEx is pulled in transitively from there.
+    testImplementation(testFixtures(project(":qodana-core")))
 }
