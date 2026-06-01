@@ -310,10 +310,10 @@ jobs:
               qodana_windows_x86_64.zip
               "qodana-clang_${VERSION}_linux_amd64"   "qodana-clang_${VERSION}_linux_arm64"
               "qodana-clang_${VERSION}_darwin_amd64"  "qodana-clang_${VERSION}_darwin_arm64"
-              "qodana-clang_${VERSION}_windows_amd64.exe"
+              "qodana-clang_${VERSION}_windows_amd64.zip"
               "qodana-cdnet_${VERSION}_linux_amd64"   "qodana-cdnet_${VERSION}_linux_arm64"
               "qodana-cdnet_${VERSION}_darwin_amd64"  "qodana-cdnet_${VERSION}_darwin_arm64"
-              "qodana-cdnet_${VERSION}_windows_amd64.exe"
+              "qodana-cdnet_${VERSION}_windows_amd64.zip"
               qodana-cli-sbom.json qodana-clang-sbom.json qodana-cdnet-sbom.json
             )
           fi
