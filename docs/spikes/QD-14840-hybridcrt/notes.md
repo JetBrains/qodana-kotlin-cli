@@ -180,28 +180,108 @@ patch (`patches/graal-hybridcrt.patch`) is the actual spike deliverable.
 | Step 3 (qodana-cli build + verify)                  | ≤4h       | _TBD_       |
 | Step 4 (writeup)                                    | 1h        | _TBD_       |
 
-## Verdict (Step 4)
+## Step 3 — qodana-cli with patched toolchain — **SUCCESS** ✓✓✓
 
-**FEASIBLE** for HelloWorld with GraalVM-only HybridCRT patching. The 2-line change in
-`substratevm/.../CCLinkerInvocation.java` (commit-sized) eliminates `VCRUNTIME140.dll` from a
-GraalVM-built Windows .exe. No OpenJDK rebuild needed. Build cost is one `mx build` of
-`substratevm` (~5 min incremental, ~20 min cold) plus the existing native-image cost.
+`qodana-cli.exe` built by Gradle's `:qodana-cli:nativeCompile` (Gradle 9.4.0,
+`org.graalvm.buildtools.native = 0.10.6`) using the patched GraalVM CE as both `JAVA_HOME` and
+`GRAALVM_HOME`. Build wall-clock: 1m 2s (incremental; cold is ~10 min).
 
-**Still to verify**: qodana-cli build with the patched native-image (Step 3 of the runbook).
-Running in parallel as of this update — see `evidence/qodana-cli-imports.txt` once complete.
+**Import set** (full output in `evidence/evidence-qodana-cli-imports.txt`):
+
+```
+ADVAPI32.dll
+api-ms-win-crt-{convert,environment,filesystem,heap,locale,math,runtime,stdio,string}-l1-1-0.dll
+CRYPT32.dll
+IPHLPAPI.DLL
+KERNEL32.dll
+MSWSOCK.dll
+ncrypt.dll
+PSAPI.DLL
+Secur32.dll
+USER32.dll
+USERENV.dll
+VERSION.dll
+WINHTTP.dll
+WS2_32.dll
+```
+
+Forbidden regex `(?i)(vcruntime|msvcp|concrt|msvcr|vcomp|mfc|mfcm|vcamp|vccorlib)[0-9_]*\.dll`:
+**zero matches**. The vanilla qodana-cli.exe (per Phase A CI evidence) had `VCRUNTIME140.dll` +
+`VCRUNTIME140_1.dll`; the patched version has neither.
+
+`qodana-cli.exe --help` runs successfully on the build host (exit 0, full menu output including
+`scan`/`init`/`pull`/`show`/etc.). UCRT umbrella + Windows-native DLLs only — no VC++
+Redistributable required.
+
+**`/imports` and `/dependents` agree** on the import set (no delay-load surprises).
+
+### Build artifacts
+
+- `qodana-cli.exe`: 81,207,296 bytes (~77 MB), built with `-H:+ReportExceptionStackTraces` and
+  the standard reachability metadata under `qodana-cli/src/main/resources/META-INF/native-image/`.
+- Side note: size increase from a vanilla build of the same module is not measured for this
+  artifact (the vanilla qodana-cli baseline path failed at toolchain auto-download in Gradle 9.4,
+  see "Spike-only toolchain bumps" below). The HelloWorld measurement of 2.1× growth is the best
+  available proxy; for qodana-cli specifically the relative growth will be smaller because more
+  of the binary is the user's own Kotlin/Java code rather than CRT-touching glue.
+
+### "Spike-only" toolchain bumps on the spike branch
+
+To make `:qodana-cli:nativeCompile` run with the patched GraalVM CE 25 (the patched GraalVM is
+necessarily JDK 25-based; rebuilding for JDK 21 is out of scope), three small Gradle pins were
+bumped on the spike branch only. **These must be reverted before any rollout**:
+
+1. `build-logic/src/main/kotlin/kotlin-common.gradle.kts:11,16`: `JavaLanguageVersion.of(21)` /
+   `jvmToolchain(21)` → `25`.
+2. `qodana-cli/build.gradle.kts:16`: `JavaLanguageVersion.of(21)` → `25`.
+3. `gradle/gradle-daemon-jvm.properties:2`: `toolchainVersion=21` → `25`.
+4. `build-logic/src/main/kotlin/kotlin-common.gradle.kts`: also added an explicit
+   `jvmTarget = JVM_23` for Kotlin + `options.release.set(23)` for Java because the Kotlin
+   compiler at this version maxes out at jvmTarget 23 (Java 25 default jvmTarget caused a target
+   mismatch).
+
+The full toolchain migration (21 → 25 across all modules, with the appropriate Kotlin compiler
+bump) is a separate workstream out of this spike's scope. The spike merely proves that the
+HybridCRT-patched GraalVM works when paired with a 25-aligned toolchain.
 
 **Open items for the free-form discussion**:
 
-- Binary size cost: ~7 MB per binary (2.1× growth for HelloWorld; absolute delta will be smaller
-  in relative terms for the much-larger qodana-cli).
-- Vendoring strategy. Patched GraalVM CE is ~50 LOC patched in one source file plus a build
-  pipeline — the cheap option is patches-in-repo applied at CI time atop a vanilla labsjdk fetch.
-  The expensive option is a `JetBrains/graal` fork with our patch on a long-lived branch.
-- Security cadence. Without VC++ Redistributable, Windows Update no longer brings CRT fixes
-  to qodana-cli installs — we must rebuild and re-ship when MSVC ships CRT patches.
-- Update cadence. Per-JDK-25.0.x and per-GraalVM-26 porting cost: estimate ≤2h per port if the
-  patched lines stay where they are (the `/MD` site has been stable for years).
-- License: GraalVM CE source is EPL-2.0/GPL-2.0+CE — modifying + redistributing requires
-  publishing the patch (which we do anyway via the spike branch).
-- The JVMCI version check bypass should be removed; once labsjdk-25.0.3 is published, the
-  patched build works straight without it.
+- **Binary size cost**: HelloWorld grew 2.1× (6.4 MB → 13.4 MB). qodana-cli's relative growth
+  will be smaller (more user code, same CRT static cost). Quantify both vs. the bundled-DLL
+  alternative (Phase A bundles ~140 KB of vcruntime DLLs alongside; static CRT replaces that
+  with ~7 MB inside the binary).
+- **Vendoring strategy**: the patched GraalVM CE is ONE Java file changed (4 hunks, ~10 LOC).
+  Two options for the rollout:
+  - **Patches-in-repo** (cheap): keep `patches/graal-hybridcrt.patch` in qodana-kotlin-cli,
+    fetch+patch+build oracle/graal in CI on every spike-built release. Cache the resulting
+    GraalVM artifact keyed on (graal SHA, patch hash, JDK SHA).
+  - **Fork** (expensive): create `JetBrains/graal-hybridcrt` long-lived fork; sync from oracle
+    upstream on a cadence. Easier to consume from external tooling but more maintenance.
+- **Security cadence**: without VC++ Redistributable, Windows Update no longer brings CRT
+  security fixes to qodana-cli installs. We must rebuild and re-ship when MSVC ships CRT
+  patches (historically ~quarterly). Need a monitoring strategy + release-engineering
+  commitment for this.
+- **Update cadence**: per-JDK-25.0.x and per-GraalVM-26 porting cost. Estimate ≤2h per port if
+  the patched lines stay where they are; the `/MD` site has been stable in `CCLinkerInvocation`
+  for many years (the `// cmd.add("/MT");` commented-out line predates the spike by years).
+- **License**: GraalVM CE source is EPL-2.0/GPL-2.0+CE — modifying + redistributing requires
+  publishing the patch, which we do anyway via this spike branch. OpenJDK GPL-2.0+CE isn't
+  invoked (we don't rebuild OpenJDK). The resulting `qodana-cli.exe` inherits Classpath
+  Exception — no GPL viral effect on commercial distribution.
+- **JVMCI version check bypass**: spike-only workaround (because `labsjdk-25.0.3` isn't
+  published yet; only `25.0.2+10` is). Once `25.0.3+9-jvmci-b01` lands in `graalvm/labs-openjdk`
+  releases, the bypass becomes unnecessary. The patch is in `notes.md` debug ladder item 8.
+- **Toolchain bumps on the spike branch**: 21 → 25 in `kotlin-common.gradle.kts`,
+  `qodana-cli/build.gradle.kts`, `gradle/gradle-daemon-jvm.properties`. Plus a Kotlin `jvmTarget
+= JVM_23` cap. These are spike-local and must be reverted; a real rollout needs a separate
+  JDK 21 → 25 migration workstream (or a JDK 21-pinned variant of the patched GraalVM, which
+  would require pinning the patch against an older oracle/graal branch).
+- **`qodana-clang` and `qodana-cdnet`**: out of immediate scope. Their reachability metadata
+  needs work (no `META-INF/native-image/` directory). Once that's solved separately, the same
+  patched GraalVM works for them too without further GraalVM-side changes.
+- **Reusable Gradle hook for custom GraalVM**: this spike used ad-hoc `JAVA_HOME=$PATCHED` +
+  `-Dorg.gradle.java.installations.paths=...`. A first-class `-Pcustom-graalvm=<path>` property
+  in `build-logic/src/main/kotlin/graalvm-native.gradle.kts` would make the rollout cleaner.
+- **Linux `.so` clarification**: not a problem for glibc-based distros; would become one for
+  Alpine/musl users — separate musl-static workstream if ever needed. Out of this spike's
+  scope.
