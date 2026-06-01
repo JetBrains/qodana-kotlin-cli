@@ -93,20 +93,80 @@ Notably absent: `VCRUNTIME140_1.dll`, `MSVCP140.dll`, `CONCRT140.dll`. HelloWorl
 
 Vanilla GraalVM 25.0.3 confirms the problem is still present in the current GraalVM tip — not an old GraalVM 21 artifact.
 
-## Task 0.7 GraalVM-only probe — in progress
+## Task 0.7 GraalVM-only probe — **VERDICT: GraalVM-only patch SUFFICIENT** ✓
 
-`~/work/qd-14840/build-substrate.sh` builds patched SubstrateVM via `mx build` atop `labsjdk-ce`.
+Patched GraalVM CE for JDK 25 (built from `oracle/graal@release/graal-vm/25.0` with the HybridCRT
+linker patch) was used to AOT-compile a plain HelloWorld.java. Result: `VCRUNTIME140.dll` is gone
+from the import table. Step 1 (OpenJDK rebuild) is NOT required to remove the dependency.
 
-### Earlier failed attempts (env, not the patch)
+### Comparison
 
-1. **Inline `$JAVA_HOME` substitution**: `mx --java-home=$JAVA_HOME build` parsed as `--java-home=` + `build` arg when `$JAVA_HOME` was empty pre-source. Fixed by `build-substrate.sh` wrapper that sources `env.sh` first.
-2. **mx rejects Oracle GraalVM as boot**: "GraalVM cannot be built using a GraalVM as base-JDK". Fixed by switching to labsjdk-ce.
-3. **JVMCI version pin too strict**: `release/graal-vm/25.0` expects `25.0.3+9-jvmci-b01`; only `25.0.2+10-jvmci-b01` is published in `graalvm/labs-openjdk`. Fixed by setting `JVMCI_VERSION_CHECK=ignore`.
+|                                   | Vanilla (Oracle GraalVM 25.0.3) | Patched (GraalVM CE 25.0.2+10, HybridCRT) |
+| --------------------------------- | ------------------------------- | ----------------------------------------- |
+| Binary size                       | 6,385,664 bytes (~6.1 MB)       | 13,447,168 bytes (~12.8 MB)               |
+| Static CRT linking cost           | n/a                             | +7.1 MB (~2.1×)                           |
+| `VCRUNTIME140.dll` in imports     | **yes**                         | **no**                                    |
+| `MSVCP140.dll` in imports         | no                              | no                                        |
+| Runs on host (`./HelloWorld.exe`) | yes                             | yes                                       |
 
-### Branching decision (Task 0.7 verdict)
+Full dumpbin outputs in `evidence/evidence-{vanilla,patched}-{imports,dependents}.txt`.
 
-- If patched HelloWorld imports have NO `vc*` runtime DLLs → **GraalVM-only sufficient**, skip Step 1
-- If imports STILL show `VCRUNTIME140*` → **JDK rebuild necessary**, proceed to Step 1
+### Patched HelloWorld import set (no VC++ runtime DLLs)
+
+```
+ADVAPI32.dll
+api-ms-win-crt-{convert,environment,filesystem,heap,locale,math,runtime,stdio,string}-l1-1-0.dll
+IPHLPAPI.DLL
+KERNEL32.dll
+MSWSOCK.dll
+USER32.dll
+USERENV.dll
+VERSION.dll
+WS2_32.dll
+```
+
+The patched binary picked up `IPHLPAPI.DLL` and `MSWSOCK.dll` that the vanilla didn't — likely
+because labsjdk-25.0.2's static libs reference slightly different surfaces than Oracle GraalVM
+25.0.3's distribution. Both are Windows-native DLLs (always present), so no concern.
+
+### Build environment chain (chronological debug ladder)
+
+The probe took ~6 build attempts to actually produce output, each surfacing a specific env
+issue (none caused by the HybridCRT patch itself):
+
+1. **Inline `$JAVA_HOME` substitution**: `mx --java-home=$JAVA_HOME build` parsed as
+   `--java-home=` + `build` arg when `$JAVA_HOME` was empty pre-source. Fixed by
+   `build-substrate.sh` wrapper that sources `env.sh` first.
+2. **mx rejects Oracle GraalVM as boot**: "GraalVM cannot be built using a GraalVM as base-JDK".
+   Fixed by downloading `labsjdk-ce-25.0.2+10-jvmci-b01` and pointing `JAVA_HOME` at it.
+3. **JVMCI version pin too strict in `mx`**: `release/graal-vm/25.0` expects
+   `25.0.3+9-jvmci-b01`; only `25.0.2+10-jvmci-b01` is published. Fixed by
+   `JVMCI_VERSION_CHECK=ignore` in env.sh.
+4. **`dumpbin` not on PATH for substratevm native build**: failed at
+   `JvmFuncsFallbacksBuildTask`. Fixed by adding MSVC bin dir to PATH.
+5. **`stdio.h` not found by `cl.exe`**: MSVC `INCLUDE` env not set. Fixed by sourcing
+   `vcvars64.bat` via a `dump-vcvars.bat` intermediary (MSYS bash kept rewriting `>nul` to
+   `>/dev/null` in the .bat file when written from a heredoc, so we wrote it via `printf '\r\n'`).
+6. **`export 'CommonProgramFiles(x86)=...'`** invalid identifier: env.sh's vcvars import
+   wasn't filtering Windows env var names with parens. Fixed with a POSIX-identifier regex.
+7. **Windows MAX_PATH (260 chars) exceeded** during truffle archive symlink. Fixed by enabling
+   long path support: `reg add "HKLM\SYSTEM\CurrentControlSet\Control\FileSystem" /v
+LongPathsEnabled /t REG_DWORD /d 1 /f` + `git config --global core.longpaths true`.
+8. **JVMCI version check inside the patched native-image's HotSpot runtime**: the env-var
+   override `JVMCI_VERSION_CHECK=ignore` did not propagate bash → cmd → java reliably. Fixed
+   by patching `compiler/src/jdk.graal.compiler/src/jdk/graal/compiler/hotspot/JVMCIVersionCheck.java`
+   to early-return from `failVersionCheck` (a HybridCRT-orthogonal artifact of using labsjdk-25.0.2
+   when graal/25.0 expects labsjdk-25.0.3; a labsjdk-25.0.3 release would obviate this patch).
+
+The dev-loop friction is real if anyone reproduces this from scratch. For productionization
+(out of spike scope), the env setup deserves its own `dev-setup.sh` automation.
+
+### "Spike-only" patches that should NOT ship
+
+The JVMCI version check bypass (item 8 above) is a **spike-only workaround** because the public
+`labs-openjdk` release for JDK 25.0.3 isn't published yet. Once it's published, the bypass
+becomes unnecessary. Do NOT ship the JVMCI patch in any rollout artifact; only the HybridCRT
+patch (`patches/graal-hybridcrt.patch`) is the actual spike deliverable.
 
 ## Time tracking
 
@@ -122,4 +182,26 @@ Vanilla GraalVM 25.0.3 confirms the problem is still present in the current Graa
 
 ## Verdict (Step 4)
 
-_TBD pending Task 0.7 results._
+**FEASIBLE** for HelloWorld with GraalVM-only HybridCRT patching. The 2-line change in
+`substratevm/.../CCLinkerInvocation.java` (commit-sized) eliminates `VCRUNTIME140.dll` from a
+GraalVM-built Windows .exe. No OpenJDK rebuild needed. Build cost is one `mx build` of
+`substratevm` (~5 min incremental, ~20 min cold) plus the existing native-image cost.
+
+**Still to verify**: qodana-cli build with the patched native-image (Step 3 of the runbook).
+Running in parallel as of this update — see `evidence/qodana-cli-imports.txt` once complete.
+
+**Open items for the free-form discussion**:
+
+- Binary size cost: ~7 MB per binary (2.1× growth for HelloWorld; absolute delta will be smaller
+  in relative terms for the much-larger qodana-cli).
+- Vendoring strategy. Patched GraalVM CE is ~50 LOC patched in one source file plus a build
+  pipeline — the cheap option is patches-in-repo applied at CI time atop a vanilla labsjdk fetch.
+  The expensive option is a `JetBrains/graal` fork with our patch on a long-lived branch.
+- Security cadence. Without VC++ Redistributable, Windows Update no longer brings CRT fixes
+  to qodana-cli installs — we must rebuild and re-ship when MSVC ships CRT patches.
+- Update cadence. Per-JDK-25.0.x and per-GraalVM-26 porting cost: estimate ≤2h per port if the
+  patched lines stay where they are (the `/MD` site has been stable for years).
+- License: GraalVM CE source is EPL-2.0/GPL-2.0+CE — modifying + redistributing requires
+  publishing the patch (which we do anyway via the spike branch).
+- The JVMCI version check bypass should be removed; once labsjdk-25.0.3 is published, the
+  patched build works straight without it.
