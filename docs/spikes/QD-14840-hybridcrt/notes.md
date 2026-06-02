@@ -215,6 +215,28 @@ Redistributable required.
 
 **`/imports` and `/dependents` agree** on the import set (no delay-load surprises).
 
+### Runtime proof under genuine DLL absence (success criterion #2)
+
+Running `--help` on the build host alone proves little — the host has the VC++ runtime (pulled in
+by VS Build Tools). So we ran a controlled experiment: renamed `vcruntime140.dll` +
+`vcruntime140_1.dll` out of `System32` and compared two binaries in that window (full method +
+transcripts in `evidence/runtime-dll-absence-test.md`):
+
+| Binary                               | imports `VCRUNTIME140`? | result with DLLs absent                              |
+| ------------------------------------ | ----------------------- | ---------------------------------------------------- |
+| vanilla `HelloWorld.exe` (control)   | yes                     | **fails** — exit `0xC0000135` `STATUS_DLL_NOT_FOUND` |
+| patched `qodana-cli.exe` (treatment) | no                      | **runs** — `--help` exits 0, full output             |
+
+Both import the same `api-ms-win-crt-*` apiset (held constant; treatment loaded it fine), so the
+sole differentiator is the `VCRUNTIME140` import. This is the empirical confirmation — not just
+the import table — that the patched binary needs no VC++ Redistributable. Host restored clean
+afterward.
+
+This makes the Docker Server Core `ltsc2022` container test (runbook Task 3.5) redundant: the
+System32-absence test is a strictly stronger proof than "runs in a container that happens to lack
+the redist." (Docker Desktop's Windows-containers engine also wouldn't initialize over SSH on
+this host, returning HTTP 500 — noted for any future container-based verification.)
+
 ### Build artifacts
 
 - `qodana-cli.exe`: 81,207,296 bytes (~77 MB), built with `-H:+ReportExceptionStackTraces` and
