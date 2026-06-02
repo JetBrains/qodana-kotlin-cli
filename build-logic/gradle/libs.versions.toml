@@ -2,7 +2,7 @@
 kotlin = "2.1.20"
 graalvm-native = "0.10.6"
 ktlint-gradle = "12.1.1"
-detekt = "1.23.7"
+detekt = "1.23.8"
 junit = "6.1.0"
 cyclonedx = "3.2.4"
 
