@@ -19,7 +19,7 @@ Nightly releases (`.github/workflows/nightly.yaml`) chain `Draft` → `Publish` 
 
 1. **Bump source-of-truth.** Edit `gradle.properties` `version=…` to the version you want to release. The new value must be either:
    - equal to the most recent stable `v*` tag (the just-released state — the next nightly anchors one patch ahead), or
-   - exactly one semantic bump ahead (patch +1, minor +1, or major +1, with all later segments collapsed to 0; a zero patch is omitted (e.g. `2026.4.0` → `v2026.4`)).
+   - exactly one semantic bump ahead (patch +1, minor +1, or major +1, with all later segments collapsed to 0 — a zero patch is omitted, e.g. `2026.4.0` → `v2026.4`).
 2. **Commit and push.** The pre-push `checkVersion` hook validates the bump rule. If the version skips a segment (e.g., `2026.3.0` → `2026.3.2`), the push is rejected.
 3. **Dispatch `Draft Release`.** From GitHub Actions UI or `gh workflow run draft-release.yaml -f version=<your-version>`. Defaults: `prerelease=false`, `cli-only=false`, `dry-run=false`, `latest=true`.
 4. **Inspect the draft.** Open the draft release page on GitHub. Verify the 19 assets are present (15 binaries/archives + 3 SBOMs + 1 checksums.txt) and the `Target` shows the commit SHA you expect.

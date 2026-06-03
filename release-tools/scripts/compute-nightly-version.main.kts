@@ -32,7 +32,10 @@ val stable = sh("git", "tag", "--list", "v*", "--merged", "HEAD", "--sort=-v:ref
 val base = when (val s = computeVersionState(source, selectLastStableTag(stable))) {
     is VersionState.JustReleased -> s.nextBase
     is VersionState.BumpAhead -> s.nextBase
-    is VersionState.Dev -> { System.err.println("version=dev; bump gradle.properties to a numeric version"); exitProcess(1) }
+    is VersionState.Dev -> {
+        System.err.println("version=dev; bump gradle.properties to a numeric version")
+        exitProcess(1)
+    }
     is VersionState.Invalid -> { System.err.println("version invariant violated: ${s.message}"); exitProcess(1) }
 }.removePrefix("v")
 

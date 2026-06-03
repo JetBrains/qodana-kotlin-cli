@@ -35,7 +35,7 @@ Release/version logic lives in the `release-tools` module as unit-tested Kotlin 
 (`./gradlew :release-tools:test`). Thin `*.main.kts` wrappers in `release-tools/scripts/` drive the CI
 workflows and are runnable by hand. They need the **pinned** Kotlin compiler (version in
 [`gradle/libs.versions.toml`](gradle/libs.versions.toml)'s `kotlin = "…"`) — the same one CI installs via
-[`.github/actions/setup-kotlin`](.github/actions/setup-kotlin/action.yml):
+[`.github/actions/setup-kotlin`](.github/actions/setup-kotlin/action.yaml):
 
     sdk install kotlin 2.1.20        # matches the pin; mirrors `sdk install java 21-graalce`
     kotlin release-tools/scripts/normalize-version.main.kts 2026.3.1
