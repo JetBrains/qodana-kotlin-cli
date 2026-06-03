@@ -4,9 +4,9 @@ name: Nightly Release
 # checkpoint between draft and publish for nightlies — the umbrella runs both in sequence. Clang and
 # cdnet are NOT built for nightlies (matches GoReleaser's `skip: IsNightly`).
 #
-# Requires `gradle.properties` `version=` to be set to a numeric value (not `dev`); `nightlyVersion`
-# refuses to emit a version while the source-of-truth is still `dev`. Operators must bump
-# `gradle.properties` to a numeric version before this workflow can run successfully.
+# Requires `gradle.properties` `version=` to be set to a numeric value (not `dev`);
+# `compute-nightly-version.main.kts` exits non-zero while the source-of-truth is still `dev`. Operators
+# must bump `gradle.properties` to a numeric version before this workflow can run successfully.
 
 on:
   schedule:

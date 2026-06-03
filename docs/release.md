@@ -18,8 +18,8 @@ Nightly releases (`.github/workflows/nightly.yaml`) chain `Draft` → `Publish` 
 ## Tagged release procedure
 
 1. **Bump source-of-truth.** Edit `gradle.properties` `version=…` to the version you want to release. The new value must be either:
-   - equal to the most recent stable `v*` tag (the just-released state — `nightlyVersion` will return `next-patch`), or
-   - exactly one semantic bump ahead (patch +1, minor +1, or major +1, with all later segments collapsed to 0; omitted patch normalizes to `.0`).
+   - equal to the most recent stable `v*` tag (the just-released state — the next nightly anchors one patch ahead), or
+   - exactly one semantic bump ahead (patch +1, minor +1, or major +1, with all later segments collapsed to 0; a zero patch is omitted (e.g. `2026.4.0` → `v2026.4`)).
 2. **Commit and push.** The pre-push `checkVersion` hook validates the bump rule. If the version skips a segment (e.g., `2026.3.0` → `2026.3.2`), the push is rejected.
 3. **Dispatch `Draft Release`.** From GitHub Actions UI or `gh workflow run draft-release.yaml -f version=<your-version>`. Defaults: `prerelease=false`, `cli-only=false`, `dry-run=false`, `latest=true`.
 4. **Inspect the draft.** Open the draft release page on GitHub. Verify the 19 assets are present (15 binaries/archives + 3 SBOMs + 1 checksums.txt) and the `Target` shows the commit SHA you expect.
@@ -39,9 +39,9 @@ gh release delete v<version> --yes --cleanup-tag
 
 The `nightly.yaml` umbrella workflow fires daily at **03:07 UTC** (`cron: '7 3 * * *'`) and is also manually triggerable via `gh workflow run nightly.yaml`.
 
-The `compute` job runs `./gradlew --console=plain nightlyVersion`, captures the full output, and greps for the marker line `NIGHTLY_VERSION=v<base>` that the Gradle task prints. The workflow strips the `v` prefix, appends `-nightly`, and passes the result downstream — e.g., source-of-truth is `2026.3.0` → nightly version is `2026.3.1-nightly` (one patch bump beyond the last release). `--console=plain` keeps ANSI escapes out of the marker line; `--quiet` is intentionally NOT used so the captured output surfaces full Gradle logs when the marker grep fails.
+The `compute` job runs `kotlin release-tools/scripts/compute-nightly-version.main.kts`, which derives the bumped base from `gradle.properties` + the last stable tag, then appends `-nightly.<UTC-YYYYMMDD>` plus a same-day counter (`.1`, `.2`, …) when earlier nightlies exist for that day. Example: source `2026.3.0` → `v2026.3.1-nightly.20260603`, and a second same-day run → `v2026.3.1-nightly.20260603.1`. It greps the `NIGHTLY_VERSION=` marker and strips the leading `v`.
 
-**Important:** if `gradle.properties` `version=dev`, the nightly workflow fails on `compute` with "cannot generate nightly version while gradle.properties has version=dev". This is by design — there must be a planned next release for nightlies to anchor against.
+**Important:** if `gradle.properties` `version=dev`, the `compute` job's `compute-nightly-version.main.kts` exits non-zero with "version=dev; bump gradle.properties to a numeric version". This is by design — there must be a planned next release for nightlies to anchor against.
 
 Nightly assets:
 
@@ -59,12 +59,7 @@ Nightly assets:
 
 - **Unsigned binaries.** darwin and windows binaries are not codesigned. Downloads will trigger Gatekeeper / SmartScreen warnings. Phase C.1 (QD-12637) will add GPG-signed `checksums.txt.asc` via JetBrains' codesign-client.
 - **No nfpm / Homebrew / Scoop.** Phase C ships only the binaries, archives, SBOMs, checksums, and release notes. The Go pipeline also produces apk/deb/rpm/termux/archlinux packages and updates JetBrains/homebrew-utils + JetBrains/scoop-utils tap repos — these surfaces are out of scope here, to be tracked separately.
-- **No automated nightly cleanup.** Old nightlies accumulate indefinitely. Manual cleanup:
-  ```bash
-  gh release list --json tagName,isPrerelease \
-    | jq -r '.[] | select(.isPrerelease) | .tagName' \
-    | xargs -I{} gh release delete {} --yes --cleanup-tag
-  ```
+- **Bounded nightly retention.** After each successful nightly publish, the `cleanup` job (`cleanup-old-nightlies.main.kts --keep 7`) strips the assets of all but the 7 most-recent nightly releases; the release objects, tags, and notes are preserved.
 - **No windows/arm64.** GraalVM does not support the `windows-aarch64` target. The matrix is 5 OS/arch, not 6. Tracked separately for when GraalVM lands support.
 - **No bit-reproducibility.** GraalVM native image output is not bit-identical across runs even at the same source SHA. `checksums.txt` will differ from a re-run. This is industry-standard for native AOT compilation; consumers verifying integrity against a specific build should download the release-as-published once.
 
@@ -77,4 +72,4 @@ The release model assumes `gh release create --draft <new-tag> --target <sha>` d
 - **Q1.** GPG signing of `checksums.txt` (Phase C.1 / QD-12637) — file the ticket as part of this PR's chain or after merge.
 - **Q2.** nfpm / brew / scoop surfaces — file a follow-up ticket.
 - **Q3.** `--version` flag for clang/cdnet (currently only cli has one) — add now or defer.
-- **Q4.** Automated nightly cleanup — defer or add a scheduled cleanup workflow.
+- **Q4.** Automated nightly cleanup — **done** (QD-14892): the `cleanup` job keeps the 7 newest nightlies' assets.
