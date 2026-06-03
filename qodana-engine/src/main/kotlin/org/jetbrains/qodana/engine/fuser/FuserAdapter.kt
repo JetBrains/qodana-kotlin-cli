@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.intellij.internal.statistic.eventLog.EventLogBuild
 import com.intellij.internal.statistic.eventLog.validator.SensitiveDataValidator
 import com.jetbrains.fus.reporting.client.CompositeMetadataStorage
-import com.jetbrains.fus.reporting.model.config.v4.EventLogExternalSettings
 import com.jetbrains.fus.reporting.model.lion3.LogEvent
 import com.jetbrains.fus.reporting.model.lion3.LogEventAction
 import com.jetbrains.fus.reporting.model.lion3.LogEventGroup
@@ -26,6 +25,9 @@ class FuserAdapter(
     private val mapper = ObjectMapper()
     private val httpTimeout = Duration.ofSeconds(10)
 
+    // fus-reporting v168 deprecates EventLogExternalSettings in favor of Configuration; the
+    // migration is tracked in QD-14895. Suppressed here so the bump compiles under -Werror.
+    @Suppress("DEPRECATION")
     override suspend fun sendEvents(
         deviceId: String,
         productCode: String,
@@ -34,7 +36,8 @@ class FuserAdapter(
         val configUrl = "https://resources.jetbrains.com/storage/fus/config/v4/$recorderCode/$productCode.json"
 
         val configJson = httpGet(configUrl)
-        val config = mapper.readValue(configJson, EventLogExternalSettings::class.java).versions!!.first()
+        val settingsClass = com.jetbrains.fus.reporting.model.config.v4.EventLogExternalSettings::class.java
+        val config = mapper.readValue(configJson, settingsClass).versions!!.first()
 
         val metadataJson = httpGet(config.getMetadataEndpoint(productCode)!!)
         val metadata = mapper.readValue(metadataJson, EventGroupRemoteDescriptors::class.java)
