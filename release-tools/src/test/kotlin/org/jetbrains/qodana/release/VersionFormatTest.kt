@@ -50,4 +50,12 @@ class VersionFormatTest {
     @Test fun rejectsEmptyPrereleaseIdentifier() = bad("2026.2-nightly..x", "identifier")
 
     @Test fun rejectsLeadingZeroNumericPrerelease() = bad("2026.2-nightly.01", "leading zero")
+
+    @Test fun buildPrecedenceKeepsDashInBuild() = ok("2026.2-a+b-c", "v2026.2-a+b-c")
+
+    @Test fun allThreeComponentsOnNonZeroPatch() = ok("2026.2.1-rc.1+build.7", "v2026.2.1-rc.1+build.7")
+
+    @Test fun rejectsIllegalCharInBuild() = bad("2026.2+abc!", "build")
+
+    @Test fun rejectsEmptyBuild() = bad("2026.2+", "build")
 }
