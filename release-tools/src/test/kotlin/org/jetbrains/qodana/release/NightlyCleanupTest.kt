@@ -37,4 +37,24 @@ class NightlyCleanupTest {
             )
         assertEquals(listOf("v2026.2.1-nightly.20260602"), selectNightlyTagsToStrip(r, keep = 1))
     }
+
+    @Test
+    fun keepZeroStripsEveryNightly() {
+        val r = (1..3).map { rel("v2026.2.1-nightly.d$it", "2026-06-0${it}T00:00:00Z") }
+        assertEquals(
+            listOf("v2026.2.1-nightly.d3", "v2026.2.1-nightly.d2", "v2026.2.1-nightly.d1"),
+            selectNightlyTagsToStrip(r, keep = 0),
+        )
+    }
+
+    @Test
+    fun emptyInputStripsNothing() {
+        assertEquals(emptyList(), selectNightlyTagsToStrip(emptyList(), keep = 7))
+    }
+
+    @Test
+    fun allStableStripsNothing() {
+        val r = listOf(rel("v2026.2.0", "2026-06-09T00:00:00Z"), rel("v2026.1.0", "2026-06-08T00:00:00Z"))
+        assertEquals(emptyList(), selectNightlyTagsToStrip(r, keep = 0))
+    }
 }

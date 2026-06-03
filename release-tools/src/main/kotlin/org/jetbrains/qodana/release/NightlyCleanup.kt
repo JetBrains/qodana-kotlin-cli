@@ -19,7 +19,12 @@ fun selectNightlyTagsToStrip(
         .toList()
 }
 
-/** A published release as seen via the GitHub API. [publishedAt] is ISO-8601 (sorts lexicographically). */
+/**
+ * A published release as seen via the GitHub API.
+ * [publishedAt] MUST be a fixed-width UTC ISO-8601 instant (e.g. "2026-06-02T00:00:00Z"), as GitHub's
+ * `published_at` always is. Recency is compared by lexicographic string order, which equals chronological
+ * order ONLY for that uniform format — a variable-width or non-UTC offset would sort incorrectly.
+ */
 data class NightlyRelease(
     val tag: String,
     val publishedAt: String,
