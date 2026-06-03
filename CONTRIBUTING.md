@@ -29,6 +29,21 @@ To run the Docker-touching tests (gated on `QODANA_TEST_CONTAINER=1`):
 QODANA_TEST_CONTAINER=1 ./gradlew parityTest
 ```
 
+### Release tooling scripts
+
+Release/version logic lives in the `release-tools` module as unit-tested Kotlin cores
+(`./gradlew :release-tools:test`). Thin `*.main.kts` wrappers in `release-tools/scripts/` drive the CI
+workflows and are runnable by hand. They need the **pinned** Kotlin compiler (version in
+[`gradle/libs.versions.toml`](gradle/libs.versions.toml)'s `kotlin = "…"`) — the same one CI installs via
+[`.github/actions/setup-kotlin`](.github/actions/setup-kotlin/action.yml):
+
+    sdk install kotlin 2.1.20        # matches the pin; mirrors `sdk install java 21-graalce`
+    kotlin release-tools/scripts/normalize-version.main.kts 2026.3.1
+    kotlin release-tools/scripts/cleanup-old-nightlies.main.kts --keep 7 --dry-run
+
+The pre-push `checkVersion` guard is a Gradle task (`./gradlew :release-tools:checkVersion`), so pushing
+needs no Kotlin compiler — only running the scripts does.
+
 ## Building the native binary
 
 The qodana-cli executable can be compiled ahead-of-time into a self-contained native binary via [GraalVM Native Image](https://www.graalvm.org/latest/reference-manual/native-image/). The binary runs without a JVM dependency.
