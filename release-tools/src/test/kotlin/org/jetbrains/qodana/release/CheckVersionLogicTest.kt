@@ -31,4 +31,16 @@ class CheckVersionLogicTest {
         assertNotNull(msg)
         assertTrue(msg!!.contains("mismatch"))
     }
+
+    @Test
+    fun unparseableSourceReportedAsMismatch() {
+        // version=dev is a valid state (Dev), but can't be tagged: parse fails -> mismatch.
+        val devMsg = requireExactError("dev", "2026.4", VersionState.Dev, lastTag = null)
+        assertNotNull(devMsg)
+        assertTrue(devMsg!!.contains("mismatch"))
+        // requireExact side unparseable also -> mismatch.
+        val badReq = requireExactError("2026.4", "garbage", VersionState.BumpAhead("v2026.4"), lastTag = "v2026.3.0")
+        assertNotNull(badReq)
+        assertTrue(badReq!!.contains("mismatch"))
+    }
 }

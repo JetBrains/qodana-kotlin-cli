@@ -23,7 +23,8 @@ fun requireExactError(
     val firstEver = state is VersionState.JustReleased && lastTag == null
     if (state !is VersionState.BumpAhead && !firstEver) {
         return "Tagged releases require state=BumpAhead (or JustReleased on a fresh repo with no prior " +
-            "`v*` tag), got $state."
+            "`v*` tag), got $state. If state=JustReleased with a prior tag, the version is already shipped; " +
+            "bump gradle.properties further. If state=Dev, set gradle.properties version to a numeric."
     }
     return null
 }
