@@ -21,7 +21,7 @@ fun computeNightlyVersion(
     val counters =
         existingNightlyTags.mapNotNull { tag ->
             val m = re.matchEntire(tag.trim()) ?: return@mapNotNull null
-            m.groupValues[1].ifEmpty { "0" }.toInt()
+            m.groupValues[1].ifEmpty { "0" }.toIntOrNull() // toIntOrNull drops out-of-range counters
         }
     val next = counters.maxOrNull()?.plus(1)
     return if (next == null) prefix else "$prefix.$next"

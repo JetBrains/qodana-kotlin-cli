@@ -40,4 +40,20 @@ class NightlyVersionTest {
     @Test fun ignoresUndatedLegacyTag() {
         assertEquals("2026.2.1-nightly.20260602", compute(listOf("v2026.2.1-nightly")))
     }
+
+    @Test
+    fun ignoresNonNumericCounter() { // ".x" can't match ([0-9]+) -> tag ignored -> bare
+        assertEquals("2026.2.1-nightly.20260602", compute(listOf("v2026.2.1-nightly.20260602.x")))
+    }
+
+    @Test
+    fun ignoresOverlargeCounter() { // all-numeric but > Int range -> toIntOrNull null -> dropped, no throw
+        assertEquals("2026.2.1-nightly.20260602", compute(listOf("v2026.2.1-nightly.20260602.99999999999")))
+    }
+
+    @Test
+    fun numericMaxNotLexical() { // .10 > .2 numerically (not lexically) -> next is .11
+        val tags = listOf("v2026.2.1-nightly.20260602.2", "v2026.2.1-nightly.20260602.10")
+        assertEquals("2026.2.1-nightly.20260602.11", compute(tags))
+    }
 }
