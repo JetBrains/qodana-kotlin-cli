@@ -55,7 +55,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG="v${{ inputs.version }}"
+          VERSION='${{ inputs.version }}'
+          TAG="v${VERSION#v}"
           PRERELEASE_FLAG=()
           if [ '${{ inputs.prerelease }}' = 'true' ]; then PRERELEASE_FLAG=(--prerelease); fi
           gh release edit "$TAG" \
