@@ -21,9 +21,12 @@ fun sh(vararg cmd: String): String {
     return out
 }
 
+// Whitespace-tolerant + comment-skipping parse so this can't diverge from Gradle's own
+// `rootProject.version` (used by the `:release-tools:checkVersion` path), which accepts `version = 2026.2`.
 val source = File("gradle.properties").readLines()
-    .firstOrNull { it.trim().startsWith("version=") }
-    ?.substringAfter("version=")?.trim()
+    .map { it.trim() }
+    .firstOrNull { !it.startsWith("#") && Regex("^version\\s*=").containsMatchIn(it) }
+    ?.substringAfter("=")?.trim()
     ?: run { System.err.println("no version= in gradle.properties"); exitProcess(1) }
 
 // Stable tags are scoped to ancestors of HEAD (--merged) for the bump rule.

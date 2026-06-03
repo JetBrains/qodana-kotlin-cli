@@ -137,7 +137,7 @@ The fix is to add a `-march=compatibility` (or `x86-64`) variant of the amd64 bu
 The release pipeline is documented in [docs/release.md](docs/release.md). Key points for contributors:
 
 - **Version source of truth:** [gradle.properties](gradle.properties)'s `version=` line. Default is `dev` (development state — `SystemUtils.checkForUpdates` skips network calls). To start a release cycle, bump to a numeric version that satisfies the bump rule (matches the most recent stable `v*` tag, or is exactly one semantic bump ahead).
-- **Pre-push enforcement:** `./gradlew checkVersion` is wired into [.pre-commit-config.yaml](.pre-commit-config.yaml)'s `pre-push` stage. Pushes with a version that skips a segment are rejected.
+- **Pre-push enforcement:** `./gradlew :release-tools:checkVersion` is wired into [.pre-commit-config.yaml](.pre-commit-config.yaml)'s `pre-push` stage. Pushes with a version that skips a segment are rejected.
 - **Runtime version overrides** (`-Dqodana.version=…`, `QODANA_VERSION=…`) remain supported for local JVM dev only — see [QodanaCommand.kt](qodana-cli/src/main/kotlin/org/jetbrains/qodana/cli/command/QodanaCommand.kt) `companion object`. Native binaries bake the version in via `BuildInfo.VERSION` (generated from `project.version` at build time) and ignore the runtime overrides under `--initialize-at-build-time`.
 - **The pre-push hook also guards** against accidental reintroduction of `qodana.version` / `QODANA_VERSION` reads outside the two authorized locations (`QodanaCommand.kt` and `SystemUtilsTest.kt`).
 

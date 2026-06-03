@@ -122,8 +122,8 @@ sealed class VersionState {
  *   2. The patch segment may be omitted in the source (`2026.2` ⇔ `2026.2.0`).
  *
  * Pre-release suffixes (`-rc1`, `-nightly`, etc.) are NOT accepted in source-of-truth or in stable tag
- * names; they're a separate concept handled by the workflow layer (the `-nightly` suffix appended after
- * `nightlyVersion`'s output).
+ * names; they're a separate concept handled by the workflow layer (the dated `-nightly.<yyyyMMdd>` suffix
+ * is appended by `compute-nightly-version.main.kts`).
  *
  * The `Jb` prefix is deliberate: do not confuse this with `org.gradle.util.GradleVersion` or any
  * library-provided SemVer type.
