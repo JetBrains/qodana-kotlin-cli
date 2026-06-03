@@ -10,6 +10,7 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import kotlin.system.exitProcess
 
+// stderr is merged into stdout for diagnostics on failure; the parsers below tolerate stray lines.
 fun sh(vararg cmd: String): String {
     val p = ProcessBuilder(*cmd).redirectErrorStream(true).start()
     val out = p.inputStream.bufferedReader().readText()

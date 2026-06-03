@@ -9,14 +9,15 @@ var dryRun = false
 var i = 0
 while (i < args.size) {
     when (val a = args[i]) {
-        "--keep" -> keep = args.getOrNull(++i)?.toIntOrNull()
-            ?: run { System.err.println("--keep needs an integer"); exitProcess(2) }
+        "--keep" -> keep = args.getOrNull(++i)?.toIntOrNull()?.takeIf { it >= 0 }
+            ?: run { System.err.println("--keep needs a non-negative integer"); exitProcess(2) }
         "--dry-run" -> dryRun = true
         else -> { System.err.println("unknown arg: $a"); exitProcess(2) }
     }
     i++
 }
 
+// stderr is merged into stdout for diagnostics on failure; the parsers below tolerate stray lines.
 fun sh(vararg cmd: String): String {
     val p = ProcessBuilder(*cmd).redirectErrorStream(true).start()
     val out = p.inputStream.bufferedReader().readText()
