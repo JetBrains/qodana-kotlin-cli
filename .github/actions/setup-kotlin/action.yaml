@@ -1,0 +1,32 @@
+name: Setup Kotlin
+description: Install the pinned Kotlin compiler (kotlin/kotlinc on PATH). Version from gradle/libs.versions.toml.
+runs:
+  using: composite
+  steps:
+    - name: Resolve pinned Kotlin version
+      id: ver
+      shell: bash
+      run: |
+        set -euo pipefail
+        V=$(grep -E '^kotlin = ' gradle/libs.versions.toml | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+        [ -n "$V" ] || { echo "::error::could not read kotlin version from gradle/libs.versions.toml"; exit 1; }
+        echo "version=$V" >> "$GITHUB_OUTPUT"
+    - name: Cache Kotlin compiler
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.kotlin-dist/kotlinc
+        key: kotlinc-${{ runner.os }}-${{ steps.ver.outputs.version }}
+    - name: Download Kotlin compiler
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        V='${{ steps.ver.outputs.version }}'
+        mkdir -p ~/.kotlin-dist
+        curl -sSfL -o /tmp/kotlin-compiler.zip \
+          "https://github.com/JetBrains/kotlin/releases/download/v${V}/kotlin-compiler-${V}.zip"
+        unzip -q -o /tmp/kotlin-compiler.zip -d ~/.kotlin-dist
+    - name: Add Kotlin to PATH
+      shell: bash
+      run: echo "$HOME/.kotlin-dist/kotlinc/bin" >> "$GITHUB_PATH"

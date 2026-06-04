@@ -32,4 +32,5 @@ include(
     "qodana-cli",
     "qodana-clang",
     "qodana-cdnet",
+    "release-tools",
 )

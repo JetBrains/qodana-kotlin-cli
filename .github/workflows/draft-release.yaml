@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs: &inputs
       version:
-        description: 'Version (e.g. 2026.3.1 for tagged, or 2026.3.1-nightly for nightly)'
+        description: 'Version (e.g. 2026.3.1 for tagged, or 2026.3.1-nightly.20260603 for nightly)'
         required: true
         type: string
       prerelease:
@@ -75,6 +75,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Pin to the same commit the build/publish jobs use (target-sha) so validate normalizes and
+          # checks the exact commit being shipped — no drift if `main` advances mid-run. Falls back to
+          # the trigger commit for direct operator dispatches that don't pass target-sha.
+          ref: ${{ inputs.target-sha != '' && inputs.target-sha || github.sha }}
           fetch-depth: 0
           fetch-tags: true
       - uses: actions/setup-java@v4
@@ -82,21 +86,16 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v4
+      - uses: ./.github/actions/setup-kotlin
 
-      - name: Validate version format
+      - name: Normalize and validate version
+        id: normalize
         shell: bash
         run: |
           set -euo pipefail
-          VERSION='${{ inputs.version }}'
-          if [[ "$VERSION" == *-nightly ]]; then
-            REGEX='^[0-9]+\.[0-9]+(\.[0-9]+)?-nightly$'
-          else
-            REGEX='^[0-9]+\.[0-9]+(\.[0-9]+)?$'
-          fi
-          if [[ ! "$VERSION" =~ $REGEX ]]; then
-            echo "::error::Version '$VERSION' does not match the expected format"
-            exit 1
-          fi
+          CANON=$(kotlin release-tools/scripts/normalize-version.main.kts '${{ inputs.version }}')
+          echo "Canonical: $CANON"
+          echo "canonical=$CANON" >> "$GITHUB_OUTPUT"
 
       - name: Enforce cli-only excludes latest
         if: ${{ inputs.cli-only && inputs.latest }}
@@ -106,17 +105,18 @@ jobs:
           exit 1
 
       - name: Check version invariant (tagged releases only)
-        if: ${{ !endsWith(inputs.version, '-nightly') }}
+        if: ${{ !contains(inputs.version, '-nightly') }}
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew checkVersion -PrequireExact='${{ inputs.version }}'
+          CANON='${{ steps.normalize.outputs.canonical }}'
+          ./gradlew :release-tools:checkVersion -PrequireExact="${CANON#v}"
 
       - name: Reject pre-existing release
         shell: bash
         run: |
           set -euo pipefail
-          TAG='v${{ inputs.version }}'
+          TAG='${{ steps.normalize.outputs.canonical }}'
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "::error::Release $TAG already exists. Delete the existing draft or pick a different version."
             exit 1
@@ -127,6 +127,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          CANON='${{ steps.normalize.outputs.canonical }}'
           # Prefer the caller-supplied target-sha (e.g., from the nightly umbrella's `compute` job)
           # over a fresh `git rev-parse HEAD` here. This eliminates a race where validate's HEAD
           # would differ from the caller's pinned SHA if `main` advanced between jobs.
@@ -141,8 +142,8 @@ jobs:
             SHA=$(git rev-parse HEAD)
           fi
           {
-            echo "version=${{ inputs.version }}"
-            echo "tag=v${{ inputs.version }}"
+            echo "version=${CANON#v}"
+            echo "tag=$CANON"
             echo "sha=$SHA"
           } >> "$GITHUB_OUTPUT"
 

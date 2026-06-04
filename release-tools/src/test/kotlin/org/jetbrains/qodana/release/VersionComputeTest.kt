@@ -1,4 +1,4 @@
-package internal
+package org.jetbrains.qodana.release
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -64,16 +64,16 @@ class VersionComputeTest {
     @DisplayName("minor bump")
     fun bumpMinor() {
         assertEquals(
-            VersionState.BumpAhead(nextBase = "v2026.4.0"),
+            VersionState.BumpAhead(nextBase = "v2026.4"),
             computeVersionState("2026.4.0", "v2026.3.0"),
         )
     }
 
     @Test
-    @DisplayName("minor bump with omitted patch normalizes to .0")
+    @DisplayName("minor bump with omitted patch stays canonical (no .0)")
     fun bumpMinorOmittedPatch() {
         assertEquals(
-            VersionState.BumpAhead(nextBase = "v2026.4.0"),
+            VersionState.BumpAhead(nextBase = "v2026.4"),
             computeVersionState("2026.4", "v2026.3.0"),
         )
     }
@@ -82,7 +82,7 @@ class VersionComputeTest {
     @DisplayName("major bump (CalVer year)")
     fun bumpMajor() {
         assertEquals(
-            VersionState.BumpAhead(nextBase = "v2027.0.0"),
+            VersionState.BumpAhead(nextBase = "v2027.0"),
             computeVersionState("2027.0.0", "v2026.3.0"),
         )
     }
@@ -198,5 +198,23 @@ class VersionComputeTest {
             invalid.message.contains("must start with 'v'"),
             "got: ${invalid.message}",
         )
+    }
+
+    // selectLastStableTag =====
+    @Test
+    fun selectorPicksNewestStable() {
+        val tags = listOf("v2026.3.0-nightly.20260601", "v2026.3.0", "v2026.2.1")
+        assertEquals("v2026.3.0", selectLastStableTag(tags))
+    }
+
+    @Test
+    fun selectorIgnoresNightlyAndProbe() {
+        val tags = listOf("v2026.3.0-nightly.20260601", "v2026.3.0-tagprobe-x", "v2026.2.1")
+        assertEquals("v2026.2.1", selectLastStableTag(tags))
+    }
+
+    @Test
+    fun selectorNullWhenNoStable() {
+        assertEquals(null, selectLastStableTag(listOf("v2026.3.0-nightly.20260601", "not-a-tag")))
     }
 }

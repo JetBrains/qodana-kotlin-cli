@@ -4,9 +4,9 @@ name: Nightly Release
 # checkpoint between draft and publish for nightlies — the umbrella runs both in sequence. Clang and
 # cdnet are NOT built for nightlies (matches GoReleaser's `skip: IsNightly`).
 #
-# Requires `gradle.properties` `version=` to be set to a numeric value (not `dev`); `nightlyVersion`
-# refuses to emit a version while the source-of-truth is still `dev`. Operators must bump
-# `gradle.properties` to a numeric version before this workflow can run successfully.
+# Requires `gradle.properties` `version=` to be set to a numeric value (not `dev`);
+# `compute-nightly-version.main.kts` exits non-zero while the source-of-truth is still `dev`. Operators
+# must bump `gradle.properties` to a numeric version before this workflow can run successfully.
 
 on:
   schedule:
@@ -36,29 +36,21 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: ./.github/actions/setup-kotlin
 
       - id: compute
         shell: bash
         run: |
           set -euo pipefail
-          # `--console=plain` prevents ANSI escape sequences from polluting the marker line.
-          # `--console=plain` keeps the marker line free of ANSI escapes; `--quiet` is intentionally
-          # absent so the full Gradle output is captured and surfaced when the marker grep fails.
-          OUT=$(./gradlew --console=plain nightlyVersion 2>&1)
-          BASE=$(printf '%s\n' "$OUT" | grep '^NIGHTLY_VERSION=' | head -n 1 | cut -d= -f2)
+          OUT=$(kotlin release-tools/scripts/compute-nightly-version.main.kts)
+          BASE=$(printf '%s\n' "$OUT" | grep '^NIGHTLY_VERSION=' | head -n1 | cut -d= -f2)
           if [ -z "$BASE" ]; then
-            echo "::error::nightlyVersion did not emit a NIGHTLY_VERSION= marker. Output:"
-            printf '%s\n' "$OUT"
-            exit 1
+            echo "::error::compute-nightly-version did not emit NIGHTLY_VERSION="
+            printf '%s\n' "$OUT"; exit 1
           fi
-          BASE_NO_V="${BASE#v}"
-          VERSION="${BASE_NO_V}-nightly"
+          VERSION="${BASE#v}"
           SHA=$(git rev-parse HEAD)
-          {
-            echo "version=$VERSION"
-            echo "sha=$SHA"
-          } >> "$GITHUB_OUTPUT"
+          { echo "version=$VERSION"; echo "sha=$SHA"; } >> "$GITHUB_OUTPUT"
           echo "Computed: version=$VERSION sha=$SHA"
 
   draft:
@@ -91,3 +83,24 @@ jobs:
       latest: false
       mode: nightly
     secrets: inherit
+
+  cleanup:
+    name: Cleanup old nightly assets
+    needs: [compute, draft, publish]
+    if: ${{ always() && needs.publish.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: ./.github/actions/setup-kotlin
+      - name: Strip assets from nightlies older than the newest 7
+        shell: bash
+        run: kotlin release-tools/scripts/cleanup-old-nightlies.main.kts --keep 7

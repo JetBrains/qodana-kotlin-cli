@@ -1,7 +1,6 @@
 import org.gradle.api.tasks.testing.Test
 
 plugins {
-    id("qodana-version-check")
 }
 
 fun loadDotEnv(path: java.io.File): Map<String, String> {

@@ -61,7 +61,7 @@ repos:
       # is either "dev", matches the most recent stable `v*` tag, or is exactly one bump ahead).
       - id: gradle-check-version
         name: gradle checkVersion (release invariant)
-        entry: ./gradlew --console=plain --quiet checkVersion
+        entry: ./gradlew --console=plain --quiet :release-tools:checkVersion
         language: system
         pass_filenames: false
         stages: [pre-push]
