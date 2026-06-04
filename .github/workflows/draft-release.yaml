@@ -75,6 +75,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Pin to the same commit the build/publish jobs use (target-sha) so validate normalizes and
+          # checks the exact commit being shipped — no drift if `main` advances mid-run. Falls back to
+          # the trigger commit for direct operator dispatches that don't pass target-sha.
+          ref: ${{ inputs.target-sha != '' && inputs.target-sha || github.sha }}
           fetch-depth: 0
           fetch-tags: true
       - uses: actions/setup-java@v4
