@@ -124,7 +124,7 @@ class LintersTest {
         val analyzer = Linters.JVM.dockerAnalyzer()
         assertTrue(analyzer is Analyzer.Docker)
         assertEquals(Linters.JVM, analyzer.linter)
-        assertTrue((analyzer as Analyzer.Docker).image.startsWith("jetbrains/qodana-jvm:"))
+        assertTrue(analyzer.image.startsWith("jetbrains/qodana-jvm:"))
     }
 
     @Test

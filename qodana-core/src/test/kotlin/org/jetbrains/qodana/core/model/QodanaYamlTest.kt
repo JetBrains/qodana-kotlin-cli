@@ -96,9 +96,9 @@ class QodanaYamlTest {
             """.trimIndent()
         val config = mapper.readValue<QodanaYaml>(yaml)
         assertNotNull(config.dotnet)
-        assertEquals("MySolution.sln", config.dotnet!!.solution)
-        assertEquals("Release", config.dotnet!!.configuration)
-        assertEquals("x64", config.dotnet!!.platform)
+        assertEquals("MySolution.sln", config.dotnet.solution)
+        assertEquals("Release", config.dotnet.configuration)
+        assertEquals("x64", config.dotnet.platform)
     }
 
     @Test

@@ -4,15 +4,15 @@
 
 ### Prerequisites
 
-- **JDK 21** for normal builds and tests. Any vendor works (Temurin, Zulu, GraalVM CE).
-- **GraalVM CE 21** for `nativeCompile`. The build pins `languageVersion=21` + `vendor=GRAAL_VM` in [qodana-cli/build.gradle.kts](qodana-cli/build.gradle.kts) and the [foojay toolchain resolver](https://github.com/gradle/foojay-toolchains) auto-downloads a matching JDK on first run if `JAVA_HOME` doesn't already point at one. Any GraalVM CE 21 patch release is accepted; foojay picks one of the latest at the time of first build.
+- **JDK 25** for normal builds and tests. Any vendor works (Temurin, Zulu, GraalVM CE).
+- **GraalVM CE 25** for `nativeCompile`. The build pins `languageVersion=25` + `vendor=GRAAL_VM` in [qodana-cli/build.gradle.kts](qodana-cli/build.gradle.kts) and the [foojay toolchain resolver](https://github.com/gradle/foojay-toolchains) auto-downloads a matching JDK on first run if `JAVA_HOME` doesn't already point at one. Any GraalVM CE 25 patch release is accepted; foojay picks one of the latest at the time of first build.
 - **`./gradlew`** — checked-in Gradle wrapper handles the rest.
 
 If you prefer to install GraalVM yourself, the cleanest path is [SDKMAN](https://sdkman.io):
 
 ```sh
-sdk install java 21-graalce
-sdk use java 21-graalce
+sdk install java 25-graalce
+sdk use java 25-graalce
 ```
 
 The Gradle daemon then picks up GraalVM via the toolchain pin in [qodana-cli/build.gradle.kts](qodana-cli/build.gradle.kts).
@@ -37,7 +37,7 @@ workflows and are runnable by hand. They need the **pinned** Kotlin compiler (ve
 [`gradle/libs.versions.toml`](gradle/libs.versions.toml)'s `kotlin = "…"`) — the same one CI installs via
 [`.github/actions/setup-kotlin`](.github/actions/setup-kotlin/action.yaml):
 
-    sdk install kotlin 2.1.20        # matches the pin; mirrors `sdk install java 21-graalce`
+    sdk install kotlin 2.3.20        # matches the pin; mirrors `sdk install java 25-graalce`
     kotlin release-tools/scripts/normalize-version.main.kts 2026.3.1
     kotlin release-tools/scripts/cleanup-old-nightlies.main.kts --keep 7 --dry-run
 
@@ -73,7 +73,7 @@ Two sources contribute:
 
 ### Regenerating tracing-agent metadata
 
-Run after bumping any dependency that touches reflection, or after adding code that uses reflection / `ServiceLoader` / classpath resources. Requires GraalVM CE 21 and a running Docker daemon (the agent has to drive the Docker-tagged tests to capture docker-java DTOs):
+Run after bumping any dependency that touches reflection, or after adding code that uses reflection / `ServiceLoader` / classpath resources. Requires GraalVM CE 25 and a running Docker daemon (the agent has to drive the Docker-tagged tests to capture docker-java DTOs):
 
 ```sh
 # 1) Generate metadata under the agent for BOTH the regular `test` task
@@ -148,7 +148,7 @@ The release pipeline is documented in [docs/release.md](docs/release.md). Key po
 `-Pagent` runs trigger a post-test merge step that needs the GraalVM toolchain's `native-image-configure` binary. If foojay's downloaded toolchain is incomplete (zero-byte `bin/native-image*` placeholders), the binaries can be symlinked from `lib/svm/bin/`:
 
 ```sh
-cd ~/.gradle/jdks/graalvm_community-21-aarch64-os_x.2/graalvm-community-openjdk-21.0.2+13.1/Contents/Home/bin
+cd ~/.gradle/jdks/graalvm_community-25-aarch64-os_x.2/graalvm-community-openjdk-25.0.2+10.1/Contents/Home/bin  # +build suffix varies by patch
 rm native-image native-image-configure
 ln -s ../lib/svm/bin/native-image native-image
 ln -s ../lib/svm/bin/native-image-configure native-image-configure
@@ -161,14 +161,14 @@ Then re-run with `GRAALVM_HOME` and `JAVA_HOME` pointing at the toolchain.
 Gradle's OS-level JDK auto-detection may find another JVM (e.g. Amazon Corretto or JetBrains Runtime) and select it over the foojay-downloaded GraalVM CE. The symptom is:
 
 ```
-/path/to/corretto-21.../bin/native-image wasn't found. This probably means that JDK isn't a GraalVM distribution.
+/path/to/corretto-25.../bin/native-image wasn't found. This probably means that JDK isn't a GraalVM distribution.
 ```
 
-Fix: install GraalVM CE 21 via SDKMAN and point `JAVA_HOME` at it before running Gradle:
+Fix: install GraalVM CE 25 via SDKMAN and point `JAVA_HOME` at it before running Gradle:
 
 ```sh
-sdk install java 21-graalce
-sdk use java 21-graalce
+sdk install java 25-graalce
+sdk use java 25-graalce
 ./gradlew --stop
 ./gradlew :qodana-cli:nativeCompile
 ```

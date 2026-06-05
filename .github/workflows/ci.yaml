@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 25
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew test
 
@@ -33,7 +33,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 25
       - uses: gradle/actions/setup-gradle@v4
       - name: Run prek (commit-stage hooks)
         uses: j178/prek-action@v2
@@ -60,7 +60,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 25
       - uses: gradle/actions/setup-gradle@v4
       # Requires the QODANA_TOKEN secret on the repo (project token from
       # https://qodana.cloud). Without it the linter fails fast with
@@ -165,14 +165,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # macOS + Windows runners don't ship with a usable JDK; the send-smoke
-      # step needs one to host the JVM-side mock cloud + S3 stub.
-      - name: Setup Java (macOS + Windows)
-        if: matrix.platform.setup == 'macos' || matrix.platform.setup == 'windows'
+      # All platforms need JDK 25 here: Linux runs Gradle steps (the JVM SARIF-parity
+      # scan + the send-smoke harness), and macOS/Windows additionally don't ship a
+      # usable JDK for the JVM-side mock cloud + S3 stub.
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          java-version: 25
 
       - uses: gradle/actions/setup-gradle@v4
 

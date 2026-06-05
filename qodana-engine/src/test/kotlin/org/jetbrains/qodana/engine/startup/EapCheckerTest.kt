@@ -69,7 +69,7 @@ class EapCheckerTest {
         val result = checker.check(tenDaysAgo, isEap = true)
         assertFalse(result.expired)
         assertTrue(result.message!!.contains("evaluation license"))
-        assertTrue(result.message!!.contains("linter"))
+        assertTrue(result.message.contains("linter"))
     }
 
     @Test
@@ -125,6 +125,6 @@ class EapCheckerTest {
         val result = checker.check(tenDaysAgo, isEap = true)
         assertFalse(result.expired)
         assertTrue(result.message!!.contains("Docker image"))
-        assertTrue(result.message!!.contains("pull a new image"))
+        assertTrue(result.message.contains("pull a new image"))
     }
 }

@@ -68,7 +68,11 @@ val generateBuildInfo by tasks.registering {
     }
 }
 
+// Register the generated dir via its producing task (not the bare directory) so EVERY consumer of
+// the `main` source set — compileKotlin, and the per-source-set ktlint/detekt check tasks — picks up
+// an implicit dependency on `generateBuildInfo`. Passing the bare `generatedSrcDir` left ktlint-gradle
+// 14.x's `runKtlintCheckOverMainSourceSet` consuming the generated output without a declared producer,
+// which Gradle 9.x flags as an implicit-dependency validation error (QD-14917).
 sourceSets.named("main") {
-    kotlin.srcDir(generatedSrcDir)
+    kotlin.srcDir(generateBuildInfo)
 }
-tasks.named("compileKotlin").configure { dependsOn(generateBuildInfo) }

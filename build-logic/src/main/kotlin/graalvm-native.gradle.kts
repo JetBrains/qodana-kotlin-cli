@@ -63,7 +63,7 @@ graalvmNative {
     }
 }
 
-// QD-14812: GraalVM 21 (and current master) hard-codes /MD on Windows, mirroring the JDK's own /MD
+// QD-14812: GraalVM 25 (stock) still hard-codes /MD on Windows, mirroring the JDK's own /MD
 // build (OpenJDK make/autoconf/flags-cflags.m4:591). The produced .exe therefore imports
 // VCRUNTIME140.dll + VCRUNTIME140_1.dll, which only ship with the Microsoft VC++ Redistributable for
 // VS 2015–2022 — absent on Server Core, LTSC SKUs, and stripped Windows containers. App-local
