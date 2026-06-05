@@ -11,7 +11,7 @@ plugins {
 // Default Temurin toolchains have no `native-image`.
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(25))
         vendor.set(JvmVendorSpec.GRAAL_VM)
     }
 }
