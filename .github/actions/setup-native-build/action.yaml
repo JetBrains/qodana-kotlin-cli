@@ -1,6 +1,6 @@
 name: Set up native-build toolchain
 description: |
-  Common toolchain setup for native-image build cells: GraalVM CE 21 + Gradle. Used by both
+  Common toolchain setup for native-image build cells: GraalVM CE 25 + Gradle. Used by both
   `ci.yaml`'s `native-build` matrix and `draft-release.yaml`'s `build-cli` / `build-clang-cdnet`
   matrices to keep the setup story in a single place.
 
@@ -23,7 +23,8 @@ runs:
   steps:
     - uses: graalvm/setup-graalvm@v1
       with:
-        java-version: '21'
+        # renovate: datasource=github-releases depName=graalvm/graalvm-ce-builds extractVersion=^jdk-(?<version>.+)$
+        java-version: '25.0.2'
         distribution: 'graalvm-community'
         github-token: ${{ inputs.github-token }}
         native-image-job-reports: ${{ inputs.native-image-job-reports }}
