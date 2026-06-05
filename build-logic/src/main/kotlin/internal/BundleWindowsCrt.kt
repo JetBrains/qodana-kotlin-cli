@@ -23,7 +23,7 @@ import kotlin.io.path.listDirectoryEntries
  * binaries import into the binary's directory, producing a self-contained
  * single-folder distribution.
  *
- * GraalVM 21 (and current master) hard-codes `/MD` on Windows, mirroring the
+ * GraalVM 25 (stock) still hard-codes `/MD` on Windows, mirroring the
  * JDK's own `/MD` build (`flags-cflags.m4:591`). The produced `.exe` therefore
  * imports `VCRUNTIME140.dll` + `VCRUNTIME140_1.dll`, which only ship as part
  * of the *Microsoft Visual C++ Redistributable for Visual Studio 2015–2022*.

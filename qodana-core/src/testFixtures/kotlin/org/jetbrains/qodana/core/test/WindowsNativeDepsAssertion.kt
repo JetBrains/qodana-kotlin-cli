@@ -23,7 +23,7 @@ import kotlin.test.fail
  * ### Why "self-contained" rather than "no VC++ imports"?
  *
  * Static `/MT` (which would produce a `.exe` with zero VC++ DLL imports) is NOT viable on this
- * toolchain. GraalVM 21 — and current master, as of 2026-05-27 — hard-codes `/MD` in
+ * toolchain. GraalVM 25 (stock) — as of 2026-06-05, like GraalVM 21 before it — hard-codes `/MD` in
  * `substratevm/.../image/CCLinkerInvocation.java`:
  *
  *     // cmd.add("/MT");
@@ -74,7 +74,7 @@ fun assertWindowsNativeBinaryIsSelfContained(module: String) {
                 appendLine(
                     "Fix by extending `BundleWindowsCrt.REQUIRED_DLLS` in " +
                         "build-logic/src/main/kotlin/internal/BundleWindowsCrt.kt with the " +
-                        "newly-imported DLL. Static `/MT` is upstream-impossible on GraalVM 21+ — " +
+                        "newly-imported DLL. Static `/MT` is upstream-impossible on GraalVM 25 — " +
                         "see this function's KDoc for the rationale.",
                 )
             },

@@ -9,7 +9,7 @@
 //   Cli  → `qodana_<os>_<arch>.tar.gz` (linux/darwin) or `qodana_<os>_<arch>.zip` (windows).
 //          Archive contains `qodana` (or `qodana.exe` on windows) at mode 0755. On Windows the
 //          archive also includes `vcruntime140.dll` + `vcruntime140_1.dll` next to `qodana.exe`
-//          (QD-14812 app-local bundling — GraalVM 21 hard-codes /MD and the binary cannot run on
+//          (QD-14812 app-local bundling — GraalVM 25 hard-codes /MD and the binary cannot run on
 //          hosts without the VC++ Redistributable otherwise). The amd64 → x86_64 mapping ONLY
 //          applies to the cli archive name — kept for Go-pipeline parity.
 //   Tool → On linux/darwin: `<module>_<version>_<os>_<arch>` raw binary in `build/release/`.
