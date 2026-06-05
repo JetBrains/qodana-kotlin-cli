@@ -2,7 +2,8 @@ package org.jetbrains.qodana.core
 
 import org.jetbrains.qodana.core.model.ExitCode
 import java.io.DataInputStream
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
 /**
  * Guards the JDK 21 -> 25 toolchain migration (QD-14917). Fails on a JDK-21 toolchain
@@ -31,10 +32,11 @@ class Jdk25ToolchainTest {
             }
         // Class file layout (JVMS §4.1): u4 magic, u2 minor_version, u2 major_version.
         val header = stream.use { ByteArray(8).also { buf -> DataInputStream(it).readFully(buf) } }
-        val magic = ((header[0].toInt() and 0xFF) shl 24) or
-            ((header[1].toInt() and 0xFF) shl 16) or
-            ((header[2].toInt() and 0xFF) shl 8) or
-            (header[3].toInt() and 0xFF)
+        val magic =
+            ((header[0].toInt() and 0xFF) shl 24) or
+                ((header[1].toInt() and 0xFF) shl 16) or
+                ((header[2].toInt() and 0xFF) shl 8) or
+                (header[3].toInt() and 0xFF)
         assertEquals(0xCAFEBABE.toInt(), magic, "Not a class file")
         val major = ((header[6].toInt() and 0xFF) shl 8) or (header[7].toInt() and 0xFF)
         assertEquals(EXPECTED_CLASS_FILE_MAJOR, major)

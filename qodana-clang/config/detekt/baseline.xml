@@ -1,19 +1,16 @@
-<?xml version="1.0" ?>
+<?xml version='1.0' encoding='UTF-8'?>
 <SmellBaseline>
-  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>CyclomaticComplexMethod:ClangConfig.kt$ClangConfig$fun buildChecksArg(yaml: QodanaYaml?): String</ID>
-    <ID>EmptyFunctionBlock:ClangLinterTest.kt$ClangLinterTest.&lt;no name provided&gt;${}</ID>
-    <ID>EmptyFunctionBlock:ClangLinterTest.kt$ClangLinterTest.&lt;no name provided&gt;.&lt;no name provided&gt;${}</ID>
-    <ID>EmptyFunctionBlock:MainTest.kt$RecordingTerminal${}</ID>
-    <ID>LongParameterList:ClangRunner.kt$ClangRunner$( counter: Int, input: FileWithHeaders, checks: String, context: ThirdPartyScanContext, clangPath: Path, tmpResultsDir: Path, stdoutLog: Path, stderrLog: Path, )</ID>
-    <ID>LoopWithTooManyJumpStatements:ClangConfig.kt$ClangConfig$for</ID>
-    <ID>MatchingDeclarationName:Main.kt$Version</ID>
-    <ID>MaxLineLength:ClangLinter.kt$ClangLinter$"Ensure the clang-tidy archive is available for ${System.getProperty("os.name")}/${System.getProperty("os.arch")}"</ID>
-    <ID>MaxLineLength:ClangLinterTest.kt$ClangLinterTest.&lt;no name provided&gt;$override suspend fun run(spec: ProcessSpec): ProcessResult</ID>
-    <ID>ReturnCount:Main.kt$internal fun resolveThirdPartyEapExitCode( terminal: Terminal, buildDateStr: String = System.getProperty("qodana.build.date") ?: System.getenv("QODANA_BUILD_DATE") ?: "", isEap: Boolean = ( System.getProperty("qodana.is.eap") ?: System.getenv("QODANA_IS_EAP") ?: "false" ).toBooleanStrictOrNull() ?: false, checker: EapChecker = EapChecker(terminal), ): Int?</ID>
-    <ID>TooGenericExceptionCaught:ClangCommand.kt$ClangCommand$e: Exception</ID>
-    <ID>UseCheckOrError:ClangLinter.kt$ClangLinter$throw IllegalStateException("clang-tidy binary not found in mounted tools")</ID>
-    <ID>WildcardImport:ClangRunner.kt$import kotlinx.coroutines.*</ID>
+    <ID>CyclomaticComplexMethod:ClangConfig.kt:ClangConfig$fun buildChecksArg: String</ID>
+    <ID>EmptyFunctionBlock:ClangLinterTest.kt:ClangLinterTest.&lt;no name provided>${}</ID>
+    <ID>EmptyFunctionBlock:ClangLinterTest.kt:ClangLinterTest.&lt;no name provided>.&lt;no name provided>${}</ID>
+    <ID>EmptyFunctionBlock:MainTest.kt:RecordingTerminal${}</ID>
+    <ID>LoopWithTooManyJumpStatements:ClangConfig.kt:ClangConfig$for</ID>
+    <ID>MaxLineLength:ClangLinter.kt:ClangLinter$"Ensure the clang-tidy archive is available for ${System.getProperty("os.name")}/${System.getProperty("os.arch")}"</ID>
+    <ID>MaxLineLength:ClangLinterTest.kt:ClangLinterTest.&lt;no name provided>$override suspend fun run: ProcessResult</ID>
+    <ID>ReturnCount:Main.kt:internal fun resolveThirdPartyEapExitCode: Int?</ID>
+    <ID>TooGenericExceptionCaught:ClangCommand.kt:ClangCommand$e: Exception</ID>
+    <ID>WildcardImport:ClangRunner.kt:import kotlinx.coroutines.*</ID>
   </CurrentIssues>
 </SmellBaseline>
