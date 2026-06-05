@@ -147,7 +147,7 @@ class EffectiveConfigTest {
         val context = minimalContext()
         val result = EffectiveConfig.merge(yaml, context)
         assertNotNull(result.profile)
-        assertEquals("Server-side", result.profile!!.name)
+        assertEquals("Server-side", result.profile.name)
     }
 
     @Test
@@ -159,7 +159,7 @@ class EffectiveConfigTest {
             )
         val result = EffectiveConfig.merge(yaml, context)
         assertNotNull(result.profile)
-        assertEquals("CLI-profile", result.profile!!.name)
+        assertEquals("CLI-profile", result.profile.name)
     }
 
     @Test

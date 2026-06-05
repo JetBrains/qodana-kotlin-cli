@@ -36,7 +36,7 @@ class ClangLinterTest {
 
     private val fakeSarifService =
         object : SarifService {
-            override fun read(path: Path): Any = Object()
+            override fun read(path: Path): Any = Any()
 
             override fun write(
                 path: Path,

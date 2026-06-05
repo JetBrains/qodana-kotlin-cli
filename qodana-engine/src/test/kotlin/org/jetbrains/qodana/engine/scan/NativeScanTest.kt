@@ -259,7 +259,7 @@ class NativeScanTest {
             val installVmOptionsPath = Path.of("/cache/idea-config/install_plugins.vmoptions")
             val installVmOptions = fs.writtenFiles[installVmOptionsPath]
             assertTrue(installVmOptions != null, "install_plugins.vmoptions should be written")
-            assertTrue(installVmOptions!!.contains("-Didea.config.path=/cache/idea-config"))
+            assertTrue(installVmOptions.contains("-Didea.config.path=/cache/idea-config"))
             assertTrue(installVmOptions.contains("-Didea.system.path=/cache/idea-system"))
             assertTrue(installVmOptions.contains("-Didea.plugins.path=/cache/idea-plugins"))
             assertTrue(

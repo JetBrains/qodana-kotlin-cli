@@ -161,7 +161,7 @@ class CloudClientTest {
             assertTrue(result.isFailure)
             val error = result.exceptionOrNull()
             assertTrue(error is ApiVersionMismatchError)
-            assertEquals("cloud", (error as ApiVersionMismatchError).apiKind)
+            assertEquals("cloud", error.apiKind)
             assertEquals(listOf("2.0"), error.supportedVersions)
         }
 }

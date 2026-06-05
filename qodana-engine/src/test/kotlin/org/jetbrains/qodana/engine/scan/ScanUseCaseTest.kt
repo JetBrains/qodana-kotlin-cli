@@ -492,8 +492,8 @@ class ScanUseCaseTest {
             assertTrue(firstScript?.startsWith("reverse-scoped:NEW,") == true)
             assertTrue(secondScript?.startsWith("reverse-scoped:OLD,") == true)
             assertTrue(thirdScript?.startsWith("reverse-scoped:FIXES,") == true)
-            assertTrue(secondScript?.endsWith("reduced-scope.json") == true)
-            assertTrue(thirdScript?.endsWith("reduced-scope.json") == true)
+            assertTrue(secondScript.endsWith("reduced-scope.json"))
+            assertTrue(thirdScript.endsWith("reduced-scope.json"))
 
             assertTrue(firstCommand.any { it.startsWith("--property=-Dqodana.reduced.scope.path=") })
             assertTrue(secondCommand.contains("--property=-Dqodana.skip.result.strategy=FIXABLE"))
