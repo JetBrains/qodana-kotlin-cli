@@ -23,7 +23,7 @@ import kotlin.test.fail
  * ### Why "self-contained" rather than "no VC++ imports"?
  *
  * Static `/MT` (which would produce a `.exe` with zero VC++ DLL imports) is NOT viable on this
- * toolchain. GraalVM 25 (stock) — as of 2026-06-05, like GraalVM 21 before it — hard-codes `/MD` in
+ * toolchain. GraalVM 25 (stock) — like GraalVM 21 before it — still hard-codes `/MD` in
  * `substratevm/.../image/CCLinkerInvocation.java`:
  *
  *     // cmd.add("/MT");

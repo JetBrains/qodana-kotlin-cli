@@ -148,7 +148,7 @@ The release pipeline is documented in [docs/release.md](docs/release.md). Key po
 `-Pagent` runs trigger a post-test merge step that needs the GraalVM toolchain's `native-image-configure` binary. If foojay's downloaded toolchain is incomplete (zero-byte `bin/native-image*` placeholders), the binaries can be symlinked from `lib/svm/bin/`:
 
 ```sh
-cd ~/.gradle/jdks/graalvm_community-25-aarch64-os_x.2/graalvm-community-openjdk-25.0.2/Contents/Home/bin
+cd ~/.gradle/jdks/graalvm_community-25-aarch64-os_x.2/graalvm-community-openjdk-25.0.2+10.1/Contents/Home/bin  # +build suffix varies by patch
 rm native-image native-image-configure
 ln -s ../lib/svm/bin/native-image native-image
 ln -s ../lib/svm/bin/native-image-configure native-image-configure
