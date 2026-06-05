@@ -1,5 +1,22 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
-  "minimumReleaseAge": "7 days"
+  "minimumReleaseAge": "7 days",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track the stock GraalVM CE pinned in setup-native-build (QD-14917).",
+      "managerFilePatterns": [".github/actions/setup-native-build/action.yaml"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) extractVersion=(?<extractVersion>\\S+)\\s+java-version:\\s*['\"](?<currentValue>[^'\"]+)['\"]"
+      ]
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Keep the stock GraalVM pin on the JDK-25 line; the next-JDK migration is a deliberate effort.",
+      "matchDepNames": ["graalvm/graalvm-ce-builds"],
+      "allowedVersions": "<26"
+    }
+  ]
 }
