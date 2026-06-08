@@ -121,3 +121,44 @@ fun selectPreviousNightlyTag(
         .filter { (_, parsed) -> parsed.base == base }
         .maxWithOrNull(compareBy({ (_, p) -> p.date }, { (_, p) -> p.counter ?: 0 }, { (raw, _) -> raw }))
         ?.first
+
+/**
+ * The "Full changelog" compare-link footer line, or null when there is no stable baseline / repo / SHA.
+ * The URL pins the head side to the commit [headSha] (not the not-yet-created tag) so it resolves while the
+ * draft is unpublished; display text uses version strings (leading `v` stripped).
+ */
+fun compareLinkFooter(
+    repo: String?,
+    stableTag: String?,
+    headSha: String?,
+    currentTag: String,
+): String? {
+    if (repo == null || stableTag == null || headSha == null) return null
+    val from = stableTag.removePrefix("v")
+    val to = currentTag.removePrefix("v")
+    return "**Full changelog**: [$from...$to](https://github.com/$repo/compare/$stableTag...$headSha)"
+}
+
+/**
+ * Stitches the final release-notes markdown: an optional visible heading + categorized [visible] changes
+ * (or [visibleEmptyNote] when they render empty), an optional `<details>` block of [collapsible] changes
+ * (omitted when empty), and an optional [footer]. Output is trimmed with a single trailing newline.
+ */
+fun assembleNotes(
+    visibleHeading: String?,
+    visible: List<Change>,
+    visibleEmptyNote: String,
+    collapsibleSummary: String?,
+    collapsible: List<Change>,
+    footer: String?,
+): String {
+    val sb = StringBuilder()
+    if (visibleHeading != null) sb.append(visibleHeading).append("\n\n")
+    sb.append(renderCategorized(visible).ifBlank { visibleEmptyNote })
+    if (collapsibleSummary != null && collapsible.isNotEmpty()) {
+        sb.append("\n\n<details>\n<summary>").append(collapsibleSummary).append("</summary>\n\n")
+        sb.append(renderCategorized(collapsible)).append("\n</details>")
+    }
+    if (footer != null) sb.append("\n\n---\n").append(footer)
+    return sb.toString().trim() + "\n"
+}

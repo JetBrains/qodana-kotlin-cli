@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test
 import java.time.LocalDate
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class ReleaseNotesTest {
     // --- parseCommit -----
@@ -205,5 +206,140 @@ class ReleaseNotesTest {
                 excludeTag = "v2026.2.1-nightly.20260606",
             ),
         )
+    }
+
+    // --- compareLinkFooter -----
+    @Test fun footerLinksStableToHeadSha() {
+        assertEquals(
+            "**Full changelog**: [2026.2...2026.2.1-nightly.20260605]" +
+                "(https://github.com/o/r/compare/v2026.2...abc1234)",
+            compareLinkFooter(
+                repo = "o/r",
+                stableTag = "v2026.2",
+                headSha = "abc1234",
+                currentTag = "v2026.2.1-nightly.20260605",
+            ),
+        )
+    }
+
+    @Test fun footerNullWithoutStable() {
+        assertNull(compareLinkFooter(repo = "o/r", stableTag = null, headSha = "abc1234", currentTag = "v2026.2"))
+    }
+
+    // --- assembleNotes -----
+    @Test fun assemblesSingleSectionWithFooter() {
+        val out =
+            assembleNotes(
+                visibleHeading = null,
+                visible = listOf(parseCommit("feat: a (#1)")),
+                visibleEmptyNote = "_No changes._",
+                collapsibleSummary = null,
+                collapsible = emptyList(),
+                footer = "**Full changelog**: x",
+            )
+        val expected =
+            """
+            ### 🚀 Features
+            - a (#1)
+
+            ---
+            **Full changelog**: x
+            """.trimIndent() + "\n"
+        assertEquals(expected, out)
+    }
+
+    @Test fun assemblesNightlySplitWithCollapsible() {
+        val out =
+            assembleNotes(
+                visibleHeading = "## Since the last nightly",
+                visible = listOf(parseCommit("feat(g): a (#1)")),
+                visibleEmptyNote = "_No changes since the last nightly._",
+                collapsibleSummary = "Earlier changes since 2026.2",
+                collapsible = listOf(parseCommit("fix(r): b (#2)")),
+                footer = "**Full changelog**: x",
+            )
+        val expected =
+            """
+            ## Since the last nightly
+
+            ### 🚀 Features
+            - **g**: a (#1)
+
+            <details>
+            <summary>Earlier changes since 2026.2</summary>
+
+            ### 🐛 Bug Fixes
+            - **r**: b (#2)
+            </details>
+
+            ---
+            **Full changelog**: x
+            """.trimIndent() + "\n"
+        assertEquals(expected, out)
+    }
+
+    @Test fun omitsCollapsibleWhenEmpty() {
+        val out =
+            assembleNotes(
+                visibleHeading = "## Since the last nightly",
+                visible = listOf(parseCommit("feat: a")),
+                visibleEmptyNote = "_none_",
+                collapsibleSummary = "Earlier changes since 2026.2",
+                collapsible = emptyList(),
+                footer = null,
+            )
+        val expected =
+            """
+            ## Since the last nightly
+
+            ### 🚀 Features
+            - a
+            """.trimIndent() + "\n"
+        assertEquals(expected, out)
+    }
+
+    @Test fun showsEmptyNoteWhenVisibleEmpty() {
+        val out =
+            assembleNotes(
+                visibleHeading = "## Since the last nightly",
+                visible = emptyList(),
+                visibleEmptyNote = "_No changes since the last nightly._",
+                collapsibleSummary = "Earlier changes since 2026.2",
+                collapsible = listOf(parseCommit("fix: b")),
+                footer = null,
+            )
+        val expected =
+            """
+            ## Since the last nightly
+
+            _No changes since the last nightly._
+
+            <details>
+            <summary>Earlier changes since 2026.2</summary>
+
+            ### 🐛 Bug Fixes
+            - b
+            </details>
+            """.trimIndent() + "\n"
+        assertEquals(expected, out)
+    }
+
+    @Test fun omitsFooterWhenNull() {
+        val out =
+            assembleNotes(
+                visibleHeading = null,
+                visible = listOf(parseCommit("feat: a")),
+                visibleEmptyNote = "_none_",
+                collapsibleSummary = null,
+                collapsible = emptyList(),
+                footer = null,
+            )
+        assertEquals("### 🚀 Features\n- a\n", out)
+    }
+
+    @Test fun performanceHeadingKeepsEmojiVariationSelector() {
+        // U+FE0F forces color emoji rendering; assert it's present (byte-level) so it can't be silently dropped.
+        assertTrue(Category.PERFORMANCE.heading.contains('️'))
+        assertEquals("⚡️ Performance", Category.PERFORMANCE.heading)
     }
 }
