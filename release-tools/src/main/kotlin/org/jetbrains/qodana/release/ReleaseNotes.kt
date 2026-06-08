@@ -1,5 +1,8 @@
 package org.jetbrains.qodana.release
 
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+
 /** A single changelog entry parsed from a commit subject. [type] is null for non-conventional subjects. */
 data class Change(
     val type: String?,
@@ -18,8 +21,17 @@ enum class Category(
     OTHER("🧹 Other changes"),
 }
 
+/** A parsed nightly tag `v?<base>-nightly.<yyyyMMdd>[.<counter>]`. */
+data class NightlyTag(
+    val base: String,
+    val date: LocalDate,
+    val counter: Int?,
+)
+
 // `(?:!)?` tolerates (and discards) the Conventional-Commit breaking-change marker; we don't surface it.
 private val CONVENTIONAL = Regex("""^(?<type>[A-Za-z]+)(?:\((?<scope>[^)]+)\))?(?:!)?:\s*(?<desc>.*)$""")
+private val NIGHTLY_TAG = Regex("""^v?(?<base>.+?)-nightly\.(?<date>\d{8})(?:\.(?<counter>\d+))?$""")
+private val YYYYMMDD = DateTimeFormatter.ofPattern("yyyyMMdd")
 
 /**
  * Parses a commit subject as a Conventional Commit. A subject that doesn't match the
@@ -65,3 +77,47 @@ fun renderCategorized(changes: List<Change>): String {
             "### ${category.heading}\n$lines"
         }
 }
+
+/**
+ * Parses `v?<base>-nightly.<yyyyMMdd>[.<counter>]`; null if the tag isn't a (dated) nightly tag, or if a
+ * counter is present but out of Int range (mirrors `computeNightlyVersion`, which drops such tags).
+ */
+fun parseNightlyTag(tag: String): NightlyTag? {
+    val m = NIGHTLY_TAG.matchEntire(tag.trim()) ?: return null
+    val date = runCatching { LocalDate.parse(m.groups["date"]!!.value, YYYYMMDD) }.getOrNull()
+    val counterText = m.groups["counter"]?.value
+    val counter = counterText?.toIntOrNull()
+    val counterValid = counterText == null || counter != null
+    return if (date != null && counterValid) {
+        NightlyTag(base = m.groups["base"]!!.value, date = date, counter = counter)
+    } else {
+        null
+    }
+}
+
+/**
+ * Human title for a nightly: `Qodana <base> Nightly (<yyyy-MM-dd>[ #<n>])`. The day's first build (no
+ * counter) gets no `#`; counter `k` renders as build number `k + 1`.
+ */
+fun nightlyTitle(tag: NightlyTag): String {
+    val suffix = tag.counter?.let { " #${it + 1}" } ?: ""
+    return "Qodana ${tag.base} Nightly (${tag.date.format(DateTimeFormatter.ISO_LOCAL_DATE)}$suffix)"
+}
+
+/**
+ * The previous nightly tag of the same release cycle (same [NightlyTag.base]) as [excludeTag], newest by
+ * (date, counter), or null if none. A counter-less tag sorts as 0; ties break by tag string for determinism.
+ */
+fun selectPreviousNightlyTag(
+    tags: List<String>,
+    base: String,
+    excludeTag: String,
+): String? =
+    tags
+        .asSequence()
+        .map { it.trim() }
+        .filter { it != excludeTag.trim() }
+        .mapNotNull { raw -> parseNightlyTag(raw)?.let { raw to it } }
+        .filter { (_, parsed) -> parsed.base == base }
+        .maxWithOrNull(compareBy({ (_, p) -> p.date }, { (_, p) -> p.counter ?: 0 }, { (raw, _) -> raw }))
+        ?.first

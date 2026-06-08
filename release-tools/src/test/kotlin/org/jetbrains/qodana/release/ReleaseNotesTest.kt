@@ -1,6 +1,7 @@
 package org.jetbrains.qodana.release
 
 import org.junit.jupiter.api.Test
+import java.time.LocalDate
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
@@ -107,5 +108,102 @@ class ReleaseNotesTest {
             - two
             """.trimIndent()
         assertEquals(expected, renderCategorized(changes))
+    }
+
+    // --- parseNightlyTag -----
+    @Test fun parsesBareNightlyTag() {
+        val t = parseNightlyTag("v2026.2.1-nightly.20260605")!!
+        assertEquals("2026.2.1", t.base)
+        assertEquals(LocalDate.of(2026, 6, 5), t.date)
+        assertNull(t.counter)
+    }
+
+    @Test fun parsesNightlyTagWithCounter() {
+        assertEquals(2, parseNightlyTag("v2026.2.1-nightly.20260605.2")!!.counter)
+    }
+
+    @Test fun parsesNightlyTagWithoutVPrefix() {
+        assertEquals("2026.2.1", parseNightlyTag("2026.2.1-nightly.20260605")!!.base)
+    }
+
+    @Test fun rejectsUndatedLegacyNightly() {
+        assertNull(parseNightlyTag("v2026.2.1-nightly"))
+    }
+
+    @Test fun rejectsNonNightlyTag() {
+        assertNull(parseNightlyTag("v2026.2.1"))
+    }
+
+    @Test fun rejectsOutOfRangeCounter() {
+        // a counter is present but won't fit in Int → reject the tag (mirrors computeNightlyVersion's safety)
+        assertNull(parseNightlyTag("v2026.2.1-nightly.20260605.99999999999"))
+    }
+
+    // --- nightlyTitle -----
+    @Test fun titleFirstBuildHasNoCounter() {
+        assertEquals(
+            "Qodana 2026.2.1 Nightly (2026-06-05)",
+            nightlyTitle(parseNightlyTag("v2026.2.1-nightly.20260605")!!),
+        )
+    }
+
+    @Test fun titleSecondBuildIsHashTwo() {
+        assertEquals(
+            "Qodana 2026.2.1 Nightly (2026-06-05 #2)",
+            nightlyTitle(parseNightlyTag("v2026.2.1-nightly.20260605.1")!!),
+        )
+    }
+
+    @Test fun titleNthBuildIsCounterPlusOne() {
+        assertEquals(
+            "Qodana 2026.2.1 Nightly (2026-06-05 #11)",
+            nightlyTitle(parseNightlyTag("v2026.2.1-nightly.20260605.10")!!),
+        )
+    }
+
+    // --- selectPreviousNightlyTag -----
+    @Test fun selectsLatestSameBaseNightlyByDateThenCounter() {
+        val tags =
+            listOf(
+                "v2026.2.1-nightly.20260604",
+                "v2026.2.1-nightly.20260605",
+                "v2026.2.1-nightly.20260605.2",
+                "v2026.2.1-nightly.20260605.10",
+            )
+        assertEquals(
+            "v2026.2.1-nightly.20260605.10",
+            selectPreviousNightlyTag(tags, base = "2026.2.1", excludeTag = "v2026.2.1-nightly.20260606"),
+        )
+    }
+
+    @Test fun excludesCurrentTagAndOtherBases() {
+        val tags =
+            listOf(
+                "v2026.2.1-nightly.20260606", // current — excluded
+                "v2026.3.0-nightly.20260605", // other base — ignored
+                "v2026.2.1-nightly.20260603", // the answer
+            )
+        assertEquals(
+            "v2026.2.1-nightly.20260603",
+            selectPreviousNightlyTag(tags, base = "2026.2.1", excludeTag = "v2026.2.1-nightly.20260606"),
+        )
+    }
+
+    @Test fun tieBreaksByTagStringForDeterminism() {
+        val tags = listOf("2026.2.1-nightly.20260605", "v2026.2.1-nightly.20260605")
+        assertEquals(
+            "v2026.2.1-nightly.20260605", // same base/date/counter → max by raw string ('v' > '2')
+            selectPreviousNightlyTag(tags, base = "2026.2.1", excludeTag = "irrelevant"),
+        )
+    }
+
+    @Test fun returnsNullWhenNoSameBaseNightly() {
+        assertNull(
+            selectPreviousNightlyTag(
+                listOf("v2026.3.0-nightly.20260605"),
+                base = "2026.2.1",
+                excludeTag = "v2026.2.1-nightly.20260606",
+            ),
+        )
     }
 }
