@@ -41,15 +41,18 @@ runs:
       shell: pwsh
       run: |
         $ErrorActionPreference = 'Stop'
+        $ProgressPreference = 'SilentlyContinue'  # no Invoke-WebRequest progress spam in CI logs
         $ver = '${{ inputs.graalvm-hybridcrt-version }}'
         $base = "https://github.com/qodana/graalvm-hybridcrt/releases/download/$ver"
         $asset = "graalvm-hybridcrt-$ver-windows-amd64.zip"
         Invoke-WebRequest -Uri "$base/$asset" -OutFile $asset
         Invoke-WebRequest -Uri "$base/SHA256.txt" -OutFile SHA256.txt
-        # Robust: take the first 64-hex token, so a future "hash<space>filename" format still works.
-        $m = [regex]::Match((Get-Content -Raw SHA256.txt), '[0-9A-Fa-f]{64}')
-        if (-not $m.Success) { throw "No SHA-256 digest found in SHA256.txt" }
-        $expected = $m.Value.ToLower()
+        # SHA256.txt holds exactly one digest of the single asset (no filename). Extract all 64-hex
+        # tokens and require exactly one, so a future multi-digest format fails loudly rather than
+        # silently validating against the wrong hash.
+        $digests = @([regex]::Matches((Get-Content -Raw SHA256.txt), '[0-9A-Fa-f]{64}') | ForEach-Object { $_.Value.ToLower() } | Sort-Object -Unique)
+        if ($digests.Count -ne 1) { throw "Expected exactly one SHA-256 digest in SHA256.txt, found $($digests.Count)" }
+        $expected = $digests[0]
         $actual = (Get-FileHash -Algorithm SHA256 -Path $asset).Hash.ToLower()
         if ($expected -ne $actual) { throw "SHA256 mismatch for ${asset}: expected $expected, got $actual" }
         if (Test-Path .graalvm-hybridcrt) { Remove-Item -Recurse -Force .graalvm-hybridcrt }
