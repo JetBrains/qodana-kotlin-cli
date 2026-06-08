@@ -223,10 +223,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew :qodana-cli:assembleRelease \
+          EXTRA=()
+          if [ "$RUNNER_OS" = "Windows" ]; then EXTRA+=(-Pcustom-graalvm="$GRAALVM_HOME"); fi
+          # MSYS_NO_PATHCONV=1: keep Git Bash from rewriting the Windows -Pcustom-graalvm path
+          # (no-op on linux/darwin); it must match GRAALVM_HOME verbatim for the build's check.
+          MSYS_NO_PATHCONV=1 ./gradlew :qodana-cli:assembleRelease \
             -Pversion='${{ needs.validate.outputs.version }}' \
             -PtargetOs=${{ matrix.platform.os }} \
-            -PtargetArch=${{ matrix.platform.arch }}
+            -PtargetArch=${{ matrix.platform.arch }} \
+            "${EXTRA[@]}"
       - uses: actions/upload-artifact@v4
         with:
           name: cli-${{ matrix.platform.tag }}
@@ -258,10 +263,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew :${{ matrix.module }}:assembleRelease \
+          EXTRA=()
+          if [ "$RUNNER_OS" = "Windows" ]; then EXTRA+=(-Pcustom-graalvm="$GRAALVM_HOME"); fi
+          # MSYS_NO_PATHCONV=1: keep Git Bash from rewriting the Windows -Pcustom-graalvm path
+          # (no-op on linux/darwin); it must match GRAALVM_HOME verbatim for the build's check.
+          MSYS_NO_PATHCONV=1 ./gradlew :${{ matrix.module }}:assembleRelease \
             -Pversion='${{ needs.validate.outputs.version }}' \
             -PtargetOs=${{ matrix.platform.os }} \
-            -PtargetArch=${{ matrix.platform.arch }}
+            -PtargetArch=${{ matrix.platform.arch }} \
+            "${EXTRA[@]}"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.module }}-${{ matrix.platform.tag }}
