@@ -2,6 +2,10 @@ version: "1.0"
 linter: qodana-jvm
 projectJDK: "25"
 
+# Works around the linter container's incomplete bundled JBR, which otherwise breaks Gradle's
+# daemon-JVM criteria and fails project import (QD-14924). Rationale: .github/qodana/bootstrap.sh
+bootstrap: bash .github/qodana/bootstrap.sh
+
 dependencyIgnores:
   # JNA is dual-licensed Apache-2.0 OR LGPL-2.1+; License Audit flags it for the
   # LGPL option, but we consume it under Apache-2.0.
