@@ -9,7 +9,7 @@ docker-java = "3.7.1"
 commons-compress = "1.27.1"
 slf4j = "2.0.18"
 qodana-sarif = "0.2.116"
-qodana-publisher = "3.0.13"
+qodana-publisher = "3.1.2"
 qodana-cloud-client = "0.2.12"
 qodana-jvm-community-tag = "2025.3"
 # Keep in lockstep with ap-scheme-tools: it pulls fus.reporting scheme/model transitively,
