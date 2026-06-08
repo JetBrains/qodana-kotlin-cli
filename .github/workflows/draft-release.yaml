@@ -43,7 +43,7 @@ on:
         type: string
         default: 'tagged'
       target-sha:
-        description: 'Optional: full 40-char SHA to pin the release to. Defaults to HEAD at validate time.'
+        description: 'Optional: full 40-char SHA to pin the release to. Defaults to HEAD at prepare time.'
         required: false
         type: string
         default: ''
@@ -60,13 +60,13 @@ concurrency:
 env:
   GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   # `gh` derives the repo from git remotes by default; the assemble job runs at the workspace root
-  # with no checkout there (only `source/` is checked out for changelog generation), so gh would fail
-  # with "not a git repository". GH_REPO makes the repo explicit and skips git lookup.
+  # with no checkout there, so gh would fail with "not a git repository". GH_REPO makes the repo
+  # explicit and skips git lookup.
   GH_REPO: ${{ github.repository }}
 
 jobs:
-  validate:
-    name: Validate
+  prepare:
+    name: Prepare
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.outputs.outputs.version }}
@@ -75,7 +75,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Pin to the same commit the build/publish jobs use (target-sha) so validate normalizes and
+          # Pin to the same commit the build/publish jobs use (target-sha) so prepare normalizes and
           # checks the exact commit being shipped — no drift if `main` advances mid-run. Falls back to
           # the trigger commit for direct operator dispatches that don't pass target-sha.
           ref: ${{ inputs.target-sha != '' && inputs.target-sha || github.sha }}
@@ -129,7 +129,7 @@ jobs:
           set -euo pipefail
           CANON='${{ steps.normalize.outputs.canonical }}'
           # Prefer the caller-supplied target-sha (e.g., from the nightly umbrella's `compute` job)
-          # over a fresh `git rev-parse HEAD` here. This eliminates a race where validate's HEAD
+          # over a fresh `git rev-parse HEAD` here. This eliminates a race where prepare's HEAD
           # would differ from the caller's pinned SHA if `main` advanced between jobs.
           INPUT_SHA='${{ inputs.target-sha }}'
           if [ -n "$INPUT_SHA" ]; then
@@ -147,14 +147,33 @@ jobs:
             echo "sha=$SHA"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Generate release notes and title
+        shell: bash
+        run: |
+          set -euo pipefail
+          kotlin release-tools/scripts/generate-release-notes.main.kts \
+            --tag '${{ steps.outputs.outputs.tag }}' \
+            --mode '${{ inputs.mode }}' \
+            --repo '${{ github.repository }}' \
+            --head-sha '${{ steps.outputs.outputs.sha }}' \
+            --repo-dir .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-meta
+          path: |
+            release-notes.md
+            release-title.txt
+          if-no-files-found: error
+
   sbom:
     name: SBOM
-    needs: validate
+    needs: prepare
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.validate.outputs.sha }}
+          ref: ${{ needs.prepare.outputs.sha }}
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -165,7 +184,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew :qodana-cli:cyclonedxDirectBom -Pversion='${{ needs.validate.outputs.version }}'
+          ./gradlew :qodana-cli:cyclonedxDirectBom -Pversion='${{ needs.prepare.outputs.version }}'
 
       - name: Generate clang/cdnet SBOMs
         if: ${{ !inputs.cli-only }}
@@ -175,7 +194,7 @@ jobs:
           ./gradlew \
             :qodana-clang:cyclonedxDirectBom \
             :qodana-cdnet:cyclonedxDirectBom \
-            -Pversion='${{ needs.validate.outputs.version }}'
+            -Pversion='${{ needs.prepare.outputs.version }}'
 
       # Stage SBOM files into a flat directory before upload. `actions/upload-artifact@v4` with a
       # multi-line `path:` preserves the workspace-relative directory hierarchy, which would land the
@@ -203,7 +222,7 @@ jobs:
 
   build-cli:
     name: Build qodana-cli (${{ matrix.platform.name }})
-    needs: validate
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
@@ -217,14 +236,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.validate.outputs.sha }}
+          ref: ${{ needs.prepare.outputs.sha }}
       - uses: ./.github/actions/setup-native-build
       - name: Assemble cli release artifact
         shell: bash
         run: |
           set -euo pipefail
           ./gradlew :qodana-cli:assembleRelease \
-            -Pversion='${{ needs.validate.outputs.version }}' \
+            -Pversion='${{ needs.prepare.outputs.version }}' \
             -PtargetOs=${{ matrix.platform.os }} \
             -PtargetArch=${{ matrix.platform.arch }}
       - uses: actions/upload-artifact@v4
@@ -236,7 +255,7 @@ jobs:
 
   build-clang-cdnet:
     name: Build ${{ matrix.module }} (${{ matrix.platform.name }})
-    needs: validate
+    needs: prepare
     if: ${{ !inputs.cli-only }}
     strategy:
       fail-fast: false
@@ -252,14 +271,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.validate.outputs.sha }}
+          ref: ${{ needs.prepare.outputs.sha }}
       - uses: ./.github/actions/setup-native-build
       - name: Assemble ${{ matrix.module }} release binary
         shell: bash
         run: |
           set -euo pipefail
           ./gradlew :${{ matrix.module }}:assembleRelease \
-            -Pversion='${{ needs.validate.outputs.version }}' \
+            -Pversion='${{ needs.prepare.outputs.version }}' \
             -PtargetOs=${{ matrix.platform.os }} \
             -PtargetArch=${{ matrix.platform.arch }}
       - uses: actions/upload-artifact@v4
@@ -271,10 +290,10 @@ jobs:
 
   assemble:
     name: Assemble draft release
-    needs: [validate, sbom, build-cli, build-clang-cdnet]
+    needs: [prepare, sbom, build-cli, build-clang-cdnet]
     if: |
       always()
-      && needs.validate.result == 'success'
+      && needs.prepare.result == 'success'
       && needs.sbom.result == 'success'
       && needs.build-cli.result == 'success'
       && (inputs.cli-only || needs.build-clang-cdnet.result == 'success')
@@ -291,12 +310,20 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Move release metadata out of dist/
+        shell: bash
+        run: |
+          set -euo pipefail
+          # release-meta (from the prepare job) lands in dist/ via merge-multiple; move it to the workspace
+          # root so it is not treated as a release asset by Verify asset set / Compute checksums / gh release create.
+          mv dist/release-notes.md dist/release-title.txt .
+
       - name: Verify asset set
         shell: bash
         run: |
           set -euo pipefail
           cd dist
-          VERSION='${{ needs.validate.outputs.version }}'
+          VERSION='${{ needs.prepare.outputs.version }}'
           if [ '${{ inputs.cli-only }}' = 'true' ]; then
             EXPECTED_FILES=(
               qodana_linux_x86_64.tar.gz qodana_linux_arm64.tar.gz
@@ -343,41 +370,6 @@ jobs:
           cat dist/checksums.txt
           echo '--- end ---'
 
-      - uses: actions/checkout@v4
-        with:
-          path: source
-          ref: ${{ needs.validate.outputs.sha }}
-          fetch-depth: 0
-          fetch-tags: true
-
-      - name: Generate release-notes.md
-        shell: bash
-        run: |
-          set -euo pipefail
-          PREV=$(git -C source tag --list 'v*' --sort=-v:refname \
-            | grep -vE -- '(-nightly|-tagprobe-)' \
-            | head -n 1 || true)
-          if [ -n "$PREV" ]; then
-            RANGE="$PREV..HEAD"
-          else
-            RANGE=""
-          fi
-          {
-            echo "## What's changed"
-            echo
-            # shellcheck disable=SC2086 # RANGE is intentionally word-split: empty string → full history.
-            LINES=$(git -C source log --pretty=format:'- %s (%h)' ${RANGE} \
-              | grep -vE '^- (chore|docs|style|ci|build|refactor|test)(\(.+\))?:' || true)
-            if [ -z "$LINES" ]; then
-              echo '- (no user-facing changes)'
-            else
-              echo "$LINES"
-            fi
-          } > release-notes.md
-          echo '--- release-notes.md ---'
-          cat release-notes.md
-          echo '--- end ---'
-
       - name: Print dist listing (dry-run only)
         if: ${{ inputs.dry-run }}
         shell: bash
@@ -392,15 +384,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          TAG='${{ needs.validate.outputs.tag }}'
+          TAG='${{ needs.prepare.outputs.tag }}'
           PRERELEASE_FLAG=()
           if [ '${{ inputs.prerelease }}' = 'true' ]; then PRERELEASE_FLAG=(--prerelease); fi
           gh release create "$TAG" \
             --draft \
-            --target '${{ needs.validate.outputs.sha }}' \
+            --target '${{ needs.prepare.outputs.sha }}' \
             --latest='${{ inputs.latest }}' \
             "${PRERELEASE_FLAG[@]}" \
             --notes-file release-notes.md \
-            --title "$TAG" \
+            --title "$(cat release-title.txt)" \
             dist/*
           echo "Draft created: https://github.com/${{ github.repository }}/releases/tag/$TAG"
