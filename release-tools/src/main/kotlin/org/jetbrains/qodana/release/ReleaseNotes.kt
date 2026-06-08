@@ -46,3 +46,22 @@ fun categoryOf(change: Change): Category =
         "perf" -> Category.PERFORMANCE
         else -> Category.OTHER
     }
+
+/** Renders one bullet line. Scope (when present) is bolded; non-conventional subjects render verbatim. */
+fun renderChange(change: Change): String =
+    when {
+        change.type == null -> "- ${change.rawSubject}"
+        change.scope != null -> "- **${change.scope}**: ${change.description}"
+        else -> "- ${change.description}"
+    }
+
+/** Renders changes grouped into `### <heading>` sections in [Category] declaration order; empty in → "". */
+fun renderCategorized(changes: List<Change>): String {
+    val byCategory = changes.groupBy { categoryOf(it) }
+    return Category.entries
+        .filter { !byCategory[it].isNullOrEmpty() }
+        .joinToString("\n\n") { category ->
+            val lines = byCategory.getValue(category).joinToString("\n") { renderChange(it) }
+            "### ${category.heading}\n$lines"
+        }
+}

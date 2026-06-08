@@ -55,4 +55,57 @@ class ReleaseNotesTest {
         assertEquals(Category.OTHER, categoryOf(parseCommit("docs: a")))
         assertEquals(Category.OTHER, categoryOf(parseCommit("not conventional")))
     }
+
+    // --- renderChange -----
+    @Test fun rendersScopeBold() {
+        assertEquals(
+            "- **graalvm**: native binary e2e tests (#12)",
+            renderChange(parseCommit("feat(graalvm): native binary e2e tests (#12)")),
+        )
+    }
+
+    @Test fun rendersWithoutScope() {
+        assertEquals("- stop the crash", renderChange(parseCommit("fix: stop the crash")))
+    }
+
+    @Test fun rendersNonConventionalVerbatim() {
+        assertEquals("- just some subject", renderChange(parseCommit("just some subject")))
+    }
+
+    // --- renderCategorized -----
+    @Test fun rendersSectionsInOrderOmittingEmpty() {
+        val changes =
+            listOf(
+                parseCommit("chore: cleanup"),
+                parseCommit("feat(a): first"),
+                parseCommit("fix: second"),
+            )
+        val expected =
+            """
+            ### 🚀 Features
+            - **a**: first
+
+            ### 🐛 Bug Fixes
+            - second
+
+            ### 🧹 Other changes
+            - cleanup
+            """.trimIndent()
+        assertEquals(expected, renderCategorized(changes))
+    }
+
+    @Test fun rendersEmptyListAsEmptyString() {
+        assertEquals("", renderCategorized(emptyList()))
+    }
+
+    @Test fun preservesWithinSectionOrder() {
+        val changes = listOf(parseCommit("feat: one"), parseCommit("feat: two"))
+        val expected =
+            """
+            ### 🚀 Features
+            - one
+            - two
+            """.trimIndent()
+        assertEquals(expected, renderCategorized(changes))
+    }
 }
