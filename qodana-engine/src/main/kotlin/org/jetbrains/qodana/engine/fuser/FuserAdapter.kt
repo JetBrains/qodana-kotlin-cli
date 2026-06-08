@@ -1,9 +1,11 @@
 package org.jetbrains.qodana.engine.fuser
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.DeserializationFeature
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.intellij.internal.statistic.eventLog.EventLogBuild
 import com.intellij.internal.statistic.eventLog.validator.SensitiveDataValidator
 import com.jetbrains.fus.reporting.client.CompositeMetadataStorage
+import com.jetbrains.fus.reporting.model.config.v4.Configuration
 import com.jetbrains.fus.reporting.model.lion3.LogEvent
 import com.jetbrains.fus.reporting.model.lion3.LogEventAction
 import com.jetbrains.fus.reporting.model.lion3.LogEventGroup
@@ -22,12 +24,14 @@ class FuserAdapter(
     private val productVersion: String,
 ) : StatisticsReporter {
     private val recorderCode = "FUS"
-    private val mapper = ObjectMapper()
+
+    // Parse the external, evolving FUS config/metadata with the repo's standard Kotlin-aware, lenient
+    // mapper (cf. EffectiveConfig): ignore unknown fields so new config keys can't break resolution.
+    private val mapper =
+        jacksonObjectMapper()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
     private val httpTimeout = Duration.ofSeconds(10)
 
-    // fus-reporting v168 deprecates EventLogExternalSettings in favor of Configuration; the
-    // migration is tracked in QD-14895. Suppressed here so the bump compiles under -Werror.
-    @Suppress("DEPRECATION")
     override suspend fun sendEvents(
         deviceId: String,
         productCode: String,
@@ -35,11 +39,9 @@ class FuserAdapter(
     ) {
         val configUrl = "https://resources.jetbrains.com/storage/fus/config/v4/$recorderCode/$productCode.json"
 
-        val configJson = httpGet(configUrl)
-        val settingsClass = com.jetbrains.fus.reporting.model.config.v4.EventLogExternalSettings::class.java
-        val config = mapper.readValue(configJson, settingsClass).versions!!.first()
+        val endpoints = resolveEndpoints(httpGet(configUrl), productCode)
 
-        val metadataJson = httpGet(config.getMetadataEndpoint(productCode)!!)
+        val metadataJson = httpGet(endpoints.metadataUrl)
         val metadata = mapper.readValue(metadataJson, EventGroupRemoteDescriptors::class.java)
 
         val metadataStorage =
@@ -77,7 +79,30 @@ class FuserAdapter(
             )
 
         val validated = validator.validateReport(report) ?: return
-        httpPost(config.getSendEndpoint(), validated)
+        httpPost(endpoints.sendUrl, validated)
+    }
+
+    /** Resolves the FUS metadata + send URLs for this product/build from the downloaded config JSON. */
+    internal fun resolveEndpoints(
+        configJson: String,
+        productCode: String,
+    ): FusEndpoints {
+        val config = mapper.readValue(configJson, Configuration::class.java)
+        val version = config.findProductVersion(productVersion)
+        // findProductVersion returns a non-null `empty` sentinel (no endpoints) when no build range
+        // matches; these checks also cover a matched-but-incomplete version. Fail loudly instead of
+        // building a "null<pc>.json" metadata URL or NPEing later on a null send URL.
+        checkNotNull(version.provideMetadataEndpoint()) {
+            "FUS config for build '$productVersion' (product '$productCode') has no metadata endpoint"
+        }
+        val sendUrl =
+            checkNotNull(version.provideSendEndpoint()) {
+                "FUS config for build '$productVersion' (product '$productCode') has no send endpoint"
+            }
+        return FusEndpoints(
+            metadataUrl = version.provideMetadataProductUrl(productCode),
+            sendUrl = sendUrl,
+        )
     }
 
     private fun httpGet(url: String): String {
@@ -99,7 +124,7 @@ class FuserAdapter(
     }
 
     private fun httpPost(
-        url: String?,
+        url: String,
         report: ValidatedFusReport,
     ) {
         val entity = FuserSerializer.serialize(report)
@@ -113,7 +138,7 @@ class FuserAdapter(
             HttpRequest
                 .newBuilder()
                 .timeout(httpTimeout)
-                .uri(URI.create(url!!))
+                .uri(URI.create(url))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(entity))
                 .build()
@@ -122,3 +147,8 @@ class FuserAdapter(
 
     private fun bucket(deviceId: String): Int = abs(deviceId.hashCode()) % 256
 }
+
+internal data class FusEndpoints(
+    val metadataUrl: String,
+    val sendUrl: String,
+)

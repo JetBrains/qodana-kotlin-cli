@@ -264,7 +264,7 @@ Module structure: `qodana-core`, `qodana-engine`, `qodana-cli`, `qodana-clang`, 
 - [ ] **OkHttpTransport** — `OkHttpTransport.kt` exists, zero tests. Needs MockWebServer.
 - [ ] **PublisherAdapter** — uses qodana-publisher library, zero tests.
 - [ ] **ReportConverterAdapter** — thin wrapper around qodana-report-converter, zero tests.
-- [ ] **FuserAdapter** — uses FUS reporting library + HTTP, zero tests (FuserSerializer tested).
+- [ ] **FuserAdapter** — config-resolution path tested (`FuserAdapterTest`: build-aware version selection + metadata/send URL parity, QD-14895); the HTTP `sendEvents` path is still untested (builds its own `HttpClient` + hardcoded config URL — would need transport injection or MockWebServer).
 - [ ] **Cloud Endpoint edge cases** — `CloudClientTest` has 6 tests. Go has 17 tests across cloud + endpoints. Missing: version mismatch, endpoint construction, project URL, team URL.
 - [ ] **Failure threshold severity combos** — `ReportProcessorTest` has 8 tests. Go `TestFailureThresholds` has extensive severity matrix.
 - [ ] **ContainerScan Docker arg details** — Go `TestDockerCliArgs`, `TestGenerateDebugDockerRunCommand`. Kotlin `ContainerScanTest` has 9 tests but missing debug command gen, token filtering.
