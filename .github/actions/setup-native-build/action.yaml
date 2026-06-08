@@ -1,31 +1,83 @@
 name: Set up native-build toolchain
 description: |
-  Common toolchain setup for native-image build cells: GraalVM CE 25 + Gradle. Used by both
-  `ci.yaml`'s `native-build` matrix and `draft-release.yaml`'s `build-cli` / `build-clang-cdnet`
-  matrices to keep the setup story in a single place.
+  Toolchain setup for native-image build cells. On Windows, downloads the pinned
+  `qodana/graalvm-hybridcrt` release (a HybridCRT-patched GraalVM CE 25) so produced `.exe` files
+  link the VC++ runtime statically — a single self-sufficient file with no `vcruntime140*.dll`
+  sidecars (QD-14925). On other OSes, installs stock GraalVM CE 25 via `setup-graalvm`. Always sets
+  up Gradle.
 
   IMPORTANT: callers MUST run `actions/checkout@v4` themselves before invoking this action — local
-  composite actions are resolved from the workspace, so the repo must already be on disk. This
-  composite does NOT bundle checkout for that reason.
+  composite actions are resolved from the workspace, so the repo must already be on disk.
 
 inputs:
   github-token:
-    description: 'Token for graalvm/setup-graalvm. Defaults to GITHUB_TOKEN.'
+    description: 'Token for graalvm/setup-graalvm (non-Windows). Defaults to GITHUB_TOKEN.'
     required: false
     default: ${{ github.token }}
   native-image-job-reports:
-    description: 'Pass-through to graalvm/setup-graalvm `native-image-job-reports`. CI native-build uses true; release jobs leave false.'
+    description: 'Pass-through to graalvm/setup-graalvm `native-image-job-reports` (non-Windows). CI native-build uses true; release jobs leave false.'
     required: false
     default: 'false'
+  graalvm-hybridcrt-version:
+    description: 'Pinned qodana/graalvm-hybridcrt release tag used on Windows. Renovate-managed; do not edit by hand.'
+    required: false
+    # renovate: datasource=github-releases depName=qodana/graalvm-hybridcrt versioning=regex:^v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)-msvc\.\d+\.\d+\.\d+\.(?<build>\d+)$
+    default: 'v25.0.2-msvc.14.44.35227.1'
 
 runs:
   using: composite
   steps:
+    # --- Windows: vendored HybridCRT GraalVM (QD-14925). PowerShell, not bash: Invoke-WebRequest /
+    # Get-FileHash / Expand-Archive are guaranteed on the runner; Git Bash's unzip/sha256sum are not. ---
+    - name: Restore HybridCRT GraalVM cache (Windows)
+      id: hybridcrt-cache
+      if: runner.os == 'Windows'
+      uses: actions/cache@v4
+      with:
+        path: .graalvm-hybridcrt
+        key: graalvm-hybridcrt-${{ inputs.graalvm-hybridcrt-version }}-windows-amd64
+    - name: Download + verify HybridCRT GraalVM (Windows)
+      if: runner.os == 'Windows' && steps.hybridcrt-cache.outputs.cache-hit != 'true'
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $ver = '${{ inputs.graalvm-hybridcrt-version }}'
+        $base = "https://github.com/qodana/graalvm-hybridcrt/releases/download/$ver"
+        $asset = "graalvm-hybridcrt-$ver-windows-amd64.zip"
+        Invoke-WebRequest -Uri "$base/$asset" -OutFile $asset
+        Invoke-WebRequest -Uri "$base/SHA256.txt" -OutFile SHA256.txt
+        # Robust: take the first 64-hex token, so a future "hash<space>filename" format still works.
+        $m = [regex]::Match((Get-Content -Raw SHA256.txt), '[0-9A-Fa-f]{64}')
+        if (-not $m.Success) { throw "No SHA-256 digest found in SHA256.txt" }
+        $expected = $m.Value.ToLower()
+        $actual = (Get-FileHash -Algorithm SHA256 -Path $asset).Hash.ToLower()
+        if ($expected -ne $actual) { throw "SHA256 mismatch for ${asset}: expected $expected, got $actual" }
+        if (Test-Path .graalvm-hybridcrt) { Remove-Item -Recurse -Force .graalvm-hybridcrt }
+        New-Item -ItemType Directory -Force -Path .graalvm-hybridcrt | Out-Null
+        Expand-Archive -Path $asset -DestinationPath .graalvm-hybridcrt -Force
+        Remove-Item -Force $asset, SHA256.txt
+    - name: Export GraalVM env (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = 'Stop'
+        $graalHome = Join-Path (Get-Location) '.graalvm-hybridcrt\graalvm'
+        if (-not (Test-Path (Join-Path $graalHome 'bin\native-image.cmd'))) {
+          Get-ChildItem (Join-Path $graalHome 'bin') -ErrorAction SilentlyContinue
+          throw "native-image.cmd not found under $graalHome (unexpected HybridCRT zip layout)"
+        }
+        "GRAALVM_HOME=$graalHome"     | Out-File -FilePath $env:GITHUB_ENV  -Append -Encoding utf8
+        "JAVA_HOME=$graalHome"        | Out-File -FilePath $env:GITHUB_ENV  -Append -Encoding utf8
+        (Join-Path $graalHome 'bin')  | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+    # --- non-Windows: stock GraalVM CE 25 ---
     - uses: graalvm/setup-graalvm@v1
+      if: runner.os != 'Windows'
       with:
         # renovate: datasource=github-releases depName=graalvm/graalvm-ce-builds extractVersion=^jdk-(?<version>.+)$
         java-version: '25.0.2'
         distribution: 'graalvm-community'
         github-token: ${{ inputs.github-token }}
         native-image-job-reports: ${{ inputs.native-image-job-reports }}
+
     - uses: gradle/actions/setup-gradle@v4
