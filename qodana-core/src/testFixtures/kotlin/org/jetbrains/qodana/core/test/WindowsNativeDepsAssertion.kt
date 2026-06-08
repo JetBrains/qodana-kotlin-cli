@@ -20,7 +20,7 @@ import kotlin.test.fail
  * name. UCRT (`ucrtbase.dll`, `api-ms-win-crt-*`) is intentionally allowed — it ships in-box on the
  * supported floor and stays dynamically linked under HybridCRT.
  *
- * QD-14925 (supersedes the QD-14812 app-local bundling this used to assert).
+ * QD-14925.
  *
  * @param module the Gradle module name; used to find the `.exe` under
  *   `build/native/nativeCompile/<module>.exe`.
