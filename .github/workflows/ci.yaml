@@ -96,28 +96,31 @@ jobs:
       - uses: ./.github/actions/setup-native-build
         with:
           native-image-job-reports: 'true'
-      - name: Native compile (+ DLL bundle + deps test on Windows)
-        # On Windows, chain nativeCompile → bundleWindowsCrt → NativeWindowsDepsTest in one Gradle
-        # invocation so the task graph guarantees the .exe and the bundled VC++ DLLs exist before
-        # the test reads them (QD-14812). `-PnativeTests=true` opts in to the `native-deps` JUnit
-        # tag (otherwise excluded by build-logic/testing.gradle.kts).
+      - name: Native compile (+ zero-VC deps test on Windows)
+        # On Windows, chain nativeCompile → NativeWindowsDepsTest in one Gradle invocation so the
+        # task graph guarantees the .exe exists before the test reads its import table. The test
+        # asserts zero VC++ runtime imports (single-file via the HybridCRT GraalVM, QD-14925).
+        # `-PnativeTests=true` opts in to the `native-deps` JUnit tag (otherwise excluded by
+        # build-logic/testing.gradle.kts); `-Pcustom-graalvm` points the build at the HybridCRT
+        # GraalVM that setup-native-build placed in GRAALVM_HOME.
         shell: bash
         run: |
+          # MSYS_NO_PATHCONV=1: Git Bash on the Windows runner must not rewrite the Windows path in
+          # -Pcustom-graalvm="$GRAALVM_HOME" — it must reach Gradle verbatim so it matches GRAALVM_HOME.
           if [ "${{ runner.os }}" = "Windows" ]; then
-            ./gradlew :${{ matrix.module }}:nativeCompile \
-                      :${{ matrix.module }}:bundleWindowsCrt \
+            MSYS_NO_PATHCONV=1 ./gradlew :${{ matrix.module }}:nativeCompile \
                       :${{ matrix.module }}:test \
                       --tests "*NativeWindowsDepsTest" \
-                      -Pquick=true -PnativeTests=true
+                      -Pquick=true -PnativeTests=true \
+                      -Pcustom-graalvm="$GRAALVM_HOME"
           else
             ./gradlew :${{ matrix.module }}:nativeCompile -Pquick=true
           fi
       - name: Smoke-run produced binary (Windows)
-        # Catches "binary links but crashes at startup" that NativeWindowsDepsTest's import-table
-        # check cannot detect. Uses --help (vs --version) because clang/cdnet don't implement
-        # versionOption. Runs on the GHA runner which has the VC++ Redistributable pre-installed,
-        # so this is NOT a clean-Windows-install validation — that's tracked as a follow-up. It
-        # only verifies the binary starts and the bundled DLLs load alongside the .exe.
+        # Catches "binary links but crashes at startup" that the import-table check cannot detect.
+        # Uses --help (vs --version) because clang/cdnet don't implement versionOption. This only
+        # proves the .exe starts and prints ON THE RUNNER (which has the VC++ redist); the
+        # zero-VC-import test above is what proves clean-host self-sufficiency.
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -141,7 +144,6 @@ jobs:
           path: |
             ${{ matrix.module }}/build/native/nativeCompile/${{ matrix.module }}
             ${{ matrix.module }}/build/native/nativeCompile/${{ matrix.module }}.exe
-            ${{ matrix.module }}/build/native/nativeCompile/*.dll
           if-no-files-found: error
           retention-days: 14
 

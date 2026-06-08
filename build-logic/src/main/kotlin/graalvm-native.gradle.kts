@@ -1,5 +1,3 @@
-import internal.BundleWindowsCrt
-
 plugins {
     id("org.graalvm.buildtools.native")
 }
@@ -16,8 +14,48 @@ val quickBuildEnabled: Boolean =
         else -> error("Unrecognized value for -Pquick: '$raw'. Use 'true' or 'false'.")
     }
 
+// QD-14925: -Pcustom-graalvm=<absolute GraalVM home> points nativeCompile at an explicit GraalVM
+// (the vendored HybridCRT on Windows) instead of a foojay-downloaded stock one. Absent OR blank
+// (CI omits/empties it on non-Windows) => unchanged toolchain-detection/foojay behaviour.
+//
+// native-build-tools 1.1.1 (NativeImageExecutableLocator): with toolchainDetection off and NO
+// per-binary javaLauncher set, native-image resolves from GRAALVM_HOME (then JAVA_HOME). We make
+// that env the single deterministic source — no Gradle auto-detection, no vendor matching — and fail
+// loudly if it doesn't match the requested path, so a misconfigured runner can't silently build with
+// a stock /MD GraalVM. CI: setup-native-build exports GRAALVM_HOME/JAVA_HOME and passes
+// -Pcustom-graalvm="$GRAALVM_HOME". Local: export GRAALVM_HOME=<path> and pass -Pcustom-graalvm=<same>.
+val customGraalvmHome: String? =
+    (findProperty("custom-graalvm") as? String)?.trim()?.takeIf { it.isNotEmpty() }
+
+if (customGraalvmHome != null) {
+    val envHome =
+        providers.environmentVariable("GRAALVM_HOME")
+            .orElse(providers.environmentVariable("JAVA_HOME"))
+            .orNull
+            ?: error(
+                "-Pcustom-graalvm=$customGraalvmHome requires GRAALVM_HOME (or JAVA_HOME) to point at the " +
+                    "same GraalVM — native-build-tools resolves native-image from that env var. " +
+                    "Export GRAALVM_HOME=$customGraalvmHome and retry.",
+            )
+    val requested = file(customGraalvmHome).canonicalFile
+    val effective = file(envHome).canonicalFile
+    check(requested == effective) {
+        "-Pcustom-graalvm=$customGraalvmHome does not match GRAALVM_HOME/JAVA_HOME ($effective). " +
+            "Point both at the same GraalVM home so nativeCompile uses the intended toolchain."
+    }
+    val nativeImage =
+        listOf("native-image", "native-image.cmd", "native-image.exe")
+            .map { effective.resolve("bin").resolve(it) }
+            .firstOrNull { it.isFile }
+    checkNotNull(nativeImage) {
+        "GRAALVM_HOME/JAVA_HOME ($effective) is not a GraalVM home: no bin/native-image[.cmd/.exe]. " +
+            "Point -Pcustom-graalvm at a GraalVM that has native-image."
+    }
+    logger.lifecycle("nativeCompile: using custom GraalVM at $effective (native-image=${nativeImage.name}, toolchain detection off).")
+}
+
 graalvmNative {
-    toolchainDetection.set(true)
+    toolchainDetection.set(customGraalvmHome == null)
 
     metadataRepository {
         enabled.set(true)
@@ -31,7 +69,7 @@ graalvmNative {
         // The stripTestEntriesFromMetadata task in qodana-cli/build.gradle.kts
         // finalizes metadataCopy and removes them automatically.
         // The plugin's `accessFilterFiles` knob was tried first but doesn't
-        // filter the test-class entries on 0.10.6 against our setup.
+        // filter the test-class entries on 1.1.1 against our setup.
         //
         // Capture from BOTH `test` (non-Docker reflection — Clikt, Jackson,
         // InitCommand's file IO, send via MockQDCloudHttpClient) AND
@@ -59,22 +97,9 @@ graalvmNative {
             buildArgs.add("-H:+ReportExceptionStackTraces")
             // Add `--initialize-at-run-time=<class-or-package>` entries here when
             // nativeCompile fails on build-time-initialization for a specific class.
+            // NOTE: deliberately NO javaLauncher — when -Pcustom-graalvm is in effect, native-image
+            // comes from GRAALVM_HOME (validated above). Setting a launcher would take NBT 1.1.1's
+            // first locator branch and override that env resolution.
         }
     }
-}
-
-// QD-14812: GraalVM 25 (stock) still hard-codes /MD on Windows, mirroring the JDK's own /MD
-// build (OpenJDK make/autoconf/flags-cflags.m4:591). The produced .exe therefore imports
-// VCRUNTIME140.dll + VCRUNTIME140_1.dll, which only ship with the Microsoft VC++ Redistributable for
-// VS 2015–2022 — absent on Server Core, LTSC SKUs, and stripped Windows containers. App-local
-// bundling is the only viable mitigation; static /MT is upstream-impossible (oracle/graal#1762,
-// open since 2019).
-//
-// Registered on all hosts so qodana-release.gradle.kts can reference it unconditionally. The task
-// only succeeds on Windows hosts — it fails loudly otherwise (no silent skip per CLAUDE.md).
-tasks.register<BundleWindowsCrt>("bundleWindowsCrt") {
-    group = "build"
-    description = "Copy Microsoft Visual C++ runtime DLLs next to the GraalVM-built Windows binary (QD-14812)."
-    dependsOn("nativeCompile")
-    outputDir.set(layout.buildDirectory.dir("native/nativeCompile"))
 }

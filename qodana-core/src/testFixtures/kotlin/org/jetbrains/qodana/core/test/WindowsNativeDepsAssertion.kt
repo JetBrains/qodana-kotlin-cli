@@ -6,49 +6,26 @@ import java.nio.file.Path
 import kotlin.test.fail
 
 /**
- * Verifies that a GraalVM-built Windows `.exe` is self-contained on a clean Windows install — i.e.
- * any Microsoft VC++ runtime DLL the binary imports (regular OR delay-load) must be present next
- * to the `.exe` in the same directory, so the binary runs on hosts without the Microsoft VC++
- * Redistributable installed (Server Core, LTSC SKUs, Windows containers, stripped corporate VDIs).
+ * Verifies that a GraalVM-built Windows `.exe` is a single self-sufficient file: it imports NO
+ * Microsoft VC++ redistributable runtime DLL (regular OR delay-load), so it runs on a clean Windows
+ * host (Win10 1803+ / Server 2016+) with no VC++ Redistributable and no sidecar DLLs.
  *
- * Shared by the three modules that produce Windows native binaries: `qodana-cli`, `qodana-clang`,
- * `qodana-cdnet`. Each module's `NativeWindowsDepsTest` is a thin delegator that supplies the
- * module name; this function does the actual import-table inspection + assertion.
+ * The binary is built with the HybridCRT-patched GraalVM (`qodana/graalvm-hybridcrt`), which links
+ * the VC++ runtime statically (`/MT`) while keeping the in-box Universal CRT (`ucrtbase.dll`)
+ * dynamic. A `vcruntime140*.dll` import — or any VC++ redistributable DLL — therefore means the
+ * binary was built with a stock `/MD` GraalVM instead of the patched toolchain.
  *
- * The bundling that keeps this assertion green lives in
- * `build-logic/src/main/kotlin/internal/BundleWindowsCrt.kt`: it locates the Microsoft VC++
- * Redistributable's copy of the imported DLLs and copies them into the `nativeCompile` output
- * directory before this test reads the import table.
+ * Shared by the three modules that produce Windows native binaries (`qodana-cli`, `qodana-clang`,
+ * `qodana-cdnet`); each module's `NativeWindowsDepsTest` is a thin delegator supplying the module
+ * name. UCRT (`ucrtbase.dll`, `api-ms-win-crt-*`) is intentionally allowed — it ships in-box on the
+ * supported floor and stays dynamically linked under HybridCRT.
  *
- * ### Why "self-contained" rather than "no VC++ imports"?
+ * QD-14925.
  *
- * Static `/MT` (which would produce a `.exe` with zero VC++ DLL imports) is NOT viable on this
- * toolchain. GraalVM 25 (stock) — like GraalVM 21 before it — still hard-codes `/MD` in
- * `substratevm/.../image/CCLinkerInvocation.java`:
- *
- *     // cmd.add("/MT");
- *     // Must use /MD in order to link with JDK native libraries built that way
- *     cmd.add("/MD");
- *
- * The JDK's own native libraries are built with `/MD` (OpenJDK
- * `make/autoconf/flags-cflags.m4:591`), so GraalVM cannot link them with `/MT` user objects
- * without producing a mixed-CRT binary. Upstream issue `oracle/graal#1762` tracks this; open since
- * 2019, no resolution. App-local bundling is the only viable mitigation, hence the
- * "imported AND bundled alongside" assertion shape rather than "no VC++ imports".
- *
- * ### UCRT (`ucrtbase.dll`, `api-ms-win-crt-*`)
- *
- * Intentionally outside the assertion: ships with Windows 10 1803+ / Server 2016+ and is not a
- * redistributable concern for our supported targets. If that floor drops (e.g. Server 2016 LTSC
- * without the UCRT update), extend [VC_RUNTIME_REGEX].
- *
- * QD-14812.
- *
- * @param module the Gradle module name; used both to find the `.exe` under
- *   `build/native/nativeCompile/<module>.exe` and to phrase the "run nativeCompile first" message.
- *   The test's CWD is the module's project directory (Gradle's default `Test.workingDir`).
+ * @param module the Gradle module name; used to find the `.exe` under
+ *   `build/native/nativeCompile/<module>.exe`.
  */
-fun assertWindowsNativeBinaryIsSelfContained(module: String) {
+fun assertWindowsNativeBinaryHasNoVcRuntimeImports(module: String) {
     val exe = Path.of("build/native/nativeCompile/$module.exe")
     check(Files.exists(exe)) {
         "$exe not found. Run :$module:nativeCompile first."
@@ -60,33 +37,41 @@ fun assertWindowsNativeBinaryIsSelfContained(module: String) {
             .map { it.name }
             .distinct()
             .sorted()
-    val vcImports = imports.filter { VC_RUNTIME_REGEX.matches(it) }
-    val unbundled = vcImports.filter { dll -> !Files.exists(exe.resolveSibling(dll)) }
+    val forbidden = forbiddenVcRuntimeImports(imports)
 
-    if (unbundled.isNotEmpty()) {
+    if (forbidden.isNotEmpty()) {
         fail(
             buildString {
                 appendLine(
-                    "${exe.fileName} imports VC++ runtime DLLs that are not bundled alongside the " +
-                        "binary: $unbundled.",
+                    "${exe.fileName} imports VC++ runtime DLLs: $forbidden. A HybridCRT-built binary " +
+                        "must import none — it links the VC++ runtime statically (/MT).",
                 )
                 appendLine("All imports: ${imports.joinToString()}")
                 appendLine(
-                    "Fix by extending `BundleWindowsCrt.REQUIRED_DLLS` in " +
-                        "build-logic/src/main/kotlin/internal/BundleWindowsCrt.kt with the " +
-                        "newly-imported DLL. Static `/MT` is upstream-impossible on GraalVM 25 — " +
-                        "see this function's KDoc for the rationale.",
+                    "If this is red, the build used a stock /MD GraalVM, not the vendored HybridCRT " +
+                        "toolchain. Check the -Pcustom-graalvm wiring and GRAALVM_HOME in setup-native-build.",
                 )
             },
         )
     }
 }
 
-// Matches the VC++ Redistributable DLL family: VCRUNTIME140 (+ _1), MSVCP140, CONCRT140, MSVCR120
-// (legacy CRT), VCOMP140 (OpenMP), MFC and MFCM (Microsoft Foundation Classes), VCAMP (C++ AMP),
-// ATL (Active Template Library). UCRT and api-ms-win-crt-* are intentionally excluded — see KDoc.
+/**
+ * Returns, in input order, the DLL names belonging to the Microsoft VC++ redistributable runtime
+ * family — the imports a HybridCRT `/MT` binary must NOT have. Pure and host-independent so it is
+ * unit-testable without a PE file. The forbidden family mirrors `qodana/graalvm-hybridcrt`'s
+ * `scripts/check_imports.py`.
+ */
+fun forbiddenVcRuntimeImports(importedDllNames: List<String>): List<String> =
+    importedDllNames.filter { VC_RUNTIME_REGEX.containsMatchIn(it) }
+
+// Forbidden VC++ runtime DLL families (aligned with graalvm-hybridcrt/scripts/check_imports.py):
+// vccorlib, vcruntime, concrt, vcamp, vcomp, msvcp, msvcr, mfcm, mfc, atl — the trailing
+// [0-9a-z_]* swallows the version/variant suffix (140, 140_1, 120u, 140ud, ...). Word boundaries
+// guard against mid-word near-misses such as "statlib.dll" (contains "atl"). UCRT and
+// api-ms-win-crt-* are intentionally excluded — see assertWindowsNativeBinaryHasNoVcRuntimeImports.
 private val VC_RUNTIME_REGEX =
     Regex(
-        """^(vcruntime|msvcp|concrt|msvcr|vcomp|mfc|mfcm|vcamp|atl)\d+[a-z]?(_\d+)?\.dll$""",
+        """\b(?:vccorlib|vcruntime|concrt|vcamp|vcomp|msvcp|msvcr|mfcm|mfc|atl)[0-9a-z_]*\.dll\b""",
         RegexOption.IGNORE_CASE,
     )
