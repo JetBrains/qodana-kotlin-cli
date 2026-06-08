@@ -314,8 +314,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # release-meta (from the prepare job) lands in dist/ via merge-multiple; move it to the workspace
-          # root so it is not treated as a release asset by Verify asset set / Compute checksums / gh release create.
+          # With merge-multiple: true, download-artifact flattens every artifact into dist/, so release-meta's
+          # two files land at dist/release-notes.md and dist/release-title.txt. Move them to the workspace root
+          # so they are not treated as release assets by Verify asset set / Compute checksums / gh release create.
           mv dist/release-notes.md dist/release-title.txt .
 
       - name: Verify asset set

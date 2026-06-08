@@ -112,15 +112,16 @@ fun selectPreviousNightlyTag(
     tags: List<String>,
     base: String,
     excludeTag: String,
-): String? =
-    tags
-        .asSequence()
+): String? {
+    val exclude = excludeTag.trim()
+    return tags.asSequence()
         .map { it.trim() }
-        .filter { it != excludeTag.trim() }
+        .filter { it != exclude }
         .mapNotNull { raw -> parseNightlyTag(raw)?.let { raw to it } }
         .filter { (_, parsed) -> parsed.base == base }
         .maxWithOrNull(compareBy({ (_, p) -> p.date }, { (_, p) -> p.counter ?: 0 }, { (raw, _) -> raw }))
         ?.first
+}
 
 /**
  * The "Full changelog" compare-link footer line, or null when there is no stable baseline / repo / SHA.

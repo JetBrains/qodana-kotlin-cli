@@ -226,6 +226,14 @@ class ReleaseNotesTest {
         assertNull(compareLinkFooter(repo = "o/r", stableTag = null, headSha = "abc1234", currentTag = "v2026.2"))
     }
 
+    @Test fun footerNullWithoutRepo() {
+        assertNull(compareLinkFooter(repo = null, stableTag = "v2026.2", headSha = "abc1234", currentTag = "v2026.2"))
+    }
+
+    @Test fun footerNullWithoutHeadSha() {
+        assertNull(compareLinkFooter(repo = "o/r", stableTag = "v2026.2", headSha = null, currentTag = "v2026.2"))
+    }
+
     // --- assembleNotes -----
     @Test fun assemblesSingleSectionWithFooter() {
         val out =

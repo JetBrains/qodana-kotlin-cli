@@ -89,7 +89,8 @@ val (title, notes) = if (mode == "nightly") {
                 collapsible = commits("$latestStable..$prevNightly"),
                 footer = footer,
             )
-        // Prior nightly but no stable yet: just the since-last-nightly delta (no collapsible/footer).
+        // Prior nightly but no stable yet: just the since-last-nightly delta (no collapsed earlier
+        // section; footer is null without a stable baseline).
         prevNightly != null ->
             assembleNotes(
                 visibleHeading = null,
