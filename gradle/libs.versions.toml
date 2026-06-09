@@ -14,7 +14,7 @@ qodana-cloud-client = "0.2.12"
 qodana-jvm-community-tag = "2025.3"
 # Keep in lockstep with ap-scheme-tools: it pulls fus.reporting scheme/model transitively,
 # and a lower pin here causes a compile/runtime version skew (NoSuchMethodError). See QD-14894.
-fus-reporting = "168"
+fus-reporting = "171"
 fus-metadata-client = "10"
 ap-scheme-tools = "0.0.26"
 intellij-report-converter = "0.12.5"
