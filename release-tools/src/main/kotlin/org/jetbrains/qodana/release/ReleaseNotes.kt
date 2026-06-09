@@ -44,7 +44,11 @@ fun parseCommit(subject: String): Change {
             ?: return Change(type = null, scope = null, description = s, rawSubject = s)
     return Change(
         type = m.groups["type"]!!.value.lowercase(),
-        scope = m.groups["scope"]?.value,
+        scope =
+            m.groups["scope"]
+                ?.value
+                ?.trim()
+                ?.ifEmpty { null },
         description = m.groups["desc"]!!.value.trim(),
         rawSubject = s,
     )
@@ -114,7 +118,8 @@ fun selectPreviousNightlyTag(
     excludeTag: String,
 ): String? {
     val exclude = excludeTag.trim()
-    return tags.asSequence()
+    return tags
+        .asSequence()
         .map { it.trim() }
         .filter { it != exclude }
         .mapNotNull { raw -> parseNightlyTag(raw)?.let { raw to it } }

@@ -13,28 +13,29 @@ import java.io.File
 import kotlin.system.exitProcess
 
 // --- args -----
+fun need(flag: String, value: String?): String =
+    if (value == null || value.startsWith("--")) {
+        System.err.println("$flag needs a value"); exitProcess(2)
+    } else value
+
 var tag: String? = null
-var mode = "tagged"
+var mode = "auto"
 var repo: String? = null
 var headSha: String? = null
 var repoDir = "."
 var i = 0
 while (i < args.size) {
     when (val a = args[i]) {
-        "--tag" -> tag = args.getOrNull(++i)
-        "--mode" -> mode = args.getOrNull(++i) ?: mode
-        "--repo" -> repo = args.getOrNull(++i)
-        "--head-sha" -> headSha = args.getOrNull(++i)
-        "--repo-dir" -> repoDir = args.getOrNull(++i) ?: repoDir
+        "--tag" -> tag = need(a, args.getOrNull(++i))
+        "--mode" -> mode = need(a, args.getOrNull(++i))
+        "--repo" -> repo = need(a, args.getOrNull(++i))
+        "--head-sha" -> headSha = need(a, args.getOrNull(++i))
+        "--repo-dir" -> repoDir = need(a, args.getOrNull(++i))
         else -> { System.err.println("unknown arg: $a"); exitProcess(2) }
     }
     i++
 }
 val currentTag = tag ?: run { System.err.println("--tag is required"); exitProcess(2) }
-if (mode != "nightly" && mode != "tagged") {
-    System.err.println("--mode must be 'nightly' or 'tagged', got '$mode'")
-    exitProcess(2)
-}
 
 // stderr is merged into stdout for diagnostics on failure; the parsers below tolerate stray lines.
 fun sh(vararg cmd: String): String {
@@ -73,9 +74,19 @@ fun singleSection(): String =
     )
 
 // --- build notes + title -----
-val (title, notes) = if (mode == "nightly") {
-    val parsed = parseNightlyTag(currentTag)
+val parsed = parseNightlyTag(currentTag)
+val effectiveMode =
+    when (mode) {
+        "auto" -> if (parsed != null) "nightly" else "tagged"
+        "nightly", "tagged" -> mode
+        else -> { System.err.println("--mode must be 'auto', 'nightly', or 'tagged', got '$mode'"); exitProcess(2) }
+    }
+
+val (title, notes) = if (effectiveMode == "nightly") {
     val t = parsed?.let { nightlyTitle(it) } ?: currentTag
+    // --merged HEAD (unlike compute-nightly-version.main.kts, which queries all nightly tags repo-wide for
+    // collision-avoidance): here we need the previous nightly that is an ANCESTOR of HEAD so "$prevNightly..HEAD"
+    // is a valid, disjoint range. Assumes the linear release topology (nightlies/stables advance along main).
     val prevNightly =
         parsed?.let { selectPreviousNightlyTag(git("tag", "--list", "*-nightly*", "--merged", "HEAD"), it.base, currentTag) }
     val n = when {
@@ -93,7 +104,7 @@ val (title, notes) = if (mode == "nightly") {
         // section; footer is null without a stable baseline).
         prevNightly != null ->
             assembleNotes(
-                visibleHeading = null,
+                visibleHeading = "## Since the last nightly",
                 visible = commits("$prevNightly..HEAD"),
                 visibleEmptyNote = "_No changes since the last nightly._",
                 collapsibleSummary = null,

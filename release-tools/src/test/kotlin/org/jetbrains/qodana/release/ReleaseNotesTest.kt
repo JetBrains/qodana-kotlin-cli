@@ -40,6 +40,14 @@ class ReleaseNotesTest {
         assertEquals("bump x: y to z", c.description)
     }
 
+    @Test fun trimsScopeWhitespace() {
+        assertEquals("graalvm", parseCommit("feat( graalvm ): x").scope)
+    }
+
+    @Test fun blankScopeBecomesNull() {
+        assertNull(parseCommit("feat(   ): x").scope)
+    }
+
     @Test fun nonConventionalSubjectHasNullType() {
         val c = parseCommit("just some subject")
         assertNull(c.type)
