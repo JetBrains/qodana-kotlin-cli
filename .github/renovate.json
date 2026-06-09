@@ -2,6 +2,8 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
   "minimumReleaseAge": "7 days",
+  "automerge": true,
+  "automergeStrategy": "squash",
   "customManagers": [
     {
       "customType": "regex",
@@ -10,12 +12,25 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) extractVersion=(?<extractVersion>\\S+)\\s+java-version:\\s*['\"](?<currentValue>[^'\"]+)['\"]"
       ]
+    },
+    {
+      "customType": "regex",
+      "description": "Track the qodana/graalvm-hybridcrt prebuilt (HybridCRT) GraalVM pinned in setup-native-build (QD-14925). The trailing <rev> tag segment bumps on every input change incl. MSVC-only security bumps; the MSVC toolset is intentionally uncaptured so those bumps are offered as upgrades.",
+      "managerFilePatterns": [".github/actions/setup-native-build/action.yaml"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+default:\\s*['\"](?<currentValue>[^'\"]+)['\"]"
+      ]
     }
   ],
   "packageRules": [
     {
       "description": "Keep the stock GraalVM pin on the JDK-25 line; the next-JDK migration is a deliberate effort.",
       "matchDepNames": ["graalvm/graalvm-ce-builds"],
+      "allowedVersions": "<26"
+    },
+    {
+      "description": "Keep the HybridCRT GraalVM on the JDK-25 line too; a major-line jump is a deliberate migration (QD-14917).",
+      "matchDepNames": ["qodana/graalvm-hybridcrt"],
       "allowedVersions": "<26"
     }
   ]

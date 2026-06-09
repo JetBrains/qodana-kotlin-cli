@@ -1,29 +1,27 @@
 package org.jetbrains.qodana.cli
 
-import org.jetbrains.qodana.core.test.assertWindowsNativeBinaryIsSelfContained
+import org.jetbrains.qodana.core.test.assertWindowsNativeBinaryHasNoVcRuntimeImports
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 
 /**
- * Verifies `qodana-cli.exe` is self-contained for the VC++ runtime — see
- * [assertWindowsNativeBinaryIsSelfContained] for the full rationale, the upstream-of-GraalVM
- * constraint, and the [BundleWindowsCrt][internal.BundleWindowsCrt] mitigation. QD-14812.
+ * Verifies `qodana-cli.exe` imports no VC++ runtime DLL — see
+ * [assertWindowsNativeBinaryHasNoVcRuntimeImports] for the rationale (single-file via the HybridCRT
+ * GraalVM, QD-14925).
  *
- * Tagged `native-deps` so `./gradlew test` skips it unless `-PnativeTests=true` is passed. The CI
- * Windows native-build matrix entry opts in. For local repro:
+ * Tagged `native-deps` so `./gradlew test` skips it unless `-PnativeTests=true` is passed; the CI
+ * Windows native-build matrix opts in. For local repro:
  *
- *     ./gradlew :qodana-cli:nativeCompile \
- *               :qodana-cli:bundleWindowsCrt \
+ *     GRAALVM_HOME=<hybridcrt-graalvm> ./gradlew :qodana-cli:nativeCompile \
  *               :qodana-cli:test --tests "*NativeWindowsDepsTest" \
- *               -PnativeTests=true
+ *               -PnativeTests=true -Pcustom-graalvm=<hybridcrt-graalvm>   # same path as GRAALVM_HOME
  *
- * On non-Windows hosts (or when nativeCompile hasn't run) the assertion fails loudly — no silent
- * skip.
+ * On non-Windows hosts (or when nativeCompile hasn't run) the assertion fails loudly — no silent skip.
  */
 @Tag("native-deps")
 class NativeWindowsDepsTest {
     @Test
-    fun `Windows native binary is self-contained for VC++ runtime`() {
-        assertWindowsNativeBinaryIsSelfContained(module = "qodana-cli")
+    fun `Windows native binary has no VC++ runtime imports`() {
+        assertWindowsNativeBinaryHasNoVcRuntimeImports(module = "qodana-cli")
     }
 }

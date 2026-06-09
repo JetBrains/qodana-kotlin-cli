@@ -73,7 +73,7 @@ jobs:
       tag: ${{ steps.outputs.outputs.tag }}
       sha: ${{ steps.outputs.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           # Pin to the same commit the build/publish jobs use (target-sha) so prepare normalizes and
           # checks the exact commit being shipped — no drift if `main` advances mid-run. Falls back to
@@ -81,11 +81,11 @@ jobs:
           ref: ${{ inputs.target-sha != '' && inputs.target-sha || github.sha }}
           fetch-depth: 0
           fetch-tags: true
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '25'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - uses: ./.github/actions/setup-kotlin
 
       - name: Normalize and validate version
@@ -157,27 +157,28 @@ jobs:
             --head-sha '${{ steps.outputs.outputs.sha }}' \
             --repo-dir .
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-meta
           path: |
             release-notes.md
             release-title.txt
           if-no-files-found: error
+          retention-days: 14
 
   sbom:
     name: SBOM
     needs: prepare
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ needs.prepare.outputs.sha }}
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '25'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Generate cli SBOM
         shell: bash
@@ -212,7 +213,7 @@ jobs:
           fi
           ls -la sbom-stage/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sbom
           path: sbom-stage/
@@ -233,7 +234,7 @@ jobs:
           - { name: windows/amd64, tag: windows-amd64, runner: windows-latest, os: windows, arch: amd64 }
     runs-on: ${{ matrix.platform.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ needs.prepare.outputs.sha }}
       - uses: ./.github/actions/setup-native-build
@@ -241,11 +242,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew :qodana-cli:assembleRelease \
+          EXTRA=()
+          if [ "$RUNNER_OS" = "Windows" ]; then EXTRA+=(-Pcustom-graalvm="$GRAALVM_HOME"); fi
+          # MSYS_NO_PATHCONV=1: keep Git Bash from rewriting the Windows -Pcustom-graalvm path
+          # (no-op on linux/darwin); it must match GRAALVM_HOME verbatim for the build's check.
+          MSYS_NO_PATHCONV=1 ./gradlew :qodana-cli:assembleRelease \
             -Pversion='${{ needs.prepare.outputs.version }}' \
             -PtargetOs=${{ matrix.platform.os }} \
-            -PtargetArch=${{ matrix.platform.arch }}
-      - uses: actions/upload-artifact@v4
+            -PtargetArch=${{ matrix.platform.arch }} \
+            "${EXTRA[@]}"
+      - uses: actions/upload-artifact@v7
         with:
           name: cli-${{ matrix.platform.tag }}
           path: qodana-cli/build/release/*
@@ -268,7 +274,7 @@ jobs:
         module: [qodana-clang, qodana-cdnet]
     runs-on: ${{ matrix.platform.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ needs.prepare.outputs.sha }}
       - uses: ./.github/actions/setup-native-build
@@ -276,11 +282,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew :${{ matrix.module }}:assembleRelease \
+          EXTRA=()
+          if [ "$RUNNER_OS" = "Windows" ]; then EXTRA+=(-Pcustom-graalvm="$GRAALVM_HOME"); fi
+          # MSYS_NO_PATHCONV=1: keep Git Bash from rewriting the Windows -Pcustom-graalvm path
+          # (no-op on linux/darwin); it must match GRAALVM_HOME verbatim for the build's check.
+          MSYS_NO_PATHCONV=1 ./gradlew :${{ matrix.module }}:assembleRelease \
             -Pversion='${{ needs.prepare.outputs.version }}' \
             -PtargetOs=${{ matrix.platform.os }} \
-            -PtargetArch=${{ matrix.platform.arch }}
-      - uses: actions/upload-artifact@v4
+            -PtargetArch=${{ matrix.platform.arch }} \
+            "${EXTRA[@]}"
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.module }}-${{ matrix.platform.tag }}
           path: ${{ matrix.module }}/build/release/*
@@ -304,7 +315,7 @@ jobs:
           set -euo pipefail
           mkdir -p dist
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true

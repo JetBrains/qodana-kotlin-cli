@@ -17,24 +17,24 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 25
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - run: ./gradlew test
 
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 25
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Run prek (commit-stage hooks)
         uses: j178/prek-action@v2
         with:
@@ -53,15 +53,15 @@ jobs:
       pull-requests: write
       checks: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 25
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       # Requires the QODANA_TOKEN secret on the repo (project token from
       # https://qodana.cloud). Without it the linter fails fast with
       # "Starting from 2023.2 release versions require connection to Qodana Cloud."
@@ -92,32 +92,35 @@ jobs:
         module: [qodana-cli, qodana-clang, qodana-cdnet]
     runs-on: ${{ matrix.platform.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ./.github/actions/setup-native-build
         with:
           native-image-job-reports: 'true'
-      - name: Native compile (+ DLL bundle + deps test on Windows)
-        # On Windows, chain nativeCompile → bundleWindowsCrt → NativeWindowsDepsTest in one Gradle
-        # invocation so the task graph guarantees the .exe and the bundled VC++ DLLs exist before
-        # the test reads them (QD-14812). `-PnativeTests=true` opts in to the `native-deps` JUnit
-        # tag (otherwise excluded by build-logic/testing.gradle.kts).
+      - name: Native compile (+ zero-VC deps test on Windows)
+        # On Windows, chain nativeCompile → NativeWindowsDepsTest in one Gradle invocation so the
+        # task graph guarantees the .exe exists before the test reads its import table. The test
+        # asserts zero VC++ runtime imports (single-file via the HybridCRT GraalVM, QD-14925).
+        # `-PnativeTests=true` opts in to the `native-deps` JUnit tag (otherwise excluded by
+        # build-logic/testing.gradle.kts); `-Pcustom-graalvm` points the build at the HybridCRT
+        # GraalVM that setup-native-build placed in GRAALVM_HOME.
         shell: bash
         run: |
+          # MSYS_NO_PATHCONV=1: Git Bash on the Windows runner must not rewrite the Windows path in
+          # -Pcustom-graalvm="$GRAALVM_HOME" — it must reach Gradle verbatim so it matches GRAALVM_HOME.
           if [ "${{ runner.os }}" = "Windows" ]; then
-            ./gradlew :${{ matrix.module }}:nativeCompile \
-                      :${{ matrix.module }}:bundleWindowsCrt \
+            MSYS_NO_PATHCONV=1 ./gradlew :${{ matrix.module }}:nativeCompile \
                       :${{ matrix.module }}:test \
                       --tests "*NativeWindowsDepsTest" \
-                      -Pquick=true -PnativeTests=true
+                      -Pquick=true -PnativeTests=true \
+                      -Pcustom-graalvm="$GRAALVM_HOME"
           else
             ./gradlew :${{ matrix.module }}:nativeCompile -Pquick=true
           fi
       - name: Smoke-run produced binary (Windows)
-        # Catches "binary links but crashes at startup" that NativeWindowsDepsTest's import-table
-        # check cannot detect. Uses --help (vs --version) because clang/cdnet don't implement
-        # versionOption. Runs on the GHA runner which has the VC++ Redistributable pre-installed,
-        # so this is NOT a clean-Windows-install validation — that's tracked as a follow-up. It
-        # only verifies the binary starts and the bundled DLLs load alongside the .exe.
+        # Catches "binary links but crashes at startup" that the import-table check cannot detect.
+        # Uses --help (vs --version) because clang/cdnet don't implement versionOption. This only
+        # proves the .exe starts and prints ON THE RUNNER (which has the VC++ redist); the
+        # zero-VC-import test above is what proves clean-host self-sufficiency.
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
@@ -135,13 +138,12 @@ jobs:
         # Run even when the preceding step failed — the binary is still useful for debugging.
         # Cancellation still skips, so this isn't `always()`.
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.module }}-${{ matrix.platform.tag }}
           path: |
             ${{ matrix.module }}/build/native/nativeCompile/${{ matrix.module }}
             ${{ matrix.module }}/build/native/nativeCompile/${{ matrix.module }}.exe
-            ${{ matrix.module }}/build/native/nativeCompile/*.dll
           if-no-files-found: error
           retention-days: 14
 
@@ -163,18 +165,18 @@ jobs:
     runs-on: ${{ matrix.platform.runner }}
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # All platforms need JDK 25 here: Linux runs Gradle steps (the JVM SARIF-parity
       # scan + the send-smoke harness), and macOS/Windows additionally don't ship a
       # usable JDK for the JVM-side mock cloud + S3 stub.
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 25
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Docker (linux)
         if: matrix.platform.docker && matrix.platform.setup == 'linux'
@@ -221,7 +223,7 @@ jobs:
           "DOCKER_HOST=npipe:////./pipe/docker_engine" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
           docker version
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: ${{ matrix.platform.artifact }}
           path: ./bin
