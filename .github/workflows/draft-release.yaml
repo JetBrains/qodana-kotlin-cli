@@ -194,7 +194,7 @@ jobs:
           fi
           ls -la sbom-stage/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: sbom
           path: sbom-stage/
@@ -232,7 +232,7 @@ jobs:
             -PtargetOs=${{ matrix.platform.os }} \
             -PtargetArch=${{ matrix.platform.arch }} \
             "${EXTRA[@]}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: cli-${{ matrix.platform.tag }}
           path: qodana-cli/build/release/*
@@ -272,7 +272,7 @@ jobs:
             -PtargetOs=${{ matrix.platform.os }} \
             -PtargetArch=${{ matrix.platform.arch }} \
             "${EXTRA[@]}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.module }}-${{ matrix.platform.tag }}
           path: ${{ matrix.module }}/build/release/*
@@ -296,7 +296,7 @@ jobs:
           set -euo pipefail
           mkdir -p dist
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
