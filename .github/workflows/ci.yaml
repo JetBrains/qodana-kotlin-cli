@@ -22,7 +22,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 25
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - run: ./gradlew test
 
   lint:
@@ -34,7 +34,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 25
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Run prek (commit-stage hooks)
         uses: j178/prek-action@v2
         with:
@@ -61,7 +61,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 25
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       # Requires the QODANA_TOKEN secret on the repo (project token from
       # https://qodana.cloud). Without it the linter fails fast with
       # "Starting from 2023.2 release versions require connection to Qodana Cloud."
@@ -176,7 +176,7 @@ jobs:
           distribution: temurin
           java-version: 25
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       - name: Docker (linux)
         if: matrix.platform.docker && matrix.platform.setup == 'linux'
