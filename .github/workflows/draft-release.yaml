@@ -73,7 +73,7 @@ jobs:
       tag: ${{ steps.outputs.outputs.tag }}
       sha: ${{ steps.outputs.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           # Pin to the same commit the build/publish jobs use (target-sha) so validate normalizes and
           # checks the exact commit being shipped — no drift if `main` advances mid-run. Falls back to
@@ -152,7 +152,7 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ needs.validate.outputs.sha }}
       - uses: actions/setup-java@v5
@@ -215,7 +215,7 @@ jobs:
           - { name: windows/amd64, tag: windows-amd64, runner: windows-latest, os: windows, arch: amd64 }
     runs-on: ${{ matrix.platform.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ needs.validate.outputs.sha }}
       - uses: ./.github/actions/setup-native-build
@@ -255,7 +255,7 @@ jobs:
         module: [qodana-clang, qodana-cdnet]
     runs-on: ${{ matrix.platform.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ needs.validate.outputs.sha }}
       - uses: ./.github/actions/setup-native-build
@@ -353,7 +353,7 @@ jobs:
           cat dist/checksums.txt
           echo '--- end ---'
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           path: source
           ref: ${{ needs.validate.outputs.sha }}
