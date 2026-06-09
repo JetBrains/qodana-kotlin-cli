@@ -83,4 +83,4 @@ runs:
         github-token: ${{ inputs.github-token }}
         native-image-job-reports: ${{ inputs.native-image-job-reports }}
 
-    - uses: gradle/actions/setup-gradle@v4
+    - uses: gradle/actions/setup-gradle@v6
