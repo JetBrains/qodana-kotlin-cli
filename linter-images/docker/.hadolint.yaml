@@ -1,0 +1,12 @@
+# Single source of hadolint config for resolved dockerfile-x output.
+# CI's fast job uses this file verbatim; no inline --ignore flags anywhere.
+failure-threshold: warning
+trustedRegistries:
+  - dhi.io
+  - download.jetbrains.com
+ignored:
+  - DL3007 # base is pinned by digest (FROM ...@sha256:...); tag/latest rules are moot
+  - DL3008 # apt versions float by moving LLVM/NodeSource repo + Debian codename
+  - DL3009 # apt-list cleanup is owned + asserted by the toolchain/* includes
+  - DL3015 # --no-install-recommends discipline is owned by the includes, not hadolint heuristics
+  - DL3020 # ADD --checksum= is the sanctioned sha-verified remote-fetch pattern (tini, Android SDK)
