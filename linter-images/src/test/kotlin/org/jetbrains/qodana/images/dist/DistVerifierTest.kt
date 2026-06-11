@@ -53,6 +53,24 @@ class DistVerifierTest {
     }
 
     @Test
+    fun `accepts a subkey-made signature whose VALIDSIG primary-key field is the pinned fingerprint`(
+        @TempDir tmp: Path,
+    ) {
+        val (archive, sha256, asc) = stage(tmp, shaLine(goodSha))
+        val runner = FakeCommandRunner()
+        runner.on({ it.contains("--import") }, CommandResult(0, "", ""))
+        // Real gpg VALIDSIG for a subkey-signed file: the FIRST field is the SIGNING SUBKEY fpr; the
+        // LAST field is the PRIMARY-key fpr (the value we pin). JetBrains signs with subkey
+        // 33FD…C2AF of primary B46D…F501, so the matcher must accept the primary fpr (last field).
+        val subkey = "33FD4BFD33554634053D73C0C2148900BCD3C2AF"
+        val validsig = "[GNUPG:] VALIDSIG $subkey 2026-03-02 1772462672 0 4 0 1 8 00 $fingerprint\n"
+        runner.on({ it.contains("--verify") }, CommandResult(0, validsig, ""))
+        runner.on({ it.contains("sha256sum") }, CommandResult(0, shaLine(goodSha), ""))
+
+        DistVerifier(runner).verify(archive, sha256, asc, gpgKey(tmp), fingerprint)
+    }
+
+    @Test
     fun `throws on sha256 mismatch`(
         @TempDir tmp: Path,
     ) {

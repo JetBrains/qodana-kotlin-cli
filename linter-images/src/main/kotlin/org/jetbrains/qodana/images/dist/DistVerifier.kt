@@ -114,6 +114,12 @@ class DistVerifier(
         fingerprint: String,
     ) {
         val want = fingerprint.replace(" ", "").uppercase()
+        // gpg --status-fd VALIDSIG layout:
+        //   VALIDSIG <signing-key-fpr> <date> <ts> <expire> <version> <reserved> <pubkey-algo>
+        //            <hash-algo> <sig-class> <primary-key-fpr>
+        // When the file is signed by a SUBKEY (JetBrains does: subkey 33FD…C2AF of primary B46D…F501),
+        // the FIRST field is the subkey fpr and the LAST field is the PRIMARY-key fpr. We pin the
+        // primary, so accept a match against either the signing-key (first) or primary-key (last) fpr.
         val matched =
             statusOutput.lineSequence().any { line ->
                 val marker = "VALIDSIG "
@@ -121,13 +127,15 @@ class DistVerifier(
                 if (idx < 0) {
                     false
                 } else {
-                    val signer =
+                    val fields =
                         line
                             .substring(idx + marker.length)
                             .trim()
-                            .substringBefore(' ')
-                            .uppercase()
-                    signer == want
+                            .split(Regex("\\s+"))
+                            .map { it.uppercase() }
+                    val signingKeyFpr = fields.firstOrNull()
+                    val primaryKeyFpr = fields.lastOrNull()
+                    want == signingKeyFpr || want == primaryKeyFpr
                 }
             }
         if (!matched) {
