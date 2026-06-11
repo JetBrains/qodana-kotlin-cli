@@ -11,7 +11,9 @@ ARG QD_CHANNEL=public
 ARG QD_FEED_URL=https://download.jetbrains.com/qodana/feed
 ARG QD_PRODUCT_INFO_CODE
 ARG QD_DIST=/opt/idea
-ARG JDK_BUILDER_IMAGE
+# JDK builder default: eclipse-temurin 25 (Ubuntu-based: ships tar + coreutils sha256sum + apt),
+# pinned by manifest-list digest. NOT a .env key — overridable per build (Renovate-tracked).
+ARG JDK_BUILDER_IMAGE=eclipse-temurin:25-jdk@sha256:edb3aa0f621796d8f5f9d602c7611ffdf015cd89e6ddda1894d85a3a99d170a8
 
 FROM ${JDK_BUILDER_IMAGE} AS dist-builder
 ARG QD_LINTER_SLUG

@@ -12,7 +12,10 @@ ARG CLI_OS=linux
 ARG CLI_ARCH=amd64
 ARG CLI_RELEASE_BASE_URL=https://github.com/JetBrains/qodana-kotlin-cli/releases/download
 ARG CLI_BASE_STAGE=dist
-ARG JDK_BUILDER_IMAGE
+# JDK builder default: eclipse-temurin 25 (Ubuntu-based: ships tar + coreutils sha256sum + apt),
+# pinned by manifest-list digest. NOT a .env key — overridable per build (Renovate-tracked).
+# Kept byte-identical to lib/dist.dockerfile's default.
+ARG JDK_BUILDER_IMAGE=eclipse-temurin:25-jdk@sha256:edb3aa0f621796d8f5f9d602c7611ffdf015cd89e6ddda1894d85a3a99d170a8
 
 FROM ${JDK_BUILDER_IMAGE} AS cli-builder
 ARG CLI_BINARY
