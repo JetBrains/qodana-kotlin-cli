@@ -25,4 +25,5 @@ dependencies {
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlin.test)
+    testImplementation(libs.jackson.dataformat.yaml) // ComposeContractTest parses compose*.yaml
 }
