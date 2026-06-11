@@ -38,7 +38,31 @@ shape; it does not claim a local repro that was not run.
 
 ## Spike B — qodana-cli-deps clang-tidy mirror
 
-_pending_
+URL template (from `qodana-cli` `scripts/downloaddeps/clang-tidy.json`):
+
+```
+https://packages.jetbrains.team/files/p/sa/qodana-cli-deps/clang-tidy/$version/$filename
+```
+
+`$version` is the clang-tidy package version tag (e.g. `v1.0.0`), NOT the clang
+compiler version. `$filename` is `clang-tidy-<os>-<arch>.tar.gz` (`.zip` on
+windows): `clang-tidy-linux-amd64.tar.gz`, `clang-tidy-linux-arm64.tar.gz`, etc.
+Resolved example:
+`https://packages.jetbrains.team/files/p/sa/qodana-cli-deps/clang-tidy/v1.0.0/clang-tidy-linux-amd64.tar.gz`.
+Renovate tracks new versions via
+`https://packages.jetbrains.team/files/p/sa/qodana-cli-deps/clang-tidy/versions.json`.
+
+CLANG_TIDY_URL_TEMPLATE = https://packages.jetbrains.team/files/p/sa/qodana-cli-deps/clang-tidy/$version/$filename
+
+### Access mode: PRIVATE (token required)
+
+Anonymous `curl -I` of the mirror root returns `HTTP/2 401` with
+`www-authenticate: Basic` (probed live 2026-06-11). `qodana-cli`'s
+`CONTRIBUTING.md` confirms a `QODANA_CLI_DEPS_TOKEN` read token is required;
+without it `go generate` writes empty placeholders. The clang image build must
+supply this token (HTTP basic) to fetch the archive — CI provisions it.
+
+CLANG_TIDY_ACCESS = private
 
 ## Spike C — live feed pin, dhi.io base digest, JetBrains key
 
