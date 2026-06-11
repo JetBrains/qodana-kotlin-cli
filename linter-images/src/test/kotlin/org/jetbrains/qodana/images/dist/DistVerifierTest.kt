@@ -7,6 +7,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class DistVerifierTest {
@@ -42,5 +43,64 @@ class DistVerifierTest {
         assertTrue(runner.invocations.filter { it.first() == "gpg" }.all { it.contains("--homedir") })
         val verbs = runner.invocations.map { call -> call.first { it == "--import" || it == "--verify" || it == "sha256sum" } }
         assertEquals(listOf("--import", "--verify", "sha256sum"), verbs)
+    }
+
+    @Test
+    fun `throws on sha256 mismatch`(
+        @TempDir tmp: Path,
+    ) {
+        val (archive, sha256, asc) = stage(tmp, "$goodSha *qodana-QDJVM-253.200.tar.gz\n")
+        val runner = FakeCommandRunner()
+        runner.on({ it.contains("--import") }, CommandResult(0, "", ""))
+        runner.on({ it.contains("--verify") }, CommandResult(0, "[GNUPG:] VALIDSIG $fingerprint 2025-09-15\n", ""))
+        // sha256sum computes a DIFFERENT digest than the .sha256 file claims.
+        runner.on({ it.contains("sha256sum") }, CommandResult(0, "${"b".repeat(64)} *qodana-QDJVM-253.200.tar.gz\n", ""))
+
+        val ex =
+            assertFailsWith<VerificationException> {
+                DistVerifier(runner).verify(archive, sha256, asc, gpgKey(tmp), fingerprint)
+            }
+        assertTrue(ex.message!!.contains("sha256 mismatch"), ex.message)
+    }
+
+    @Test
+    fun `throws when signer fingerprint does not match`(
+        @TempDir tmp: Path,
+    ) {
+        val (archive, sha256, asc) = stage(tmp, "$goodSha *qodana-QDJVM-253.200.tar.gz\n")
+        val runner = FakeCommandRunner()
+        runner.on({ it.contains("--import") }, CommandResult(0, "", ""))
+        // Exit 0 but VALIDSIG is for an ATTACKER key, not the pinned fingerprint.
+        runner.on(
+            { it.contains("--verify") },
+            CommandResult(0, "[GNUPG:] VALIDSIG DEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF 2025-09-15\n", ""),
+        )
+        runner.on({ it.contains("sha256sum") }, CommandResult(0, "$goodSha *qodana-QDJVM-253.200.tar.gz\n", ""))
+
+        val ex =
+            assertFailsWith<VerificationException> {
+                DistVerifier(runner).verify(archive, sha256, asc, gpgKey(tmp), fingerprint)
+            }
+        assertTrue(ex.message!!.contains("pinned signer"), ex.message)
+        // sha256 must NOT run once GPG fails.
+        assertTrue(runner.invocations.none { call -> call.any { it == "sha256sum" } })
+    }
+
+    @Test
+    fun `throws when gpg verify exits non-zero`(
+        @TempDir tmp: Path,
+    ) {
+        val (archive, sha256, asc) = stage(tmp, "$goodSha *qodana-QDJVM-253.200.tar.gz\n")
+        val runner = FakeCommandRunner()
+        runner.on({ it.contains("--import") }, CommandResult(0, "", ""))
+        runner.on({ it.contains("--verify") }, CommandResult(1, "", "BAD signature"))
+        runner.on({ it.contains("sha256sum") }, CommandResult(0, "$goodSha *qodana-QDJVM-253.200.tar.gz\n", ""))
+
+        val ex =
+            assertFailsWith<VerificationException> {
+                DistVerifier(runner).verify(archive, sha256, asc, gpgKey(tmp), fingerprint)
+            }
+        assertTrue(ex.message!!.contains("verification failed"), ex.message)
+        assertTrue(runner.invocations.none { call -> call.any { it == "sha256sum" } })
     }
 }
