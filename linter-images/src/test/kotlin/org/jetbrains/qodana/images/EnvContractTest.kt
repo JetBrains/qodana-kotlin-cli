@@ -25,7 +25,10 @@ class EnvContractTest {
     private val authoredSlugs = listOf("qodana-jvm")
 
     private fun parseEnv(slug: String): Map<String, String> =
-        imagesDir.resolve("$slug.env").readText().lineSequence()
+        imagesDir
+            .resolve("$slug.env")
+            .readText()
+            .lineSequence()
             .map { it.trim() }
             .filter { it.isNotEmpty() && !it.startsWith("#") }
             .associate { line ->
@@ -39,9 +42,21 @@ class EnvContractTest {
         // Canonical .env CONTRACT: exact major+build pin, public source channel, arch-parameterized tini.
         val expected =
             setOf(
-                "QD_LINTER_SLUG", "QD_VERSION", "QD_BUILD", "QD_CHANNEL", "QD_RELEASE_TYPE",
-                "QD_PRODUCT_INFO_CODE", "QD_BASE_IMAGE", "CLI_BINARY", "CLI_VERSION", "CLI_OS", "CLI_ARCH",
-                "NODE_MAJOR", "TINI_VERSION", "TINI_ARCH", "TINI_SHA256",
+                "QD_LINTER_SLUG",
+                "QD_VERSION",
+                "QD_BUILD",
+                "QD_CHANNEL",
+                "QD_RELEASE_TYPE",
+                "QD_PRODUCT_INFO_CODE",
+                "QD_BASE_IMAGE",
+                "CLI_BINARY",
+                "CLI_VERSION",
+                "CLI_OS",
+                "CLI_ARCH",
+                "NODE_MAJOR",
+                "TINI_VERSION",
+                "TINI_ARCH",
+                "TINI_SHA256",
             )
         assertEquals(expected, parseEnv("qodana-jvm").keys)
     }
@@ -58,6 +73,7 @@ class EnvContractTest {
     @Test
     fun `jvm pins match phase-0-decisions`() {
         val d = decisions.readText()
+
         // Anchor the key to line start (MULTILINE) so a key cannot match as a substring of a longer
         // key or mid-line text — only a real `KEY = value` row is read.
         fun pin(k: String) =

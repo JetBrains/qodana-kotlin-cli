@@ -17,7 +17,7 @@ class ComposeContractTest {
     private val slugs = listOf("qodana-jvm", "qodana-android", "qodana-clang")
 
     @Test
-    fun `compose defines one service per linter with context docker, the tooling context, release source, and dev tag`() {
+    fun `compose defines a service per linter with docker context, tooling context, release source, dev tag`() {
         val root = load("compose.yaml")
         val services = root["services"]
         assertEquals(slugs.toSet(), services.fieldNames().asSequence().toSet())
@@ -26,7 +26,8 @@ class ComposeContractTest {
             val build = svc["build"]
             assertEquals("docker", build["context"].asText(), "$slug context must be docker/")
             assertEquals(
-                "images/$slug.dockerfile", build["dockerfile"].asText(),
+                "images/$slug.dockerfile",
+                build["dockerfile"].asText(),
                 "$slug dockerfile must be context-relative",
             )
             assertEquals("release", build["args"]["CLI_SOURCE"].asText(), "compose.yaml is the release path")
@@ -56,7 +57,10 @@ class ComposeContractTest {
         // guaranteed build break that the structural assertions above would not catch.
         val build = load("compose.yaml")["services"]["qodana-jvm"]["build"]
         val baseUrl = build["args"]["CLI_RELEASE_BASE_URL"]
-        assertTrue(baseUrl != null && baseUrl.asText().isNotBlank(), "qodana-jvm must set a non-empty CLI_RELEASE_BASE_URL")
+        assertTrue(
+            baseUrl != null && baseUrl.asText().isNotBlank(),
+            "qodana-jvm must set a non-empty CLI_RELEASE_BASE_URL",
+        )
         assertTrue(
             baseUrl.asText().startsWith("https://"),
             "CLI_RELEASE_BASE_URL must be an absolute https URL, was: '${baseUrl.asText()}'",
@@ -73,7 +77,8 @@ class ComposeContractTest {
             assertEquals("context", build["args"]["CLI_SOURCE"].asText(), "ci override is the context path")
             assertTrue(build["additional_contexts"].has("cli"), "$slug ci must add the cli context")
             // ci override must NOT change the tag — it stays <slug>:dev from compose.yaml.
-            assertTrue(svc["image"] == null || svc["image"].asText() == "$slug:dev", "$slug ci must not change the :dev tag")
+            val img = svc["image"]
+            assertTrue(img == null || img.asText() == "$slug:dev", "$slug ci must not change the :dev tag")
         }
     }
 }
