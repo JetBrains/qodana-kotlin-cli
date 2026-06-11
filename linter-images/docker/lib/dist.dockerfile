@@ -31,9 +31,10 @@ RUN <<-EOT
 	apt-get install -y --no-install-recommends curl gnupg
 	rm -rf /var/lib/apt/lists/*
 EOT
-# The vendored JetBrains public key + its fingerprint travel with the context (lib/).
-COPY lib/jetbrains.pub lib/jetbrains.pub
-COPY lib/jetbrains.pub.fpr lib/jetbrains.pub.fpr
+# The vendored JetBrains public key + its fingerprint travel with the context (lib/). Copy to an
+# absolute dir (no WORKDIR is set in this builder, so a relative dest would be DL3045-ambiguous).
+COPY lib/jetbrains.pub /build/lib/jetbrains.pub
+COPY lib/jetbrains.pub.fpr /build/lib/jetbrains.pub.fpr
 # image-tool is bind-mounted from the `tooling` named context (NOT copied into a layer).
 # feed_token is optional; ONLY the private channel reads it (matches provision-dist's decision).
 RUN --mount=type=bind,from=tooling,target=/tooling \
@@ -49,8 +50,8 @@ RUN --mount=type=bind,from=tooling,target=/tooling \
 		--version "${QD_VERSION}" \
 		--build "${QD_BUILD}" \
 		--channel "${QD_CHANNEL}" \
-		--gpg-key lib/jetbrains.pub \
-		--gpg-fingerprint "$(cat lib/jetbrains.pub.fpr)" \
+		--gpg-key /build/lib/jetbrains.pub \
+		--gpg-fingerprint "$(cat /build/lib/jetbrains.pub.fpr)" \
 		--target "${QD_DIST}"
 	/tooling/bin/image-tool verify-dist-layout \
 		--dist "${QD_DIST}" \
