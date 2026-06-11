@@ -17,6 +17,12 @@ ARG CLI_BASE_STAGE=dist
 # Kept byte-identical to lib/dist.dockerfile's default.
 ARG JDK_BUILDER_IMAGE=eclipse-temurin:25-jdk@sha256:edb3aa0f621796d8f5f9d602c7611ffdf015cd89e6ddda1894d85a3a99d170a8
 
+# Empty default `cli` stage so `--mount=from=cli` resolves on the release path with NO `cli` named
+# context (BuildKit would otherwise try to PULL an image `cli:latest`, and `required=` is not a valid
+# key for type=bind). compose.ci.yaml passes a `cli` named context that SHADOWS this empty stage; on
+# the public release path the bind sees an empty dir, which install-cli ignores under --source release.
+FROM scratch AS cli
+
 FROM ${JDK_BUILDER_IMAGE} AS cli-builder
 ARG CLI_BINARY
 ARG CLI_SOURCE
@@ -31,11 +37,11 @@ RUN <<-EOT
 	apt-get install -y --no-install-recommends curl
 	rm -rf /var/lib/apt/lists/*
 EOT
-# image-tool from the `tooling` context; the from-tree CLI from the `cli` context
-# (required=false → release builds need no cli context; install-cli fails loudly if
-# --source context but the bind is empty).
+# image-tool from the `tooling` context; the from-tree CLI from the `cli` context (an empty `cli`
+# stage on the release path, the from-tree binary when compose.ci.yaml passes a `cli` context).
+# install-cli reads /cli-src ONLY under --source context, and fails loudly there if the bind is empty.
 RUN --mount=type=bind,from=tooling,target=/tooling \
-	--mount=type=bind,from=cli,required=false,target=/cli-src <<-EOT
+	--mount=type=bind,from=cli,target=/cli-src <<-EOT
 	set -eux
 	mkdir -p /staging/bin
 	/tooling/bin/image-tool install-cli \
@@ -50,6 +56,8 @@ RUN --mount=type=bind,from=tooling,target=/tooling \
 	chmod 0755 "/staging/bin/${CLI_BINARY}"
 EOT
 
-FROM ${CLI_BASE_STAGE} AS cli
+# Final assembled stage is `cli-installed` (NOT `cli`, which is the empty mount-fallback stage above).
+# runtime.dockerfile layers onto `cli-installed`.
+FROM ${CLI_BASE_STAGE} AS cli-installed
 ARG CLI_BINARY=qodana
 COPY --from=cli-builder --chown=1000:1000 /staging/bin/${CLI_BINARY} /usr/local/bin/${CLI_BINARY}

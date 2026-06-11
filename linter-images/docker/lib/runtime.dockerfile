@@ -5,7 +5,7 @@ ARG TINI_ARCH
 ARG TINI_SHA256
 ARG CLI_BINARY=qodana
 
-FROM cli AS runtime
+FROM cli-installed AS runtime
 ARG TINI_VERSION
 ARG TINI_ARCH
 ARG TINI_SHA256
@@ -16,12 +16,14 @@ ARG CLI_BINARY
 ADD --checksum=sha256:${TINI_SHA256} \
 	https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-${TINI_ARCH} \
 	/usr/local/bin/tini
-RUN chmod 0755 /usr/local/bin/tini
-
-# Bake CLI_BINARY into a stable launcher path so the exec-form ENTRYPOINT names a concrete binary
-# (JSON arrays do not interpolate ARGs). The launcher IS /usr/local/bin/${CLI_BINARY} (qodana for
-# jvm/android, qodana-clang for clang) symlinked to a fixed name.
-RUN ln -sf "/usr/local/bin/${CLI_BINARY}" /usr/local/bin/qodana-entrypoint
+# chmod tini + bake CLI_BINARY into a stable launcher path so the exec-form ENTRYPOINT names a
+# concrete binary (JSON arrays do not interpolate ARGs). The launcher IS /usr/local/bin/${CLI_BINARY}
+# (qodana for jvm/android, qodana-clang for clang) symlinked to a fixed name.
+RUN <<-EOT
+	set -eux
+	chmod 0755 /usr/local/bin/tini
+	ln -sf "/usr/local/bin/${CLI_BINARY}" /usr/local/bin/qodana-entrypoint
+EOT
 
 USER 1000:1000
 WORKDIR /data/project
