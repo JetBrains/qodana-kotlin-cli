@@ -1,0 +1,41 @@
+# Public/release reconstruction path: `docker login dhi.io` (free) + `./gradlew :linter-images:installDist`,
+# then `docker compose build <slug>`. The inner CLI is fetched inside the builder stage (CLI_SOURCE=release);
+# the build `image-tool` always comes from the repo via the `tooling` context (installDist tree). CI layers
+# compose.ci.yaml to switch to CLI_SOURCE=context; the private feed uses compose.private.yaml for the token.
+#
+# CLI_RELEASE_BASE_URL pins the GitHub release the inner CLI is downloaded from (install-cli forms
+# ${CLI_RELEASE_BASE_URL}/qodana_<os>_<arch>.tar.gz). The release TAG must be in the URL. It is a build
+# arg (Renovate-tracked), NOT an .env contract key. NOTE: nightly tags are pruned of their assets after
+# the 7 newest nightlies (docs/release.md) — Renovate must bump this to a retained tag, or switch the
+# default to a stable `v<MAJOR>` release once one carries the linux/amd64 asset.
+services:
+  qodana-jvm:
+    build:
+      context: docker
+      dockerfile: images/qodana-jvm.dockerfile
+      args:
+        CLI_SOURCE: release
+        CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+      additional_contexts:
+        tooling: build/install/image-tool
+    image: qodana-jvm:dev
+  qodana-android:
+    build:
+      context: docker
+      dockerfile: images/qodana-android.dockerfile
+      args:
+        CLI_SOURCE: release
+        CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+      additional_contexts:
+        tooling: build/install/image-tool
+    image: qodana-android:dev
+  qodana-clang:
+    build:
+      context: docker
+      dockerfile: images/qodana-clang.dockerfile
+      args:
+        CLI_SOURCE: release
+        CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+      additional_contexts:
+        tooling: build/install/image-tool
+    image: qodana-clang:dev
