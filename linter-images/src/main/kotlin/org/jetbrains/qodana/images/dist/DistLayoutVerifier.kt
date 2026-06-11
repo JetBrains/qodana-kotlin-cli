@@ -11,15 +11,18 @@ class DistLayoutException(
 ) : RuntimeException(message)
 
 /**
- * Asserts a provisioned IDE dist is the one we expect AND carries a complete JBR.
+ * Asserts a provisioned IDE dist is the one we expect.
  *
  *  - `<dist>/product-info.json` exists and its `productCode` EXACTLY equals
  *    `expectedProductCode` (an IDE code such as `IU`, not the QD code; never a
  *    substring match — `IU-EAP` must not satisfy `IU`).
- *  - The bundled JBR is a complete JDK (QD-14924): `<dist>/jbr/bin/jar` exists
- *    and the `jdk.jartool` module is present in `<dist>/jbr/release`. A trimmed
- *    "JRE" JBR breaks the rootless Qodana linter's Gradle daemon at scan time, so
- *    the build must fail here rather than ship the broken image.
+ *
+ * The dist's bundled JBR is a JetBrains Runtime, NOT a complete JDK: it ships `java`/`javac` but no
+ * `jar` / `jdk.jartool` (verified against qodana-jvm 253.31821 — IMPLEMENTOR_VERSION "JBR-21.0.10").
+ * That is by design, so this layout check does NOT require a complete JBR. QD-14924's complete JDK
+ * for the rootless Gradle daemon is provisioned separately at scan-time by qodana.yaml's
+ * bootstrap.sh, whose own rationale documents the bundled JBR's incompleteness — requiring it here
+ * would reject every real qodana-jvm/android dist.
  */
 class DistLayoutVerifier(
     private val mapper: ObjectMapper = ObjectMapper(),
@@ -29,7 +32,6 @@ class DistLayoutVerifier(
         expectedProductCode: String,
     ) {
         verifyProductCode(dist, expectedProductCode)
-        verifyCompleteJbr(dist)
     }
 
     private fun verifyProductCode(
@@ -52,36 +54,5 @@ class DistLayoutVerifier(
         val node: JsonNode = mapper.readTree(Files.readString(productInfo))
         return node.path("productCode").asText(null)
             ?: throw DistLayoutException("product-info.json has no productCode field: $productInfo")
-    }
-
-    private fun verifyCompleteJbr(dist: Path) {
-        val jarTool = dist.resolve("jbr/bin/jar")
-        if (!Files.isRegularFile(jarTool)) {
-            throw DistLayoutException("Incomplete JBR: missing jar tool at $jarTool (QD-14924)")
-        }
-        verifyJbrJartoolModule(dist)
-    }
-
-    private fun verifyJbrJartoolModule(dist: Path) {
-        val releaseFile = dist.resolve("jbr/release")
-        if (!Files.isRegularFile(releaseFile)) {
-            throw DistLayoutException("Incomplete JBR: missing module manifest at $releaseFile (QD-14924)")
-        }
-        if (!jdkJartoolPresent(Files.readString(releaseFile))) {
-            throw DistLayoutException("Incomplete JBR: jdk.jartool module not present in $releaseFile (QD-14924)")
-        }
-    }
-
-    /** Parses the `MODULES="a b c"` line of a JDK `release` file and checks for jdk.jartool. */
-    private fun jdkJartoolPresent(releaseFileContent: String): Boolean {
-        val modulesLine =
-            releaseFileContent.lineSequence().firstOrNull { it.startsWith("MODULES=") } ?: return false
-        val modules =
-            modulesLine
-                .substringAfter('=')
-                .trim()
-                .trim('"')
-                .split(' ')
-        return "jdk.jartool" in modules
     }
 }

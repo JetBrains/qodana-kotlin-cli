@@ -10,18 +10,25 @@ import kotlin.test.assertFailsWith
 class DistLayoutVerifierTest {
     private val verifier = DistLayoutVerifier()
 
-    /** Builds a dist tree; pass `modules` = null to omit the JBR `release` file entirely. */
+    /**
+     * Builds a dist tree. `withJbrJar`/`modules` default to the REAL qodana-jvm JBR shape: a
+     * JetBrains Runtime that has `java`/`javac` but NO `jar` and no `jdk.jartool` module (verified
+     * against build 253.31821 — IMPLEMENTOR_VERSION "JBR-21.0.10"). The IDE dist's JBR is a runtime
+     * by design; the complete JDK the rootless Gradle daemon needs is provisioned separately at
+     * scan-time (QD-14924's bootstrap.sh), NOT required of the dist.
+     */
     private fun dist(
         root: Path,
         productCode: String = "IU",
-        withJar: Boolean = true,
-        modules: List<String>? = listOf("java.base", "jdk.jartool", "jdk.compiler"),
+        withJbrJar: Boolean = false,
+        modules: List<String>? = listOf("java.base", "jdk.compiler", "jdk.javadoc"),
     ): Path {
         Files.createDirectories(root)
         root.resolve("product-info.json").writeText("""{"productCode":"$productCode","version":"2025.3"}""")
         val jbrBin = root.resolve("jbr/bin")
         Files.createDirectories(jbrBin)
-        if (withJar) jbrBin.resolve("jar").writeText("#!/bin/sh\n")
+        jbrBin.resolve("java").writeText("#!/bin/sh\n")
+        if (withJbrJar) jbrBin.resolve("jar").writeText("#!/bin/sh\n")
         if (modules != null) {
             root.resolve("jbr/release").writeText("""MODULES="${modules.joinToString(" ")}"""" + "\n")
         }
@@ -29,9 +36,11 @@ class DistLayoutVerifierTest {
     }
 
     @Test
-    fun `accepts a dist with matching product code and a complete JBR`(
+    fun `accepts the real qodana-jvm dist layout (matching product code, JBR runtime without jar)`(
         @TempDir tmp: Path,
     ) {
+        // The shipped JBR has no jar/jdk.jartool; verify-dist-layout must NOT reject it (QD-14924's
+        // complete JDK is a scan-time bootstrap concern, not a dist-layout requirement).
         verifier.verify(dist(tmp.resolve("d")), expectedProductCode = "IU")
     }
 
@@ -57,30 +66,6 @@ class DistLayoutVerifierTest {
     ) {
         val d = tmp.resolve("empty")
         Files.createDirectories(d)
-        assertFailsWith<DistLayoutException> { verifier.verify(d, expectedProductCode = "IU") }
-    }
-
-    @Test
-    fun `rejects an incomplete JBR missing the jar tool binary (QD-14924)`(
-        @TempDir tmp: Path,
-    ) {
-        val d = dist(tmp.resolve("d"), withJar = false)
-        assertFailsWith<DistLayoutException> { verifier.verify(d, expectedProductCode = "IU") }
-    }
-
-    @Test
-    fun `rejects an incomplete JBR missing the jdk-jartool module (QD-14924)`(
-        @TempDir tmp: Path,
-    ) {
-        val d = dist(tmp.resolve("d"), modules = listOf("java.base", "jdk.compiler"))
-        assertFailsWith<DistLayoutException> { verifier.verify(d, expectedProductCode = "IU") }
-    }
-
-    @Test
-    fun `rejects a JBR whose modules only substring-match jdk-jartool (QD-14924)`(
-        @TempDir tmp: Path,
-    ) {
-        val d = dist(tmp.resolve("d"), modules = listOf("java.base", "jdk.jartoolx", "jdk.compiler"))
         assertFailsWith<DistLayoutException> { verifier.verify(d, expectedProductCode = "IU") }
     }
 }
