@@ -32,6 +32,15 @@ class CliArtifactResolver {
         return binary
     }
 
+    /**
+     * True when `binary`'s release asset is the cli's `.tar.gz` archive (untar + extract member);
+     * false for the tools (clang/cdnet), whose asset is a raw executable to copy as-is.
+     */
+    fun isCliArchive(binary: String): Boolean {
+        require(binary in KNOWN_BINARIES) { "Unknown CLI binary: $binary (expected one of $KNOWN_BINARIES)" }
+        return binary == CLI_BINARY
+    }
+
     companion object {
         val KNOWN_BINARIES = setOf("qodana", "qodana-clang", "qodana-cdnet")
         const val CLI_BINARY = "qodana"

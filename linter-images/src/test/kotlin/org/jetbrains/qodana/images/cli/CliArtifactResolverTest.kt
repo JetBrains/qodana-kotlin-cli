@@ -3,6 +3,8 @@ package org.jetbrains.qodana.images.cli
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class CliArtifactResolverTest {
     private val resolver = CliArtifactResolver()
@@ -54,5 +56,14 @@ class CliArtifactResolverTest {
     @Test
     fun `checksums manifest name is the conventional checksums-txt`() {
         assertEquals("checksums.txt", CliArtifactResolver.CHECKSUMS_MANIFEST)
+    }
+
+    @Test
+    fun `isCliArchive distinguishes the archived cli from the raw-binary tools`() {
+        // The install-cli release path branches on this: only the `cli` ships as a .tar.gz to untar;
+        // tools (clang/cdnet) download as raw executables and must NOT be run through tar.
+        assertTrue(resolver.isCliArchive("qodana"), "the cli ships as an archive")
+        assertFalse(resolver.isCliArchive("qodana-clang"), "tools ship as raw binaries")
+        assertFalse(resolver.isCliArchive("qodana-cdnet"), "tools ship as raw binaries")
     }
 }
