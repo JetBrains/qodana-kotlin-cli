@@ -24,7 +24,15 @@ trap 'rm -f "$resolved"' EXIT
 # takes the thin file via -f (a bare positional is rejected) and emits the resolved Dockerfile on
 # stdout. INCLUDE_ARGS needs the referenced images/<slug>.env to exist, so this only resolves once
 # the per-linter .env files land (Phase 4); until then it fails loudly with a missing-file error.
-(cd "$here" && npx --yes dockerfile-x@1.6.0 -f "$thin") >"$resolved"
+#
+# dockerfile-x STRIPS blank lines when concatenating includes, collapsing each `EOT`-terminated
+# heredoc directly against the next instruction (e.g. `EOT` then `ENV`). hadolint's parser then
+# bails with "unexpected '<C>' expecting a new line followed by the next instruction" (hadolint
+# #1137) — a lint-only false positive: BuildKit itself parses this output fine. Re-insert one blank
+# line after each lone heredoc terminator so the resolved file lints cleanly without changing what
+# `docker build` sees. (`EOT` is the single heredoc word used across every lib/ include.)
+(cd "$here" && npx --yes dockerfile-x@1.6.0 -f "$thin") \
+  | awk '{ print } /^EOT[[:space:]]*$/ { print "" }' >"$resolved"
 
 echo "=== resolved $thin ==="
 cat "$resolved"

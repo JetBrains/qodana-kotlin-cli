@@ -1,9 +1,12 @@
 # Single source of hadolint config for resolved dockerfile-x output.
 # CI's fast job uses this file verbatim; no inline --ignore flags anywhere.
+#
+# NO trustedRegistries: every base in this design is ARG-interpolated (`FROM ${QD_BASE_IMAGE}`,
+# `FROM ${JDK_BUILDER_IMAGE}`, `FROM ${CLI_BASE_STAGE}`), so hadolint cannot resolve the registry
+# behind the variable and DL3026 would fire on every stage (false positive). The real guarantee is
+# stronger and lives elsewhere: `.env` bases are pinned by sha256 digest and EnvContractTest asserts
+# `QD_BASE_IMAGE` is the exact dhi.io digest from phase-0-decisions.md.
 failure-threshold: warning
-trustedRegistries:
-  - dhi.io
-  - download.jetbrains.com
 ignored:
   - DL3007 # base is pinned by digest (FROM ...@sha256:...); tag/latest rules are moot
   - DL3008 # apt versions float by moving LLVM/NodeSource repo + Debian codename
