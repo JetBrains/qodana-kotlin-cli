@@ -2,11 +2,15 @@ package org.jetbrains.qodana.images.dist
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
+import org.junit.jupiter.api.condition.DisabledOnOs
+import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
 import java.io.BufferedOutputStream
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.zip.GZIPOutputStream
+import kotlin.io.path.isExecutable
+import kotlin.io.path.readSymbolicLink
 import kotlin.io.path.readText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -80,6 +84,40 @@ class TarGzExtractorTest {
 
         assertTrue(Files.exists(target.resolve("product-info.json")))
         assertTrue(Files.exists(target.resolve("bin/idea.sh")))
+    }
+
+    @Test
+    @DisabledOnOs(OS.WINDOWS) // executable bit + symlinks are POSIX; the IDE images run on Linux.
+    fun `preserves executable bit and symlinks`(
+        @TempDir tmp: Path,
+    ) {
+        val archive = tmp.resolve("qodana-QDJVM-253.200.tar.gz")
+        TarArchiveOutputStream(GZIPOutputStream(BufferedOutputStream(Files.newOutputStream(archive)))).use { tar ->
+            // Executable launcher (mode 0755).
+            val launcherBytes = "#!/bin/sh\n".toByteArray()
+            val launcher = TarArchiveEntry("qodana-QDJVM-253.200/bin/idea.sh")
+            launcher.mode = "755".toInt(8)
+            launcher.size = launcherBytes.size.toLong()
+            tar.putArchiveEntry(launcher)
+            tar.write(launcherBytes)
+            tar.closeArchiveEntry()
+
+            // A real symlink entry pointing at the launcher.
+            val link = TarArchiveEntry("qodana-QDJVM-253.200/bin/idea", TarArchiveEntry.LF_SYMLINK)
+            link.linkName = "idea.sh"
+            tar.putArchiveEntry(link)
+            tar.closeArchiveEntry()
+        }
+        val target = tmp.resolve("staging")
+
+        TarGzExtractor().extractFlattened(archive, target)
+
+        val launcherOut = target.resolve("bin/idea.sh")
+        assertTrue(launcherOut.isExecutable(), "extracted launcher must keep its executable bit")
+
+        val symlinkOut = target.resolve("bin/idea")
+        assertTrue(Files.isSymbolicLink(symlinkOut), "symlink entry must be extracted as a real symlink")
+        assertEquals("idea.sh", symlinkOut.readSymbolicLink().toString())
     }
 
     @Test

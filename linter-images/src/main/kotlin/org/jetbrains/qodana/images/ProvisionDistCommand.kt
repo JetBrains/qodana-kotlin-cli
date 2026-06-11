@@ -57,10 +57,14 @@ class ProvisionDistCommand(
         Files.createDirectories(target)
         // ONE download path (curl through the runner), then GPG-signer-match THEN sha256, fail-closed.
         val work = Files.createTempDirectory("provision-dist")
-        val dl = verifier.download(resolved, token, work)
-        verifier.verify(dl.archive, dl.sha256, dl.asc, gpgKey, gpgFingerprint)
-        // Flatten the archive's single top-level dir so `target` directly contains product-info.json.
-        extractor.extractFlattened(dl.archive, target)
+        try {
+            val dl = verifier.download(resolved, token, work)
+            verifier.verify(dl.archive, dl.sha256, dl.asc, gpgKey, gpgFingerprint)
+            // Flatten the archive's single top-level dir so `target` directly contains product-info.json.
+            extractor.extractFlattened(dl.archive, target)
+        } finally {
+            work.toFile().deleteRecursively()
+        }
     }
 
     private fun resolveToken(): String? {

@@ -22,11 +22,15 @@ class FeedClient(
     ): ProductFeed {
         val url = "${feedUrl.trimEnd('/')}/$linterSlug.releases.json"
         val target = Files.createTempFile("$linterSlug-releases", ".json")
-        val cmd = mutableListOf("curl", "-fsSL", "-o", target.toString())
-        if (token != null) cmd += listOf("--header", "Authorization: Bearer $token")
-        cmd += url
-        val result = runner.run(cmd)
-        require(result.exitCode == 0) { "feed fetch failed for $url (exit ${result.exitCode}): ${result.stderr}" }
-        return mapper.readValue(target.toFile())
+        try {
+            val cmd = mutableListOf("curl", "-fsSL", "-o", target.toString())
+            if (token != null) cmd += listOf("--header", "Authorization: Bearer $token")
+            cmd += url
+            val result = runner.run(cmd)
+            require(result.exitCode == 0) { "feed fetch failed for $url (exit ${result.exitCode}): ${result.stderr}" }
+            return mapper.readValue(target.toFile())
+        } finally {
+            Files.deleteIfExists(target)
+        }
     }
 }

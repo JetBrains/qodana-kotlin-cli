@@ -1,8 +1,10 @@
 package org.jetbrains.qodana.images.dist
 
 import org.jetbrains.qodana.images.process.CommandRunner
+import java.nio.file.FileSystems
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.PosixFilePermissions
 
 /** The downloaded dist triple: the archive and its detached sha256 + GPG signature. */
 data class DownloadedDist(
@@ -74,6 +76,7 @@ class DistVerifier(
         workDir: Path,
     ) {
         val homedir = Files.createDirectories(workDir.resolve("gnupghome"))
+        restrictToOwner(homedir)
         val keyring = workDir.resolve("jetbrains.keyring.gpg")
         // --homedir is MANDATORY so no state leaks into ~/.gnupg.
         val base =
@@ -98,6 +101,12 @@ class DistVerifier(
             )
         }
         assertValidSig(verifyResult.stdout, fingerprint)
+    }
+
+    /** Locks the ephemeral gpg homedir to owner-only (0700); gpg can refuse a world-readable homedir. */
+    private fun restrictToOwner(dir: Path) {
+        if (!FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) return
+        Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwx------"))
     }
 
     private fun assertValidSig(

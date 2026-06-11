@@ -26,7 +26,7 @@ class DistResolverTest {
         assertEquals(link, dist.link)
         assertEquals(checksumLink, dist.checksumLink)
         // The detached signature is derived by the caller as checksumLink + ".asc".
-        assertEquals(dist.checksumLink + ".asc", dist.checksumLink + ".asc")
+        assertEquals("$checksumLink.asc", dist.checksumLink + ".asc")
     }
 
     @Test
