@@ -31,43 +31,84 @@ class TarGzExtractor : Extractor {
         Files.createDirectories(stagingParent)
         val extractRoot = Files.createTempDirectory(stagingParent, "targz-extract")
         try {
-            extractInto(archive, extractRoot)
+            val stagedDirModes = extractInto(archive, extractRoot)
             val source = singleTopLevelDir(extractRoot) ?: extractRoot
             moveContents(source, targetDir)
+            // Apply directory modes last, on the FINAL target paths: doing it here (rather than in
+            // staging) keeps staged dirs writable for the flatten move and the cleanup below, and
+            // ensures a non-writable mode (e.g. 0555) lands only after every child is in place.
+            applyDirModes(stagedDirModes, source, targetDir)
         } finally {
             extractRoot.toFile().deleteRecursively()
         }
     }
 
+    /**
+     * Extracts every entry of [archive] under [destination], returning the staged directory paths and
+     * their tar modes so the caller can apply them after the contents are moved into the final target.
+     */
     private fun extractInto(
         archive: Path,
         destination: Path,
-    ) {
+    ): List<Pair<Path, Int>> {
+        // Absolute + normalized base so the zip-slip guard (`startsWith(base)`) is robust regardless of
+        // how [destination] was passed in, and so it can be reused to validate symlink targets.
+        val base = destination.toAbsolutePath().normalize()
+        val stagedDirModes = mutableListOf<Pair<Path, Int>>()
         TarArchiveInputStream(GZIPInputStream(BufferedInputStream(Files.newInputStream(archive)))).use { tar ->
             var entry = tar.nextEntry
             while (entry != null) {
-                val resolved = destination.resolve(entry.name).normalize()
-                require(resolved.startsWith(destination)) { "Archive entry escapes target: ${entry.name}" }
-                extractEntry(tar, entry, resolved)
+                val resolved = base.resolve(entry.name).normalize()
+                require(resolved.startsWith(base)) { "Archive entry escapes target: ${entry.name}" }
+                extractEntry(tar, entry, resolved, base, stagedDirModes)
                 entry = tar.nextEntry
             }
         }
+        return stagedDirModes
+    }
+
+    /**
+     * Applies the collected directory [modes] (captured at staging paths under [source]) to the
+     * corresponding paths under [targetDir]. Directories outside [source] (e.g. a flattened wrapper)
+     * are not moved into the target and are skipped. Modes are applied deepest-first so that a
+     * restrictive parent mode (one that drops the traverse bit) cannot block setting a child's mode.
+     */
+    private fun applyDirModes(
+        modes: List<Pair<Path, Int>>,
+        source: Path,
+        targetDir: Path,
+    ) {
+        val sourceBase = source.toAbsolutePath().normalize()
+        modes
+            .map { (stagedDir, mode) -> stagedDir.toAbsolutePath().normalize() to mode }
+            .filter { (absStaged, _) -> absStaged != sourceBase && absStaged.startsWith(sourceBase) }
+            .sortedByDescending { (absStaged, _) -> absStaged.nameCount }
+            .forEach { (absStaged, mode) ->
+                applyMode(targetDir.resolve(sourceBase.relativize(absStaged)), mode)
+            }
     }
 
     private fun extractEntry(
         tar: TarArchiveInputStream,
         entry: TarArchiveEntry,
         resolved: Path,
+        base: Path,
+        stagedDirModes: MutableList<Pair<Path, Int>>,
     ) {
         when {
             entry.isDirectory -> {
                 Files.createDirectories(resolved)
-                applyMode(resolved, entry.mode)
+                stagedDirModes += resolved to entry.mode
             }
             entry.isSymbolicLink -> {
                 resolved.parent?.let { Files.createDirectories(it) }
+                val linkTarget = resolved.fileSystem.getPath(entry.linkName)
+                val resolvedTarget = resolved.parent!!.resolve(linkTarget).normalize()
+                require(resolvedTarget.startsWith(base)) {
+                    "Archive symlink escapes target: ${entry.name} -> ${entry.linkName}"
+                }
                 Files.deleteIfExists(resolved)
-                Files.createSymbolicLink(resolved, resolved.fileSystem.getPath(entry.linkName))
+                Files.createSymbolicLink(resolved, linkTarget)
             }
             else -> {
                 resolved.parent?.let { Files.createDirectories(it) }
