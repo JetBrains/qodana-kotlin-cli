@@ -52,7 +52,9 @@ class InstallCliCommand(
     private val sha256 = Sha256Tool(runner)
 
     override fun run() {
-        Files.createDirectories(target.parent)
+        // Real callers always pass an absolute --target (e.g. /usr/local/bin/qodana); guard the
+        // null parent of a bare relative target so it writes to CWD rather than throwing an NPE.
+        target.parent?.let { Files.createDirectories(it) }
         when (source) {
             "release" -> installFromRelease()
             "context" -> installFromContext()
