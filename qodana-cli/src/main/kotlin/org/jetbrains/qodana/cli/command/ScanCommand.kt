@@ -23,6 +23,7 @@ import org.jetbrains.qodana.engine.env.CiDetector
 import org.jetbrains.qodana.engine.env.RuntimeEnvironment
 import org.jetbrains.qodana.engine.model.*
 import org.jetbrains.qodana.engine.scan.ReportPort
+import org.jetbrains.qodana.engine.startup.SanctionedImage
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -415,9 +416,9 @@ class ScanCommand(
         val yamlLinter = yaml?.linter?.takeIf { it.isNotBlank() }
         val yamlImage = yaml?.image?.takeIf { it.isNotBlank() }
         val distOverride = readEnv(QodanaEnv.DIST)?.trim().orEmpty()
-        if (distOverride.isNotEmpty()) {
+        if (distOverride.isNotEmpty() && SanctionedImage.isSanctioned(::readEnv)) {
             val distPath = Path.of(distOverride).toAbsolutePath().normalize()
-            validateDistOverride(distPath)
+            validateDistOverride(distPath) // fail-closed: throws UsageError if product-info.json is absent
             return AnalyzerResolution(
                 requestedTarget = RequestedExecutionTarget.NATIVE,
                 linterName = null,

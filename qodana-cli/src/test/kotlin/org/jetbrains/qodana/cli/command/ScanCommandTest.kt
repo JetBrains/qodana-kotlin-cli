@@ -488,7 +488,8 @@ class ScanCommandTest {
         var capturedContext: ScanContext? = null
         val command =
             ScanCommand(
-                envOverrides = mapOf(QodanaEnv.DIST to distDir.toString()),
+                // A sanctioned image sets both QODANA_DOCKER and QODANA_DIST.
+                envOverrides = mapOf(QodanaEnv.DOCKER to "true", QodanaEnv.DIST to distDir.toString()),
                 scanRunner = { context ->
                     capturedContext = context
                     0
@@ -522,7 +523,8 @@ class ScanCommandTest {
         val invalidDist = tmpDir.resolve("invalid-dist").also { Files.createDirectories(it) }
         val command =
             ScanCommand(
-                envOverrides = mapOf(QodanaEnv.DIST to invalidDist.toString()),
+                // A sanctioned image sets both QODANA_DOCKER and QODANA_DIST; an invalid dist fails closed.
+                envOverrides = mapOf(QodanaEnv.DOCKER to "true", QodanaEnv.DIST to invalidDist.toString()),
                 scanRunner = { 0 },
                 terminal = NoOpTerminal(),
             )
@@ -532,6 +534,91 @@ class ScanCommandTest {
                 command.parse(listOf("-i", projectDir.toString()))
             }
 
+        assertTrue(error.message.orEmpty().contains("doesn't point to valid distribution"))
+    }
+
+    @Test
+    fun `sanctioned image routes --linter qodana-android to the baked native dist`(
+        @TempDir tmpDir: Path,
+    ) {
+        val projectDir = createProject(tmpDir.resolve("project").also { Files.createDirectories(it) })
+        val distDir = tmpDir.resolve("dist").also { Files.createDirectories(it) }
+        val isMac = System.getProperty("os.name", "").lowercase().contains("mac")
+        val productInfoDir = if (isMac) distDir.resolve("Resources").also { Files.createDirectories(it) } else distDir
+        Files.writeString(productInfoDir.resolve("product-info.json"), """{"productCode":"IU"}""")
+        var capturedContext: ScanContext? = null
+        val command =
+            ScanCommand(
+                envOverrides = mapOf(QodanaEnv.DOCKER to "true", QodanaEnv.DIST to distDir.toString()),
+                scanRunner = { context ->
+                    capturedContext = context
+                    0
+                },
+                terminal = NoOpTerminal(),
+            )
+
+        val result =
+            assertFailsWith<ProgramResult> {
+                command.parse(listOf("-i", projectDir.toString(), "--linter", "qodana-android"))
+            }
+
+        assertEquals(0, result.statusCode)
+        val context = requireNotNull(capturedContext)
+        assertEquals(org.jetbrains.qodana.engine.model.NativeExecutionProfile, context.executionProfile)
+        assertEquals(distDir.toAbsolutePath().normalize(), context.runtime.ideDir)
+    }
+
+    @Test
+    fun `unsanctioned --linter qodana-android keeps container default (no native bypass)`(
+        @TempDir tmpDir: Path,
+    ) {
+        val projectDir = createProject(tmpDir.resolve("project").also { Files.createDirectories(it) })
+        var capturedContext: ScanContext? = null
+        val command =
+            ScanCommand(
+                // No QODANA_DOCKER, no QODANA_DIST → not sanctioned.
+                envOverrides = emptyMap(),
+                scanRunner = { context ->
+                    capturedContext = context
+                    0
+                },
+                terminal = NoOpTerminal(),
+            )
+
+        val result =
+            assertFailsWith<ProgramResult> {
+                command.parse(listOf("-i", projectDir.toString(), "--linter", "qodana-android"))
+            }
+
+        // Unchanged behavior: the container-default execution profile, NOT a native bypass.
+        // ScanContext exposes `executionProfile` (an ExecutionProfile); there is NO
+        // `context.runtime.requestedTarget`. On a non-IN_DOCKER host the default is
+        // DockerLauncherExecutionProfile (see ExecutionProfileResolver / ScanContext default).
+        assertEquals(0, result.statusCode)
+        val context = requireNotNull(capturedContext)
+        assertEquals(
+            org.jetbrains.qodana.engine.model.DockerLauncherExecutionProfile,
+            context.executionProfile,
+        )
+    }
+
+    @Test
+    fun `sanctioned QODANA_DOCKER but QODANA_DIST without product-info fails closed`(
+        @TempDir tmpDir: Path,
+    ) {
+        val projectDir = createProject(tmpDir.resolve("project").also { Files.createDirectories(it) })
+        val bogusDist = tmpDir.resolve("bogus").also { Files.createDirectories(it) } // no product-info.json
+        val command =
+            ScanCommand(
+                envOverrides = mapOf(QodanaEnv.DOCKER to "true", QodanaEnv.DIST to bogusDist.toString()),
+                scanRunner = { 0 },
+                terminal = NoOpTerminal(),
+            )
+
+        val error =
+            assertFailsWith<UsageError> {
+                command.parse(listOf("-i", projectDir.toString(), "--linter", "qodana-android"))
+            }
         assertTrue(error.message.orEmpty().contains("doesn't point to valid distribution"))
     }
 
