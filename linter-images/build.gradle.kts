@@ -10,9 +10,8 @@ application {
     mainClass.set("org.jetbrains.qodana.images.MainKt")
 }
 
-// Pin the test working dir to the module root so every guard test (SyntaxPinTest, EnvContractTest,
-// ClangVersionsTest, ComposeContractTest, …) resolves its relative paths via ONE strategy — no
-// System.getProperty("user.dir") name-sniffing fallback. (Shared Contracts → Tests working directory.)
+// Pin the test working dir to the module root so guard tests that read fixture files by relative
+// path resolve them consistently, with no user.dir fallback. (Shared Contracts → Tests working directory.)
 tasks.withType<Test> {
     workingDir = layout.projectDirectory.asFile
 }
