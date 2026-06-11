@@ -75,4 +75,12 @@ class DistLayoutVerifierTest {
         val d = dist(tmp.resolve("d"), modules = listOf("java.base", "jdk.compiler"))
         assertFailsWith<DistLayoutException> { verifier.verify(d, expectedProductCode = "IU") }
     }
+
+    @Test
+    fun `rejects a JBR whose modules only substring-match jdk-jartool (QD-14924)`(
+        @TempDir tmp: Path,
+    ) {
+        val d = dist(tmp.resolve("d"), modules = listOf("java.base", "jdk.jartoolx", "jdk.compiler"))
+        assertFailsWith<DistLayoutException> { verifier.verify(d, expectedProductCode = "IU") }
+    }
 }

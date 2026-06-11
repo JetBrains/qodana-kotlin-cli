@@ -11,6 +11,7 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class InstallCliCommandTest {
@@ -123,5 +124,91 @@ class InstallCliCommandTest {
                 ),
             )
         }
+    }
+
+    @Test
+    fun `release source aborts on checksum mismatch and installs nothing`(
+        @TempDir tmp: Path,
+    ) {
+        val target = tmp.resolve("out")
+        val runner = FakeCommandRunner()
+
+        runner.on({ it.contains("curl") && it.last() == "https://rel/qodana_linux_x86_64.tar.gz" }) { argv ->
+            Path.of(argv[argv.indexOf("-o") + 1]).writeText("ARCHIVE-BYTES")
+            CommandResult(0, "", "")
+        }
+        runner.on({ it.contains("curl") && it.last() == "https://rel/checksums.txt" }) { argv ->
+            // manifest claims the asset hashes to "expected", ...
+            Path.of(argv[argv.indexOf("-o") + 1]).writeText("expected  qodana_linux_x86_64.tar.gz\n")
+            CommandResult(0, "", "")
+        }
+        // ... but the computed sha is something else -> fail-closed before extraction.
+        runner.on({ it.firstOrNull() == "sha256sum" }, CommandResult(0, "tampered  ignored\n", ""))
+
+        assertFailsWith<IllegalArgumentException> {
+            newCommand(runner).parse(
+                listOf(
+                    "--binary",
+                    "qodana",
+                    "--source",
+                    "release",
+                    "--release-base-url",
+                    "https://rel",
+                    "--target",
+                    target.toString(),
+                    "--work-dir",
+                    tmp.resolve("dl").toString(),
+                ),
+            )
+        }
+
+        assertFalse(Files.exists(target), "a checksum mismatch must leave no partial install at --target")
+        assertTrue(runner.invocations.none { it.firstOrNull() == "tar" }, "must not extract an unverified archive")
+    }
+
+    @Test
+    fun `release source fails loudly when the manifest lacks the asset entry`(
+        @TempDir tmp: Path,
+    ) {
+        val target = tmp.resolve("out")
+        val runner = FakeCommandRunner()
+
+        runner.on({ it.contains("curl") && it.last() == "https://rel/qodana_linux_x86_64.tar.gz" }) { argv ->
+            Path.of(argv[argv.indexOf("-o") + 1]).writeText("ARCHIVE-BYTES")
+            CommandResult(0, "", "")
+        }
+        runner.on({ it.contains("curl") && it.last() == "https://rel/checksums.txt" }) { argv ->
+            // manifest has a row for some other asset, none for ours.
+            Path.of(argv[argv.indexOf("-o") + 1]).writeText("feed  qodana_linux_arm64.tar.gz\n")
+            CommandResult(0, "", "")
+        }
+        runner.on({ it.firstOrNull() == "sha256sum" }, CommandResult(0, "feed  ignored\n", ""))
+        // A valid tar/sha so that ANY non-throwing manifest lookup would let the install succeed;
+        // only the manifest's missing-entry abort can produce the expected failure here.
+        runner.on({ it.firstOrNull() == "tar" }) { argv ->
+            val dest = Path.of(argv[argv.indexOf("-C") + 1])
+            Files.createDirectories(dest)
+            dest.resolve("qodana").writeText("BINARY")
+            CommandResult(0, "", "")
+        }
+
+        assertFailsWith<IllegalArgumentException> {
+            newCommand(runner).parse(
+                listOf(
+                    "--binary",
+                    "qodana",
+                    "--source",
+                    "release",
+                    "--release-base-url",
+                    "https://rel",
+                    "--target",
+                    target.toString(),
+                    "--work-dir",
+                    tmp.resolve("dl").toString(),
+                ),
+            )
+        }
+
+        assertFalse(Files.exists(target), "a missing manifest entry must leave no partial install at --target")
     }
 }
