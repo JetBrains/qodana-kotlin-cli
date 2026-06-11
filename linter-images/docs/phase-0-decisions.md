@@ -23,7 +23,7 @@ DOCKERFILE_X_SYNTAX: # syntax=docker.io/devthefuture/dockerfile-x:1.6.0@sha256:0
 
 ### ARG-before-INCLUDE bug and the safe thin-file shape
 
-dockerfile-x drops/ignores an `ARG` declared *before* the first `INCLUDE` —
+dockerfile-x drops/ignores an `ARG` declared _before_ the first `INCLUDE` —
 an established upstream behavior of `devthefuture/dockerfile-x` that the thin-file
 design already accounts for. The safe shape is to pass build args through
 `INCLUDE_ARGS images/<slug>.env` placed BEFORE the first `INCLUDE`; values
