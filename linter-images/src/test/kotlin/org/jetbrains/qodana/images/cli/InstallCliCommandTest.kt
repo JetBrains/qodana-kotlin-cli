@@ -309,4 +309,35 @@ class InstallCliCommandTest {
         assertTrue(runner.invocations.none { it.firstOrNull() == "tar" }, "must not extract before resolving the sha")
         assertFalse(Files.exists(target), "a missing manifest entry must leave no partial install at --target")
     }
+
+    @Test
+    fun `release source rejects a --version with a path separator before downloading`(
+        @TempDir tmp: Path,
+    ) {
+        val target = tmp.resolve("out")
+        val runner = FakeCommandRunner()
+
+        // A crafted --version must be rejected up front (path traversal) — before any curl/tar runs.
+        assertFailsWith<IllegalArgumentException> {
+            newCommand(runner).parse(
+                listOf(
+                    "--binary",
+                    "qodana-clang",
+                    "--source",
+                    "release",
+                    "--version",
+                    "../../../../tmp/evil",
+                    "--release-base-url",
+                    "https://rel",
+                    "--target",
+                    target.toString(),
+                    "--work-dir",
+                    tmp.resolve("dl").toString(),
+                ),
+            )
+        }
+
+        assertTrue(runner.invocations.isEmpty(), "a traversal --version must abort before any download")
+        assertFalse(Files.exists(target), "rejected --version must leave no file at --target")
+    }
 }

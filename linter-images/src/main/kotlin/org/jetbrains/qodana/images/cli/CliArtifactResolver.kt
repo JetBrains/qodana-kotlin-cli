@@ -17,14 +17,19 @@ class CliArtifactResolver {
         version: String? = null,
     ): String {
         require(binary in KNOWN_BINARIES) { "Unknown CLI binary: $binary (expected one of $KNOWN_BINARIES)" }
-        return if (binary == CLI_BINARY) {
-            // Cli archive: x86_64 token on amd64, arm64 unchanged.
-            "${binary}_${os}_${cliArchiveArch(arch)}.tar.gz"
-        } else {
-            // Tool raw binary: keeps amd64, carries the version.
-            val v = requireNotNull(version) { "version is required for the Tool asset name of $binary" }
-            "${binary}_${v}_${os}_$arch"
-        }
+        val name =
+            if (binary == CLI_BINARY) {
+                // Cli archive: x86_64 token on amd64, arm64 unchanged.
+                "${binary}_${os}_${cliArchiveArch(arch)}.tar.gz"
+            } else {
+                // Tool raw binary: keeps amd64, carries the version.
+                val v = requireNotNull(version) { "version is required for the Tool asset name of $binary" }
+                "${binary}_${v}_${os}_$arch"
+            }
+        // An asset name is a single path segment. Reject separators so a crafted component (e.g.
+        // `--version ../../x`) cannot escape the download dir when the caller resolves it (path traversal).
+        require('/' !in name && '\\' !in name) { "Release asset name must be a single path segment, got: $name" }
+        return name
     }
 
     fun executableNameInArchive(binary: String): String {

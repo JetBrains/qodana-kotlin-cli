@@ -59,6 +59,15 @@ class CliArtifactResolverTest {
     }
 
     @Test
+    fun `version containing a path separator is rejected (no traversal in the asset name)`() {
+        // A crafted --version must not smuggle path separators into the asset name; otherwise the
+        // caller's `dir.resolve(assetName)` could escape the download dir before sha verification.
+        assertFailsWith<IllegalArgumentException> {
+            resolver.releaseArchiveName(binary = "qodana-clang", os = "linux", arch = "amd64", version = "../../etc/x")
+        }
+    }
+
+    @Test
     fun `isCliArchive distinguishes the archived cli from the raw-binary tools`() {
         // The install-cli release path branches on this: only the `cli` ships as a .tar.gz to untar;
         // tools (clang/cdnet) download as raw executables and must NOT be run through tar.
