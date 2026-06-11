@@ -76,7 +76,15 @@ class DistVerifier(
         val homedir = Files.createDirectories(workDir.resolve("gnupghome"))
         val keyring = workDir.resolve("jetbrains.keyring.gpg")
         // --homedir is MANDATORY so no state leaks into ~/.gnupg.
-        val base = listOf("gpg", "--homedir", homedir.toString(), "--no-default-keyring", "--keyring", keyring.toString())
+        val base =
+            listOf(
+                "gpg",
+                "--homedir",
+                homedir.toString(),
+                "--no-default-keyring",
+                "--keyring",
+                keyring.toString(),
+            )
 
         val importResult = runner.run(base + listOf("--import", gpgKey.toString()))
         if (importResult.exitCode != 0) {
@@ -85,7 +93,9 @@ class DistVerifier(
 
         val verifyResult = runner.run(base + listOf("--status-fd", "1", "--verify", asc.toString(), sha256.toString()))
         if (verifyResult.exitCode != 0) {
-            throw VerificationException("gpg signature verification failed (exit ${verifyResult.exitCode}): ${verifyResult.stderr}")
+            throw VerificationException(
+                "gpg signature verification failed (exit ${verifyResult.exitCode}): ${verifyResult.stderr}",
+            )
         }
         assertValidSig(verifyResult.stdout, fingerprint)
     }
@@ -102,7 +112,12 @@ class DistVerifier(
                 if (idx < 0) {
                     false
                 } else {
-                    val signer = line.substring(idx + marker.length).trim().substringBefore(' ').uppercase()
+                    val signer =
+                        line
+                            .substring(idx + marker.length)
+                            .trim()
+                            .substringBefore(' ')
+                            .uppercase()
                     signer == want
                 }
             }
@@ -117,12 +132,21 @@ class DistVerifier(
         archive: Path,
         sha256: Path,
     ) {
-        val expected = Files.readString(sha256).trim().substringBefore(' ').lowercase()
+        val expected =
+            Files
+                .readString(sha256)
+                .trim()
+                .substringBefore(' ')
+                .lowercase()
         val result = runner.run(listOf("sha256sum", archive.toString()), workDir = archive.parent)
         if (result.exitCode != 0) {
             throw VerificationException("sha256sum failed (exit ${result.exitCode}): ${result.stderr}")
         }
-        val actual = result.stdout.trim().substringBefore(' ').lowercase()
+        val actual =
+            result.stdout
+                .trim()
+                .substringBefore(' ')
+                .lowercase()
         if (actual != expected) {
             throw VerificationException("sha256 mismatch: expected $expected, computed $actual")
         }

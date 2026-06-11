@@ -92,14 +92,22 @@ class ProvisionDistCommandTest {
         val result =
             command.test(
                 listOf(
-                    "--feed-url", "https://download.jetbrains.com/qodana/feed",
-                    "--linter-slug", "qodana-jvm",
-                    "--version", "2025.3",
-                    "--build", build,
-                    "--channel", "public",
-                    "--gpg-key", key.toString(),
-                    "--gpg-fingerprint", fingerprint,
-                    "--target", target.toString(),
+                    "--feed-url",
+                    "https://download.jetbrains.com/qodana/feed",
+                    "--linter-slug",
+                    "qodana-jvm",
+                    "--version",
+                    "2025.3",
+                    "--build",
+                    build,
+                    "--channel",
+                    "public",
+                    "--gpg-key",
+                    key.toString(),
+                    "--gpg-fingerprint",
+                    fingerprint,
+                    "--target",
+                    target.toString(),
                 ),
             )
 
@@ -130,14 +138,22 @@ class ProvisionDistCommandTest {
         val result =
             command.test(
                 listOf(
-                    "--feed-url", "https://packages.jetbrains.team/files/p/qd/private-feed",
-                    "--linter-slug", "qodana-jvm",
-                    "--version", "2025.3",
-                    "--build", build,
-                    "--channel", "private",
-                    "--gpg-key", key.toString(),
-                    "--gpg-fingerprint", fingerprint,
-                    "--target", target.toString(),
+                    "--feed-url",
+                    "https://packages.jetbrains.team/files/p/qd/private-feed",
+                    "--linter-slug",
+                    "qodana-jvm",
+                    "--version",
+                    "2025.3",
+                    "--build",
+                    build,
+                    "--channel",
+                    "private",
+                    "--gpg-key",
+                    key.toString(),
+                    "--gpg-fingerprint",
+                    fingerprint,
+                    "--target",
+                    target.toString(),
                 ),
             )
 
@@ -164,14 +180,22 @@ class ProvisionDistCommandTest {
         val result =
             command.test(
                 listOf(
-                    "--feed-url", "https://packages.jetbrains.team/files/p/qd/private-feed",
-                    "--linter-slug", "qodana-jvm",
-                    "--version", "2025.3",
-                    "--build", build,
-                    "--channel", "private",
-                    "--gpg-key", gpgKey(tmp).toString(),
-                    "--gpg-fingerprint", fingerprint,
-                    "--target", target.toString(),
+                    "--feed-url",
+                    "https://packages.jetbrains.team/files/p/qd/private-feed",
+                    "--linter-slug",
+                    "qodana-jvm",
+                    "--version",
+                    "2025.3",
+                    "--build",
+                    build,
+                    "--channel",
+                    "private",
+                    "--gpg-key",
+                    gpgKey(tmp).toString(),
+                    "--gpg-fingerprint",
+                    fingerprint,
+                    "--target",
+                    target.toString(),
                 ),
             )
 

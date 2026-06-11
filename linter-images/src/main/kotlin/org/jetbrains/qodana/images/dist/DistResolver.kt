@@ -21,7 +21,8 @@ object DistResolver {
         val download =
             release.downloads?.get(osKey)
                 ?: throw MissingDownloadException(
-                    "Release ${release.build} has no '$osKey' download (have: ${release.downloads?.keys ?: emptySet<String>()})",
+                    "Release ${release.build} has no '$osKey' download " +
+                        "(have: ${release.downloads?.keys ?: emptySet<String>()})",
                 )
         if (download.link.isEmpty() || download.checksumLink.isEmpty()) {
             throw MissingDownloadException(

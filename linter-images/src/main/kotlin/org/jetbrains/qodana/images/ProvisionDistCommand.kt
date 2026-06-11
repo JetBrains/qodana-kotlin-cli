@@ -39,7 +39,8 @@ class ProvisionDistCommand(
     // Channel is the artifact SOURCE (which mirror), NOT release-vs-eap.
     private val channel by option("--channel", help = "public|private").choice("public", "private").default("public")
     private val gpgKey by option("--gpg-key", help = "Vendored JetBrains public key")
-        .path(mustExist = true).required()
+        .path(mustExist = true)
+        .required()
 
     // The fingerprint is ALWAYS passed by the caller (dist.dockerfile/canary do `$(cat .fpr)`), so it
     // is REQUIRED here — no blank-fallback `.fpr`-read branch (single behavior).
