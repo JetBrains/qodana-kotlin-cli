@@ -68,4 +68,25 @@ class DistLayoutVerifierTest {
         Files.createDirectories(d)
         assertFailsWith<DistLayoutException> { verifier.verify(d, expectedProductCode = "IU") }
     }
+
+    @Test
+    fun `rejects a dist with no bundled JBR runtime (missing jbr-bin-java)`(
+        @TempDir tmp: Path,
+    ) {
+        // productCode alone is too weak: a dist that lost its runtime must still fail the build.
+        val d = tmp.resolve("d")
+        Files.createDirectories(d)
+        d.resolve("product-info.json").writeText("""{"productCode":"IU","version":"2025.3"}""")
+        Files.createDirectories(d.resolve("jbr/bin"))
+        // jbr/bin exists but has no `java`, and no jbr/release.
+        assertFailsWith<DistLayoutException> { verifier.verify(d, expectedProductCode = "IU") }
+    }
+
+    @Test
+    fun `rejects a dist whose JBR has java but no release manifest`(
+        @TempDir tmp: Path,
+    ) {
+        val d = dist(tmp.resolve("d"), modules = null) // modules=null omits jbr/release
+        assertFailsWith<DistLayoutException> { verifier.verify(d, expectedProductCode = "IU") }
+    }
 }

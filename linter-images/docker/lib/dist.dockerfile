@@ -1,7 +1,8 @@
 # dist — provision + verify the IDE distribution into ${QD_DIST}.
 # A JDK builder runs image-tool (provision-dist: GPG signer-match THEN sha256, fail-closed;
-# then verify-dist-layout: complete-JBR + product-info code). The final stage COPYs only
-# the verified tree. android reuses jvm's dist (QD_LINTER_SLUG=qodana-jvm for both).
+# then verify-dist-layout: product-info code + bundled JBR runtime — NOT a complete JDK, the JBR
+# ships no jar/jdk.jartool by design). The final stage COPYs only the verified tree. android reuses
+# jvm's dist (QD_LINTER_SLUG=qodana-jvm for both).
 # Consumes: QD_LINTER_SLUG QD_VERSION QD_BUILD QD_CHANNEL QD_FEED_URL
 #           QD_PRODUCT_INFO_CODE QD_DIST JDK_BUILDER_IMAGE
 ARG QD_LINTER_SLUG

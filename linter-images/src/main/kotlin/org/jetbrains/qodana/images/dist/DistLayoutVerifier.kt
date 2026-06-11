@@ -11,18 +11,19 @@ class DistLayoutException(
 ) : RuntimeException(message)
 
 /**
- * Asserts a provisioned IDE dist is the one we expect.
+ * Asserts a provisioned IDE dist is the one we expect AND carries a usable bundled JBR runtime.
  *
  *  - `<dist>/product-info.json` exists and its `productCode` EXACTLY equals
  *    `expectedProductCode` (an IDE code such as `IU`, not the QD code; never a
  *    substring match — `IU-EAP` must not satisfy `IU`).
+ *  - A bundled JBR runtime is present: `<dist>/jbr/bin/java` and `<dist>/jbr/release` exist (a dist
+ *    that lost its runtime must fail the build, not ship).
  *
- * The dist's bundled JBR is a JetBrains Runtime, NOT a complete JDK: it ships `java`/`javac` but no
- * `jar` / `jdk.jartool` (verified against qodana-jvm 253.31821 — IMPLEMENTOR_VERSION "JBR-21.0.10").
- * That is by design, so this layout check does NOT require a complete JBR. QD-14924's complete JDK
- * for the rootless Gradle daemon is provisioned separately at scan-time by qodana.yaml's
- * bootstrap.sh, whose own rationale documents the bundled JBR's incompleteness — requiring it here
- * would reject every real qodana-jvm/android dist.
+ * It does NOT require a COMPLETE JDK. The dist's bundled JBR is a JetBrains Runtime that ships
+ * `java`/`javac` but no `jar` / `jdk.jartool` (verified against qodana-jvm 253.31821 —
+ * IMPLEMENTOR_VERSION "JBR-21.0.10") BY DESIGN. QD-14924's complete JDK for the rootless Gradle
+ * daemon is provisioned separately at scan-time by qodana.yaml's bootstrap.sh (whose own rationale
+ * documents the bundled JBR's incompleteness); requiring `jar` here would reject every real dist.
  */
 class DistLayoutVerifier(
     private val mapper: ObjectMapper = ObjectMapper(),
@@ -32,6 +33,19 @@ class DistLayoutVerifier(
         expectedProductCode: String,
     ) {
         verifyProductCode(dist, expectedProductCode)
+        verifyJbrRuntimePresent(dist)
+    }
+
+    /** A JBR runtime must be bundled: the `java` launcher and the `release` manifest both exist. */
+    private fun verifyJbrRuntimePresent(dist: Path) {
+        val javaLauncher = dist.resolve("jbr/bin/java")
+        if (!Files.isRegularFile(javaLauncher)) {
+            throw DistLayoutException("Missing bundled JBR runtime: no java launcher at $javaLauncher")
+        }
+        val releaseFile = dist.resolve("jbr/release")
+        if (!Files.isRegularFile(releaseFile)) {
+            throw DistLayoutException("Missing bundled JBR runtime manifest at $releaseFile")
+        }
     }
 
     private fun verifyProductCode(
