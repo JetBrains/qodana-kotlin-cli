@@ -1,0 +1,20 @@
+# Private feed channel overlay. Use ONLY for the private mirror:
+#   QD_FEED_TOKEN=<token> docker compose -f compose.yaml -f compose.private.yaml build qodana-jvm
+# The base compose.yaml never references this secret, so the public path builds with the token unset.
+services:
+  qodana-jvm:
+    build:
+      secrets:
+        - feed_token
+  qodana-android:
+    build:
+      secrets:
+        - feed_token
+  qodana-clang:
+    build:
+      secrets:
+        - feed_token
+
+secrets:
+  feed_token:
+    environment: QD_FEED_TOKEN
