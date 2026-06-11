@@ -32,6 +32,11 @@
       "description": "Keep the HybridCRT GraalVM on the JDK-25 line too; a major-line jump is a deliberate migration (QD-14917).",
       "matchDepNames": ["qodana/graalvm-hybridcrt"],
       "allowedVersions": "<26"
+    },
+    {
+      "description": "Bump the dockerfile-x syntax frontend within the 1.x line.",
+      "matchPackageNames": ["devthefuture/dockerfile-x"],
+      "versioning": "semver"
     }
   ]
 }
