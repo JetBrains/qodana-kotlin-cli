@@ -21,6 +21,7 @@ dependencies {
     implementation(libs.jackson.databind)
     implementation(libs.jackson.module.kotlin)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.commons.compress)
 
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlin.test)
