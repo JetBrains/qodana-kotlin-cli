@@ -1,14 +1,14 @@
 package org.jetbrains.qodana.images
 
 import com.github.ajalt.clikt.core.parse
+import org.jetbrains.qodana.images.dist.DistLayoutException
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.writeText
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import org.jetbrains.qodana.images.dist.DistLayoutException
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 
 class MainTest {
     @Test

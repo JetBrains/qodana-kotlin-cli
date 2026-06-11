@@ -1,8 +1,8 @@
 package org.jetbrains.qodana.images.cli
 
+import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import org.junit.jupiter.api.Test
 
 class ChecksumManifestTest {
     @Test

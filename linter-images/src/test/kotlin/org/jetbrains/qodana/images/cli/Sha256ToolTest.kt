@@ -1,10 +1,10 @@
 package org.jetbrains.qodana.images.cli
 
-import java.nio.file.Path
-import kotlin.test.assertEquals
 import org.jetbrains.qodana.images.process.CommandResult
 import org.jetbrains.qodana.images.process.FakeCommandRunner
 import org.junit.jupiter.api.Test
+import java.nio.file.Path
+import kotlin.test.assertEquals
 
 class Sha256ToolTest {
     @Test

@@ -1,9 +1,9 @@
 package org.jetbrains.qodana.images
 
+import org.junit.jupiter.api.Test
 import java.nio.file.Path
 import kotlin.io.path.readText
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.Test
 
 /**
  * Guards the `application`-plugin wiring the Docker builder stage relies on:

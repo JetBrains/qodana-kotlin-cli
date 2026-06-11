@@ -1,7 +1,9 @@
 package org.jetbrains.qodana.images.cli
 
 /** Parsed `checksums.txt`: maps each asset filename to its hex sha256. */
-class ChecksumManifest private constructor(private val byName: Map<String, String>) {
+class ChecksumManifest private constructor(
+    private val byName: Map<String, String>,
+) {
     fun sha256For(fileName: String): String =
         requireNotNull(byName[fileName]) {
             "No checksum for '$fileName' in manifest (have: ${byName.keys.sorted()})"

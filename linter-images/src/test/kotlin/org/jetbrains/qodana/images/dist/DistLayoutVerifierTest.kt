@@ -1,11 +1,11 @@
 package org.jetbrains.qodana.images.dist
 
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.writeText
 import kotlin.test.assertFailsWith
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 
 class DistLayoutVerifierTest {
     private val verifier = DistLayoutVerifier()

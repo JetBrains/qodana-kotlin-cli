@@ -1,6 +1,10 @@
 package org.jetbrains.qodana.images.cli
 
 import com.github.ajalt.clikt.core.parse
+import org.jetbrains.qodana.images.process.CommandResult
+import org.jetbrains.qodana.images.process.FakeCommandRunner
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.readText
@@ -8,10 +12,6 @@ import kotlin.io.path.writeText
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
-import org.jetbrains.qodana.images.process.CommandResult
-import org.jetbrains.qodana.images.process.FakeCommandRunner
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.io.TempDir
 
 class InstallCliCommandTest {
     private fun newCommand(
@@ -49,14 +49,22 @@ class InstallCliCommandTest {
 
         newCommand(runner).parse(
             listOf(
-                "--binary", "qodana",
-                "--source", "release",
-                "--version", "2026.2",
-                "--os", "linux",
-                "--arch", "amd64",
-                "--release-base-url", "https://rel",
-                "--target", target.toString(),
-                "--work-dir", downloadDir.toString(),
+                "--binary",
+                "qodana",
+                "--source",
+                "release",
+                "--version",
+                "2026.2",
+                "--os",
+                "linux",
+                "--arch",
+                "amd64",
+                "--release-base-url",
+                "https://rel",
+                "--target",
+                target.toString(),
+                "--work-dir",
+                downloadDir.toString(),
             ),
         )
 
@@ -77,10 +85,14 @@ class InstallCliCommandTest {
 
         newCommand(runner).parse(
             listOf(
-                "--binary", "qodana",
-                "--source", "context",
-                "--context-path", ctx.toString(),
-                "--target", target.toString(),
+                "--binary",
+                "qodana",
+                "--source",
+                "context",
+                "--context-path",
+                ctx.toString(),
+                "--target",
+                target.toString(),
             ),
         )
 
@@ -100,10 +112,14 @@ class InstallCliCommandTest {
         assertFailsWith<IllegalArgumentException> {
             newCommand(runner).parse(
                 listOf(
-                    "--binary", "qodana",
-                    "--source", "context",
-                    "--context-path", missing.toString(),
-                    "--target", target.toString(),
+                    "--binary",
+                    "qodana",
+                    "--source",
+                    "context",
+                    "--context-path",
+                    missing.toString(),
+                    "--target",
+                    target.toString(),
                 ),
             )
         }

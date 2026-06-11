@@ -6,7 +6,9 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /** Thrown when a provisioned IDE distribution does not satisfy the required layout. */
-class DistLayoutException(message: String) : RuntimeException(message)
+class DistLayoutException(
+    message: String,
+) : RuntimeException(message)
 
 /**
  * Asserts a provisioned IDE dist is the one we expect AND carries a complete JBR.
@@ -19,7 +21,9 @@ class DistLayoutException(message: String) : RuntimeException(message)
  *    "JRE" JBR breaks the rootless Qodana linter's Gradle daemon at scan time, so
  *    the build must fail here rather than ship the broken image.
  */
-class DistLayoutVerifier(private val mapper: ObjectMapper = ObjectMapper()) {
+class DistLayoutVerifier(
+    private val mapper: ObjectMapper = ObjectMapper(),
+) {
     fun verify(
         dist: Path,
         expectedProductCode: String,
@@ -32,13 +36,7 @@ class DistLayoutVerifier(private val mapper: ObjectMapper = ObjectMapper()) {
         dist: Path,
         expectedProductCode: String,
     ) {
-        val productInfo = dist.resolve("product-info.json")
-        if (!Files.isRegularFile(productInfo)) {
-            throw DistLayoutException("Missing product-info.json under $dist")
-        }
-        val node: JsonNode = mapper.readTree(Files.readString(productInfo))
-        val actual = node.path("productCode").asText(null)
-            ?: throw DistLayoutException("product-info.json has no productCode field: $productInfo")
+        val actual = readProductCode(dist)
         if (actual != expectedProductCode) {
             throw DistLayoutException(
                 "product-info.json productCode mismatch: expected '$expectedProductCode', got '$actual'",
@@ -46,17 +44,30 @@ class DistLayoutVerifier(private val mapper: ObjectMapper = ObjectMapper()) {
         }
     }
 
+    private fun readProductCode(dist: Path): String {
+        val productInfo = dist.resolve("product-info.json")
+        if (!Files.isRegularFile(productInfo)) {
+            throw DistLayoutException("Missing product-info.json under $dist")
+        }
+        val node: JsonNode = mapper.readTree(Files.readString(productInfo))
+        return node.path("productCode").asText(null)
+            ?: throw DistLayoutException("product-info.json has no productCode field: $productInfo")
+    }
+
     private fun verifyCompleteJbr(dist: Path) {
         val jarTool = dist.resolve("jbr/bin/jar")
         if (!Files.isRegularFile(jarTool)) {
             throw DistLayoutException("Incomplete JBR: missing jar tool at $jarTool (QD-14924)")
         }
+        verifyJbrJartoolModule(dist)
+    }
+
+    private fun verifyJbrJartoolModule(dist: Path) {
         val releaseFile = dist.resolve("jbr/release")
         if (!Files.isRegularFile(releaseFile)) {
             throw DistLayoutException("Incomplete JBR: missing module manifest at $releaseFile (QD-14924)")
         }
-        val release = Files.readString(releaseFile)
-        if (!jdkJartoolPresent(release)) {
+        if (!jdkJartoolPresent(Files.readString(releaseFile))) {
             throw DistLayoutException("Incomplete JBR: jdk.jartool module not present in $releaseFile (QD-14924)")
         }
     }
@@ -65,7 +76,12 @@ class DistLayoutVerifier(private val mapper: ObjectMapper = ObjectMapper()) {
     private fun jdkJartoolPresent(releaseFileContent: String): Boolean {
         val modulesLine =
             releaseFileContent.lineSequence().firstOrNull { it.startsWith("MODULES=") } ?: return false
-        val modules = modulesLine.substringAfter('=').trim().trim('"').split(' ')
+        val modules =
+            modulesLine
+                .substringAfter('=')
+                .trim()
+                .trim('"')
+                .split(' ')
         return "jdk.jartool" in modules
     }
 }
