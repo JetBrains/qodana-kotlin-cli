@@ -52,7 +52,20 @@ Resolved example:
 Renovate tracks new versions via
 `https://packages.jetbrains.team/files/p/sa/qodana-cli-deps/clang-tidy/versions.json`.
 
+`EnvContractTest` greps the mirror base URL below from this file and asserts it
+equals `qodana-clang.env`'s `CLANG_TIDY_MIRROR`:
+
 CLANG_TIDY_URL_TEMPLATE = https://packages.jetbrains.team/files/p/sa/qodana-cli-deps/clang-tidy/$version/$filename
+CLANG_TIDY_MIRROR = https://packages.jetbrains.team/files/p/sa/qodana-cli-deps/clang-tidy
+
+CONCERN — `CLANG_TIDY_VERSION` (the concrete tool pin, e.g. `19.1.7`) is NOT
+recorded here: it cannot be live-resolved in Phase 0 because the mirror is
+private (`versions.json` → 401 anonymous) and the value is token-gated. The
+ancestor `clang-tidy.json` carries only a package tag (`v1.0.0`), not the
+compiler-keyed `<major>.<minor>.<patch>` the `.env` needs. Phase 4 must author
+`CLANG_TIDY_VERSION` from the token-authenticated `versions.json` and add its
+`CLANG_TIDY_VERSION = ...` grep row here so `EnvContractTest` (which asserts
+`pin("CLANG_TIDY_VERSION") == qodana-clang.env CLANG_TIDY_VERSION`) stays green.
 
 ### Access mode: PRIVATE (token required)
 
@@ -66,4 +79,59 @@ CLANG_TIDY_ACCESS = private
 
 ## Spike C — live feed pin, dhi.io base digest, JetBrains key
 
-_pending_
+### qodana-jvm feed pin (shared by jvm + android)
+
+Resolved 2026-06-11 from `download.jetbrains.com/qodana/feed/qodana-jvm.releases.json`
+(max-by-Date among `MajorVersion==2025.3` AND `Type==release`). `Code` is `QDJVM`.
+The `EnvContractTest` `pins match phase-0-decisions` test asserts
+`QODANA_JVM_VERSION == qodana-jvm.env QD_VERSION` (the MajorVersion `2025.3`) and
+`QODANA_JVM_BUILD == qodana-jvm.env QD_BUILD` (the `Build` `253.31821`). The
+download Link embeds an extra build segment (`...-253.31821.234.tar.gz`); use the
+feed's Link VERBATIM — do not reconstruct it from `Build`.
+
+QODANA_JVM_VERSION = 2025.3
+QODANA_JVM_BUILD = 253.31821
+
+Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+
+QODANA_JVM_FULL_VERSION = 2025.3.5
+
+Download links (verbatim from the feed):
+
+QODANA_JVM_LINUX_LINK = https://download.jetbrains.com/qodana/2025.3/qodana-QDJVM-253.31821.234.tar.gz
+QODANA_JVM_LINUX_ARM64_LINK = https://download.jetbrains.com/qodana/2025.3/qodana-QDJVM-253.31821.234-aarch64.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link return HTTP 200 (probed live 2026-06-11,
+following CDN redirects): the `.sha256` checksum and the `.sha256.asc` detached
+GPG signature `ChecksumLink + ".asc"`.
+
+QODANA_JVM_LINUX_SHA256_SIBLING = 200
+QODANA_JVM_LINUX_ASC_SIBLING = 200
+
+### dhi.io hardened base digest
+
+`dhi.io/debian-base:bookworm` resolved daemonless 2026-06-11 via
+`docker buildx imagetools inspect --format '{{json .Manifest.Digest}}'`. The
+plan's earlier `:latest` tag is `not found`; `:bookworm` is the real hardened
+base. CI must `docker login dhi.io` (free) to pull it during the build (a
+Phase-5 concern). NOTE: the recorded value keeps the `:bookworm` tag before the
+digest; `EnvContractTest` asserts byte-identity with `qodana-jvm.env`'s
+`QD_BASE_IMAGE`, so the Phase-4 `.env` files MUST use this exact string
+(including `:bookworm`), not the tagless `dhi.io/debian-base@sha256:` form shown
+in the plan's example `.env` blocks.
+
+QD_BASE_IMAGE = dhi.io/debian-base:bookworm@sha256:802b1fe0c2ac7827f82f4a33918f3bd69293fe83d18ddf471ae57f4312400cd5
+
+### Vendored JetBrains public key (verification only — we never sign)
+
+`download.jetbrains.com/KEYS` contains exactly one armored public-key block, so
+it IS the signing key; vendored verbatim to `docker/lib/jetbrains.pub`. Its
+fingerprint was verified (via `pgpy`, gpg being absent here) to equal the pin
+below; `docker/lib/jetbrains.pub.fpr` records the same fingerprint on one line.
+`DistVerifier` (Phase 5) imports the key and checks the upstream `.sha256.asc`.
+
+JETBRAINS_PUB_KEY = docker/lib/jetbrains.pub
+JETBRAINS_PUB_KEY_FPR_FILE = docker/lib/jetbrains.pub.fpr
+JETBRAINS_PUB_KEY_FINGERPRINT = B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501
