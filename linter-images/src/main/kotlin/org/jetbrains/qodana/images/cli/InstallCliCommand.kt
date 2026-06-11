@@ -26,7 +26,6 @@ import java.nio.file.StandardCopyOption
  */
 class InstallCliCommand(
     private val runner: CommandRunner,
-    private val getEnv: (String) -> String? = System::getenv,
 ) : CliktCommand(name = "install-cli") {
     override fun help(context: Context) = "Install the inner Qodana CLI executable into the image"
 
@@ -82,8 +81,9 @@ class InstallCliCommand(
         }
 
         val extractDir = scratch.resolve("extracted")
-        extract(archive, extractDir)
-        val executable = extractDir.resolve(resolver.executableNameInArchive(binary))
+        val member = resolver.executableNameInArchive(binary)
+        extract(archive, extractDir, member)
+        val executable = extractDir.resolve(member)
         require(Files.isRegularFile(executable)) {
             "Archive $archiveName did not contain expected executable '${executable.fileName}'"
         }
@@ -106,12 +106,18 @@ class InstallCliCommand(
         require(result.exitCode == 0) { "Download failed for $url (${result.exitCode}): ${result.stderr}" }
     }
 
+    // The cli tarball is a trusted, sha256-verified, flat archive (a bare `qodana` entry alongside
+    // LICENSE/README) — so extracting the single named member with `tar` is sufficient here, rather than
+    // the hardened general-purpose TarGzExtractor. Selecting only `member` removes the traversal surface:
+    // exactly one named entry is ever written. GNU tar normalizes any leading `./` on the member name.
+    // Requires `tar`/`curl`/`sha256sum` on PATH in the builder image (an implicit dep the docker phase satisfies).
     private fun extract(
         archive: Path,
         into: Path,
+        member: String,
     ) {
         Files.createDirectories(into)
-        val result = runner.run(listOf("tar", "-xzf", archive.toString(), "-C", into.toString()))
+        val result = runner.run(listOf("tar", "-xzf", archive.toString(), "-C", into.toString(), member))
         require(result.exitCode == 0) { "Extraction failed for $archive (${result.exitCode}): ${result.stderr}" }
     }
 }

@@ -15,10 +15,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class InstallCliCommandTest {
-    private fun newCommand(
-        runner: FakeCommandRunner,
-        getEnv: (String) -> String? = { null },
-    ) = InstallCliCommand(runner = runner, getEnv = getEnv)
+    private fun newCommand(runner: FakeCommandRunner) = InstallCliCommand(runner = runner)
 
     @Test
     fun `release source downloads archive and manifest, verifies sha, extracts to target`(
@@ -72,6 +69,10 @@ class InstallCliCommandTest {
         assertTrue(Files.isRegularFile(target), "expected the cli executable at --target")
         assertEquals("BINARY", target.readText())
         assertTrue(Files.isExecutable(target), "installed cli must be executable")
+
+        // tar must extract ONLY the named `qodana` member, not the whole tarball (no traversal surface).
+        val tarArgv = runner.invocations.single { it.firstOrNull() == "tar" }
+        assertEquals("qodana", tarArgv.last(), "tar must select only the qodana member")
     }
 
     @Test
