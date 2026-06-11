@@ -13,6 +13,9 @@ ARG CLANG_OS
 RUN <<-EOT
 	set -eux
 	export DEBIAN_FRONTEND=noninteractive
+	# gnupg is not in the hardened base; install it for gpg --dearmor and purge it in this same layer.
+	apt-get update
+	apt-get install -y --no-install-recommends gnupg
 	mkdir -p /etc/apt/keyrings
 	curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key \
 		| gpg --dearmor -o /etc/apt/keyrings/llvm.gpg
@@ -26,5 +29,7 @@ RUN <<-EOT
 		make
 	update-alternatives --install /usr/bin/clang clang "/usr/bin/clang-${CLANG}" 100
 	update-alternatives --install /usr/bin/clang++ clang++ "/usr/bin/clang++-${CLANG}" 100
+	apt-get purge -y gnupg
+	apt-get autoremove -y
 	rm -rf /var/lib/apt/lists/*
 EOT
