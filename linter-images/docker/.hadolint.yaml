@@ -13,3 +13,6 @@ ignored:
   - DL3009 # apt-list cleanup is owned + asserted by the toolchain/* includes
   - DL3015 # --no-install-recommends discipline is owned by the includes, not hadolint heuristics
   - DL3020 # ADD --checksum= is the sanctioned sha-verified remote-fetch pattern (tini, Android SDK)
+  - DL3002 # base stages build as root (the dhi.io base defaults to nonroot, apt needs root); the
+           # TERMINAL runtime stage drops to USER 1000:1000, so the shipped image is non-root. DL3002
+           # fires per-stage and cannot see that base/builder are intermediate.
