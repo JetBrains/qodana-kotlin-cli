@@ -193,23 +193,29 @@ class InstallCliCommandTest {
             CommandResult(0, "", "")
         }
 
-        assertFailsWith<IllegalArgumentException> {
-            newCommand(runner).parse(
-                listOf(
-                    "--binary",
-                    "qodana",
-                    "--source",
-                    "release",
-                    "--release-base-url",
-                    "https://rel",
-                    "--target",
-                    target.toString(),
-                    "--work-dir",
-                    tmp.resolve("dl").toString(),
-                ),
-            )
-        }
+        val error =
+            assertFailsWith<IllegalArgumentException> {
+                newCommand(runner).parse(
+                    listOf(
+                        "--binary",
+                        "qodana",
+                        "--source",
+                        "release",
+                        "--release-base-url",
+                        "https://rel",
+                        "--target",
+                        target.toString(),
+                        "--work-dir",
+                        tmp.resolve("dl").toString(),
+                    ),
+                )
+            }
 
+        assertTrue(
+            error.message.orEmpty().contains("No checksum for"),
+            "must abort with the manifest's missing-entry reason, got: ${error.message}",
+        )
+        assertTrue(runner.invocations.none { it.firstOrNull() == "tar" }, "must not extract before resolving the sha")
         assertFalse(Files.exists(target), "a missing manifest entry must leave no partial install at --target")
     }
 }
