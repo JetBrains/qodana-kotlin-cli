@@ -76,6 +76,97 @@ class InstallCliCommandTest {
     }
 
     @Test
+    fun `release source installs a raw tool binary without extraction`(
+        @TempDir tmp: Path,
+    ) {
+        val target = tmp.resolve("out")
+        val runner = FakeCommandRunner()
+        val downloadDir = tmp.resolve("dl")
+
+        // Tools (qodana-clang/qodana-cdnet) are Tool-kind RAW binaries: the downloaded asset IS the
+        // executable. The asset name carries the version and keeps amd64 (no x86_64 map, no .tar.gz).
+        runner.on({ it.contains("curl") && it.last() == "https://rel/qodana-clang_2026.2_linux_amd64" }) { argv ->
+            Path.of(argv[argv.indexOf("-o") + 1]).writeText("RAW-TOOL-BINARY")
+            CommandResult(0, "", "")
+        }
+        runner.on({ it.contains("curl") && it.last() == "https://rel/checksums.txt" }) { argv ->
+            Path.of(argv[argv.indexOf("-o") + 1]).writeText("feed  qodana-clang_2026.2_linux_amd64\n")
+            CommandResult(0, "", "")
+        }
+        runner.on({ it.firstOrNull() == "sha256sum" }, CommandResult(0, "feed  ignored\n", ""))
+
+        newCommand(runner).parse(
+            listOf(
+                "--binary",
+                "qodana-clang",
+                "--source",
+                "release",
+                "--version",
+                "2026.2",
+                "--os",
+                "linux",
+                "--arch",
+                "amd64",
+                "--release-base-url",
+                "https://rel",
+                "--target",
+                target.toString(),
+                "--work-dir",
+                downloadDir.toString(),
+            ),
+        )
+
+        assertTrue(Files.isRegularFile(target), "expected the raw tool binary at --target")
+        assertEquals("RAW-TOOL-BINARY", target.readText(), "the raw asset is the executable, copied verbatim")
+        assertTrue(Files.isExecutable(target), "installed tool must be executable")
+
+        // The raw asset is the executable: there is nothing to untar, and `tar -xzf` on a raw binary fails.
+        assertTrue(runner.invocations.none { it.firstOrNull() == "tar" }, "a raw tool binary must not be extracted")
+    }
+
+    @Test
+    fun `release source aborts on checksum mismatch for a raw tool binary and installs nothing`(
+        @TempDir tmp: Path,
+    ) {
+        val target = tmp.resolve("out")
+        val runner = FakeCommandRunner()
+
+        runner.on({ it.contains("curl") && it.last() == "https://rel/qodana-clang_2026.2_linux_amd64" }) { argv ->
+            Path.of(argv[argv.indexOf("-o") + 1]).writeText("RAW-TOOL-BINARY")
+            CommandResult(0, "", "")
+        }
+        runner.on({ it.contains("curl") && it.last() == "https://rel/checksums.txt" }) { argv ->
+            // manifest claims the raw asset hashes to "expected", ...
+            Path.of(argv[argv.indexOf("-o") + 1]).writeText("expected  qodana-clang_2026.2_linux_amd64\n")
+            CommandResult(0, "", "")
+        }
+        // ... but the computed sha differs -> fail-closed, same verify-before-use ordering as the cli path.
+        runner.on({ it.firstOrNull() == "sha256sum" }, CommandResult(0, "tampered  ignored\n", ""))
+
+        assertFailsWith<IllegalArgumentException> {
+            newCommand(runner).parse(
+                listOf(
+                    "--binary",
+                    "qodana-clang",
+                    "--source",
+                    "release",
+                    "--version",
+                    "2026.2",
+                    "--release-base-url",
+                    "https://rel",
+                    "--target",
+                    target.toString(),
+                    "--work-dir",
+                    tmp.resolve("dl").toString(),
+                ),
+            )
+        }
+
+        assertFalse(Files.exists(target), "a checksum mismatch must leave no partial install at --target")
+        assertTrue(runner.invocations.none { it.firstOrNull() == "tar" }, "must not touch an unverified raw binary")
+    }
+
+    @Test
     fun `context source copies the from-tree binary to target`(
         @TempDir tmp: Path,
     ) {
