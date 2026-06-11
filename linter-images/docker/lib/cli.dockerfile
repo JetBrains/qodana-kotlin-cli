@@ -11,11 +11,8 @@ ARG CLI_VERSION
 ARG CLI_OS=linux
 ARG CLI_ARCH=amd64
 ARG CLI_RELEASE_BASE_URL=https://github.com/JetBrains/qodana-kotlin-cli/releases/download
-ARG CLI_BASE_STAGE=dist
-# JDK builder default: eclipse-temurin 25 (Ubuntu-based: ships tar + coreutils sha256sum + apt),
-# pinned by manifest-list digest. NOT a .env key — overridable per build (Renovate-tracked).
-# Kept byte-identical to lib/dist.dockerfile's default.
-ARG JDK_BUILDER_IMAGE=eclipse-temurin:25-jdk@sha256:edb3aa0f621796d8f5f9d602c7611ffdf015cd89e6ddda1894d85a3a99d170a8
+# JDK_BUILDER_IMAGE + CLI_BASE_STAGE defaults + global scope live in lib/base.dockerfile (FROM-ARGs
+# must be declared before the first FROM); the FROMs below consume those global values.
 
 # Empty default `cli` stage so `--mount=from=cli` resolves on the release path with NO `cli` named
 # context (BuildKit would otherwise try to PULL an image `cli:latest`, and `required=` is not a valid
@@ -24,12 +21,16 @@ ARG JDK_BUILDER_IMAGE=eclipse-temurin:25-jdk@sha256:edb3aa0f621796d8f5f9d602c761
 FROM scratch AS cli
 
 FROM ${JDK_BUILDER_IMAGE} AS cli-builder
+# CLI_BINARY/CLI_VERSION/CLI_OS/CLI_ARCH are global .env ARGs; the bare re-declarations inherit them.
+# CLI_SOURCE/CLI_RELEASE_BASE_URL are build ARGs (compose passes them) but NOT .env keys, so their
+# pre-FROM defaults are inter-stage (not global) — re-default them HERE so the `set -u` RUN cannot trip
+# "parameter not set" on a bare `docker build` that omits them.
 ARG CLI_BINARY
-ARG CLI_SOURCE
+ARG CLI_SOURCE=release
 ARG CLI_VERSION
 ARG CLI_OS
 ARG CLI_ARCH
-ARG CLI_RELEASE_BASE_URL
+ARG CLI_RELEASE_BASE_URL=https://github.com/JetBrains/qodana-kotlin-cli/releases/download
 RUN <<-EOT
 	set -eux
 	export DEBIAN_FRONTEND=noninteractive

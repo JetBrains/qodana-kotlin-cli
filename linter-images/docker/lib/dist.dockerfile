@@ -11,18 +11,20 @@ ARG QD_CHANNEL=public
 ARG QD_FEED_URL=https://download.jetbrains.com/qodana/feed
 ARG QD_PRODUCT_INFO_CODE
 ARG QD_DIST=/opt/idea
-# JDK builder default: eclipse-temurin 25 (Ubuntu-based: ships tar + coreutils sha256sum + apt),
-# pinned by manifest-list digest. NOT a .env key — overridable per build (Renovate-tracked).
-ARG JDK_BUILDER_IMAGE=eclipse-temurin:25-jdk@sha256:edb3aa0f621796d8f5f9d602c7611ffdf015cd89e6ddda1894d85a3a99d170a8
-
+# JDK_BUILDER_IMAGE default + global scope live in lib/base.dockerfile (FROM-ARGs must be declared
+# before the first FROM); this FROM consumes that global value.
 FROM ${JDK_BUILDER_IMAGE} AS dist-builder
+# QD_LINTER_SLUG/QD_VERSION/QD_BUILD/QD_CHANNEL/QD_PRODUCT_INFO_CODE are global .env ARGs, so the bare
+# re-declarations inherit them. QD_FEED_URL/QD_DIST are NOT .env keys — their defaults live on the
+# pre-FROM lines above, which are inter-stage (not global), so they must be re-defaulted HERE or the
+# `set -u` RUN below fails with "parameter not set".
 ARG QD_LINTER_SLUG
 ARG QD_VERSION
 ARG QD_BUILD
 ARG QD_CHANNEL
-ARG QD_FEED_URL
+ARG QD_FEED_URL=https://download.jetbrains.com/qodana/feed
 ARG QD_PRODUCT_INFO_CODE
-ARG QD_DIST
+ARG QD_DIST=/opt/idea
 # gnupg + curl for image-tool's signature verification and downloads.
 RUN <<-EOT
 	set -eux

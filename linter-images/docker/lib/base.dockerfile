@@ -1,8 +1,22 @@
 # base — dhi.io hardened OS, qodana user, writable dirs, QODANA_* env, locale, OS glue.
 # Consumes (from images/<slug>.env): QD_BASE_IMAGE QD_DIST
+#
+# GLOBAL build-ARG scope: base is always the FIRST include, so any ARG a later include interpolates
+# in a `FROM` must be declared HERE, before the first FROM — Docker only resolves FROM-ARGs from the
+# global pre-FROM scope (a default declared inside a later stage yields a blank base name). These are
+# build ARGs, NOT .env keys; override per build (e.g. compose CLI_BASE_STAGE=tools for clang).
+ARG JDK_BUILDER_IMAGE=eclipse-temurin:25-jdk@sha256:edb3aa0f621796d8f5f9d602c7611ffdf015cd89e6ddda1894d85a3a99d170a8
+ARG CLI_BASE_STAGE=dist
 ARG QD_BASE_IMAGE
 FROM ${QD_BASE_IMAGE} AS base
 ARG QD_DIST=/opt/idea
+
+# The dhi.io hardened base defaults to USER 65532 (nonroot), so apt + user/dir creation below would
+# hit "Permission denied" on /var/lib/apt. Switch to root for image construction; runtime.dockerfile
+# drops back to the unprivileged qodana user (1000) for scan-time, so the shipped image is non-root.
+# Use the NUMERIC uid 0 — the hardened base's /etc/passwd has no `root` name entry (only `nonroot`),
+# so `USER root` fails with "unable to find user root".
+USER 0
 
 # OS glue: git for VCS-aware scans; curl for runtime fetches; jq for entrypoint JSON wrangling;
 # ca-certificates + locales for TLS and UTF-8. NO gnupg — signature verification happens only in
