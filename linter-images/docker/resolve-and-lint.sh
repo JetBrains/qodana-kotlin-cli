@@ -20,8 +20,11 @@ command -v hadolint >/dev/null || {
 resolved="$(mktemp -t resolved.XXXXXX.dockerfile)"
 trap 'rm -f "$resolved"' EXIT
 
-# dockerfile-x resolves INCLUDE/INCLUDE_ARGS textually against the context root (cwd).
-(cd "$here" && npx --yes dockerfile-x@1.6.0 "$thin") >"$resolved"
+# dockerfile-x resolves INCLUDE/INCLUDE_ARGS against the context root (cwd). The standalone CLI
+# takes the thin file via -f (a bare positional is rejected) and emits the resolved Dockerfile on
+# stdout. INCLUDE_ARGS needs the referenced images/<slug>.env to exist, so this only resolves once
+# the per-linter .env files land (Phase 4); until then it fails loudly with a missing-file error.
+(cd "$here" && npx --yes dockerfile-x@1.6.0 -f "$thin") >"$resolved"
 
 echo "=== resolved $thin ==="
 cat "$resolved"
