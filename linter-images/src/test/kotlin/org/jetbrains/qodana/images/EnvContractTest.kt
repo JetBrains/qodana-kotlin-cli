@@ -26,18 +26,25 @@ class EnvContractTest {
     /** Slugs whose `.env` are authored so far (extended as clang lands). */
     private val authoredSlugs = listOf("qodana-jvm", "qodana-android")
 
-    private fun parseEnv(slug: String): Map<String, String> =
+    private fun parseEnv(slug: String): Map<String, String> {
+        // Build the map by hand so a duplicate key fails LOUDLY: `associate` would silently keep the
+        // last occurrence, and the exact-key-set assertions would not notice a copy-paste duplicate.
+        val env = linkedMapOf<String, String>()
         imagesDir
             .resolve("$slug.env")
             .readText()
             .lineSequence()
             .map { it.trim() }
             .filter { it.isNotEmpty() && !it.startsWith("#") }
-            .associate { line ->
+            .forEach { line ->
                 val i = line.indexOf('=')
                 assertTrue(i > 0, "malformed env line in $slug.env: '$line'")
-                line.substring(0, i) to line.substring(i + 1)
+                val key = line.substring(0, i)
+                assertTrue(key !in env, "duplicate key '$key' in $slug.env")
+                env[key] = line.substring(i + 1)
             }
+        return env
+    }
 
     @Test
     fun `qodana-jvm env has exactly the jvm key set`() {

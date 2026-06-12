@@ -63,7 +63,7 @@ EOT
 
 # Final stage: take only the verified distribution onto the dist base. Defaults to `base`; android
 # sets DIST_BASE_STAGE=android-toolchain (via INCLUDE_ARGS → global ARG) so the dist layers onto the
-# SDK/Corretto stage instead of bypassing it. The `:-base` bash-default keeps this a global-scope
+# SDK/Corretto stage instead of bypassing it. The `${VAR:-default}` expansion keeps this a global-scope
 # FROM-ARG: a plain ${DIST_BASE_STAGE} + a mid-file ARG would be inter-stage, blanking the base name.
 FROM ${DIST_BASE_STAGE:-base} AS dist
 ARG QD_DIST=/opt/idea
