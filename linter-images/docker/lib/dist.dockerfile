@@ -61,7 +61,10 @@ RUN --mount=type=bind,from=tooling,target=/tooling \
 		--expected-product-code "${QD_PRODUCT_INFO_CODE}"
 EOT
 
-# Final stage: take only the verified distribution onto the base layer.
-FROM base AS dist
+# Final stage: take only the verified distribution onto the dist base. Defaults to `base`; android
+# sets DIST_BASE_STAGE=android-toolchain (via INCLUDE_ARGS → global ARG) so the dist layers onto the
+# SDK/Corretto stage instead of bypassing it. The `:-base` bash-default keeps this a global-scope
+# FROM-ARG: a plain ${DIST_BASE_STAGE} + a mid-file ARG would be inter-stage, blanking the base name.
+FROM ${DIST_BASE_STAGE:-base} AS dist
 ARG QD_DIST=/opt/idea
 COPY --from=dist-builder --chown=1000:1000 ${QD_DIST} ${QD_DIST}
