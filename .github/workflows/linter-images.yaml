@@ -157,6 +157,10 @@ jobs:
             --exclude='*/build' --exclude='.gradle' \
             "${SRC}/" "${CLEAN}/"
           OUT="$(mktemp -d)"
+          # The image drops to UID 1000:1000; a raw `docker run` bind-mounts the HOST dir's perms over
+          # /data/results, and mktemp's 0700 owned by the runner is unwritable to UID 1000. World-write
+          # the results dir so the inner CLI can emit the SARIF (the project mount stays read-only).
+          chmod 0777 "${OUT}"
           docker run --rm \
             -v "${CLEAN}:/data/project:ro" \
             -v "${OUT}:/data/results" \
