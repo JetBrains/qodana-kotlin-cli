@@ -37,6 +37,10 @@ RUN <<-EOT
 	unzip -q /tmp/cmdline-tools.zip -d "${ANDROID_HOME}/cmdline-tools"
 	mv "${ANDROID_HOME}/cmdline-tools/cmdline-tools" "${ANDROID_HOME}/cmdline-tools/latest"
 	rm -f /tmp/cmdline-tools.zip
+	# sdkmanager is a Java tool; point it at the bundled Corretto 17. Use the real JDK dir — the
+	# `java`/`jre` symlinks dangle post-COPY (they target /etc/alternatives, which isn't copied).
+	export JAVA_HOME=/opt/java/corretto17/java-17-amazon-corretto
+	export PATH="${JAVA_HOME}/bin:${PATH}"
 	yes | "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 	"${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platform-tools"
 	chown -R 1000:1000 "${ANDROID_HOME}" /opt/java
