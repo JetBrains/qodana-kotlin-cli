@@ -60,5 +60,8 @@ EOT
 # Final assembled stage is `cli-installed` (NOT `cli`, which is the empty mount-fallback stage above).
 # runtime.dockerfile layers onto `cli-installed`.
 FROM ${CLI_BASE_STAGE} AS cli-installed
-ARG CLI_BINARY=qodana
+# NO default: a stage-local `ARG CLI_BINARY=qodana` would SHADOW the INCLUDE_ARGS global (Docker uses the
+# stage default over the global), making the COPY below resolve to qodana even for the clang image. Bare
+# `ARG` inherits the global value (qodana-clang for clang), matching the cli-builder stage above.
+ARG CLI_BINARY
 COPY --from=cli-builder --chown=1000:1000 /staging/bin/${CLI_BINARY} /usr/local/bin/${CLI_BINARY}
