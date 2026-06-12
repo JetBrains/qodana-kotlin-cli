@@ -44,8 +44,10 @@ RUN --mount=type=bind,from=tooling,target=/tooling \
 	--mount=type=secret,id=feed_token,required=false <<-EOT
 	set -eux
 	if [ "${QD_CHANNEL}" = "private" ] && [ -f /run/secrets/feed_token ]; then
+		set +x  # never echo the secret under xtrace; token flows via env, not argv
 		QD_FEED_TOKEN="$(cat /run/secrets/feed_token)"
 		export QD_FEED_TOKEN
+		set -x
 	fi
 	/tooling/bin/image-tool provision-dist \
 		--feed-url "${QD_FEED_URL}" \
