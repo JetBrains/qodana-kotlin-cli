@@ -4,9 +4,6 @@
   "minimumReleaseAge": "7 days",
   "automerge": true,
   "automergeStrategy": "squash",
-  "dockerfile": {
-    "managerFilePatterns": ["/^linter-images/docker/images/.*\\.dockerfile$/"]
-  },
   "customDatasources": {
     "qodana-cli-deps": {
       "defaultRegistryUrlTemplate": "https://packages.jetbrains.team/files/p/sa/qodana-cli-deps/{{packageName}}/versions.json",
@@ -49,7 +46,7 @@
     },
     {
       "customType": "regex",
-      "description": "Track digest-pinned Docker images for the linter images (QD-14960): QD_BASE_IMAGE (dhi.io hardened base), CORRETTO11/17_IMAGE in the .env files, and the JDK_BUILDER_IMAGE ARG default in lib/. The same refs are mirrored byte-identically in phase-0-decisions.md, which EnvContractTest asserts — including the decisions doc in the file set updates both occurrences in one PR so the contract guard stays green.",
+      "description": "Track digest-pinned Docker images for the linter images (QD-14960): QD_BASE_IMAGE (dhi.io hardened base) and CORRETTO11/17_IMAGE in the .env files, plus the JDK_BUILDER_IMAGE ARG default in lib/. The same refs are mirrored byte-identically in phase-0-decisions.md (EnvContractTest asserts QD_BASE_IMAGE byte-identity), so including the decisions doc in the file set updates every occurrence in ONE PR and keeps the contract guard green. The KEY= anchor (uppercase env/ARG name) deliberately excludes the lowercase `# syntax=` directive, which the dockerfile-x manager below owns.",
       "datasourceTemplate": "docker",
       "managerFilePatterns": [
         "/^linter-images/docker/images/.*\\.env$/",
@@ -57,7 +54,19 @@
         "/^linter-images/docs/phase-0-decisions\\.md$/"
       ],
       "matchStrings": [
-        "=\\s*(?<depName>[^\\s:@=]+):(?<currentValue>[^\\s@]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+        "(?:^|\\s)[A-Z][A-Z0-9_]*\\s*=\\s*(?<depName>[^\\s:@=]+):(?<currentValue>[^\\s@]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "Track the dockerfile-x syntax frontend pinned in the `# syntax=` directive of every thin image AND the byte-identical DOCKERFILE_X_SYNTAX row in phase-0-decisions.md (SyntaxPinTest asserts they match). ONE manager owns all occurrences so a digest bump rewrites them in a single PR — splitting it across the built-in dockerfile manager and this regex would desync SyntaxPinTest between the two PRs.",
+      "datasourceTemplate": "docker",
+      "managerFilePatterns": [
+        "/^linter-images/docker/images/.*\\.dockerfile$/",
+        "/^linter-images/docs/phase-0-decisions\\.md$/"
+      ],
+      "matchStrings": [
+        "# syntax=(?<depName>docker\\.io/devthefuture/dockerfile-x):(?<currentValue>[^\\s@]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
       ]
     }
   ],
@@ -73,8 +82,8 @@
       "allowedVersions": "<26"
     },
     {
-      "description": "Bump the dockerfile-x syntax frontend within the 1.x line.",
-      "matchPackageNames": ["devthefuture/dockerfile-x"],
+      "description": "Bump the dockerfile-x syntax frontend within the 1.x line. Match both the bare and docker.io-prefixed names so the policy applies however the docker datasource normalizes the depName captured from the `# syntax=` directive.",
+      "matchPackageNames": ["devthefuture/dockerfile-x", "docker.io/devthefuture/dockerfile-x"],
       "versioning": "semver"
     },
     {
