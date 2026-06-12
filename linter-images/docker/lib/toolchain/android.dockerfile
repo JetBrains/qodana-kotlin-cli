@@ -26,7 +26,8 @@ ENV ANDROID_HOME=/opt/android-sdk \
 ADD --checksum=sha256:${ANDROID_SDK_SHA256} \
 	https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_SDK_VERSION}_latest.zip \
 	/tmp/cmdline-tools.zip
-# hadolint ignore=SC2015
+# DL4006 (the `yes |` pipe below): set -eux under /bin/sh -e handles failures, as in node.dockerfile.
+# hadolint ignore=SC2015,DL4006
 RUN <<-EOT
 	set -eux
 	export DEBIAN_FRONTEND=noninteractive

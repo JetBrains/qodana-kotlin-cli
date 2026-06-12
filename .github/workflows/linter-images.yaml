@@ -43,8 +43,10 @@ jobs:
         # LOUDLY if either is absent. Provision the pinned hadolint binary on PATH.
         run: |
           set -euo pipefail
+          # v2.14.0+ is required: older hadolint can't parse `ADD --checksum=` and aborts with
+          # "invalid flag: --checksum" (a parse error, not a waivable rule).
           sudo curl -fsSL -o /usr/local/bin/hadolint \
-            https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64
+            https://github.com/hadolint/hadolint/releases/download/v2.14.0/hadolint-Linux-x86_64
           sudo chmod +x /usr/local/bin/hadolint
           hadolint --version
       - name: image-tool unit tests + resolve/hadolint all three compositions
