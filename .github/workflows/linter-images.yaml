@@ -159,12 +159,13 @@ jobs:
             --exclude='*/build' --exclude='.gradle' \
             "${SRC}/" "${CLEAN}/"
           OUT="$(mktemp -d)"
-          # The image drops to UID 1000:1000; a raw `docker run` bind-mounts the HOST dir's perms over
-          # /data/results, and mktemp's 0700 owned by the runner is unwritable to UID 1000. World-write
-          # the results dir so the inner CLI can emit the SARIF (the project mount stays read-only).
+          # The image drops to UID 1000:1000 and bind-mounts inherit the host dir's perms (mktemp 0700 /
+          # rsync copy owned by the runner). Make both writable to UID 1000: the results dir so the CLI can
+          # emit the SARIF, and the throwaway project copy so the Gradle import can write its `.gradle/` cache.
           chmod 0777 "${OUT}"
+          chmod -R a+rwX "${CLEAN}"
           docker run --rm \
-            -v "${CLEAN}:/data/project:ro" \
+            -v "${CLEAN}:/data/project" \
             -v "${OUT}:/data/results" \
             qodana-jvm:dev scan --results-dir /data/results
           SARIF="${OUT}/qodana.sarif.json"
