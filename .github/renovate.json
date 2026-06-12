@@ -4,6 +4,9 @@
   "minimumReleaseAge": "7 days",
   "automerge": true,
   "automergeStrategy": "squash",
+  "dockerfile": {
+    "managerFilePatterns": ["/^linter-images/docker/images/.*\\.dockerfile$/"]
+  },
   "customDatasources": {
     "qodana-cli-deps": {
       "defaultRegistryUrlTemplate": "https://packages.jetbrains.team/files/p/sa/qodana-cli-deps/{{packageName}}/versions.json",
@@ -42,6 +45,19 @@
       "managerFilePatterns": [".github/actions/setup-native-build/action.yaml"],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+default:\\s*['\"](?<currentValue>[^'\"]+)['\"]"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "Track digest-pinned Docker images for the linter images (QD-14960): QD_BASE_IMAGE (dhi.io hardened base), CORRETTO11/17_IMAGE in the .env files, and the JDK_BUILDER_IMAGE ARG default in lib/. The same refs are mirrored byte-identically in phase-0-decisions.md, which EnvContractTest asserts — including the decisions doc in the file set updates both occurrences in one PR so the contract guard stays green.",
+      "datasourceTemplate": "docker",
+      "managerFilePatterns": [
+        "/^linter-images/docker/images/.*\\.env$/",
+        "/^linter-images/docker/lib/.*\\.dockerfile$/",
+        "/^linter-images/docs/phase-0-decisions\\.md$/"
+      ],
+      "matchStrings": [
+        "=\\s*(?<depName>[^\\s:@=]+):(?<currentValue>[^\\s@]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
       ]
     }
   ],
