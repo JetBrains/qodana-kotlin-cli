@@ -6,6 +6,7 @@ import org.jetbrains.qodana.images.process.FakeCommandRunner
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
@@ -101,5 +102,73 @@ class BumpPinsCommandTest {
         // No QD_LINTER_SLUG → nothing to fetch/bump; the feed runner must never be consulted.
         BumpPinsCommand(FeedClient(FakeCommandRunner())).rewrite(env.parentFile.toPath())
         assertTrue(env.readText() == before, "clang .env (no IDE dist) must be left byte-identical")
+    }
+
+    @Test
+    fun `jvm and android sharing the pin resolve once and agree on the new build`(
+        @TempDir dir: File,
+    ) {
+        val shared =
+            { name: String ->
+                File(dir, name).writeText(
+                    """
+                    QD_LINTER_SLUG=qodana-jvm
+                    QD_VERSION=2025.3
+                    QD_BUILD=253.1000
+                    QD_RELEASE_TYPE=release
+                    """.trimIndent(),
+                )
+            }
+        shared("qodana-jvm.env")
+        shared("qodana-android.env")
+        val runner =
+            feedRunner(
+                """{"Code":"QDJVM","Releases":[
+                  {"Date":"2025-10-01","Type":"release","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
+                ]}""",
+            )
+        BumpPinsCommand(FeedClient(runner)).rewrite(dir.toPath())
+        // Both files bumped to the SAME build (no mid-run divergence).
+        assertTrue(File(dir, "qodana-jvm.env").readText().contains("QD_BUILD=253.2000"))
+        assertTrue(File(dir, "qodana-android.env").readText().contains("QD_BUILD=253.2000"))
+        // The shared pin is resolved ONCE — exactly one feed fetch (curl) for both files.
+        assertEquals(1, runner.invocations.count { it.contains("curl") }, runner.invocations.toString())
+    }
+
+    @Test
+    fun `syncs the QODANA_SLUG_BUILD row in the decisions doc and leaves prose untouched`(
+        @TempDir dir: File,
+    ) {
+        File(dir, "qodana-jvm.env").writeText(
+            """
+            QD_LINTER_SLUG=qodana-jvm
+            QD_VERSION=2025.3
+            QD_BUILD=253.1000
+            QD_RELEASE_TYPE=release
+            """.trimIndent(),
+        )
+        val decisions =
+            File(dir, "decisions.md").apply {
+                // A real `KEY = value` row plus a prose line that merely mentions the key in backticks.
+                writeText(
+                    """
+                    The pin `QODANA_JVM_BUILD` must match the .env.
+
+                    QODANA_JVM_VERSION = 2025.3
+                    QODANA_JVM_BUILD = 253.1000
+                    """.trimIndent(),
+                )
+            }
+        val runner =
+            feedRunner(
+                """{"Code":"QDJVM","Releases":[
+                  {"Date":"2025-10-01","Type":"release","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
+                ]}""",
+            )
+        BumpPinsCommand(FeedClient(runner)).rewrite(dir.toPath(), decisions.toPath())
+        val text = decisions.readText()
+        assertTrue(text.contains("QODANA_JVM_BUILD = 253.2000"), "decisions build row synced: $text")
+        assertTrue(text.contains("The pin `QODANA_JVM_BUILD` must match"), "prose mention untouched: $text")
+        assertTrue(text.contains("QODANA_JVM_VERSION = 2025.3"), "version row untouched: $text")
     }
 }
