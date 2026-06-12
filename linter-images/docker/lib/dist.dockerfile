@@ -61,6 +61,12 @@ RUN --mount=type=bind,from=tooling,target=/tooling \
 	/tooling/bin/image-tool verify-dist-layout \
 		--dist "${QD_DIST}" \
 		--expected-product-code "${QD_PRODUCT_INFO_CODE}"
+	# The dist ships a build-machine idea.log.path baked into bin/idea64.vmoptions (the TeamCity
+	# agent path /mnt/agent/work/<id>/logs), which overrides the writable log.path the CLI sets at
+	# launch and then fails as the unprivileged runtime user. Drop it so the CLI's value applies.
+	if [ -f "${QD_DIST}/bin/idea64.vmoptions" ]; then
+		sed -i '/^-Didea\.log\.path=/d' "${QD_DIST}/bin/idea64.vmoptions"
+	fi
 EOT
 
 # Final stage: take only the verified distribution onto the dist base. Defaults to `base`; android
