@@ -31,6 +31,10 @@ fun buildImageTool(): CliktCommand {
             verifier = DistVerifier(runner),
             getEnv = System::getenv,
         ),
+        BumpPinsCommand(
+            feedClient = FeedClient(runner),
+            getEnv = System::getenv,
+        ),
     )
 }
 
