@@ -9,20 +9,22 @@ import kotlin.io.path.readText
 /**
  * Per-slug `.env` contract guard (plan Phase 4.4).
  *
- * Scope NOTE: this is the JVM slice. Only `qodana-jvm.env` is authored so far; the android/clang
- * `.env` files (and the android-shared-pin + clang-no-dist-keys assertions) land with their images
- * in the follow-up tasks. The default `test` task must stay green, so this class asserts ONLY the
- * jvm key set + the jvm rows of `pins match phase-0-decisions` + the no-placeholder guard over the
- * slugs that exist today. It is NOT a silent skip: it enforces every rule that applies to the
- * authored env, and the follow-ups extend `slugs`/`expected` as their `.env` arrive.
+ * Scope NOTE: jvm + android slices. `qodana-clang.env` lands with the clang image (its pins are
+ * token-gated and deferred), so the clang key-set + no-dist-keys assertions are NOT here yet. This
+ * class enforces every rule that applies to the authored env; the clang follow-up extends
+ * `authoredSlugs`/`expected` when its `.env` arrives. It is NOT a silent skip.
+ *
+ * Android carries DIST_BASE_STAGE (beyond the plan's verbatim key set): the dist orphan-fix
+ * parameterizes `FROM ${DIST_BASE_STAGE:-base} AS dist`, and android sets it to android-toolchain so
+ * the dist inherits the SDK/Corretto. jvm omits the key and falls back to base.
  */
 class EnvContractTest {
     // Test working dir is the module root (pinned once in Phase 1) — resolve relative to it directly.
     private val imagesDir: Path = Path.of("docker/images")
     private val decisions: Path = Path.of("docs/phase-0-decisions.md")
 
-    /** Slugs whose `.env` are authored so far (extended as android/clang land). */
-    private val authoredSlugs = listOf("qodana-jvm")
+    /** Slugs whose `.env` are authored so far (extended as clang lands). */
+    private val authoredSlugs = listOf("qodana-jvm", "qodana-android")
 
     private fun parseEnv(slug: String): Map<String, String> =
         imagesDir
@@ -59,6 +61,52 @@ class EnvContractTest {
                 "TINI_SHA256",
             )
         assertEquals(expected, parseEnv("qodana-jvm").keys)
+    }
+
+    @Test
+    fun `qodana-android env has exactly the android key set and no node`() {
+        // Same dist/cli/runtime keys as jvm, minus NODE_MAJOR, plus the SDK/Corretto toolchain keys and
+        // DIST_BASE_STAGE (the orphan-fix selector that layers the dist onto android-toolchain).
+        val env = parseEnv("qodana-android")
+        val expected =
+            setOf(
+                "QD_LINTER_SLUG",
+                "QD_VERSION",
+                "QD_BUILD",
+                "QD_CHANNEL",
+                "QD_RELEASE_TYPE",
+                "QD_PRODUCT_INFO_CODE",
+                "QD_BASE_IMAGE",
+                "DIST_BASE_STAGE",
+                "CLI_BINARY",
+                "CLI_VERSION",
+                "CLI_OS",
+                "CLI_ARCH",
+                "ANDROID_SDK_VERSION",
+                "ANDROID_SDK_SHA256",
+                "CORRETTO11_IMAGE",
+                "CORRETTO17_IMAGE",
+                "DEVICEID",
+                "TINI_VERSION",
+                "TINI_ARCH",
+                "TINI_SHA256",
+            )
+        assertEquals(expected, env.keys)
+        assertTrue("NODE_MAJOR" !in env, "android must not set NODE_MAJOR (no node toolchain)")
+        assertEquals("amd64", env["CLI_ARCH"], "android is amd64-only")
+        assertEquals("android-toolchain", env["DIST_BASE_STAGE"], "android dist layers onto the SDK stage")
+    }
+
+    @Test
+    fun `android reuses the qodana-jvm dist slug and shares pins`() {
+        val jvm = parseEnv("qodana-jvm")
+        val android = parseEnv("qodana-android")
+        assertEquals("qodana-jvm", android["QD_LINTER_SLUG"], "android reuses the qodana-jvm dist")
+        assertEquals(jvm["QD_VERSION"], android["QD_VERSION"])
+        assertEquals(jvm["QD_BUILD"], android["QD_BUILD"])
+        assertEquals(jvm["QD_PRODUCT_INFO_CODE"], android["QD_PRODUCT_INFO_CODE"])
+        assertEquals(jvm["QD_BASE_IMAGE"], android["QD_BASE_IMAGE"])
+        assertEquals("IU", android["QD_PRODUCT_INFO_CODE"])
     }
 
     @Test
