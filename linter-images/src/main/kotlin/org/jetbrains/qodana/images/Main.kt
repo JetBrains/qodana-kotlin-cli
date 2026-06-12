@@ -26,6 +26,11 @@ fun buildImageTool(): CliktCommand {
         ),
         InstallCliCommand(runner = runner),
         VerifyDistLayoutCommand(),
+        VerifyPinCommand(
+            feedClient = FeedClient(runner),
+            verifier = DistVerifier(runner),
+            getEnv = System::getenv,
+        ),
     )
 }
 

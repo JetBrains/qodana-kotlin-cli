@@ -12,9 +12,12 @@ import kotlin.test.assertFailsWith
 
 class MainTest {
     @Test
-    fun `image-tool registers the three subcommands`() {
+    fun `image-tool registers all subcommands`() {
         val names = buildImageTool().registeredSubcommands().map { it.commandName }.toSet()
-        assertEquals(setOf("provision-dist", "install-cli", "verify-dist-layout"), names)
+        assertEquals(
+            setOf("provision-dist", "install-cli", "verify-dist-layout", "verify-pin"),
+            names,
+        )
     }
 
     @Test
