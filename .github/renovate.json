@@ -4,7 +4,30 @@
   "minimumReleaseAge": "7 days",
   "automerge": true,
   "automergeStrategy": "squash",
+  "customDatasources": {
+    "qodana-cli-deps": {
+      "defaultRegistryUrlTemplate": "https://packages.jetbrains.team/files/p/sa/qodana-cli-deps/{{packageName}}/versions.json",
+      "format": "json",
+      "comment": "versions.json is {\"versions\":[\"v1.0.0\", ...]}. Strip the leading `v` so the value written back into CLANG_TIDY_VERSION stays bare (the .env carries `1.0.0`; lib/tools.dockerfile prepends the `v` for the mirror path). Without the strip Renovate would write `v1.0.1` and the build would request `.../vv1.0.1/...`.",
+      "transformTemplates": ["{ \"releases\": versions.{ \"version\": $replace($, /^v/, \"\") } }"]
+    }
+  },
+  "hostRules": [
+    {
+      "matchHost": "packages.jetbrains.team",
+      "authType": "Bearer",
+      "token": "{{ secrets.QODANA_CLI_DEPS_TOKEN }}"
+    }
+  ],
   "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track CLANG_TIDY_VERSION (qodana-cli-deps clang-tidy package tag) in the clang .env (QD-14960). The token-gated versions.json datasource is custom.qodana-cli-deps; the bot supplies QODANA_CLI_DEPS_TOKEN via the hostRules secret above.",
+      "managerFilePatterns": ["linter-images/docker/images/qodana-clang.env"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+CLANG_TIDY_VERSION=(?<currentValue>\\S+)"
+      ]
+    },
     {
       "customType": "regex",
       "description": "Track the stock GraalVM CE pinned in setup-native-build (QD-14917).",
@@ -37,6 +60,14 @@
       "description": "Bump the dockerfile-x syntax frontend within the 1.x line.",
       "matchPackageNames": ["devthefuture/dockerfile-x"],
       "versioning": "semver"
+    },
+    {
+      "description": "clang-tidy bumps need a manual CLANG_TIDY_SHA256 refresh (the build verifies the archive), so do not automerge; the PR carries the refresh instructions.",
+      "matchDatasources": ["custom.qodana-cli-deps"],
+      "automerge": false,
+      "prBodyNotes": [
+        "After merge, refresh CLANG_TIDY_SHA256 for the build: download `clang-tidy-linux-amd64.tar.gz` from the qodana-cli-deps mirror at the new tag (with QODANA_CLI_DEPS_TOKEN) and update the sha256 the clang image build verifies."
+      ]
     }
   ]
 }

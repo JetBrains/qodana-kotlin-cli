@@ -40,6 +40,9 @@ services:
       args:
         CLI_SOURCE: release
         CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+        # clang has NO dist stage: the inner CLI layers onto `tools` (clang-tidy), not `dist`.
+        # CLI_BASE_STAGE is a build ARG (base.dockerfile defaults it to dist), not an .env key.
+        CLI_BASE_STAGE: tools
       additional_contexts:
         tooling: build/install/image-tool
     platform: linux/amd64

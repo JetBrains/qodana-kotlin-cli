@@ -21,9 +21,15 @@ No other from-tree build is required, and `QD_FEED_TOKEN` can be unset — the I
 public mirror and GPG- + sha256-verified, fail-closed.
 
 A private feed channel (nightly/unreleased) needs a token; layer the private overlay (the only file that
-defines the `feed_token` secret):
+defines the `feed_token` secret). The feed token is consumed only when `QD_CHANNEL=private`:
 
     QD_FEED_TOKEN=<token> docker compose -f compose.yaml -f compose.private.yaml build qodana-jvm
+
+`qodana-clang` always needs the private overlay: its clang-tidy archive comes from the private
+qodana-cli-deps mirror, so the build mounts a `QODANA_CLI_DEPS_TOKEN` (a JB Space bearer token) secret —
+it cannot build from the bare `compose.yaml`. clang has no IDE dist, so it does NOT need `QD_FEED_TOKEN`:
+
+    QODANA_CLI_DEPS_TOKEN=<bearer-token> docker compose -f compose.yaml -f compose.private.yaml build qodana-clang
 
 ## Build from this tree (CI path)
 

@@ -1,8 +1,9 @@
 name: Nightly Release
 
-# Chains Draft Release → Publish Release for an automated cli-only nightly. There is no human
-# checkpoint between draft and publish for nightlies — the umbrella runs both in sequence. Clang and
-# cdnet are NOT built for nightlies (matches GoReleaser's `skip: IsNightly`).
+# Chains Draft Release → Publish Release for an automated nightly. There is no human checkpoint
+# between draft and publish for nightlies — the umbrella runs both in sequence. Nightlies build the
+# full asset set (cli + clang + cdnet, cli-only: false) so the clang/cdnet linter images can pull
+# their inner CLIs from the nightly release via `--source release` (QD-14960).
 #
 # Requires `gradle.properties` `version=` to be set to a numeric value (not `dev`);
 # `compute-nightly-version.main.kts` exits non-zero while the source-of-truth is still `dev`. Operators
@@ -62,7 +63,7 @@ jobs:
     with:
       version: ${{ needs.compute.outputs.version }}
       prerelease: true
-      cli-only: true
+      cli-only: false
       dry-run: false
       latest: false
       mode: nightly

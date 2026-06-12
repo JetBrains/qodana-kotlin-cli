@@ -68,6 +68,89 @@ class ComposeContractTest {
     }
 
     @Test
+    fun `clang layers the inner CLI onto the tools stage (no dist), via a compose build arg`() {
+        // Clang has NO dist stage: base.dockerfile defaults CLI_BASE_STAGE=dist, so the clang service
+        // MUST override it to `tools` (a build ARG, not an .env key) or the cli stage's `FROM
+        // ${CLI_BASE_STAGE}` resolves to a non-existent `dist` stage and the build breaks.
+        val clang = load("compose.yaml")["services"]["qodana-clang"]["build"]
+        assertEquals("tools", clang["args"]["CLI_BASE_STAGE"].asText(), "clang must build CLI onto the tools stage")
+        // jvm/android have a dist stage; they must NOT override CLI_BASE_STAGE (it stays the `dist` default).
+        for (slug in listOf("qodana-jvm", "qodana-android")) {
+            val args = load("compose.yaml")["services"][slug]["build"]["args"]
+            assertTrue(args["CLI_BASE_STAGE"] == null, "$slug must not override CLI_BASE_STAGE (defaults to dist)")
+        }
+    }
+
+    @Test
+    fun `clang release-path CLI_VERSION matches the release tag (the tool asset name embeds it)`() {
+        // The qodana-clang TOOL asset is `qodana-clang_<CLI_VERSION>_linux_amd64` (CliArtifactResolver),
+        // so on --source release CLI_VERSION MUST equal the version segment of the compose tag, or the
+        // download 404s. (Cli-kind jvm/android have no version in their `qodana_<os>_<arch>.tar.gz` name,
+        // so they are exempt.) Guards the W2 path where clang pulls its inner CLI from the nightly release.
+        val build = load("compose.yaml")["services"]["qodana-clang"]["build"]
+        val baseUrl = build["args"]["CLI_RELEASE_BASE_URL"].asText()
+        val tag = baseUrl.substringAfterLast('/')
+        val tagVersion = tag.removePrefix("v")
+
+        val cliVersion =
+            imagesEnv("qodana-clang")["CLI_VERSION"]
+                ?: error("qodana-clang.env must set CLI_VERSION")
+        assertEquals(
+            tagVersion,
+            cliVersion,
+            "clang CLI_VERSION must equal the CLI_RELEASE_BASE_URL tag version, or the tool asset 404s",
+        )
+    }
+
+    /**
+     * Parse a per-slug `.env` into a key→value map. Loose by design (no shape/duplicate checks) —
+     * EnvContractTest is the strict validator of the same files and runs in this suite, so a malformed
+     * or duplicate-keyed `.env` fails there; this helper only needs to read one already-validated value.
+     */
+    private fun imagesEnv(slug: String): Map<String, String> =
+        Path
+            .of("docker/images/$slug.env")
+            .readText()
+            .lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && !it.startsWith("#") }
+            .associate { line ->
+                val i = line.indexOf('=')
+                line.substring(0, i) to line.substring(i + 1)
+            }
+
+    @Test
+    fun `private overlay scopes each token to the services that consume it`() {
+        // jvm/android consume the private IDE feed (feed_token); clang consumes ONLY the clang-tidy
+        // mirror token (qodana_cli_deps_token) — it has no dist stage so it must NOT pull feed_token.
+        val root = load("compose.private.yaml")
+        val services = root["services"]
+        assertEquals(slugs.toSet(), services.fieldNames().asSequence().toSet())
+
+        fun secretsOf(slug: String): Set<String> {
+            val secrets = services[slug]["build"]["secrets"]
+            return secrets.asSequence().map { it.asText() }.toSet()
+        }
+
+        assertEquals(setOf("feed_token"), secretsOf("qodana-jvm"), "jvm uses only the feed token")
+        assertEquals(setOf("feed_token"), secretsOf("qodana-android"), "android uses only the feed token")
+        assertEquals(
+            setOf("qodana_cli_deps_token"),
+            secretsOf("qodana-clang"),
+            "clang has no dist stage, so it must reference only the clang-tidy mirror token",
+        )
+        // Both tokens are declared at the top level, sourced from their env vars.
+        val declared = root["secrets"]
+        assertEquals(
+            setOf("feed_token", "qodana_cli_deps_token"),
+            declared.fieldNames().asSequence().toSet(),
+            "the overlay declares both build secrets",
+        )
+        assertEquals("QD_FEED_TOKEN", declared["feed_token"]["environment"].asText())
+        assertEquals("QODANA_CLI_DEPS_TOKEN", declared["qodana_cli_deps_token"]["environment"].asText())
+    }
+
+    @Test
     fun `compose ci override switches to context source and adds only the cli context, no tag change`() {
         val services = load("compose.ci.yaml")["services"]
         assertEquals(slugs.toSet(), services.fieldNames().asSequence().toSet())
