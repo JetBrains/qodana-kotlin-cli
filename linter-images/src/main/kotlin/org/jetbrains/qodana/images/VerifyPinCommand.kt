@@ -32,7 +32,15 @@ class VerifyPinCommand(
     private val gpgFingerprint by option("--gpg-fingerprint").required()
 
     override fun run() {
-        val token = if (channel == "private") getEnv("QD_FEED_TOKEN") else null
+        // Fail closed on a misconfigured private canary, matching provision-dist/bump-pins: a blank
+        // token would otherwise fetch anonymously and surface a misleading "feed fetch failed".
+        val token =
+            if (channel == "private") {
+                getEnv("QD_FEED_TOKEN")?.takeIf { it.isNotBlank() }
+                    ?: error("--channel private selected but \$QD_FEED_TOKEN is unset or blank")
+            } else {
+                null
+            }
         val feed = feedClient.fetch(feedUrl, linterSlug, token)
         val release = ReleaseSelector.select(feed, majorVersion = version, build = build)
         val resolved = DistResolver.resolve(release, os = "linux", arch = "amd64")

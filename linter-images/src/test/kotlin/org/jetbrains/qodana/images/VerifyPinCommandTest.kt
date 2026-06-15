@@ -86,4 +86,20 @@ class VerifyPinCommandTest {
             )
         }
     }
+
+    @Test
+    fun `fails closed when channel is private but the token is unset`(
+        @TempDir tmp: Path,
+    ) {
+        // A private canary with no QD_FEED_TOKEN must error up front, not fetch anonymously and surface a
+        // misleading "feed fetch failed". The token check precedes any network call.
+        val key = Files.writeString(tmp.resolve("jetbrains.pub"), "PUBKEY")
+        val cmd = VerifyPinCommand(FeedClient(FakeCommandRunner()), DistVerifier(FakeCommandRunner())) { null }
+        assertThrows<IllegalStateException> {
+            cmd.test(
+                "--linter-slug qodana-jvm --version 2025.3 --build $build --channel private " +
+                    "--gpg-key $key --gpg-fingerprint $fingerprint",
+            )
+        }
+    }
 }
