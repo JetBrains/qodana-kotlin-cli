@@ -26,7 +26,7 @@ permissions:
 
 jobs:
   resolve-lint:
-    name: Resolve + hadolint (no Docker daemon)
+    name: Resolve + hadolint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -55,7 +55,7 @@ jobs:
         run: ./gradlew :linter-images:test :linter-images:parityTest
 
   build:
-    name: Build images (CLI_SOURCE=context)
+    name: Build images
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -116,7 +116,7 @@ jobs:
         run: echo "::notice::qodana-clang build skipped — QODANA_CLI_DEPS_TOKEN unavailable (fork PR)."
 
   dogfood:
-    name: Dogfood qodana-jvm on this repo (amd64 CLI-exec)
+    name: Dogfood qodana-jvm
     # Distinct integration check (keeps the stock `Qodana` gate untouched). GitHub jobs are isolated
     # VMs, so this re-stages the contexts it needs and rebuilds only qodana-jvm — it does NOT depend on
     # the build job's filesystem. Validates the baked-dist + inner-CLI exec path that cannot run on the

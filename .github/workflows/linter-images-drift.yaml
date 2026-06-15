@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   canary:
-    name: Broken-pin canary (re-verify GPG+sha256)
+    name: Pin canary
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -42,7 +42,7 @@ jobs:
           command -v gpg >/dev/null || { sudo apt-get update && sudo apt-get install -y --no-install-recommends gnupg; }
           gpg --version | head -1
       - run: ./gradlew :linter-images:installDist
-      - name: Re-verify each pinned dist (fail-closed)
+      - name: Re-verify pinned dists
         run: |
           set -euo pipefail
           TOOL=linter-images/build/install/image-tool/bin/image-tool
@@ -95,7 +95,7 @@ jobs:
         run: exit 1
 
   bump:
-    name: Within-major bump PR (per-linter)
+    name: Bump pins
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
