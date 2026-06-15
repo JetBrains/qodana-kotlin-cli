@@ -43,6 +43,16 @@ repos:
 
   - repo: local
     hooks:
+      - id: resolve-hadolint
+        name: resolve + hadolint
+        # hadolint via hadolint-py (pip; no Docker, no manual install), pinned + Renovate-trackable;
+        # npx resolves the dockerfile-x thin files. Runs locally and in CI (ci.yaml runs prek).
+        language: python
+        additional_dependencies:
+          - "hadolint-py @ git+https://github.com/AleksaC/hadolint-py.git@v2.14.0"
+        entry: linter-images/docker/prek-resolve-hadolint.sh
+        files: ^linter-images/docker/
+        pass_filenames: false
       - id: gradle-ktlint-format
         name: gradle ktlintFormat (auto-fix on push)
         entry: ./gradlew --console=plain ktlintFormat

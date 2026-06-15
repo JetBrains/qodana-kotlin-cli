@@ -25,34 +25,8 @@ permissions:
   contents: read
 
 jobs:
-  resolve-lint:
-    name: Resolve + hadolint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20
-      - name: Install hadolint
-        # The parityTest harness (resolve-and-lint.sh) shells `hadolint` + `npx dockerfile-x` and fails
-        # LOUDLY if either is absent. Provision the pinned hadolint binary on PATH.
-        run: |
-          set -euo pipefail
-          # v2.14.0+ is required: older hadolint can't parse `ADD --checksum=` and aborts with
-          # "invalid flag: --checksum" (a parse error, not a waivable rule).
-          sudo curl -fsSL -o /usr/local/bin/hadolint \
-            https://github.com/hadolint/hadolint/releases/download/v2.14.0/hadolint-Linux-x86_64
-          sudo chmod +x /usr/local/bin/hadolint
-          hadolint --version
-      - name: image-tool unit tests + resolve/hadolint all three compositions
-        # parityTest runs the @Tag("docker") ResolveAndLintTest, which resolves each thin image via
-        # `npx dockerfile-x@1.6.0` and hadolints the output. No Docker daemon is needed for this.
-        run: ./gradlew :linter-images:test :linter-images:parityTest
+  # resolve + hadolint runs as a prek hook (.pre-commit-config.yaml), locally and in CI's prek step —
+  # not as a job here. The image-tool unit tests run in the stock `Test` job (./gradlew test).
 
   build:
     name: Build images

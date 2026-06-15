@@ -48,5 +48,5 @@ scheduled `Linter image drift` workflow re-verifies and bumps them.
 2. `images/<slug>.env`: the build args/pins (base digest, dist version/build, `CLI_BINARY`, etc.).
    Mirror any new pin into `../docs/phase-0-decisions.md` so `EnvContractTest` stays green.
 3. A service in `../compose.yaml` (+ overlays if it needs a private token).
-4. Validate without a daemon: `./gradlew :linter-images:test` (env/compose/syntax guards) and, with
-   Docker, `:linter-images:parityTest` (resolve + hadolint all compositions).
+4. Validate (no daemon): `./gradlew :linter-images:test` (env/compose/syntax guards) and
+   `prek run resolve-hadolint` (resolves + hadolints every composition; prek provisions hadolint).
