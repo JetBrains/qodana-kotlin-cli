@@ -4,7 +4,30 @@
   "minimumReleaseAge": "7 days",
   "automerge": true,
   "automergeStrategy": "squash",
+  "customDatasources": {
+    "qodana-cli-deps": {
+      "defaultRegistryUrlTemplate": "https://packages.jetbrains.team/files/p/sa/qodana-cli-deps/{{packageName}}/versions.json",
+      "format": "json",
+      "comment": "versions.json is {\"versions\":[\"v1.0.0\", ...]}. Strip the leading `v` so the value written back into CLANG_TIDY_VERSION stays bare (the .env carries `1.0.0`; lib/tools.dockerfile prepends the `v` for the mirror path). Without the strip Renovate would write `v1.0.1` and the build would request `.../vv1.0.1/...`.",
+      "transformTemplates": ["{ \"releases\": versions.{ \"version\": $replace($, /^v/, \"\") } }"]
+    }
+  },
+  "hostRules": [
+    {
+      "matchHost": "packages.jetbrains.team",
+      "authType": "Bearer",
+      "token": "{{ secrets.QODANA_CLI_DEPS_TOKEN }}"
+    }
+  ],
   "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Track CLANG_TIDY_VERSION (qodana-cli-deps clang-tidy package tag) in the clang .env (QD-14960). The token-gated versions.json datasource is custom.qodana-cli-deps; the bot supplies QODANA_CLI_DEPS_TOKEN via the hostRules secret above.",
+      "managerFilePatterns": ["linter-images/docker/images/qodana-clang.env"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+CLANG_TIDY_VERSION=(?<currentValue>\\S+)"
+      ]
+    },
     {
       "customType": "regex",
       "description": "Track the stock GraalVM CE pinned in setup-native-build (QD-14917).",
@@ -20,6 +43,31 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+default:\\s*['\"](?<currentValue>[^'\"]+)['\"]"
       ]
+    },
+    {
+      "customType": "regex",
+      "description": "Track digest-pinned Docker images for the linter images (QD-14960): QD_BASE_IMAGE (dhi.io hardened base) and CORRETTO11/17_IMAGE in the .env files, plus the JDK_BUILDER_IMAGE ARG default in lib/. The same refs are mirrored byte-identically in phase-0-decisions.md (EnvContractTest asserts QD_BASE_IMAGE byte-identity), so including the decisions doc in the file set updates every occurrence in ONE PR and keeps the contract guard green. The KEY= anchor (uppercase env/ARG name) deliberately excludes the lowercase `# syntax=` directive, which the dockerfile-x manager below owns.",
+      "datasourceTemplate": "docker",
+      "managerFilePatterns": [
+        "/^linter-images/docker/images/.*\\.env$/",
+        "/^linter-images/docker/lib/.*\\.dockerfile$/",
+        "/^linter-images/docs/phase-0-decisions\\.md$/"
+      ],
+      "matchStrings": [
+        "(?:^|\\s)[A-Z][A-Z0-9_]*\\s*=\\s*(?<depName>[^\\s:@=]+):(?<currentValue>[^\\s@]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "Track the dockerfile-x syntax frontend pinned in the `# syntax=` directive of every thin image AND the byte-identical DOCKERFILE_X_SYNTAX row in phase-0-decisions.md (SyntaxPinTest asserts they match). ONE manager owns all occurrences so a digest bump rewrites them in a single PR — splitting it across the built-in dockerfile manager and this regex would desync SyntaxPinTest between the two PRs.",
+      "datasourceTemplate": "docker",
+      "managerFilePatterns": [
+        "/^linter-images/docker/images/.*\\.dockerfile$/",
+        "/^linter-images/docs/phase-0-decisions\\.md$/"
+      ],
+      "matchStrings": [
+        "# syntax=(?<depName>docker\\.io/devthefuture/dockerfile-x):(?<currentValue>[^\\s@]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ]
     }
   ],
   "packageRules": [
@@ -32,6 +80,19 @@
       "description": "Keep the HybridCRT GraalVM on the JDK-25 line too; a major-line jump is a deliberate migration (QD-14917).",
       "matchDepNames": ["qodana/graalvm-hybridcrt"],
       "allowedVersions": "<26"
+    },
+    {
+      "description": "Bump the dockerfile-x syntax frontend within the 1.x line. Match both the bare and docker.io-prefixed names so the policy applies however the docker datasource normalizes the depName captured from the `# syntax=` directive.",
+      "matchPackageNames": ["devthefuture/dockerfile-x", "docker.io/devthefuture/dockerfile-x"],
+      "versioning": "semver"
+    },
+    {
+      "description": "clang-tidy bumps need a manual CLANG_TIDY_SHA256 refresh (the build verifies the archive), so do not automerge; the PR carries the refresh instructions.",
+      "matchDatasources": ["custom.qodana-cli-deps"],
+      "automerge": false,
+      "prBodyNotes": [
+        "After merge, refresh CLANG_TIDY_SHA256 for the build: download `clang-tidy-linux-amd64.tar.gz` from the qodana-cli-deps mirror at the new tag (with QODANA_CLI_DEPS_TOKEN) and update the sha256 the clang image build verifies."
+      ]
     }
   ]
 }

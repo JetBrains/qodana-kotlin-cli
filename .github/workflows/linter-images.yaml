@@ -1,0 +1,153 @@
+name: Linter images
+
+# Additive CI for the in-repo Qodana linter images (qodana-jvm/android/clang). Separate from the
+# stock `CI` workflow's `Qodana` gate — this builds the IMAGES from this tree (CLI_SOURCE=context) and
+# dogfoods the baked inner-CLI + dist path on amd64 (the thing the arm64 dev box cannot validate).
+# Path-filtered to the image build system so unrelated PRs don't pay for native compiles + image builds.
+
+on:
+  pull_request:
+    paths:
+      - linter-images/**
+      - .github/workflows/linter-images.yaml
+  push:
+    branches: [main]
+    paths:
+      - linter-images/**
+      - .github/workflows/linter-images.yaml
+  workflow_dispatch: {}
+
+concurrency:
+  group: linter-images-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # resolve + hadolint runs as a prek hook (.pre-commit-config.yaml), locally and in CI's prek step —
+  # not as a job here. The image-tool unit tests run in the stock `Test` job (./gradlew test).
+
+  build:
+    name: Build images
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # Surfaced as `env.*` so the gating `if:` can reference them — `secrets.*` is not addressable in
+      # a step-level `if:` expression.
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+      QODANA_CLI_DEPS_TOKEN: ${{ secrets.QODANA_CLI_DEPS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      # GraalVM + Gradle for the from-tree native CLI (assembleRelease → nativeCompile).
+      - uses: ./.github/actions/setup-native-build
+      - name: Optional Docker Hub login (avoid anonymous rate limits)
+        # dhi.io's hardened base is anonymously pullable, so this is a NO-OP when the secret is absent.
+        # It only raises the anonymous pull-rate ceiling when a token is configured on the repo.
+        if: ${{ env.DOCKERHUB_TOKEN != '' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
+      - name: Stage from-tree contexts (cli + image-tool)
+        # CI tests the code under review: the inner CLI is the from-tree binary (CLI_SOURCE=context),
+        # the `tooling` image-tool comes from installDist. compose.ci.yaml binds the `cli` context to
+        # qodana-cli/build/release-staging; install-cli reads /cli-src/${CLI_BINARY} there.
+        run: |
+          set -euo pipefail
+          ./gradlew \
+            :qodana-cli:assembleRelease -PtargetOs=linux -PtargetArch=amd64 -Pquick=true \
+            :qodana-clang:assembleRelease -PtargetOs=linux -PtargetArch=amd64 -Pquick=true \
+            :linter-images:installDist
+          # qodana-jvm/android consume /cli-src/qodana (Cli kind already staged at release-staging/qodana).
+          test -x qodana-cli/build/release-staging/qodana
+          # clang's inner CLI is qodana-clang (Tool kind: a raw binary qodana-clang_<version>_linux_amd64,
+          # NOT staged). Place it at release-staging/qodana-clang so /cli-src/qodana-clang resolves.
+          shopt -s nullglob
+          tool_binaries=(qodana-clang/build/release/qodana-clang_*_linux_amd64)
+          if [ "${#tool_binaries[@]}" -ne 1 ]; then
+            echo "::error::expected exactly one qodana-clang tool binary, found ${#tool_binaries[@]}: ${tool_binaries[*]:-<none>}"
+            exit 1
+          fi
+          cp "${tool_binaries[0]}" qodana-cli/build/release-staging/qodana-clang
+          chmod 0755 qodana-cli/build/release-staging/qodana-clang
+      - name: Build qodana-jvm + qodana-android
+        # No token: jvm/android fetch the IDE dist from the public mirror (GPG+sha256 verified).
+        working-directory: linter-images
+        run: docker compose -f compose.yaml -f compose.ci.yaml build qodana-jvm qodana-android
+      - name: Build qodana-clang (token-gated clang-tidy mirror)
+        # clang's clang-tidy comes from the PRIVATE qodana-cli-deps mirror, so its build REQUIRES the
+        # token (lib/tools.dockerfile mounts the secret required=true). On a fork PR the secret is
+        # empty → skip rather than hard-fail; same-repo PRs and pushes build it.
+        if: ${{ env.QODANA_CLI_DEPS_TOKEN != '' }}
+        working-directory: linter-images
+        run: docker compose -f compose.yaml -f compose.ci.yaml -f compose.private.yaml build qodana-clang
+      - name: Note skipped clang build (no token)
+        if: ${{ env.QODANA_CLI_DEPS_TOKEN == '' }}
+        run: echo "::notice::qodana-clang build skipped — QODANA_CLI_DEPS_TOKEN unavailable (fork PR)."
+
+  dogfood:
+    name: Dogfood qodana-jvm
+    # Distinct integration check (keeps the stock `Qodana` gate untouched). GitHub jobs are isolated
+    # VMs, so this re-stages the contexts it needs and rebuilds only qodana-jvm — it does NOT depend on
+    # the build job's filesystem. Validates the baked-dist + inner-CLI exec path that cannot run on the
+    # arm64 dev box.
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: ./.github/actions/setup-native-build
+      - name: Optional Docker Hub login (avoid anonymous rate limits)
+        if: ${{ env.DOCKERHUB_TOKEN != '' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
+      - name: Stage from-tree contexts (cli + image-tool) and build qodana-jvm
+        run: |
+          set -euo pipefail
+          ./gradlew \
+            :qodana-cli:assembleRelease -PtargetOs=linux -PtargetArch=amd64 -Pquick=true \
+            :linter-images:installDist
+          test -x qodana-cli/build/release-staging/qodana
+          docker compose -f linter-images/compose.yaml -f linter-images/compose.ci.yaml build qodana-jvm
+      - name: --version (baked inner-CLI exec on amd64)
+        run: docker run --rm qodana-jvm:dev --version
+      - name: Scan this repo and assert SARIF
+        # A real scan over a clean copy of THIS repo (excluding VCS + build output). A missing or
+        # malformed SARIF means an inner-CLI/dist parity gap on amd64 → fail loudly.
+        run: |
+          set -euo pipefail
+          SRC="$(pwd)"
+          CLEAN="$(mktemp -d)"
+          rsync -a --delete \
+            --exclude='.git' --exclude='.tmp' --exclude='build' \
+            --exclude='*/build' --exclude='.gradle' \
+            "${SRC}/" "${CLEAN}/"
+          OUT="$(mktemp -d)"
+          # The image drops to UID 1000:1000 and bind-mounts inherit the host dir's perms (mktemp 0700 /
+          # rsync copy owned by the runner). Make both writable to UID 1000: the results dir so the CLI can
+          # emit the SARIF, and the throwaway project copy so the Gradle import can write its `.gradle/` cache.
+          chmod 0777 "${OUT}"
+          chmod -R a+rwX "${CLEAN}"
+          docker run --rm \
+            -v "${CLEAN}:/data/project" \
+            -v "${OUT}:/data/results" \
+            qodana-jvm:dev scan --results-dir /data/results
+          SARIF="${OUT}/qodana.sarif.json"
+          if [ ! -s "${SARIF}" ]; then
+            echo "::error::dogfood: no SARIF at ${SARIF} — inner-CLI/dist parity gap"
+            ls -la "${OUT}" || true
+            exit 1
+          fi
+          # Assert it is a SARIF document with a runs array, not merely a non-empty file.
+          grep -q '"runs"' "${SARIF}" || { echo "::error::dogfood: SARIF has no runs[]"; exit 1; }
+          echo "dogfood OK: $(wc -c < "${SARIF}") bytes of SARIF"

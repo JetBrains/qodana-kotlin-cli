@@ -1,5 +1,7 @@
 package org.jetbrains.qodana.cli
 
+import com.fasterxml.jackson.core.type.TypeReference
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.github.ajalt.clikt.completion.CompletionCommand
 import com.github.ajalt.clikt.core.NoSuchOption
 import com.github.ajalt.clikt.core.PrintHelpMessage
@@ -36,9 +38,13 @@ import org.jetbrains.qodana.engine.env.RuntimeEnvironment
 import org.jetbrains.qodana.engine.git.SystemGitClient
 import org.jetbrains.qodana.engine.http.OkHttpTransport
 import org.jetbrains.qodana.engine.port.HttpResponse
+import org.jetbrains.qodana.engine.port.HttpTransport
+import org.jetbrains.qodana.engine.port.MultipartPart
 import org.jetbrains.qodana.engine.publisher.PublisherAdapter
 import org.jetbrains.qodana.engine.report.ReportPublishUseCase
 import org.jetbrains.qodana.engine.reportconverter.ReportConverterAdapter
+import org.jetbrains.qodana.engine.scan.IdeProductDiscovery
+import org.jetbrains.qodana.engine.startup.IdeInstaller
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -334,6 +340,147 @@ class NativeSmokeTest {
         classes.forEach { Class.forName(it) }
     }
 
+    // QD-14960: the native scan path deserializes these flat @JsonProperty
+    // data classes via Jackson `readValue`:
+    //   - IdeProductInfoJson through IdeProductDiscovery.guessProduct (the
+    //     sanctioned QODANA_DIST path; the dogfood InvalidDefinitionException).
+    //   - Product/ReleaseInfo/ReleaseDownloadInfo through
+    //     IdeInstaller.getProductByCode (the feed-install path, hit by
+    //     `scan --linter X` when no dist is baked).
+    // Driving the real deserialization here lets the tracing agent record full
+    // reachable-fields metadata. Every fixture OMITS optional fields so the
+    // agent ALWAYS records the Kotlin synthetic default-arg
+    // (`...,int,DefaultConstructorMarker`) constructor that jackson-module-kotlin
+    // invokes whenever a JSON field is absent — and real product-info.json /
+    // feed entries routinely omit fields (stable builds have no versionSuffix).
+    // This is host-independent: the dist-binary LAYOUT branches on os.name (so
+    // guessProduct finds the binary on any host), but the JSON field coverage
+    // does not. No Class.forName baseline: real deserialization covers all four
+    // classes (Class.forName yields inferior bare-name entries anyway).
+    @Test
+    fun `native scan-path Jackson models are reachable for the agent`(
+        @TempDir tempDir: Path,
+    ) {
+        val os = System.getProperty("os.name").lowercase()
+        val isMac = "mac" in os || "darwin" in os
+        val isWindows = "win" in os
+
+        // guessProduct branches on os.name: macOS reads MacOS/<ide> +
+        // Resources/product-info.json; Windows wants bin/<ide>64.exe; Linux
+        // wants bin/<ide>. Lay out the binary to match the host so guessProduct
+        // finds it everywhere a contributor runs `./gradlew :qodana-cli:test`.
+        // versionSuffix is OMITTED on every host so IdeProductInfoJson's
+        // synthetic default-arg constructor is exercised regardless of OS.
+        val dist = Files.createDirectories(tempDir.resolve("dist"))
+        val productInfo = """{"version":"2025.3","buildNumber":"253.1234","productCode":"IU"}"""
+        if (isMac) {
+            Files.createDirectories(dist.resolve("MacOS")).resolve("idea").writeText("#!/bin/sh\n")
+            Files.createDirectories(dist.resolve("Resources")).resolve("product-info.json").writeText(productInfo)
+        } else {
+            val binName = if (isWindows) "idea64.exe" else "idea"
+            Files.createDirectories(dist.resolve("bin")).resolve(binName).writeText("#!/bin/sh\n")
+            dist.resolve("product-info.json").writeText(productInfo)
+        }
+        val product = IdeProductDiscovery.guessProduct(dist, NioFileSystem())
+        assertEquals("IU", product.ideCode)
+        assertEquals("QDJVM", product.code, "toQodanaCode must map IU -> QDJVM")
+        assertEquals("2025.3", product.version)
+        assertEquals("253.1234", product.build)
+        assertEquals("idea", product.baseScriptName)
+        assertTrue(!product.isEap, "omitted versionSuffix must default to non-EAP")
+        // `name` is deliberately NOT asserted: both JVM and Android linter
+        // properties carry productInfoJsonCode "IU", so findByProductInfoCode
+        // is order-dependent — a name assertion would be brittle.
+
+        // Feed deserialization. Every entry omits optional fields so the agent
+        // records the synthetic default-arg constructor of each feed DTO:
+        //   - Product: second entry omits "Releases".
+        //   - ReleaseInfo: "minimal" release omits everything but Date/Type.
+        //   - ReleaseDownloadInfo: omits "Size"/"ChecksumLink".
+        val feed =
+            """
+            [
+              {"Code":"IIU","Releases":[
+                {"Date":"2025-03-01","Type":"release","Version":"2025.3.1","MajorVersion":"2025.3",
+                 "Build":"253.1234","PrintableReleaseType":"Stable",
+                 "Downloads":{"linux":{"Link":"https://example.com/idea.tar.gz"}}},
+                {"Date":"2025-02-01","Type":"eap"}
+              ]},
+              {"Code":"GO"}
+            ]
+            """.trimIndent()
+        // getProductByCode is a plain fun that runBlocks internally — call it
+        // directly, NOT inside another runBlocking.
+        val installer = IdeInstaller(fixedGetHttp(feed), NioFileSystem(), terminal)
+        val feedProduct = installer.getProductByCode("IIU")
+        assertNotNull(feedProduct)
+        assertEquals("IIU", feedProduct.code)
+        assertEquals(2, feedProduct.releases.size)
+        val fullRelease = feedProduct.releases.first { it.type == "release" }
+        assertEquals("253.1234", fullRelease.build)
+        assertNotNull(fullRelease.downloads?.get("linux"))
+        val minimalRelease = feedProduct.releases.first { it.type == "eap" }
+        assertEquals(null, minimalRelease.downloads, "minimal release exercises default-valued fields")
+        // The "GO" entry omits Releases -> Product's synthetic default-arg ctor.
+        val minimalProduct = installer.getProductByCode("GO")
+        assertNotNull(minimalProduct)
+        assertEquals(emptyList(), minimalProduct.releases, "omitted Releases must default to empty")
+    }
+
+    // QD-14960 regression guard: a real test (not just a capture driver) that
+    // FAILS if a future metadata regen drops these classes — or their required
+    // constructors — from the committed reflect-config.json. JVM deserialization
+    // passes even with broken native metadata (reflection is free on the JVM),
+    // so this is the test that actually catches the native-image gap recurring.
+    // jackson-module-kotlin invokes the synthetic `...,int,DefaultConstructorMarker`
+    // constructor whenever a JSON field is absent, so each class with optional
+    // fields MUST register that variant, not only the full-arity one.
+    @Test
+    fun `committed reflect-config registers the native scan-path Jackson models`() {
+        val reflectConfig = Path.of(REFLECT_CONFIG_PATH)
+        assertTrue(
+            Files.exists(reflectConfig),
+            "expected $reflectConfig to exist; regenerate via `./gradlew :qodana-cli:metadataCopy`",
+        )
+
+        val entries: List<Map<String, Any?>> =
+            ObjectMapper().readValue(reflectConfig.toFile(), object : TypeReference<List<Map<String, Any?>>>() {})
+        val byName = entries.filter { it["name"] is String }.associateBy { it["name"] as String }
+
+        val problems = mutableListOf<String>()
+        for ((fqcn, requiredCtors) in requiredNativeScanPathCtors()) {
+            val entry = byName[fqcn]
+            if (entry == null) {
+                problems.add("$fqcn: not registered")
+                continue
+            }
+            if (entry["allDeclaredFields"] != true) {
+                problems.add("$fqcn: allDeclaredFields must be true (Jackson reads every field)")
+            }
+
+            @Suppress("UNCHECKED_CAST")
+            val methods = entry["methods"] as? List<Map<String, Any?>> ?: emptyList()
+            val ctorParamLists =
+                methods
+                    .filter { it["name"] == "<init>" }
+                    .map { (it["parameterTypes"] as? List<*>)?.map(Any?::toString) ?: emptyList() }
+                    .toSet()
+            for (ctor in requiredCtors) {
+                if (ctor !in ctorParamLists) {
+                    problems.add("$fqcn: missing <init>(${ctor.joinToString(", ")})")
+                }
+            }
+        }
+        assertTrue(
+            problems.isEmpty(),
+            "reflect-config.json native-scan-path Jackson models are incomplete:\n" +
+                problems.joinToString("\n") { "  $it" } +
+                "\nRe-run agent capture (`./gradlew -Pagent :qodana-cli:test :qodana-cli:parityTest " +
+                "--rerun-tasks` then `:qodana-cli:metadataCopy`); on a stale toolchain, transcribe the " +
+                "agent's captured `<init>` lists (incl. the DefaultConstructorMarker variant) by hand.",
+        )
+    }
+
     @Test
     fun `version flag prints embedded version`() {
         val ex =
@@ -514,6 +661,11 @@ class NativeSmokeTest {
         )
 
     private companion object {
+        // Module-relative; tests run with the qodana-cli dir as cwd (same
+        // convention as MetadataHygieneTest).
+        const val REFLECT_CONFIG_PATH =
+            "src/main/resources/META-INF/native-image/org.jetbrains.qodana/qodana-cli/reflect-config.json"
+
         val SUBCOMMAND_NAMES =
             listOf(
                 "scan",
@@ -528,3 +680,65 @@ class NativeSmokeTest {
             )
     }
 }
+
+// QD-14960: each native-scan-path Jackson model -> the <init> parameter-type
+// lists that MUST be in reflect-config. The `...,int,DefaultConstructorMarker`
+// variant is the synthetic default-arg ctor jackson-module-kotlin invokes when
+// a JSON field is absent (e.g. a stable product-info.json with no versionSuffix);
+// without it the native binary throws MissingReflectionRegistrationError.
+private fun requiredNativeScanPathCtors(): Map<String, List<List<String>>> {
+    val dcm = "kotlin.jvm.internal.DefaultConstructorMarker"
+    val str = "java.lang.String"
+    return mapOf(
+        "org.jetbrains.qodana.engine.scan.IdeProductInfoJson" to
+            listOf(
+                listOf(str, str, str, str),
+                listOf(str, str, str, str, "int", dcm),
+            ),
+        "org.jetbrains.qodana.engine.startup.Product" to
+            listOf(
+                listOf(str, "java.util.List"),
+                listOf(str, "java.util.List", "int", dcm),
+            ),
+        "org.jetbrains.qodana.engine.startup.ReleaseInfo" to
+            listOf(
+                listOf(str, str, "java.util.Map", str, str, str, str),
+                listOf(str, str, "java.util.Map", str, str, str, str, "int", dcm),
+            ),
+        "org.jetbrains.qodana.engine.startup.ReleaseDownloadInfo" to
+            listOf(
+                listOf(str, "long", str),
+                listOf(str, "long", str, "int", dcm),
+            ),
+    )
+}
+
+// A minimal HttpTransport that returns [body] for every GET and empty 200s
+// otherwise — enough to drive IdeInstaller.getProductByCode's feed fetch under
+// the agent without a real network. (QD-14960.)
+private fun fixedGetHttp(body: String): HttpTransport =
+    object : HttpTransport {
+        override suspend fun get(
+            url: String,
+            headers: Map<String, String>,
+        ) = HttpResponse(200, body)
+
+        override suspend fun post(
+            url: String,
+            body: ByteArray,
+            contentType: String,
+            headers: Map<String, String>,
+        ) = HttpResponse(200, "")
+
+        override suspend fun download(
+            url: String,
+            target: Path,
+            headers: Map<String, String>,
+        ) = Unit
+
+        override suspend fun uploadMultipart(
+            url: String,
+            parts: List<MultipartPart>,
+            headers: Map<String, String>,
+        ) = HttpResponse(200, "")
+    }

@@ -3749,6 +3749,118 @@
         ]
     },
     {
+        "name": "org.jetbrains.qodana.engine.scan.IdeProductInfoJson",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String"
+                ]
+            },
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "int",
+                    "kotlin.jvm.internal.DefaultConstructorMarker"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.engine.startup.Product",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.util.List"
+                ]
+            },
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.util.List",
+                    "int",
+                    "kotlin.jvm.internal.DefaultConstructorMarker"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.engine.startup.ReleaseDownloadInfo",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "long",
+                    "java.lang.String"
+                ]
+            },
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "long",
+                    "java.lang.String",
+                    "int",
+                    "kotlin.jvm.internal.DefaultConstructorMarker"
+                ]
+            }
+        ]
+    },
+    {
+        "name": "org.jetbrains.qodana.engine.startup.ReleaseInfo",
+        "allDeclaredFields": true,
+        "queryAllDeclaredMethods": true,
+        "queryAllDeclaredConstructors": true,
+        "methods": [
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.util.Map",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String"
+                ]
+            },
+            {
+                "name": "<init>",
+                "parameterTypes": [
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.util.Map",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "java.lang.String",
+                    "int",
+                    "kotlin.jvm.internal.DefaultConstructorMarker"
+                ]
+            }
+        ]
+    },
+    {
         "name": "org.jetbrains.qodana.sarif.model.CoverageInformation",
         "allDeclaredFields": true,
         "methods": [

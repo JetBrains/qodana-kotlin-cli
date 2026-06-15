@@ -1,0 +1,8 @@
+# Canonical clang set — drives toolchain/clang base-OS split and the CI build matrix.
+# Format: <clang-major> <debian-codename>
+16 bookworm
+17 bookworm
+18 bookworm
+19 bookworm
+20 trixie
+21 trixie

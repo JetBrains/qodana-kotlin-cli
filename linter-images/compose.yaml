@@ -1,0 +1,49 @@
+# Public/release reconstruction path: `docker login dhi.io` (free) + `./gradlew :linter-images:installDist`,
+# then `docker compose build <slug>`. The inner CLI is fetched inside the builder stage (CLI_SOURCE=release);
+# the build `image-tool` always comes from the repo via the `tooling` context (installDist tree). CI layers
+# compose.ci.yaml to switch to CLI_SOURCE=context; the private feed uses compose.private.yaml for the token.
+#
+# CLI_RELEASE_BASE_URL pins the GitHub release the inner CLI is downloaded from (install-cli forms
+# ${CLI_RELEASE_BASE_URL}/qodana_<os>_<arch>.tar.gz). The release TAG must be in the URL. It is a build
+# arg (Renovate-tracked), NOT an .env contract key. NOTE: nightly tags are pruned of their assets after
+# the 7 newest nightlies (docs/release.md) — Renovate must bump this to a retained tag, or switch the
+# default to a stable `v<MAJOR>` release once one carries the linux/amd64 asset.
+services:
+  qodana-jvm:
+    build:
+      context: docker
+      dockerfile: images/qodana-jvm.dockerfile
+      args:
+        CLI_SOURCE: release
+        CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+      additional_contexts:
+        tooling: build/install/image-tool
+    # amd64-only by design (CLI_ARCH/TINI_ARCH=amd64, dist linux/amd64): pin so an arm64 host
+    # (dev Mac, ubuntu-*-arm runner) can't build a broken mixed-arch image (arm64 base + amd64 CLI).
+    platform: linux/amd64
+    image: qodana-jvm:dev
+  qodana-android:
+    build:
+      context: docker
+      dockerfile: images/qodana-android.dockerfile
+      args:
+        CLI_SOURCE: release
+        CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+      additional_contexts:
+        tooling: build/install/image-tool
+    platform: linux/amd64
+    image: qodana-android:dev
+  qodana-clang:
+    build:
+      context: docker
+      dockerfile: images/qodana-clang.dockerfile
+      args:
+        CLI_SOURCE: release
+        CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+        # clang has NO dist stage: the inner CLI layers onto `tools` (clang-tidy), not `dist`.
+        # CLI_BASE_STAGE is a build ARG (base.dockerfile defaults it to dist), not an .env key.
+        CLI_BASE_STAGE: tools
+      additional_contexts:
+        tooling: build/install/image-tool
+    platform: linux/amd64
+    image: qodana-clang:dev

@@ -1,0 +1,34 @@
+# Private-source overlay. Two distinct tokens, each scoped to the services that consume it:
+#   feed_token (QD_FEED_TOKEN)            — jvm/android private IDE feed; lib/dist.dockerfile mounts it
+#                                           required=false (public path runs with it unset). Clang has
+#                                           no dist stage, so it does NOT mount feed_token.
+#   qodana_cli_deps_token                 — clang-tidy mirror (packages.jetbrains.team); always private,
+#     (QODANA_CLI_DEPS_TOKEN)               so lib/tools.dockerfile mounts it required=true. The clang
+#                                           image therefore CANNOT build from base compose.yaml alone —
+#                                           it needs this overlay (CI supplies the token; see Phase 5).
+# The token is sent as `Authorization: Bearer <token>` (a JB Space bearer token, raw value — not
+# `user:pass`), matching lib/tools.dockerfile and the canonical qodana-cli download-clang-tidy.go.
+# Usage (private feed):
+#   QD_FEED_TOKEN=<token> docker compose -f compose.yaml -f compose.private.yaml build qodana-jvm
+# Usage (clang, always token-gated):
+#   QODANA_CLI_DEPS_TOKEN=<bearer-token> docker compose -f compose.yaml -f compose.private.yaml build qodana-clang
+# The base compose.yaml references neither secret, so the public jvm/android path builds with both unset.
+services:
+  qodana-jvm:
+    build:
+      secrets:
+        - feed_token
+  qodana-android:
+    build:
+      secrets:
+        - feed_token
+  qodana-clang:
+    build:
+      secrets:
+        - qodana_cli_deps_token
+
+secrets:
+  feed_token:
+    environment: QD_FEED_TOKEN
+  qodana_cli_deps_token:
+    environment: QODANA_CLI_DEPS_TOKEN

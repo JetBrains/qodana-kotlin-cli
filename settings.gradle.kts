@@ -33,4 +33,5 @@ include(
     "qodana-clang",
     "qodana-cdnet",
     "release-tools",
+    "linter-images",
 )

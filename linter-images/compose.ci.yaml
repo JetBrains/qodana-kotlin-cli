@@ -1,0 +1,23 @@
+# CI override (layered: `docker compose -f compose.yaml -f compose.ci.yaml build`). Switches the inner
+# CLI to the from-tree binary so the dogfood check tests exactly the code under review. The `tooling`
+# context comes from the base compose.yaml (always required); only `cli` is added here.
+#   cli = the assembleRelease staging dir for linux/amd64 (qodana-cli/build/release-staging), bare binary
+services:
+  qodana-jvm:
+    build:
+      args:
+        CLI_SOURCE: context
+      additional_contexts:
+        cli: ../qodana-cli/build/release-staging
+  qodana-android:
+    build:
+      args:
+        CLI_SOURCE: context
+      additional_contexts:
+        cli: ../qodana-cli/build/release-staging
+  qodana-clang:
+    build:
+      args:
+        CLI_SOURCE: context
+      additional_contexts:
+        cli: ../qodana-cli/build/release-staging

@@ -23,7 +23,7 @@ on:
         type: boolean
         default: false
       cli-only:
-        description: 'Only build qodana-cli (skip clang/cdnet). Set true for nightlies.'
+        description: 'Only build qodana-cli (skip clang/cdnet). Nightlies set false so clang/cdnet images can pull from the release.'
         required: false
         type: boolean
         default: false
