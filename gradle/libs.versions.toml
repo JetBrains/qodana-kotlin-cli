@@ -1,5 +1,5 @@
 [versions]
-kotlin = "2.3.20"
+kotlin = "2.4.0"
 coroutines = "1.11.0"
 clikt = "5.1.0"
 mordant = "3.0.2"
@@ -17,7 +17,7 @@ qodana-jvm-community-tag = "2025.3"
 fus-reporting = "171"
 fus-metadata-client = "10"
 ap-scheme-tools = "0.0.26"
-intellij-report-converter = "0.12.5"
+intellij-report-converter = "0.12.6"
 junit = "6.1.0"
 portex = "5.0.6"
 
