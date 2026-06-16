@@ -133,7 +133,10 @@ class ProvisionDistCommandTest {
         assertEquals(0, resultWithToken.statusCode, resultWithToken.output)
         val feedCurlWithToken =
             runnerWithToken.invocations.first { it.contains("curl") && it.any { a -> a.endsWith(".releases.json") } }
-        assertTrue(feedCurlWithToken.any { it.contains("tok-123") }, "expected bearer token in curl args: $feedCurlWithToken")
+        assertTrue(
+            feedCurlWithToken.any { it.contains("tok-123") },
+            "expected bearer token in curl args: $feedCurlWithToken",
+        )
 
         // Token absent: the feed curl has no Authorization header.
         val runnerNoToken = runner()
