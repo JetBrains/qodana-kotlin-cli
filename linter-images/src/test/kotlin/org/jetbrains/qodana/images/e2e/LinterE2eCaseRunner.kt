@@ -69,13 +69,30 @@ class LinterE2eCaseRunner(
         val command = commandRunner.run(argv)
 
         val sarifPath = resultsDir.resolve("qodana.sarif.json")
-        // An ABSENT SARIF is a clean null (e.g. the android missing-SDK twin, QD-2179, fails before
-        // writing one). A PRESENT-but-unparseable SARIF is NOT swallowed into a generic null: its
-        // exception is carried in [CaseRunResult.sarifParseError] so the discovery test fails LOUDLY
-        // for any case that asserts on SARIF (never a silent skip; spec Error-handling section).
-        val parsed = if (sarifPath.isRegularFile()) runCatching { SarifUtil.readReport(sarifPath) } else null
-        val report = parsed?.getOrNull()
-        val sarifParseError = parsed?.exceptionOrNull()
+        // An ABSENT file is a clean null (e.g. the android missing-SDK twin, QD-2179, fails before
+        // writing one). A PRESENT file is parsed; BOTH a thrown exception (malformed JSON) AND a null
+        // result (qodana-sarif/Gson returns null for empty / `[]` / `[null]` content WITHOUT throwing)
+        // are surfaced via [CaseRunResult.sarifParseError], so a SARIF-asserting case fails LOUDLY with
+        // an accurate cause — never the misleading "no SARIF produced" (spec Error-handling section).
+        val report: SarifReport?
+        val sarifParseError: Throwable?
+        if (sarifPath.isRegularFile()) {
+            val parsed = runCatching { SarifUtil.readReport(sarifPath) }
+            report = parsed.getOrNull()
+            sarifParseError =
+                parsed.exceptionOrNull()
+                    ?: if (report == null) {
+                        IllegalStateException(
+                            "qodana.sarif.json is present at $sarifPath but parsed to null " +
+                                "(empty / '[]' / '[null]' — the scan produced no SARIF document)",
+                        )
+                    } else {
+                        null
+                    }
+        } else {
+            report = null
+            sarifParseError = null
+        }
         val ideaLogPath = resultsDir.resolve("log").resolve("idea.log")
         val ideaLog = if (ideaLogPath.isRegularFile()) ideaLogPath.readText() else null
 
@@ -151,9 +168,13 @@ class LinterE2eCaseRunner(
 
     private fun worldWritableDir(dir: Path): Path {
         val created = Files.createDirectories(dir).toRealPath()
-        runCatching {
-            // a+rwX — POSIX hosts (CI is Linux) only; ignored where unsupported (local dev box).
+        // a+rwX so the UID-1000 container can write results/cache. Swallow ONLY the non-POSIX case
+        // (the arm64 macOS dev-box temp FS): a real chmod failure on CI (Linux/POSIX) MUST propagate,
+        // otherwise it surfaces later as a baffling "no SARIF produced".
+        try {
             Files.setPosixFilePermissions(created, PosixFilePermissions.fromString("rwxrwxrwx"))
+        } catch (_: UnsupportedOperationException) {
+            // Non-POSIX filesystem; dev-box-only. The container's mount path on CI is POSIX.
         }
         return created
     }

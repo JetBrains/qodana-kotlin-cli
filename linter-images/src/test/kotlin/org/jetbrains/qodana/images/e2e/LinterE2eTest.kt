@@ -166,6 +166,15 @@ class LinterE2eTest {
         val base = manifest.sarif
         val applicable = base.expectations.filter { it.variant == null || it.variant == variant.id }
         val toPin = applicable.filter { it.pin == "needs-pinning" && it.presence == "absent" }
+        // A needs-pinning absent expectation resolves its rule id by matching a control result on
+        // uriContains/messageContains. Without a selector, matches(..., null, null) returns the FIRST
+        // control result arbitrarily — a silent mis-pin. Require a selector and fail loudly instead.
+        toPin.forEach {
+            check(it.uriContains != null || it.messageContains != null) {
+                "${manifest.case} [${variant.id}]: a needs-pinning absent expectation must carry a " +
+                    "uriContains or messageContains selector to resolve its rule id from the control run"
+            }
+        }
         if (toPin.isEmpty()) return base.copy(expectations = applicable)
 
         val controlVariant =
