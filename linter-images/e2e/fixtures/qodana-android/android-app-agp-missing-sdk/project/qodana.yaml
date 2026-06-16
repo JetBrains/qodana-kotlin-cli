@@ -1,8 +1,0 @@
-version: "1.0"
-linter: qodana-android
-projectJDK: "17"
-
-# NEGATIVE TWIN of android-app-agp: bootstrap deliberately OMITS the platform/build-tools install,
-# so the AGP import fails for lack of the compile SDK. Proves "image regressed" vs "fixture
-# misconfigured" (QD-2179). Network on (android's accepted cost).
-bootstrap: bash bootstrap.sh
