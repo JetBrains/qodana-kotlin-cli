@@ -76,13 +76,20 @@ class ProvisionDistCommandTest {
         target: Path,
         key: Path,
     ) = listOf(
-        "--distribution-feed", feedUrl,
-        "--linter-slug", "qodana-jvm",
-        "--version", "2025.3",
-        "--build", build,
-        "--gpg-key", key.toString(),
-        "--gpg-fingerprint", fingerprint,
-        "--target", target.toString(),
+        "--distribution-feed",
+        feedUrl,
+        "--linter-slug",
+        "qodana-jvm",
+        "--version",
+        "2025.3",
+        "--build",
+        build,
+        "--gpg-key",
+        key.toString(),
+        "--gpg-fingerprint",
+        fingerprint,
+        "--target",
+        target.toString(),
     )
 
     @Test
