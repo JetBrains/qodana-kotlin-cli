@@ -7,6 +7,7 @@ import org.jetbrains.qodana.core.port.SarifService
 import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.core.port.ThirdPartyLinter
 import org.slf4j.LoggerFactory
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -70,10 +71,30 @@ class ClangLinter(
         sarifService.write(sarifPath, report)
     }
 
-    override fun mountTools(targetPath: Path): Map<String, Path> {
+    override fun mountTools(targetPath: Path): Map<String, Path> = mountTools(targetPath, System.getenv("PATH"))
+
+    /**
+     * Resolve PATH first, then fall back to [targetPath]. The Docker image installs clang-tidy to
+     * `/opt/qodana-clang/bin` on PATH, so the production scan finds it by name (works under
+     * `network: none`, independent of the `/data/cache` mount). When clang-tidy is not on PATH
+     * (dev / non-Docker), fall back to the `cacheDir/tools` lookup below.
+     *
+     * [pathEnv] is injectable so tests can drive resolution without mutating the process environment.
+     */
+    internal fun mountTools(
+        targetPath: Path,
+        pathEnv: String?,
+    ): Map<String, Path> {
+        val binaryName = if (isWindows()) "clang-tidy.exe" else "clang-tidy"
+
+        if (resolveOnPath(binaryName, pathEnv) != null) {
+            logger.info("Resolved {} on PATH; invoking by name", binaryName)
+            // Return the bare name so ProcessBuilder (via ClangRunner) resolves it on PATH at run time.
+            return mapOf("clang-tidy" to Path.of(binaryName))
+        }
+
         val toolsDir = targetPath
         logger.info("Mounting clang tools from {}", toolsDir)
-        val binaryName = if (isWindows()) "clang-tidy.exe" else "clang-tidy"
 
         // Check direct path first, then bin/ subdirectory
         var binaryPath = toolsDir.resolve(binaryName)
@@ -112,4 +133,18 @@ class ClangLinter(
     }
 
     private fun isWindows(): Boolean = System.getProperty("os.name").lowercase().contains("win")
+
+    /** Find an executable named [binaryName] on the [pathEnv] PATH; returns its path, or null. */
+    private fun resolveOnPath(
+        binaryName: String,
+        pathEnv: String?,
+    ): Path? {
+        if (pathEnv.isNullOrEmpty()) return null
+        return pathEnv
+            .split(File.pathSeparatorChar)
+            .asSequence()
+            .filter { it.isNotEmpty() }
+            .map { Path.of(it).resolve(binaryName) }
+            .firstOrNull { Files.isRegularFile(it) && Files.isExecutable(it) }
+    }
 }
