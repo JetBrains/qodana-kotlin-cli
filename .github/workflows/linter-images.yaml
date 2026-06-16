@@ -56,11 +56,13 @@ jobs:
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "true"
     env:
-      # Surfaced as `env.*` so the gating `if:` can reference them — `secrets.*` is not addressable in
-      # a step-level `if:` expression. QODANA_TOKEN feeds the harness's `linterE2eTest` task (forwarded
-      # to the test JVM); it auto-uploads scans to a throwaway Qodana Cloud project when present.
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-      DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+      # QODANA_CLI_DEPS_TOKEN is surfaced as `env.*` so the clang gating `if:` can reference it
+      # (`secrets.*` is not addressable in a step-level `if:`). QODANA_TOKEN feeds the harness's
+      # `linterE2eTest` task (forwarded to the test JVM); it auto-uploads scans to a throwaway Qodana
+      # Cloud project when present. The DOCKER_READ_PUBLIC_REGISTRY_* creds authenticate the docker.io
+      # and dhi.io pulls (see the two login steps below).
+      DOCKER_READ_PUBLIC_REGISTRY_TOKEN: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
+      DOCKER_READ_PUBLIC_REGISTRY_USER: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_USER }}
       QODANA_CLI_DEPS_TOKEN: ${{ secrets.QODANA_CLI_DEPS_TOKEN }}
       QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
     steps:
@@ -69,14 +71,21 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       # GraalVM + Gradle for the from-tree native CLI (assembleRelease → nativeCompile) and the harness.
       - uses: ./.github/actions/setup-native-build
-      - name: Optional Docker Hub login (avoid anonymous rate limits)
-        # dhi.io's hardened base is anonymously pullable, so this is a NO-OP when the secret is absent.
-        # It only raises the anonymous pull-rate ceiling when a token is configured on the repo.
-        if: ${{ env.DOCKERHUB_TOKEN != '' }}
+      - name: Docker Hub login (raise anonymous pull-rate ceiling)
+        # An authenticated docker.io pull raises the anonymous rate ceiling for the public images the
+        # build fetches (dockerfile-x frontend, amazoncorretto).
         uses: docker/login-action@v3
         with:
-          username: ${{ env.DOCKERHUB_USERNAME }}
-          password: ${{ env.DOCKERHUB_TOKEN }}
+          username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
+          password: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
+      - name: dhi.io login (Docker Hardened Images base)
+        # QD_BASE_IMAGE is dhi.io/debian-base; authenticate the pull with the same credentials. No
+        # if-gate: the base is mandatory, so a missing credential must fail loudly here, not skip.
+        uses: docker/login-action@v3
+        with:
+          registry: dhi.io
+          username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
+          password: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
 
       # --- Non-token-gated images (jvm, android): stage contexts, build, run the harness. --------------
       - name: Stage from-tree contexts (cli + image-tool)
