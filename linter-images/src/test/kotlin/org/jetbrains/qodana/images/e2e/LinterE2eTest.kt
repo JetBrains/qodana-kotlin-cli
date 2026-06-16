@@ -136,7 +136,8 @@ class LinterE2eTest {
             assertTrue(
                 violations.isEmpty(),
                 "${manifest.case} [${variant.id}] SARIF expectations failed:\n" +
-                    violations.joinToString("\n") { "  - ${it.reason}: ${it.detail}" },
+                    violations.joinToString("\n") { "  - ${it.reason}: ${it.detail}" } +
+                    "\n" + reportInventory(report),
             )
         }
 
@@ -247,6 +248,29 @@ class LinterE2eTest {
             messageContains == null ||
                 (result.message?.text?.contains(messageContains) == true)
         return uriOk && msgOk
+    }
+
+    // On a SARIF-expectation failure, dump what the scan ACTUALLY produced — the driver identity and
+    // the rule-id histogram — so `needs-pinning` ids (and the per-image driver name) can be read
+    // straight from the CI job log and committed, with no artifact download.
+    private fun reportInventory(report: SarifReport): String {
+        val driver =
+            report.runs
+                .orEmpty()
+                .firstOrNull()
+                ?.tool
+                ?.driver
+        val results = report.runs.orEmpty().flatMap { it.results.orEmpty() }
+        val histogram =
+            results
+                .groupingBy { it.ruleId ?: "<null-ruleId>" }
+                .eachCount()
+                .entries
+                .sortedByDescending { it.value }
+                .joinToString("\n") { "      ${it.value}x ${it.key}" }
+                .ifEmpty { "      <none>" }
+        return "    observed driver: name=${driver?.name} fullName=${driver?.fullName}\n" +
+            "    observed ruleIds (${results.size} results):\n" + histogram
     }
 
     private fun requireDocker() {

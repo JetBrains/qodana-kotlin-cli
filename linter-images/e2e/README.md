@@ -58,7 +58,7 @@ platform via `sdkmanager`, the documented customer flow), so it runs on `bridge`
 ### `pin: "needs-pinning"`
 
 Exact rule ids and the per-image SARIF driver name depend on the image's bundled inspection profile and
-can only be observed from a real scan (CI, amd64). Such expectations start with a *guessed* id marked
+can only be observed from a real scan (CI, amd64). Such expectations start with a _guessed_ id marked
 `pin: "needs-pinning"`; the first CI run surfaces the real value (the harness prints unmatched
 expectations), which is then committed. For control/treatment cases, an `absent`+`needs-pinning`
 expectation is resolved automatically from the control variant's report at runtime.
