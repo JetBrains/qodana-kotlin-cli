@@ -1,0 +1,35 @@
+{
+  "case": "jvm-git-state",
+  "image": "qodana-jvm",
+  "description": "Git-state matrix: the basic project scanned with no .git (none) and a git-init-no-commit repo (init-no-head). Both must exit 0, produce SARIF, and keep the log free of the converter/contributor NPE strings (QD-4597, QD-3755).",
+  "run": {
+    "network": "none",
+    "extraArgs": ["--no-statistics"],
+    "variants": [
+      { "id": "none", "gitState": "none" },
+      { "id": "init-no-head", "gitState": "init-no-head" }
+    ]
+  },
+  "expectExitCode": 0,
+  "sarif": {
+    "schemaValid": false,
+    "qodanaSeverityRequired": true,
+    "expectations": [
+      {
+        "ruleIdPattern": ".*",
+        "presence": "present",
+        "count": ">=1",
+        "pin": "confirmed",
+        "guards": [],
+        "reason": "Scan must produce at least one result in both the no-.git and git-init-no-head states (id-agnostic floor; git state is the only variable)."
+      }
+    ]
+  },
+  "log": {
+    "mustNotContain": [
+      { "text": "Problems found loading plugins:", "guards": [] },
+      { "text": "Couldn't find repositoryUri", "guards": ["QD-4597"] },
+      { "text": "GitReportContributor", "guards": ["QD-3755"] }
+    ]
+  }
+}
