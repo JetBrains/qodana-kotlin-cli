@@ -99,6 +99,29 @@ datasource `transformTemplates`) is a top-level `{"versions": ["v1.0.0", …]}`
 array, per qodana-cli's own `.github/renovate.json` (its proven config maps it
 with the identical JSONata `{ "releases": versions.{ "version": $ } }`).
 
+## Spike D — qodana-cli-deps ReSharper CLT mirror (cdnet)
+
+The cdnet aux tool is the ReSharper CLT (InspectCode), fetched from the same
+PRIVATE `qodana-cli-deps` JB Space project as clang-tidy, under a sibling path.
+`lib/resharper-clt.dockerfile` fetches `${CLT_MIRROR}/v${CLT_VERSION}/clt.zip`
+(the path prepends `v`, like clang-tidy); the archive is architecture-independent
+(managed .NET). Access mode is the same PRIVATE bearer-token flow as Spike B —
+the build supplies `QODANA_CLI_DEPS_TOKEN` via `Authorization: Bearer`, and CI
+provisions it; the same `qodana_cli_deps_token` build secret is shared with clang.
+
+`EnvContractTest`'s `cdnet pins match phase-0-decisions` asserts the two pins
+below equal `qodana-cdnet.env`'s `CLT_MIRROR` / `CLT_VERSION`:
+
+CLT_MIRROR = https://packages.jetbrains.team/files/p/sa/qodana-cli-deps/resharper-clt
+CLT_VERSION = 2026.1.3
+
+`CLT_VERSION` is the qodana-cli-deps **package** tag (the `$version` segment).
+The `clt.zip` sha256 for the pinned tag lives as the default `ARG CLT_SHA256` in
+`lib/resharper-clt.dockerfile` (Renovate's `.env`-row manager does not track the
+ARG, so a version bump + SHA refresh is one human step, gated by the Renovate note):
+
+CLT_LINUX_AMD64_SHA256 = 35d8ada966411cdecdc883a8d5bfacde41b7c8b147aaac85a7140da10f489658
+
 ## Spike C — live feed pin, dhi.io base digest, JetBrains key
 
 ### qodana-jvm feed pin (shared by jvm + android)
