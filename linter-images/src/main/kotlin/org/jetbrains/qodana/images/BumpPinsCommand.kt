@@ -19,7 +19,7 @@ import kotlin.io.path.name
  * `QD_BUILD`, rewrite ONLY the `QD_BUILD` line — `QD_VERSION` stays the major (EnvContractTest pins it
  * byte-identical to phase-0-decisions.md, and the major does not move within a within-major bump).
  *
- * The selected build is resolved ONCE per distinct `(slug, channel, major, releaseType)` and reused
+ * The selected build is resolved ONCE per distinct `(slug, feed, major, releaseType)` and reused
  * across the `.env` files that share that exact pin (jvm + android), so the two never diverge from a
  * mid-run feed change. After the `.env` rewrites, the matching `QODANA_<SLUG>_BUILD` row in
  * [decisionsFile] (asserted present) is synced so the produced drift PR keeps EnvContractTest green.
@@ -30,13 +30,14 @@ class BumpPinsCommand(
     private val feedClient: FeedClient,
     private val getEnv: (String) -> String? = System::getenv,
 ) : CliktCommand(name = "bump-pins") {
-    private val feedUrlOption by option("--feed-url").default(DEFAULT_FEED_URL)
+    // Global fallback feed; a per-`.env` `QD_DISTRIBUTION_FEED` overrides it. Default is the shared const.
+    private val distributionFeed by option("--distribution-feed").default(DEFAULT_DISTRIBUTION_FEED)
     private val imagesDir by option("--images-dir").path(mustExist = true).required()
     private val decisionsFile by option("--decisions-file").path()
 
     override fun run() {
         val decisions = decisionsFile ?: imagesDir.parent?.resolve("docs/phase-0-decisions.md")
-        rewrite(imagesDir, decisions, feedUrlOption)
+        rewrite(imagesDir, decisions, distributionFeed)
     }
 
     /**
@@ -46,7 +47,7 @@ class BumpPinsCommand(
     fun rewrite(
         dir: Path,
         decisions: Path? = dir.parent?.resolve("docs/phase-0-decisions.md"),
-        feedUrl: String = DEFAULT_FEED_URL,
+        fallbackFeed: String = DEFAULT_DISTRIBUTION_FEED,
     ) {
         val envs =
             Files.list(dir).use { stream ->
@@ -54,13 +55,13 @@ class BumpPinsCommand(
             }
         // Resolve once per exact dist pin so files sharing it (jvm + android) agree on the new build.
         val newestBuildByPin = mutableMapOf<String, String>()
-        envs.forEach { bumpEnv(it, decisions, feedUrl, newestBuildByPin) }
+        envs.forEach { bumpEnv(it, decisions, fallbackFeed, newestBuildByPin) }
     }
 
     private fun bumpEnv(
         env: Path,
         decisions: Path?,
-        feedUrl: String,
+        fallbackFeed: String,
         newestBuildByPin: MutableMap<String, String>,
     ) {
         val kv = parse(env)
@@ -69,13 +70,14 @@ class BumpPinsCommand(
         val major = kv["QD_VERSION"]
         if (slug == null || major == null) return
         val releaseType = kv["QD_RELEASE_TYPE"] ?: "release"
-        val channel = kv["QD_CHANNEL"] ?: "public"
+        val feed = kv["QD_DISTRIBUTION_FEED"] ?: fallbackFeed
 
-        // Key on the FULL selection input — two files sharing only (slug, channel) but differing in
-        // major or release type must NOT reuse each other's resolved build.
+        // Key on the FULL selection input — two files sharing only (slug, feed) but differing in
+        // major or release type (or sharing slug/major/type but on a DIFFERENT feed) must NOT reuse
+        // each other's resolved build.
         val newBuild =
-            newestBuildByPin.getOrPut("$slug|$channel|$major|$releaseType") {
-                resolveNewestBuild(feedUrl, slug, major, releaseType, channel) ?: ""
+            newestBuildByPin.getOrPut("$slug|$feed|$major|$releaseType") {
+                resolveNewestBuild(feed, slug, major, releaseType) ?: ""
             }
         // Rewrite only when the feed offers a different within-major build; otherwise leave the file as-is.
         if (newBuild.isNotEmpty() && newBuild != kv["QD_BUILD"]) {
@@ -89,15 +91,9 @@ class BumpPinsCommand(
         slug: String,
         major: String,
         releaseType: String,
-        channel: String,
     ): String? {
-        val token =
-            if (channel == "private") {
-                getEnv("QD_FEED_TOKEN")?.takeIf { it.isNotBlank() }
-                    ?: error("--channel private for $slug but \$QD_FEED_TOKEN is unset or blank")
-            } else {
-                null
-            }
+        // Send the token unconditionally when present; FeedClient throws loudly if the fetch fails.
+        val token = getEnv(QD_FEED_TOKEN)?.takeIf { it.isNotBlank() }
         val feed = feedClient.fetch(feedUrl, slug, token)
         return feed.releases
             .filter { it.majorVersion == major && it.type == releaseType }
@@ -127,16 +123,17 @@ class BumpPinsCommand(
     }
 
     /**
-     * Syncs `QODANA_<SLUG>_BUILD = <value>` in the decisions doc (e.g. qodana-jvm → QODANA_JVM_BUILD).
-     * Fails loudly if no such row exists — a silent no-op would produce a drift PR that breaks
-     * EnvContractTest's byte-identity guard.
+     * Syncs `QODANA_<SLUG>_BUILD = <value>` in the decisions doc — the slug is uppercased and its
+     * hyphens become underscores (e.g. qodana-jvm → QODANA_JVM_BUILD, qodana-jvm-community →
+     * QODANA_JVM_COMMUNITY_BUILD). Fails loudly if no such row exists — a silent no-op would produce
+     * a drift PR that breaks EnvContractTest's byte-identity guard.
      */
     private fun syncDecisions(
         decisions: Path,
         slug: String,
         build: String,
     ) {
-        val key = "QODANA_${slug.removePrefix("qodana-").uppercase()}_BUILD"
+        val key = "QODANA_${slug.removePrefix("qodana-").uppercase().replace('-', '_')}_BUILD"
         val row = Regex("""^(\s*$key\s*=\s*)\S+""")
         var matched = 0
         val rewritten =
@@ -154,8 +151,4 @@ class BumpPinsCommand(
     private fun parseDate(date: String): LocalDate =
         runCatching { LocalDate.parse(date) }
             .getOrElse { error("feed Date is not ISO-8601 (YYYY-MM-DD): '$date'") }
-
-    private companion object {
-        const val DEFAULT_FEED_URL = "https://download.jetbrains.com/qodana/feed"
-    }
 }

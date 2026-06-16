@@ -61,8 +61,4 @@ class ProvisionDistCommand(
             work.toFile().deleteRecursively()
         }
     }
-
-    companion object {
-        const val QD_FEED_TOKEN = "QD_FEED_TOKEN"
-    }
 }

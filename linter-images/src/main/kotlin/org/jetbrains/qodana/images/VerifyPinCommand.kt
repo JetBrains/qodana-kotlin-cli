@@ -32,7 +32,7 @@ class VerifyPinCommand(
     override fun run() {
         // A private feed needs a bearer token; a public one fetches anonymously. The loud failure for a
         // misconfigured private canary now comes from the feed fetch (FeedClient throws on non-zero curl).
-        val token = getEnv("QD_FEED_TOKEN")?.takeIf { it.isNotBlank() }
+        val token = getEnv(QD_FEED_TOKEN)?.takeIf { it.isNotBlank() }
         val feed = feedClient.fetch(distributionFeed, linterSlug, token)
         val release = ReleaseSelector.select(feed, majorVersion = version, build = build)
         val resolved = DistResolver.resolve(release, os = "linux", arch = "amd64")

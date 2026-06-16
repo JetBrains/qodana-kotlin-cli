@@ -127,7 +127,7 @@ class ProvisionDistCommandTest {
                 feedClient = FeedClient(runnerWithToken),
                 verifier = DistVerifier(runnerWithToken),
                 extractor = RecordingExtractor(),
-                getEnv = { name -> if (name == ProvisionDistCommand.QD_FEED_TOKEN) "tok-123" else null },
+                getEnv = { name -> if (name == QD_FEED_TOKEN) "tok-123" else null },
             )
         val resultWithToken = commandWithToken.test(baseArgs(feedUrl, targetWithToken, key))
         assertEquals(0, resultWithToken.statusCode, resultWithToken.output)
