@@ -4,14 +4,13 @@ Single source of truth for every build ARG / runtime ENV the thin images pass to
 Every `images/<slug>.env` MUST set exactly the keys its INCLUDEs consume — no undefined args, no
 extras. The Phase-4 validation test (`EnvContractTest`) asserts each `.env` against this table.
 
-This table lists the `.env` keys `EnvContractTest` asserts. (Build ARGs with include-side defaults — `QD_FEED_URL`, `QD_DIST`, `QD_GPG_FINGERPRINT` via `$(cat .fpr)`, `CLI_SOURCE`, `CLI_BASE_STAGE`, `CLANG_TIDY_SHA256`, `CLANG_TIDY_TOOLS_DIR`, `JDK_BUILDER_IMAGE` — are NOT `.env` keys; see the Phase-2b/3 "ARG/ENV contract" table for those.)
+This table lists the `.env` keys `EnvContractTest` asserts. (Build ARGs with include-side defaults — `QD_DISTRIBUTION_FEED` (public feed; private images override it on the build command), `QD_DIST`, `QD_GPG_FINGERPRINT` via `$(cat .fpr)`, `CLI_SOURCE`, `CLI_BASE_STAGE`, `CLANG_TIDY_SHA256`, `CLANG_TIDY_TOOLS_DIR`, `JDK_BUILDER_IMAGE` — are NOT `.env` keys; see the Phase-2b/3 "ARG/ENV contract" table for those.)
 
 | `.env` Key             | Consumed by include                                     | Source                   | Notes                                                                                |
 | ---------------------- | ------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------ |
 | `QD_LINTER_SLUG`       | `lib/dist.dockerfile` (provision-dist)                  | per-linter               | `qodana-jvm`; android reuses `qodana-jvm`; clang unset                               |
 | `QD_VERSION`           | `lib/dist.dockerfile` (provision-dist `--version`)      | phase-0-decisions.md     | engine MAJOR `2025.3`; jvm+android share it; clang unset                             |
 | `QD_BUILD`             | `lib/dist.dockerfile` (provision-dist `--build`)        | phase-0-decisions.md     | EXACT pinned build `253.…`; jvm+android share it; clang unset; drift bot rewrites    |
-| `QD_CHANNEL`           | `lib/dist.dockerfile` (provision-dist `--channel`)      | per-linter               | artifact SOURCE `public` (default) or `private`; NOT release-vs-eap                  |
 | `QD_RELEASE_TYPE`      | (drift `bump-pins` only)                                | per-linter               | `release` (default) or `eap`; no include consumes it                                 |
 | `QD_PRODUCT_INFO_CODE` | `lib/dist.dockerfile` (verify-dist-layout)              | IntellijLinterProperties | product-info.json code: `IU` for jvm+android; clang unset                            |
 | `QD_BASE_IMAGE`        | `lib/base.dockerfile`                                   | phase-0-decisions.md     | `dhi.io/...@sha256:<digest>`, Renovate-tracked                                       |
