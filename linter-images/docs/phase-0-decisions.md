@@ -67,7 +67,7 @@ prepends `v` (`…/clang-tidy/v1.0.0/clang-tidy-linux-amd64.tar.gz`), so
 The mirror is PRIVATE (see below): the build supplies `QODANA_CLI_DEPS_TOKEN` as
 a build secret sent via `Authorization: Bearer`, and Renovate tracks new package
 tags via the token-authenticated `versions.json` (a `customDatasource` in
-`.github/renovate.json`; the bot supplies the read token out-of-band, like CI).
+`.github/renovate.json5`; the bot supplies the read token out-of-band, like CI).
 
 ### Access mode: PRIVATE (token required)
 
