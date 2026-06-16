@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jetbrains.com/qodana/linter-images/expected-manifest.schema.json",
+  "title": "Qodana linter-images e2e expected.json",
+  "description": "Per-case fixture manifest: run config + SARIF/log expectations (QD-15022).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["case", "image", "description"],
+  "properties": {
+    "case": { "type": "string" },
+    "image": { "type": "string", "enum": ["qodana-jvm", "qodana-android", "qodana-clang", "qodana-cpp"] },
+    "description": { "type": "string" },
+    "expectExitCode": { "type": "integer", "default": 0 },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "network": { "type": "string", "enum": ["none", "bridge"], "default": "none" },
+        "capAdd": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "securityOpt": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "extraArgs": { "type": "array", "items": { "type": "string" }, "default": [] },
+        "env": { "type": "object", "additionalProperties": { "type": "string" }, "default": {} },
+        "failThreshold": { "type": ["integer", "null"], "default": null },
+        "variants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string", "default": "default" },
+              "qodanaYaml": { "type": ["string", "null"], "default": null },
+              "gitState": { "type": "string", "enum": ["none", "init-no-head", "clean"], "default": "clean" }
+            }
+          }
+        }
+      }
+    },
+    "sarif": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tool": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "driverName": { "type": ["string", "null"] },
+            "driverFullName": { "type": ["string", "null"] }
+          }
+        },
+        "schemaValid": { "type": "boolean", "default": false },
+        "qodanaSeverityRequired": { "type": "boolean", "default": false },
+        "expectations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["presence", "reason"],
+            "properties": {
+              "ruleId": { "type": ["string", "null"] },
+              "ruleIdPattern": { "type": ["string", "null"] },
+              "presence": { "type": "string", "enum": ["present", "absent"] },
+              "count": { "type": ["string", "null"], "pattern": "^(>=|==)[0-9]+$" },
+              "uriContains": { "type": ["string", "null"] },
+              "messageContains": { "type": ["string", "null"] },
+              "variant": { "type": ["string", "null"] },
+              "pin": { "type": "string", "enum": ["confirmed", "needs-pinning"], "default": "confirmed" },
+              "guards": { "type": "array", "items": { "type": "string" }, "default": [] },
+              "reason": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "log": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mustNotContain": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["text"],
+            "properties": {
+              "text": { "type": "string" },
+              "guards": { "type": "array", "items": { "type": "string" }, "default": [] }
+            }
+          }
+        },
+        "mustContain": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["text"],
+            "properties": {
+              "text": { "type": "string" },
+              "guards": { "type": "array", "items": { "type": "string" }, "default": [] }
+            }
+          }
+        }
+      }
+    }
+  }
+}
