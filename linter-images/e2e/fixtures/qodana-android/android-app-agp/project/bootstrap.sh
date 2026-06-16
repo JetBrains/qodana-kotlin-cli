@@ -17,7 +17,11 @@ export JAVA_HOME="$corretto17"
 export PATH="$JAVA_HOME/bin:$PATH"
 
 # Accept all licenses, then install the compile SDK + build-tools matching the app's compileSdk 34.
-yes | "$sdkmanager" --licenses > /dev/null
+# `|| true`: `yes` is killed by SIGPIPE (exit 141) when sdkmanager stops reading after the last
+# prompt, which `set -o pipefail` would otherwise turn into a bootstrap failure — the image's own
+# android.dockerfile guards the identical `yes | sdkmanager --licenses` the same way. A genuine
+# license problem still surfaces loudly at the platform install below (no `|| true` there).
+yes | "$sdkmanager" --licenses > /dev/null || true
 "$sdkmanager" "platforms;android-34" "build-tools;34.0.0"
 
 # Give the Gradle daemon a complete JDK: AGP 8.5 needs JDK 17; the bundled JBR is a runtime, not a

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.DynamicNode
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.TestFactory
+import org.junit.jupiter.api.io.CleanupMode
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
@@ -35,8 +36,17 @@ import kotlin.test.fail
  */
 @Tag("linter-e2e")
 class LinterE2eTest {
-    @TempDir
+    // CleanupMode.NEVER: the container runs as UID 1000 and writes files (e.g. .qodana/cache) into the
+    // mounted project/results that the host CI runner cannot delete — JUnit's default cleanup then
+    // throws DeletionException and reports a spurious `executionError`. CI runners are ephemeral (the
+    // temp tree is discarded with the VM), so never deleting is correct here; the suite is CI-only.
+    @TempDir(cleanup = CleanupMode.NEVER)
     lateinit var tempDir: Path
+
+    private companion object {
+        // Tail length for each diagnostic stream dumped on an exit-code mismatch.
+        const val STREAM_TAIL = 3000
+    }
 
     @TestFactory
     fun linterE2e(): Stream<DynamicNode> = discover()
@@ -108,7 +118,11 @@ class LinterE2eTest {
         assertEquals(
             manifest.expectExitCode,
             result.command.exitCode,
-            "${manifest.case} [${variant.id}] exit code; stderr:\n${result.command.stderr}",
+            "${manifest.case} [${variant.id}] exit code mismatch. The scan's own error often lands in " +
+                "idea.log, not stderr, so all three streams are dumped:\n" +
+                "stderr:\n${result.command.stderr.takeLast(STREAM_TAIL)}\n" +
+                "stdout:\n${result.command.stdout.takeLast(STREAM_TAIL)}\n" +
+                "idea.log tail:\n${result.ideaLog?.takeLast(STREAM_TAIL) ?: "<no idea.log produced>"}",
         )
 
         // SARIF is only required when the manifest actually asserts on it. The android
