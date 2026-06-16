@@ -20,8 +20,10 @@ build `image-tool` is supplied by the `tooling` context (`build/install/image-to
 No other from-tree build is required, and `QD_FEED_TOKEN` can be unset — the IDE dist is fetched from the
 public mirror and GPG- + sha256-verified, fail-closed.
 
-A private feed (set via `QD_DISTRIBUTION_FEED`) needs a token; layer the private overlay (the only file
-that defines the `feed_token` secret). The feed token is sent whenever `QD_FEED_TOKEN` is present:
+An image selects its feed by setting `QD_DISTRIBUTION_FEED` in its own `.env`; absent (as in the current
+`jvm`/`android` images) it defaults to the public feed above. A private feed additionally needs
+`QD_FEED_TOKEN`, supplied by the private overlay (the only file that defines the `feed_token` secret);
+the token is sent whenever `QD_FEED_TOKEN` is present:
 
     QD_FEED_TOKEN=<token> docker compose -f compose.yaml -f compose.private.yaml build qodana-jvm
 

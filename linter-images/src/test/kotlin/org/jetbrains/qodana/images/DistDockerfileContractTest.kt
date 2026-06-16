@@ -1,6 +1,7 @@
 package org.jetbrains.qodana.images
 
 import com.github.ajalt.clikt.testing.test
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -72,6 +73,25 @@ class DistDockerfileContractTest {
     @Test
     fun `every flag dist dockerfile passes to verify-dist-layout is accepted by the command`() {
         assertEveryFlagAccepted("verify-dist-layout")
+    }
+
+    /**
+     * The dockerfile re-declares `ARG QD_DISTRIBUTION_FEED=<default>` twice (pre-FROM and in
+     * dist-builder). Both defaults must stay byte-identical to [DEFAULT_DISTRIBUTION_FEED]: the flag-name
+     * guards above don't check the default VALUE, so a future edit to the Kotlin const would silently
+     * diverge from the dockerfile's hard-coded default.
+     */
+    @Test
+    fun `dist dockerfile QD_DISTRIBUTION_FEED defaults equal the const`() {
+        val defaults =
+            Regex("""(?m)^ARG QD_DISTRIBUTION_FEED=(.+)$""")
+                .findAll(dockerfile)
+                .map { it.groupValues[1] }
+                .toList()
+        assertEquals(2, defaults.size, "expected two ARG QD_DISTRIBUTION_FEED=<default> lines in dist.dockerfile")
+        for (value in defaults) {
+            assertEquals(DEFAULT_DISTRIBUTION_FEED, value)
+        }
     }
 
     @Test

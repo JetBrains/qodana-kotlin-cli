@@ -103,6 +103,9 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
+      # bump-pins re-resolves feeds too; send this whenever present. Absent is harmless for public-feed
+      # pins and fails loudly only if a future private-feed pin actually needs it.
+      QD_FEED_TOKEN: ${{ secrets.QD_FEED_TOKEN }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
