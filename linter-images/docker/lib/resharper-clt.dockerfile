@@ -41,8 +41,11 @@ RUN --mount=type=secret,id=qodana_cli_deps_token,required=true <<-EOT
 	unzip -q /tmp/clt.zip -d "${CLT_HOME}/clt"
 	rm -f /tmp/clt.zip
 	# Locate the managed inspectcode entrypoint (TFM-agnostic — survives a CLT bump that changes net8.0).
-	EXE="$(find "${CLT_HOME}/clt" -path '*/tools/*/any/inspectcode.exe' | head -1)"
-	[ -n "$EXE" ] || { echo "CLT layout unexpected: inspectcode.exe not found under ${CLT_HOME}/clt"; exit 1; }
+	# Fail loudly on zero OR multiple matches: a relayout shipping several TFM dirs must not silently
+	# pick one.
+	EXE="$(find "${CLT_HOME}/clt" -path '*/tools/*/any/inspectcode.exe')"
+	n="$(printf '%s\n' "$EXE" | grep -c .)"
+	[ "$n" -eq 1 ] || { echo "CLT layout: expected exactly one inspectcode.exe under ${CLT_HOME}/clt, found $n:"; printf '%s\n' "$EXE"; exit 1; }
 	D="$(dirname "$EXE")"
 	[ -f "$D/inspectcode.unix.runtimeconfig.json" ] || { echo "CLT: missing unix runtimeconfig at $D"; exit 1; }
 	# Thin launcher (NOT a symlink: the shipped inspectcode.sh resolves siblings via dirname $0).
@@ -50,6 +53,11 @@ RUN --mount=type=secret,id=qodana_cli_deps_token,required=true <<-EOT
 	# $D is baked as the resolved absolute path via %s; the literal "$@" stays in the generated script.
 	printf '#!/bin/sh\nexec dotnet exec --runtimeconfig "%s/inspectcode.unix.runtimeconfig.json" "%s/inspectcode.exe" "$@"\n' "$D" "$D" > "${CLT_HOME}/bin/inspectcode"
 	chmod 0755 "${CLT_HOME}/bin/inspectcode"
+	# Match the sibling toolchains (clang ${CLANG_TIDY_TOOLS_DIR}, android /opt/android-sdk + /opt/java):
+	# the runtime drops to USER 1000, so the installed tree must be owned by uid 1000 lest a per-tool
+	# InspectCode write fail. The .NET SDK under /usr/share/dotnet stays root-owned/read-only by design
+	# (restore + tooling write to $HOME, set up for the qodana user by base.dockerfile).
+	chown -R 1000:1000 "${CLT_HOME}"
 	# Build-time validation: the two existence checks above already prove the baked launcher points at
 	# real files, so a bad/relayout'd archive fails the BUILD, not a scan.
 	apt-get purge -y unzip

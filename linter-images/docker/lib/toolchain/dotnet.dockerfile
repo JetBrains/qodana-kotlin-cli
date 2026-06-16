@@ -1,7 +1,8 @@
 # toolchain/dotnet — .NET SDKs (8/9/10) via a pinned dotnet-install.sh + .NET runtime libs. cdnet-only.
 # Layers onto `base` (USER 0). InspectCode builds the solution, so it needs the SDK, not just the runtime.
-# Pins live as ARGs here (NOT .env keys), mirroring qodana-cli's dotnet-community base. Renovate tracks
-# the install-script revision/sha via the customManager added in this change.
+# Pins live as ARGs here (NOT .env keys), mirroring qodana-cli's dotnet-community base.
+# The install-script revision+sha are pinned and verified fail-closed at build (sha256sum -c). They are
+# manually maintained (no Renovate manager) — re-verify the sha when bumping the revision.
 ARG DOTNET_INSTALL_SH_REVISION=2e497bbe880cf47b209fe0d1f9c5e051916f830e
 ARG DOTNET_INSTALL_SH_SHA256=3f30fbfa69e182be7e60fd0cd9189c53cb61799b6077159fec74341112f1715e
 ARG DOTNET_CHANNELS="8.0 9.0 10.0"
@@ -34,7 +35,7 @@ RUN <<-EOT
 	done
 	installed="$(dotnet --list-sdks)"
 	for ch in ${DOTNET_CHANNELS}; do
-		echo "$installed" | grep -Eq "^$ch" || { echo "missing SDK channel $ch"; echo "$installed"; exit 1; }
+		echo "$installed" | grep -Eq "^${ch}\." || { echo "missing SDK channel $ch"; echo "$installed"; exit 1; }
 	done
 	rm -f /tmp/dotnet-install.sh
 	rm -rf /var/lib/apt/lists/*
