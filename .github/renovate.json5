@@ -8,7 +8,10 @@
     "qodana-cli-deps": {
       "defaultRegistryUrlTemplate": "https://packages.jetbrains.team/files/p/sa/qodana-cli-deps/{{packageName}}/versions.json",
       "format": "json",
-      "comment": "versions.json is {\"versions\":[\"v1.0.0\", ...]}. Strip the leading `v` so the value written back into CLANG_TIDY_VERSION stays bare (the .env carries `1.0.0`; lib/tools.dockerfile prepends the `v` for the mirror path). Without the strip Renovate would write `v1.0.1` and the build would request `.../vv1.0.1/...`.",
+      // versions.json is {"versions":["v1.0.0", ...]}. Strip the leading `v` so the value written
+      // back into CLANG_TIDY_VERSION stays bare: the .env carries `1.0.0` and lib/tools.dockerfile
+      // prepends the `v` for the mirror path. Without the strip Renovate writes `v1.0.1` and the
+      // build requests `.../vv1.0.1/...`.
       "transformTemplates": ["{ \"releases\": versions.{ \"version\": $replace($, /^v/, \"\") } }"]
     }
   },
