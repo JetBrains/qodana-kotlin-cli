@@ -1,0 +1,6 @@
+version: "1.0"
+linter: qodana-clang
+# No clang.checks: exercise the DEFAULT profile (QD-14272 noise-family guard,
+# QD-14974 analyzer-found-nothing guard). compile_commands.json is checked in,
+# so bootstrap has nothing to generate.
+bootstrap: "true"
