@@ -1,0 +1,55 @@
+{
+  "case": "clang-cmd-default-checks",
+  "image": "qodana-clang",
+  "description": "Flat C++ TU with a checked-in compile_commands.json, default clang-tidy profile. Guards: analyzer finds the planted smells (QD-14974), the llvmlibc/fuchsia/altera noise families stay absent (QD-14272), and no 'unknown target triple' clang-diagnostic-error (QD-14974).",
+  "run": {
+    "network": "none",
+    "capAdd": ["SYS_ADMIN"],
+    "securityOpt": ["apparmor:unconfined"],
+    "extraArgs": ["--no-statistics", "--compile-commands", "/data/project/compile_commands.json"]
+  },
+  "expectExitCode": 0,
+  "sarif": {
+    "tool": {
+      "driverName": "QDCL",
+      "driverFullName": "Qodana Community for C/C++"
+    },
+    "qodanaSeverityRequired": false,
+    "expectations": [
+      {
+        "ruleId": "bugprone-use-after-move",
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "src/main.cpp",
+        "pin": "needs-pinning",
+        "guards": ["QD-14974"],
+        "reason": "GUESS — pin exact ruleId from the control-run SARIF. The default profile must flag the planted use-after-move; a silent zero means the analyzer found nothing (QD-14974)."
+      },
+      {
+        "ruleIdPattern": "^(llvmlibc|fuchsia|altera)-",
+        "presence": "absent",
+        "count": "==0",
+        "pin": "confirmed",
+        "guards": ["QD-14272"],
+        "reason": "The llvmlibc/fuchsia/altera check families are pure noise for ordinary C++ and must NOT appear under the default profile (QD-14272, the headline clang FP guard)."
+      },
+      {
+        "ruleId": "clang-diagnostic-error",
+        "messageContains": "unknown target triple",
+        "presence": "absent",
+        "count": "==0",
+        "pin": "confirmed",
+        "guards": ["QD-14974"],
+        "reason": "A baked-in wrong target triple surfaces as a clang-diagnostic-error 'unknown target triple', which poisons the whole TU (QD-14974). Must be absent."
+      }
+    ]
+  },
+  "log": {
+    "mustNotContain": [
+      {
+        "text": "Problems found loading plugins:",
+        "guards": []
+      }
+    ]
+  }
+}

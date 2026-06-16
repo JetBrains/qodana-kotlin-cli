@@ -1,0 +1,41 @@
+{
+  "case": "android-app-agp",
+  "image": "qodana-android",
+  "description": "Single-module AGP app; qodana.yaml bootstrap accepts SDK licenses and installs platforms;android-34 + build-tools;34.0.0 (the documented customer flow), then Qodana imports + scans. Validates the qodana-android image end to end: build + customer bootstrap + AGP import + scan producing SARIF, with plugins loaded cleanly. Network on (android's accepted cost). NOTE: on this image a valid AGP scan currently reports only platform inspections (e.g. UnstableApiUsage), NOT the AndroidLint family (HardcodedText/ContentDescription) the planted layout defects target — so the assertion is an id-agnostic >=1 floor for now; broadening it to guard the AndroidLint category (QD-11439) is a follow-up once it's confirmed whether AndroidLint should run here.",
+  "run": {
+    "network": "bridge",
+    "extraArgs": ["--no-statistics"],
+    "env": {
+      "_JAVA_OPTIONS": "-Xmx4g"
+    }
+  },
+  "expectExitCode": 0,
+  "sarif": {
+    "tool": {
+      "driverName": "QDJVM",
+      "driverFullName": "Qodana for JVM"
+    },
+    "qodanaSeverityRequired": false,
+    "expectations": [
+      {
+        "presence": "present",
+        "count": ">=1",
+        "pin": "confirmed",
+        "guards": [],
+        "reason": "The qodana-android image must produce >=1 result when scanning a real AGP project after the customer-style sdkmanager bootstrap — proves the build + bootstrap + AGP import + scan pipeline works end to end. Id-agnostic floor (see the case description re: AndroidLint)."
+      }
+    ]
+  },
+  "log": {
+    "mustNotContain": [
+      {
+        "text": "Read access is allowed from inside read-action only",
+        "guards": ["QD-11439"]
+      },
+      {
+        "text": "Problems found loading plugins:",
+        "guards": []
+      }
+    ]
+  }
+}

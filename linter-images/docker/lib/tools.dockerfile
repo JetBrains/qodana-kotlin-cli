@@ -1,6 +1,9 @@
-# tools — fetch clang-tidy (qodana-cli-deps mirror, NOT the IDE feed) into cacheDir/tools.
-# No provision-dist: clang-tidy has no IDE dist/feed. Pre-extracted on disk so the path
-# matches the runtime cacheDir/tools the qodana-clang entrypoint resolves (and --cache-dir).
+# tools — fetch clang-tidy (qodana-cli-deps mirror, NOT the IDE feed) and INSTALL it on PATH.
+# No provision-dist: clang-tidy has no IDE dist/feed. This is installed tooling, NOT a cache:
+# it is extracted to /opt/qodana-clang (the mirror tarball lays out bin/clang-tidy, yielding
+# /opt/qodana-clang/bin/clang-tidy) and that bin/ is put on PATH, beside the IDE dist convention
+# (QODANA_DIST=/opt/idea). The qodana-clang entrypoint resolves clang-tidy by name on PATH, so the
+# scan works under `network: none` and is independent of the writable /data/cache scratch mount.
 #
 # The mirror is PRIVATE (packages.jetbrains.team). `ADD` cannot carry credentials, so this fetches
 # with `curl` from a build secret (id=qodana_cli_deps_token) using `Authorization: Bearer` — the form
@@ -19,7 +22,7 @@ ARG CLANG_TIDY_VERSION
 # amd64-only). Not an .env key (EnvContractTest enforces the clang key set); overridable per build.
 ARG CLANG_TIDY_SHA256=dea43a4f013db12fd352df6aac2884a760c53dd4eeac1f2e7114a1e74846bf95
 ARG CLI_ARCH=amd64
-ARG CLANG_TIDY_TOOLS_DIR=/data/cache/tools
+ARG CLANG_TIDY_TOOLS_DIR=/opt/qodana-clang
 
 FROM privileged AS tools
 ARG CLANG_TIDY_MIRROR
@@ -48,5 +51,8 @@ RUN --mount=type=secret,id=qodana_cli_deps_token,required=true <<-EOT
 	chown -R 1000:1000 "${CLANG_TIDY_TOOLS_DIR}"
 EOT
 
-# Make the tools path discoverable for the runtime cacheDir contract.
-ENV QODANA_TOOLS_DIR=${CLANG_TIDY_TOOLS_DIR}
+# Put the installed clang-tidy on PATH so the qodana-clang entrypoint resolves it by name. The
+# include order (tools before cli/runtime) and the lack of any later PATH override keep this in the
+# final image. /opt/qodana-clang is fixed (not ${CLANG_TIDY_TOOLS_DIR}) so the PATH entry stays valid
+# even if a build overrides the ARG.
+ENV PATH=/opt/qodana-clang/bin:$PATH

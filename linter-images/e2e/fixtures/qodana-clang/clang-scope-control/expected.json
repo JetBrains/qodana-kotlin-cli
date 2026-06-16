@@ -1,0 +1,46 @@
+{
+  "case": "clang-scope-control",
+  "image": "qodana-clang",
+  "description": "Two defective C++ TUs; only src/main.cpp is in compile_commands.json. Guards: the finding references the analyzed TU (QD-10612), and the out-of-DB third_party/foo.cpp yields zero findings (QD-9251).",
+  "run": {
+    "network": "none",
+    "capAdd": ["SYS_ADMIN"],
+    "securityOpt": ["apparmor:unconfined"],
+    "extraArgs": ["--no-statistics", "--compile-commands", "/data/project/compile_commands.json"]
+  },
+  "expectExitCode": 0,
+  "sarif": {
+    "tool": {
+      "driverName": "QDCL",
+      "driverFullName": "Qodana Community for C/C++"
+    },
+    "qodanaSeverityRequired": false,
+    "expectations": [
+      {
+        "ruleId": "bugprone-use-after-move",
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "src/main.cpp",
+        "pin": "needs-pinning",
+        "guards": ["QD-10612"],
+        "reason": "GUESS — pin exact ruleId from the control-run SARIF. The in-DB TU must produce a finding that references src/main.cpp (QD-10612)."
+      },
+      {
+        "presence": "absent",
+        "count": "==0",
+        "uriContains": "third_party/",
+        "pin": "confirmed",
+        "guards": ["QD-9251"],
+        "reason": "third_party/foo.cpp is absent from compile_commands.json, so it must NOT be analyzed: zero findings under third_party/ (QD-9251). NO rule selector (neither ruleId nor ruleIdPattern) — scope is the only invariant, so a finding with ANY ruleId (or a null ruleId) under third_party/ counts and breaks the guard."
+      }
+    ]
+  },
+  "log": {
+    "mustNotContain": [
+      {
+        "text": "Problems found loading plugins:",
+        "guards": []
+      }
+    ]
+  }
+}

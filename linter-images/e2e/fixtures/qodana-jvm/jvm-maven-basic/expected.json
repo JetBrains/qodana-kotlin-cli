@@ -1,0 +1,61 @@
+{
+  "case": "jvm-maven-basic",
+  "image": "qodana-jvm",
+  "description": "Single-module Maven project: plain Java + a Kotlin file, four planted defects, hermetic run. Shape guards (tool driver, qodanaSeverity, DuplicatedCode exact count) over one SARIF.",
+  "run": {
+    "network": "none",
+    "extraArgs": ["--no-statistics"]
+  },
+  "expectExitCode": 0,
+  "sarif": {
+    "tool": {
+      "driverName": "QDJVM",
+      "driverFullName": "Qodana for JVM"
+    },
+    "schemaValid": false,
+    "qodanaSeverityRequired": true,
+    "expectations": [
+      {
+        "ruleId": "StringEquality",
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "Hello.java",
+        "pin": "needs-pinning",
+        "guards": [],
+        "reason": "STARTING-GUESS id: planted `a == b` on String must surface; pin exact id from CI control run."
+      },
+      {
+        "ruleId": "EmptyCatchBlock",
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "Hello.java",
+        "pin": "needs-pinning",
+        "guards": [],
+        "reason": "STARTING-GUESS id: planted empty catch must surface; pin exact id from CI control run."
+      },
+      {
+        "ruleId": "DuplicatedCode",
+        "presence": "present",
+        "count": "==2",
+        "uriContains": "Hello.java",
+        "pin": "needs-pinning",
+        "guards": ["QD-2643", "QD-1270"],
+        "reason": "STARTING-GUESS id+count: two identical methods must yield an exact, non-doubled, non-zero DuplicatedCode count; pin id and exact count from CI control run."
+      },
+      {
+        "ruleId": "KotlinConstantConditions",
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "Demo.kt",
+        "pin": "needs-pinning",
+        "guards": [],
+        "reason": "STARTING-GUESS id: an always-true `name != null` on a non-null val must report a Kotlin constant-condition inspection; pin the EXACT rule id (KotlinConstantConditions vs a profile-specific variant) and confirm it is enabled in THIS image's default profile from the CI control run — do not trust the guess."
+      }
+    ]
+  },
+  "log": {
+    "mustNotContain": [
+      { "text": "Problems found loading plugins:", "guards": [] }
+    ]
+  }
+}

@@ -26,4 +26,5 @@ dependencies {
     testImplementation(libs.junit.jupiter)
     testImplementation(libs.kotlin.test)
     testImplementation(libs.jackson.dataformat.yaml) // ComposeContractTest parses compose*.yaml
+    testImplementation(libs.qodana.sarif) // e2e harness parses qodana.sarif.json with the typed model
 }

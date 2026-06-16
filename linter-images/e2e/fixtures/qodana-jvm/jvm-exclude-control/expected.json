@@ -1,0 +1,65 @@
+{
+  "case": "jvm-exclude-control",
+  "image": "qodana-jvm",
+  "description": "Exclude control-vs-treatment FP regression: two dirs trip the same rule; treatment excludes it by name (QD-1699) and path-scoped under excluded/ (QD-1473). Rule id resolved from the control run.",
+  "run": {
+    "network": "none",
+    "extraArgs": ["--no-statistics"],
+    "variants": [
+      { "id": "control", "qodanaYaml": "qodana.control.yaml" },
+      { "id": "treatment", "qodanaYaml": "qodana.treatment.yaml" }
+    ]
+  },
+  "expectExitCode": 0,
+  "sarif": {
+    "schemaValid": false,
+    "qodanaSeverityRequired": true,
+    "expectations": [
+      {
+        "ruleId": "StringEquality",
+        "variant": "control",
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "planted/Planted.java",
+        "pin": "needs-pinning",
+        "guards": [],
+        "reason": "STARTING-GUESS id: control run must find the planted rule under planted/; this match supplies the id reused by the treatment absent-checks."
+      },
+      {
+        "ruleId": "StringEquality",
+        "variant": "control",
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "excluded/Sub.java",
+        "pin": "needs-pinning",
+        "guards": [],
+        "reason": "STARTING-GUESS id: control run must also find the SAME rule under excluded/, proving the path-scoped exclude (not the absence of a defect) is what removes it in treatment."
+      },
+      {
+        "ruleId": "StringEquality",
+        "variant": "treatment",
+        "presence": "absent",
+        "count": "==0",
+        "uriContains": "planted/Planted.java",
+        "pin": "needs-pinning",
+        "guards": ["QD-1699"],
+        "reason": "Exclude-by-name must remove the rule project-wide, including under planted/ (QD-1699). Id resolved from the control variant's planted/ match."
+      },
+      {
+        "ruleId": "StringEquality",
+        "variant": "treatment",
+        "presence": "absent",
+        "count": "==0",
+        "uriContains": "excluded/Sub.java",
+        "pin": "needs-pinning",
+        "guards": ["QD-1473"],
+        "reason": "Path-scoped exclude must remove findings under excluded/ (QD-1473). Id resolved from the control variant's excluded/ match."
+      }
+    ]
+  },
+  "log": {
+    "mustNotContain": [
+      { "text": "Problems found loading plugins:", "guards": [] }
+    ]
+  }
+}

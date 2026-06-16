@@ -11,8 +11,10 @@ import org.jetbrains.qodana.core.port.ProcessRunner
 import org.jetbrains.qodana.core.port.RunningProcess
 import org.jetbrains.qodana.core.port.SarifService
 import org.jetbrains.qodana.core.port.Terminal
+import org.junit.jupiter.api.Assumptions.assumeFalse
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
@@ -136,14 +138,71 @@ class ClangLinterTest {
         }
 
     @Test
+    fun `mountTools resolves clang-tidy on PATH and returns the bare name`(
+        @TempDir pathDir: Path,
+        @TempDir toolsDir: Path,
+    ) {
+        // An executable clang-tidy on PATH must win over the (empty) cacheDir fallback, so the
+        // returned command is the bare name and ProcessBuilder resolves it on PATH at run time.
+        // This is the Docker path: the image installs clang-tidy to /opt/qodana-clang/bin on PATH.
+        val onPath = pathDir.resolve(if (isWindows()) "clang-tidy.exe" else "clang-tidy")
+        Files.createFile(onPath)
+        if (!isWindows()) onPath.toFile().setExecutable(true)
+
+        val linter = ClangLinter(fakeProcessRunner, fakeSarifService, fakeFileSystem(), fakeTerminal)
+        val result = linter.mountTools(toolsDir, pathEnv = pathDir.toString())
+
+        assertEquals(Path.of(if (isWindows()) "clang-tidy.exe" else "clang-tidy"), result["clang-tidy"])
+    }
+
+    @Test
+    fun `mountTools falls through to cacheDir when PATH is set but lacks clang-tidy`(
+        @TempDir emptyPathDir: Path,
+        @TempDir toolsDir: Path,
+    ) {
+        // A populated PATH that does NOT contain clang-tidy must not short-circuit: resolution falls
+        // through to the cacheDir/targetPath lookup (the dev path when no system clang-tidy exists).
+        val binaryFile = toolsDir.resolve(if (isWindows()) "clang-tidy.exe" else "clang-tidy")
+        Files.createFile(binaryFile)
+
+        val linter = ClangLinter(fakeProcessRunner, fakeSarifService, fakeFileSystem(), fakeTerminal)
+        val result = linter.mountTools(toolsDir, pathEnv = emptyPathDir.toString())
+
+        assertEquals(binaryFile, result["clang-tidy"])
+    }
+
+    @Test
+    fun `mountTools skips a non-executable PATH entry and takes a later executable one`(
+        @TempDir nonExecDir: Path,
+        @TempDir execDir: Path,
+        @TempDir toolsDir: Path,
+    ) {
+        // Executable-bit semantics are POSIX; on Windows Files.isExecutable does not gate on the bit.
+        assumeFalse(isWindows())
+
+        // First PATH entry has a non-executable clang-tidy (must be skipped); a later entry has an
+        // executable one (must win) — exercises the isExecutable filter and first-match ordering.
+        Files.createFile(nonExecDir.resolve("clang-tidy")).toFile().setExecutable(false)
+        val exec = execDir.resolve("clang-tidy")
+        Files.createFile(exec).toFile().setExecutable(true)
+
+        val pathEnv = listOf(nonExecDir, execDir).joinToString(File.pathSeparator) { it.toString() }
+        val linter = ClangLinter(fakeProcessRunner, fakeSarifService, fakeFileSystem(), fakeTerminal)
+        val result = linter.mountTools(toolsDir, pathEnv = pathEnv)
+
+        assertEquals(Path.of("clang-tidy"), result["clang-tidy"])
+    }
+
+    @Test
     fun `mountTools finds binary in root`(
         @TempDir toolsDir: Path,
     ) {
         val binaryFile = toolsDir.resolve("clang-tidy")
         Files.createFile(binaryFile)
 
+        // Empty PATH forces the cacheDir/targetPath fallback (dev / non-Docker path).
         val linter = ClangLinter(fakeProcessRunner, fakeSarifService, fakeFileSystem(), fakeTerminal)
-        val result = linter.mountTools(toolsDir)
+        val result = linter.mountTools(toolsDir, pathEnv = null)
 
         assertEquals(binaryFile, result["clang-tidy"])
     }
@@ -158,7 +217,7 @@ class ClangLinterTest {
         Files.createFile(binaryFile)
 
         val linter = ClangLinter(fakeProcessRunner, fakeSarifService, fakeFileSystem(), fakeTerminal)
-        val result = linter.mountTools(toolsDir)
+        val result = linter.mountTools(toolsDir, pathEnv = null)
 
         assertEquals(binaryFile, result["clang-tidy"])
     }
@@ -171,7 +230,7 @@ class ClangLinterTest {
 
         val ex =
             assertFailsWith<IllegalStateException> {
-                linter.mountTools(toolsDir)
+                linter.mountTools(toolsDir, pathEnv = null)
             }
         assertTrue(ex.message!!.contains("clang-tidy binary not found"))
     }
@@ -191,9 +250,11 @@ class ClangLinterTest {
             }
 
         val linter = ClangLinter(fakeProcessRunner, fakeSarifService, extractingFileSystem, fakeTerminal)
-        val result = linter.mountTools(toolsDir)
+        val result = linter.mountTools(toolsDir, pathEnv = null)
 
         assertEquals(toolsDir.resolve("clang-tidy"), result["clang-tidy"])
         assertTrue(Files.isExecutable(result["clang-tidy"]!!))
     }
+
+    private fun isWindows(): Boolean = System.getProperty("os.name").lowercase().contains("win")
 }

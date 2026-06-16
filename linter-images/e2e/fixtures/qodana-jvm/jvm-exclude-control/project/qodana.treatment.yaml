@@ -1,0 +1,6 @@
+version: "1.0"
+exclude:
+  - name: StringEquality
+  - name: All
+    paths:
+      - excluded
