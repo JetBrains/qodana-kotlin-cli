@@ -4,7 +4,6 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
-import com.github.ajalt.clikt.parameters.types.choice
 import com.github.ajalt.clikt.parameters.types.path
 import org.jetbrains.qodana.images.dist.DistResolver
 import org.jetbrains.qodana.images.dist.DistVerifier
@@ -23,25 +22,18 @@ class VerifyPinCommand(
     private val verifier: DistVerifier,
     private val getEnv: (String) -> String? = System::getenv,
 ) : CliktCommand(name = "verify-pin") {
-    private val feedUrl by option("--feed-url").default("https://download.jetbrains.com/qodana/feed")
+    private val distributionFeed by option("--distribution-feed").default(DEFAULT_DISTRIBUTION_FEED)
     private val linterSlug by option("--linter-slug").required()
     private val version by option("--version").required()
     private val build by option("--build").required()
-    private val channel by option("--channel").choice("public", "private").default("public")
     private val gpgKey by option("--gpg-key").path(mustExist = true).required()
     private val gpgFingerprint by option("--gpg-fingerprint").required()
 
     override fun run() {
-        // Fail closed on a misconfigured private canary, matching provision-dist/bump-pins: a blank
-        // token would otherwise fetch anonymously and surface a misleading "feed fetch failed".
-        val token =
-            if (channel == "private") {
-                getEnv("QD_FEED_TOKEN")?.takeIf { it.isNotBlank() }
-                    ?: error("--channel private selected but \$QD_FEED_TOKEN is unset or blank")
-            } else {
-                null
-            }
-        val feed = feedClient.fetch(feedUrl, linterSlug, token)
+        // A private feed needs a bearer token; a public one fetches anonymously. The loud failure for a
+        // misconfigured private canary now comes from the feed fetch (FeedClient throws on non-zero curl).
+        val token = getEnv("QD_FEED_TOKEN")?.takeIf { it.isNotBlank() }
+        val feed = feedClient.fetch(distributionFeed, linterSlug, token)
         val release = ReleaseSelector.select(feed, majorVersion = version, build = build)
         val resolved = DistResolver.resolve(release, os = "linux", arch = "amd64")
         // SAME download path the provision flow uses: curl link + .sha256 + .sha256.asc through the runner.

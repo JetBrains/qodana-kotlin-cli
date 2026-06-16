@@ -6,11 +6,12 @@ import org.jetbrains.qodana.images.dist.FeedClient
 import org.jetbrains.qodana.images.process.CommandResult
 import org.jetbrains.qodana.images.process.FakeCommandRunner
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 /**
  * verify-pin re-resolves the pinned feed Link + .sha256 + .sha256.asc over the canonical
@@ -32,74 +33,114 @@ class VerifyPinCommandTest {
         ]}
         """.trimIndent()
 
+    // Canonical FakeCommandRunner: curl writes the file it is told to (-o <path>), gpg signer-matches,
+    // sha256sum echoes the good digest.
+    private fun runner(): FakeCommandRunner =
+        FakeCommandRunner().apply {
+            on({ it.contains("curl") }) { argv ->
+                val out = Path.of(argv[argv.indexOf("-o") + 1])
+                val url = argv.last()
+                val body =
+                    when {
+                        url.endsWith(".releases.json") -> feedBody
+                        url.endsWith(".sha256.asc") -> "-----BEGIN PGP SIGNATURE-----"
+                        url.endsWith(".sha256") -> "$goodSha  $archiveName\n"
+                        else -> "archive-bytes"
+                    }
+                Files.createDirectories(out.parent)
+                Files.writeString(out, body)
+                CommandResult(0, "", "")
+            }
+            on({ it.contains("--import") }, CommandResult(0, "", ""))
+            on({ it.contains("--verify") }, CommandResult(0, "[GNUPG:] VALIDSIG $fingerprint 2025-09-15\n", ""))
+            on({ it.contains("sha256sum") }, CommandResult(0, "$goodSha  $archiveName\n", ""))
+        }
+
+    private fun baseArgs(
+        feedUrl: String,
+        key: Path,
+    ) = "--distribution-feed $feedUrl --linter-slug qodana-jvm --version 2025.3 --build $build " +
+        "--gpg-key $key --gpg-fingerprint $fingerprint"
+
     @Test
     fun `re-verifies the pinned dist green when the upstream signature matches`(
         @TempDir tmp: Path,
     ) {
-        val runner =
-            FakeCommandRunner().apply {
-                on({ it.contains("curl") }) { argv ->
-                    val out = Path.of(argv[argv.indexOf("-o") + 1])
-                    val url = argv.last()
-                    val body =
-                        when {
-                            url.endsWith(".releases.json") -> feedBody
-                            url.endsWith(".sha256.asc") -> "-----BEGIN PGP SIGNATURE-----"
-                            url.endsWith(".sha256") -> "$goodSha  $archiveName\n"
-                            else -> "archive-bytes"
-                        }
-                    Files.createDirectories(out.parent)
-                    Files.writeString(out, body)
-                    CommandResult(0, "", "")
-                }
-                on({ it.contains("--import") }, CommandResult(0, "", ""))
-                on({ it.contains("--verify") }, CommandResult(0, "[GNUPG:] VALIDSIG $fingerprint 2025-09-15\n", ""))
-                on({ it.contains("sha256sum") }, CommandResult(0, "$goodSha  $archiveName\n", ""))
-            }
+        val runner = runner()
         val key = Files.writeString(tmp.resolve("jetbrains.pub"), "PUBKEY")
         val cmd = VerifyPinCommand(FeedClient(runner), DistVerifier(runner)) { null }
-        val result =
-            cmd.test(
-                "--linter-slug qodana-jvm --version 2025.3 --build $build " +
-                    "--gpg-key $key --gpg-fingerprint $fingerprint",
-            )
+        val result = cmd.test(baseArgs("https://download.jetbrains.com/qodana/feed", key))
         assertEquals(0, result.statusCode, result.output)
     }
 
     @Test
-    fun `fails closed when the pinned feed link 404s`(
+    fun `distribution-feed URL is forwarded verbatim to FeedClient`(
         @TempDir tmp: Path,
     ) {
-        // curl returns 22 (HTTP error) → FeedClient.fetch throws → verify-pin fails closed (a non-zero
-        // process exit). The throw IS the fail-closed signal; assert it propagates rather than being
-        // swallowed into a silent success.
-        val runner =
+        val customFeed = "https://custom.example.com/feed"
+        val runner = runner()
+        val key = Files.writeString(tmp.resolve("jetbrains.pub"), "PUBKEY")
+        val cmd = VerifyPinCommand(FeedClient(runner), DistVerifier(runner)) { null }
+
+        val result = cmd.test(baseArgs(customFeed, key))
+
+        assertEquals(0, result.statusCode, result.output)
+        val feedCurl = runner.invocations.first { it.contains("curl") && it.any { a -> a.endsWith(".releases.json") } }
+        val feedUrl = feedCurl.last { it.endsWith(".releases.json") }
+        assertTrue(feedUrl.startsWith(customFeed), "expected feed URL to start with '$customFeed', got: $feedUrl")
+    }
+
+    @Test
+    fun `token from getEnv is forwarded to FeedClient when set, null when unset`(
+        @TempDir tmp: Path,
+    ) {
+        val key = Files.writeString(tmp.resolve("jetbrains.pub"), "PUBKEY")
+        val feedUrl = "https://download.jetbrains.com/qodana/feed"
+
+        // Token present: the feed curl carries the bearer header.
+        val runnerWithToken = runner()
+        val cmdWithToken =
+            VerifyPinCommand(FeedClient(runnerWithToken), DistVerifier(runnerWithToken)) { name ->
+                if (name == "QD_FEED_TOKEN") "tok-123" else null
+            }
+        val resultWithToken = cmdWithToken.test(baseArgs(feedUrl, key))
+        assertEquals(0, resultWithToken.statusCode, resultWithToken.output)
+        val feedCurlWithToken =
+            runnerWithToken.invocations.first { it.contains("curl") && it.any { a -> a.endsWith(".releases.json") } }
+        assertTrue(
+            feedCurlWithToken.any { it.contains("tok-123") },
+            "expected bearer token in curl args: $feedCurlWithToken",
+        )
+
+        // Token absent: the feed curl has no Authorization header.
+        val runnerNoToken = runner()
+        val cmdNoToken = VerifyPinCommand(FeedClient(runnerNoToken), DistVerifier(runnerNoToken)) { null }
+        val resultNoToken = cmdNoToken.test(baseArgs(feedUrl, key))
+        assertEquals(0, resultNoToken.statusCode, resultNoToken.output)
+        val feedCurlNoToken =
+            runnerNoToken.invocations.first { it.contains("curl") && it.any { a -> a.endsWith(".releases.json") } }
+        assertTrue(
+            feedCurlNoToken.none { it.contains("Authorization") },
+            "expected no Authorization in curl args: $feedCurlNoToken",
+        )
+    }
+
+    @Test
+    fun `FeedClient failure propagates loudly`(
+        @TempDir tmp: Path,
+    ) {
+        // curl returns a non-zero exit (a 401/404/network error) → FeedClient.fetch throws → verify-pin
+        // fails closed (a non-zero process exit). The throw IS the fail-closed signal; assert it
+        // propagates rather than being swallowed into a silent success.
+        val failingRunner =
             FakeCommandRunner().apply {
                 on({ it.contains("curl") }, CommandResult(22, "", "curl: (22) HTTP 404"))
             }
         val key = Files.writeString(tmp.resolve("jetbrains.pub"), "PUBKEY")
-        val cmd = VerifyPinCommand(FeedClient(runner), DistVerifier(runner)) { null }
-        assertThrows<IllegalArgumentException> {
-            cmd.test(
-                "--linter-slug qodana-jvm --version 2025.3 --build $build " +
-                    "--gpg-key $key --gpg-fingerprint $fingerprint",
-            )
-        }
-    }
-
-    @Test
-    fun `fails closed when channel is private but the token is unset`(
-        @TempDir tmp: Path,
-    ) {
-        // A private canary with no QD_FEED_TOKEN must error up front, not fetch anonymously and surface a
-        // misleading "feed fetch failed". The token check precedes any network call.
-        val key = Files.writeString(tmp.resolve("jetbrains.pub"), "PUBKEY")
-        val cmd = VerifyPinCommand(FeedClient(FakeCommandRunner()), DistVerifier(FakeCommandRunner())) { null }
-        assertThrows<IllegalStateException> {
-            cmd.test(
-                "--linter-slug qodana-jvm --version 2025.3 --build $build --channel private " +
-                    "--gpg-key $key --gpg-fingerprint $fingerprint",
-            )
+        val cmd = VerifyPinCommand(FeedClient(failingRunner), DistVerifier(failingRunner)) { null }
+        // Clikt's test() only catches CliktError, so any other exception is unhandled — fail-closed.
+        assertFailsWith<Exception> {
+            cmd.test(baseArgs("https://packages.jetbrains.team/files/p/qd/private-feed", key))
         }
     }
 }
