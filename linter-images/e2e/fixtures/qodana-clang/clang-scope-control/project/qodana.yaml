@@ -1,0 +1,5 @@
+version: "1.0"
+linter: qodana-clang
+# No clang.checks: default profile. Only src/main.cpp is in compile_commands.json;
+# third_party/foo.cpp is deliberately omitted (QD-9251 scope-control guard).
+bootstrap: "true"
