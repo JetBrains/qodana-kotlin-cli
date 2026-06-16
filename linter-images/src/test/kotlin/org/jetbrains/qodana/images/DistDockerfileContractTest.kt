@@ -1,10 +1,22 @@
 package org.jetbrains.qodana.images
 
 import com.github.ajalt.clikt.testing.test
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
 import kotlin.io.path.readText
+
+/**
+ * True when `flag` appears as a whole option token in a subcommand's `--help` output. Clikt renders
+ * each option as `--flag` or `--flag=<TYPE>`, bounded by whitespace or `=`, so the flag is matched as
+ * a whole token: a plain `help.contains(flag)` would wrongly accept `--dist` against a help that only
+ * lists `--distribution-feed` (the most likely option to regress here).
+ */
+internal fun isFlagAccepted(
+    flag: String,
+    help: String,
+): Boolean = Regex("(?<![A-Za-z0-9-])" + Regex.escape(flag) + "(?![A-Za-z0-9-])").containsMatchIn(help)
 
 /**
  * Guards that every `--flag` the dist.dockerfile passes to an `image-tool` subcommand is a flag that
@@ -18,8 +30,8 @@ class DistDockerfileContractTest {
 
     /**
      * Collect the `--flag` tokens passed to a given `image-tool <subcommand>` invocation. The call is
-     * a `\`-continued shell command inside a heredoc, so we read from the subcommand name until the
-     * line that does NOT end in a backslash continuation.
+     * a `\`-continued shell command inside a heredoc, so we read from the first `image-tool
+     * <subcommand>` line until the line that does NOT end in a backslash continuation.
      */
     private fun flagsPassedTo(subcommand: String): List<String> {
         val lines = dockerfile.lines()
@@ -46,7 +58,7 @@ class DistDockerfileContractTest {
         val help = buildImageTool().test(listOf(subcommand, "--help")).output
         for (flag in flags) {
             assertTrue(
-                help.contains(flag),
+                isFlagAccepted(flag, help),
                 "dist.dockerfile passes $flag to $subcommand, but $subcommand --help does not accept it:\n$help",
             )
         }
@@ -60,5 +72,20 @@ class DistDockerfileContractTest {
     @Test
     fun `every flag dist dockerfile passes to verify-dist-layout is accepted by the command`() {
         assertEveryFlagAccepted("verify-dist-layout")
+    }
+
+    @Test
+    fun `isFlagAccepted matches a flag listed in help`() {
+        val help = buildImageTool().test(listOf("provision-dist", "--help")).output
+        assertTrue(isFlagAccepted("--distribution-feed", help), help)
+    }
+
+    @Test
+    fun `isFlagAccepted rejects a flag that is only a prefix of a listed flag`() {
+        // provision-dist lists --distribution-feed but NOT --dist. A substring check wrongly accepts
+        // --dist; the whole-token match must reject it, or --dist could regress unnoticed.
+        val help = buildImageTool().test(listOf("provision-dist", "--help")).output
+        assertTrue(isFlagAccepted("--distribution-feed", help), help)
+        assertFalse(isFlagAccepted("--dist", help), help)
     }
 }
