@@ -1,0 +1,30 @@
+{
+  "case": "android-app-agp-missing-sdk",
+  "image": "qodana-android",
+  "description": "Negative twin of android-app-agp: bootstrap omits the platform/build-tools install. AGP import fails for lack of the compile SDK; scan exits non-zero and idea.log mentions the missing platform (QD-2179). Proves 'image regressed' vs 'fixture misconfigured'. Network on.",
+  "run": {
+    "network": "bridge",
+    "extraArgs": ["--no-statistics"],
+    "env": {
+      "_JAVA_OPTIONS": "-Xmx4g"
+    }
+  },
+  "expectExitCode": 1,
+  "sarif": {
+    "expectations": []
+  },
+  "log": {
+    "mustContain": [
+      {
+        "text": "platforms;android-34",
+        "guards": ["QD-2179"]
+      }
+    ],
+    "mustNotContain": [
+      {
+        "text": "Problems found loading plugins:",
+        "guards": []
+      }
+    ]
+  }
+}
