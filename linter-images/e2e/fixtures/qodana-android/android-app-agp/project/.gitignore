@@ -1,0 +1,5 @@
+# Keep the fixture tree minimal and reproducible; build output is regenerated per scan.
+.gradle/
+build/
+app/build/
+local.properties
