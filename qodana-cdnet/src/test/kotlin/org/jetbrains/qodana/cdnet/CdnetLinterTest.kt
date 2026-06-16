@@ -241,9 +241,7 @@ class CdnetLinterTest {
 
         assertTrue(capturedSpecs.isNotEmpty(), "processRunner.run should have been called")
         val spec = capturedSpecs.first()
-        assertEquals("dotnet", spec.command)
-        assertTrue(spec.args.contains(cltPath.toString()))
-        assertTrue(spec.args.contains("inspectcode"))
+        assertEquals(cltPath.toString(), spec.command)
         assertTrue(spec.args.contains("App.sln"))
         assertEquals(paths.projectDir, spec.workDir)
         assertEquals(
