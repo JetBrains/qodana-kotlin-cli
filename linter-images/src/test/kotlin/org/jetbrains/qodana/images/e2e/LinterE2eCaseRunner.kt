@@ -61,6 +61,10 @@ class LinterE2eCaseRunner(
         val work = Files.createDirectories(tempRoot.resolve("${manifest.case}-${variant.id}")).toRealPath()
         val projectDir = prepareProject(caseDir, variant, work)
         applyGitState(projectDir, variant.gitState)
+        // The image runs as UID 1000 and the scan writes INTO /data/project (Maven/AGP build output,
+        // .gradle, local.properties, clang's default .qodana/cache). The copied tree is owned by the CI
+        // runner user, so make it group/other-writable — mirrors the old dogfood `chmod -R a+rwX`.
+        makeContainerWritable(projectDir)
 
         val resultsDir = worldWritableDir(work.resolve("results"))
         val cacheDir = worldWritableDir(work.resolve("cache"))
@@ -164,7 +168,16 @@ class LinterE2eCaseRunner(
         }
     }
 
-    // Mount perms: image runs UID 1000, so results/ + cache/ must be world-writable -----------------
+    // Mount perms: image runs UID 1000, so results/ + cache/ + the project tree must be writable -----
+
+    // chmod -R a+rwX so the UID-1000 container can write into the bind-mounted project tree. Fails
+    // loudly on a real chmod error (CI/Linux); the scan would otherwise fail opaquely with "no SARIF".
+    private fun makeContainerWritable(dir: Path) {
+        val result = commandRunner.run(listOf("chmod", "-R", "a+rwX", dir.toString()))
+        check(result.isSuccess) {
+            "chmod -R a+rwX $dir failed (exit ${result.exitCode}): ${result.stderr}"
+        }
+    }
 
     private fun worldWritableDir(dir: Path): Path {
         val created = Files.createDirectories(dir).toRealPath()

@@ -6,7 +6,7 @@
     "network": "none",
     "capAdd": ["SYS_ADMIN"],
     "securityOpt": ["apparmor:unconfined"],
-    "extraArgs": ["--no-statistics"]
+    "extraArgs": ["--no-statistics", "--compile-commands", "/data/project/compile_commands.json"]
   },
   "expectExitCode": 0,
   "sarif": {

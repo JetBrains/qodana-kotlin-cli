@@ -46,23 +46,41 @@ class LinterE2eTest {
      * can invoke it directly (no JUnit engine) to assert the empty-when-unset contract.
      */
     fun discover(): Stream<DynamicNode> {
-        val image = System.getProperty("linter.e2e.image")
-        val imageRoot = image?.let { Path.of("e2e", "fixtures", it) }
-        // No image selector, or no fixtures tree for it: nothing to run. A bare
-        // `./gradlew :linter-images:test` must not error globbing a `fixtures/null/` tree.
-        if (image == null || imageRoot == null || !Files.isDirectory(imageRoot)) {
-            return Stream.empty()
-        }
-
+        // No image selected → empty (the legit `./gradlew :linter-images:test` path; asserted by
+        // LinterE2eDiscoveryTest). A SELECTED image that resolves to no fixtures is a misconfiguration,
+        // so it fails LOUDLY rather than silently passing zero tests (CLAUDE.md no-silent-skip).
+        val image = System.getProperty("linter.e2e.image") ?: return Stream.empty()
+        val imageRoot = Path.of("e2e", "fixtures", image)
         val imageTag = "$image:dev"
-        return imageRoot
-            .listDirectoryEntries()
-            .filter { Files.isDirectory(it) && it.resolve("expected.json").isRegularFile() }
-            .sortedBy { it.name }
-            .flatMap { caseDir -> casesFor(caseDir, imageTag) }
-            .asSequence()
-            .asStream()
+        val nodes: List<DynamicNode> =
+            when {
+                !Files.isDirectory(imageRoot) ->
+                    failingNodes(image, "no fixtures directory (expected $imageRoot)")
+                else -> {
+                    val cases =
+                        imageRoot
+                            .listDirectoryEntries()
+                            .filter { Files.isDirectory(it) && it.resolve("expected.json").isRegularFile() }
+                            .sortedBy { it.name }
+                    if (cases.isEmpty()) {
+                        failingNodes(image, "no fixture cases ($imageRoot/*/expected.json)")
+                    } else {
+                        cases.flatMap { caseDir -> casesFor(caseDir, imageTag) }
+                    }
+                }
+            }
+        return nodes.asSequence().asStream()
     }
+
+    private fun failingNodes(
+        image: String,
+        why: String,
+    ): List<DynamicNode> =
+        listOf(
+            DynamicTest.dynamicTest("linter-e2e[$image]") {
+                fail("-Dlinter.e2e.image=$image but $why")
+            },
+        )
 
     private fun casesFor(
         caseDir: Path,
