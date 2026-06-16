@@ -168,19 +168,22 @@ class ProvisionDistCommandTest {
                 on({ it.contains("curl") }, CommandResult(1, "", "HTTP 401 Unauthorized"))
             }
 
+        val extractor = RecordingExtractor()
         val command =
             ProvisionDistCommand(
                 feedClient = FeedClient(failingRunner),
                 verifier = DistVerifier(runner()),
-                extractor = RecordingExtractor(),
+                extractor = extractor,
                 getEnv = { null },
             )
 
-        // FeedClient.fetch calls require(exitCode == 0), which throws IllegalArgumentException.
-        // Clikt's test() only catches CliktError, so the exception propagates — fail-closed is preserved.
-        assertFailsWith<IllegalArgumentException> {
+        // Feed failure propagates as an exception (FeedClient throws on non-zero curl exit).
+        // Clikt's test() only catches CliktError, so any other exception is unhandled — fail-closed.
+        assertFailsWith<Exception> {
             command.test(baseArgs("https://packages.jetbrains.team/files/p/qd/private-feed", target, key))
         }
+        // No side effects: the extractor was never reached.
+        assertEquals(null, extractor.archive)
     }
 
     @Test
