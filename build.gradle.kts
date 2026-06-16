@@ -51,7 +51,7 @@ subprojects {
     plugins.withId("java") {
         tasks.named<Test>("test") {
             useJUnitPlatform {
-                excludeTags("docker", "native-binary")
+                excludeTags("docker", "native-binary", "linter-e2e")
             }
         }
     }
@@ -102,6 +102,42 @@ subprojects {
             .stringPropertyNames()
             .filter { it.startsWith("test.") }
             .forEach { systemProperty(it, System.getProperty(it)) }
+    }
+
+    tasks.register<Test>("linterE2eTest") {
+        group = "verification"
+        description =
+            "Runs @Tag(\"linter-e2e\") Docker-image e2e tests against a prebuilt qodana-<x>:dev image. " +
+                "Requires a running Docker daemon and -Dlinter.e2e.image=<qodana-jvm|qodana-android|" +
+                "qodana-clang>; see LinterE2eTest for the fixture discovery contract."
+
+        val testTask = tasks.named<Test>("test").get()
+        testClassesDirs = testTask.testClassesDirs
+        classpath = testTask.classpath
+        // Run ONLY @Tag("linter-e2e") tests. They fail loudly if Docker is
+        // unreachable, per CLAUDE.md "tests must never silently skip".
+        useJUnitPlatform {
+            includeTags("linter-e2e")
+        }
+        shouldRunAfter(testTask)
+
+        // Forward -Dlinter.e2e.* (image selector etc.) from the Gradle invocation
+        // to the test JVM, so CI passes them on a single `./gradlew
+        // :linter-images:linterE2eTest -Dlinter.e2e.image=<image>`.
+        System.getProperties()
+            .stringPropertyNames()
+            .filter { it.startsWith("linter.e2e.") }
+            .forEach { systemProperty(it, System.getProperty(it)) }
+
+        // Qodana token: the scan may license-check / upload; forward like parityTest.
+        val qodanaToken = envOrDotEnv("QODANA_TOKEN")
+        val licenseOnlyToken = envOrDotEnv("QODANA_LICENSE_ONLY_TOKEN") ?: qodanaToken
+        if (!qodanaToken.isNullOrBlank()) {
+            environment("QODANA_TOKEN", qodanaToken)
+        }
+        if (!licenseOnlyToken.isNullOrBlank()) {
+            environment("QODANA_LICENSE_ONLY_TOKEN", licenseOnlyToken)
+        }
     }
 }
 
