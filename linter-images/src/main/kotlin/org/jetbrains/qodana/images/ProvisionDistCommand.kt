@@ -2,11 +2,9 @@ package org.jetbrains.qodana.images
 
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.Context
-import com.github.ajalt.clikt.core.ProgramResult
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.options.required
-import com.github.ajalt.clikt.parameters.types.choice
 import com.github.ajalt.clikt.parameters.types.path
 import org.jetbrains.qodana.images.dist.DistResolver
 import org.jetbrains.qodana.images.dist.DistVerifier
@@ -30,14 +28,11 @@ class ProvisionDistCommand(
 ) : CliktCommand("provision-dist") {
     override fun help(context: Context) = "Fetch and verify the IDE distribution (GPG + sha256, fail-closed)"
 
-    private val feedUrl by option("--feed-url", help = "Feed base URL")
-        .default("https://download.jetbrains.com/qodana/feed")
+    private val distributionFeed by option("--distribution-feed", help = "Feed base URL")
+        .default(DEFAULT_DISTRIBUTION_FEED)
     private val linterSlug by option("--linter-slug", help = "Feed slug, e.g. qodana-jvm").required()
     private val version by option("--version", help = "Engine major version, e.g. 2025.3").required()
     private val build by option("--build", help = "Exact pinned build, e.g. 253.1234.56").required()
-
-    // Channel is the artifact SOURCE (which mirror), NOT release-vs-eap.
-    private val channel by option("--channel", help = "public|private").choice("public", "private").default("public")
     private val gpgKey by option("--gpg-key", help = "Vendored JetBrains public key")
         .path(mustExist = true)
         .required()
@@ -48,8 +43,8 @@ class ProvisionDistCommand(
     private val target by option("--target", help = "IDE root staging dir (becomes the dist root)").path().required()
 
     override fun run() {
-        val token = resolveToken()
-        val feed = feedClient.fetch(feedUrl, linterSlug, token)
+        val token = getEnv(QD_FEED_TOKEN)?.takeIf { it.isNotBlank() }
+        val feed = feedClient.fetch(distributionFeed, linterSlug, token)
         // EXACT major+build pin — never max-by-Date.
         val release = ReleaseSelector.select(feed, majorVersion = version, build = build)
         val resolved = DistResolver.resolve(release, os = "linux", arch = "amd64")
@@ -65,19 +60,6 @@ class ProvisionDistCommand(
         } finally {
             work.toFile().deleteRecursively()
         }
-    }
-
-    private fun resolveToken(): String? {
-        if (channel == "public") return null
-        return getEnv(QD_FEED_TOKEN)?.takeIf { it.isNotBlank() }
-            ?: throw ProgramResult(
-                fail("--channel private selected but \$$QD_FEED_TOKEN is unset or blank"),
-            )
-    }
-
-    private fun fail(message: String): Int {
-        echo("provision-dist: $message", err = true)
-        return 1
     }
 
     companion object {
