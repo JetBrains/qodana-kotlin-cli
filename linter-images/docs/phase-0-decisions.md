@@ -209,3 +209,52 @@ below; `docker/lib/jetbrains.pub.fpr` records the same fingerprint on one line.
 JETBRAINS_PUB_KEY = docker/lib/jetbrains.pub
 JETBRAINS_PUB_KEY_FPR_FILE = docker/lib/jetbrains.pub.fpr
 JETBRAINS_PUB_KEY_FINGERPRINT = B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501
+
+## Community JVM dist (shared by jvm-community + android-community)
+
+Resolved 2026-06-17 from `download.jetbrains.com/qodana/feed/qodana-jvm-community.releases.json`
+(max-by-Date among `MajorVersion==2025.3` AND `Type==release` — same engine major as
+the `qodana-jvm` pin above, so community + ultimate JVM track one engine major).
+Top-level feed `Code` is `QDJVMC`. The feed is the PUBLIC feed
+(`/qodana/feed`, no token): jvm-community is a released linter, so the image's
+`.env` OMITS `QD_DISTRIBUTION_FEED` and relies on the public default. Keys are
+named to match `BumpPinsCommand.syncDecisions` (slug `qodana-jvm-community` →
+`QODANA_JVM_COMMUNITY_BUILD`); `EnvContractTest` asserts byte-identity against the
+Phase-4 `.env`'s `QD_VERSION` (MajorVersion `2025.3`) and `QD_BUILD` (`253.31821`).
+The download Link embeds an extra build segment (`...-253.31821.152.tar.gz`); use
+the feed's Link VERBATIM — its `.152` differs from `qodana-jvm`'s `.234`, so do
+not reconstruct it from `Build`.
+
+QODANA_JVM_COMMUNITY_VERSION = 2025.3
+QODANA_JVM_COMMUNITY_BUILD = 253.31821
+
+Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+
+QODANA_JVM_COMMUNITY_FULL_VERSION = 2025.3.4
+
+Download links (verbatim from the feed):
+
+QODANA_JVM_COMMUNITY_LINUX_LINK = https://download.jetbrains.com/qodana/2025.3/qodana-QDJVMC-253.31821.152.tar.gz
+QODANA_JVM_COMMUNITY_LINUX_ARM64_LINK = https://download.jetbrains.com/qodana/2025.3/qodana-QDJVMC-253.31821.152-aarch64.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link return HTTP 200 (probed live 2026-06-17,
+following CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the
+`.sha256.asc` detached GPG signature (`ChecksumLink + ".asc"`).
+
+QODANA_JVM_COMMUNITY_LINUX_SHA256_SIBLING = 200
+QODANA_JVM_COMMUNITY_LINUX_ASC_SIBLING = 200
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`IC` (IntelliJ Community), where `qodana-jvm` uses `IU` (Ultimate). Verified, not
+assumed: qodana-cli's `internal/platform/product/intelllij_linters.go` declares
+`JvmCommunityLinterProperties.ProductInfoJsonCode = "IC"` (vs `JvmLinterProperties
+= "IU"`) — this is the `productCode` inside the dist's `product-info.json` that
+`verify-dist-layout` checks. The feed `Code` / `Linter.ProductCode` `QDJVMC`
+(`product.go`, and `public.json` `jvm-community.qd_code`) is the distinct feed
+artifact code, not the product-info code.
+
+QODANA_JVM_COMMUNITY_PRODUCT_INFO_CODE = IC
+QODANA_JVM_COMMUNITY_FEED_CODE = QDJVMC
