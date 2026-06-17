@@ -30,6 +30,10 @@ services:
     build:
       secrets:
         - feed_token
+  qodana-python-community:
+    build:
+      secrets:
+        - feed_token
   qodana-clang:
     build:
       secrets:

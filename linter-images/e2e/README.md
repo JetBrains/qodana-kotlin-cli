@@ -1,7 +1,8 @@
 # Linter-image e2e tracks
 
-End-to-end tests for the in-repo Qodana linter images (`qodana-jvm`, `qodana-android`,
-`qodana-clang`). Each image gets its own CI job — **`Docker e2e (<image>)`** — that builds the image
+End-to-end tests for the in-repo Qodana linter images (`qodana-jvm`, `qodana-jvm-community`,
+`qodana-android`, `qodana-android-community`, `qodana-clang`, `qodana-python-community`). Each image
+gets its own CI job — **`Docker e2e (<image>)`** — that builds the image
 from this tree and runs every fixture under `fixtures/<image>/`, asserting the produced
 `qodana.sarif.json` against a per-case `expected.json`. A job goes red on any problem with its image,
 and only its image (`fail-fast: false`).
@@ -19,7 +20,8 @@ linter-images/e2e/
     expected.json                   # run config + SARIF/log assertions for this case
 ```
 
-`<image>` ∈ {`qodana-jvm`, `qodana-android`, `qodana-clang`} (`qodana-cpp` is reserved for later).
+`<image>` ∈ {`qodana-jvm`, `qodana-jvm-community`, `qodana-android`, `qodana-android-community`,
+`qodana-clang`, `qodana-python-community`} (`qodana-cpp` is reserved for later).
 
 ## Running
 
