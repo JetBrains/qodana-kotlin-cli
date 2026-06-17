@@ -1,4 +1,4 @@
-# toolchain/conda — Miniconda3 (sha-pinned installer) + poetry + pipenv via conda-forge. python-only.
+# toolchain/conda — Miniconda3 (sha-pinned installer) + poetry + pipenv (pip, version-pinned). python-only.
 # First NEW toolchain; the reusable template for the upcoming rust/dotnet stages: a clean orthogonal
 # `FROM base AS <name>-toolchain` that the dist layers onto via DIST_BASE_STAGE (mirrors android).
 # Consumes: MINICONDA_VERSION MINICONDA_SHA256.  Layers onto `base`.
@@ -20,9 +20,14 @@ ADD --checksum=sha256:${MINICONDA_SHA256} \
 	https://repo.anaconda.com/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh \
 	/tmp/miniconda.sh
 
+# The version-pinned poetry/pipenv requirements travel with the context (lib/toolchain/); the build
+# context root is `docker/` (compose `context: docker`), so the COPY path is lib-rooted like dist's
+# jetbrains.pub. pip reads it inside the conda base env below.
+COPY lib/toolchain/conda-requirements.txt /tmp/conda-requirements.txt
+
 # bzip2 (the installer needs it) + the native shared libs conda-shipped wheels link against at scan
 # time (libglib2.0-0/libsm6/libxext6/libxrender1) — runtime deps, so NOT purged (unlike node/clang's
-# transient gnupg). conda/poetry/pipenv install from conda-forge at BUILD time; the runtime needs no net.
+# transient gnupg). conda + the pinned poetry/pipenv install at BUILD time; the runtime needs no net.
 RUN <<-EOT
 	set -eux
 	export DEBIAN_FRONTEND=noninteractive
@@ -35,12 +40,20 @@ RUN <<-EOT
 		libxrender1
 	bash /tmp/miniconda.sh -b -p /opt/miniconda3
 	ln -sf /opt/miniconda3/etc/profile.d/conda.sh /etc/profile.d/conda.sh
+	# Source-faithful with python-community.Dockerfile: expose conda's python3 at the absolute
+	# /usr/bin/python3 too, not just on PATH, for any inspector that hardcodes the path. Root-created
+	# (/usr/bin is root); -sf so a re-run is idempotent.
+	ln -sf /opt/miniconda3/bin/python3 /usr/bin/python3
 	find /opt/miniconda3/ -follow -type f -name '*.a' -delete
 	find /opt/miniconda3/ -follow -type f -name '*.js.map' -delete
-	/opt/miniconda3/bin/conda install -y -c conda-forge poetry pipenv
+	# Version-pinned (vs. floating conda-forge) into the conda base env's pip, so poetry/pipenv land on
+	# the existing /opt/miniconda3/bin PATH. Renovate bumps the pins via the requirements file.
+	/opt/miniconda3/bin/pip install --no-cache-dir -r /tmp/conda-requirements.txt
 	/opt/miniconda3/bin/conda clean -afy
 	# poetry config under the runtime user's HOME (RUN is root → $HOME=/root), so the config lands in
-	# /home/qodana/.config/pypoetry where UID 1000 reads it at scan time.
+	# /home/qodana/.config/pypoetry. It is written ROOT-owned here and only becomes UID-1000-owned via
+	# the trailing `chown -R 1000:1000 /home/qodana` below — keep that chown covering /home/qodana, or
+	# UID 1000 can't read its poetry config at scan time.
 	HOME=/home/qodana /opt/miniconda3/bin/poetry config virtualenvs.create false
 	# Scan-time write targets, made writable for UID 1000: conda pkgs/lockfiles (/opt/miniconda3),
 	# conda envs + pip/poetry caches (/data/cache/*), and the home-rooted state conda/poetry touch
@@ -53,7 +66,7 @@ RUN <<-EOT
 		/home/qodana/.config \
 		/home/qodana/.local
 	chown -R 1000:1000 /opt/miniconda3 /data/cache /home/qodana
-	rm -f /tmp/miniconda.sh
+	rm -f /tmp/miniconda.sh /tmp/conda-requirements.txt
 	rm -rf /var/lib/apt/lists/*
 EOT
 

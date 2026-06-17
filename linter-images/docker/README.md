@@ -17,7 +17,7 @@ includes in composition order.
 | `toolchain/node`    | Node + Yarn for JS/TS analysis (in-place — no `FROM`, extends `base`)                          | jvm, android |
 | `toolchain/android` | Android SDK + Corretto                                                                         | android      |
 | `toolchain/clang`   | clang/clang++/cmake (apt + LLVM repo)                                                          | clang        |
-| `toolchain/conda`   | Miniconda3 (sha-pinned) + poetry + pipenv (conda-forge)                                        | python       |
+| `toolchain/conda`   | Miniconda3 (sha-pinned) + poetry + pipenv (pip, version-pinned)                                | python       |
 | `toolchain/dotnet`  | .NET SDKs (8/9/10) via a pinned `dotnet-install.sh`                                            | cdnet        |
 | `dist`              | download + GPG/sha256-verify the IDE dist (`provision-dist`), then `verify-dist-layout`        | jvm, android |
 | `privileged`        | passwordless `sudo` for the `qodana` user (FROMs `${PRIVILEGED_BASE_STAGE}`)                   | clang, cdnet |

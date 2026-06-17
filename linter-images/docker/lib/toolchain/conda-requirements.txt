@@ -1,0 +1,6 @@
+# Pinned Python build tools for the conda toolchain, installed into the Miniconda base env.
+# Renovate tracks this file via the built-in pip_requirements manager (PyPI datasource); the
+# minimumReleaseAge + automerge policy in .github/renovate.json5 applies. Pinned (not floating
+# conda-forge) so a build is reproducible and a bump is a reviewable PR. Versions are exact (==).
+poetry==2.4.1
+pipenv==2026.6.2
