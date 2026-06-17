@@ -49,6 +49,9 @@ jobs:
           - name: qodana-jvm
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
+          - name: qodana-jvm-community
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            token_gated: "false"
           - name: qodana-android
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"

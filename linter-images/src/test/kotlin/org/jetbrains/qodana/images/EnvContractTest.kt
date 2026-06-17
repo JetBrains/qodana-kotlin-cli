@@ -24,7 +24,7 @@ class EnvContractTest {
     private val decisions: Path = Path.of("docs/phase-0-decisions.md")
 
     /** Slugs whose `.env` are authored. */
-    private val authoredSlugs = listOf("qodana-jvm", "qodana-android", "qodana-clang")
+    private val authoredSlugs = listOf("qodana-jvm", "qodana-jvm-community", "qodana-android", "qodana-clang")
 
     private fun parseEnv(slug: String): Map<String, String> {
         // Build the map by hand so a duplicate key fails LOUDLY: `associate` would silently keep the
@@ -67,6 +67,55 @@ class EnvContractTest {
                 "TINI_SHA256",
             )
         assertEquals(expected, parseEnv("qodana-jvm").keys)
+    }
+
+    @Test
+    fun `qodana-jvm-community env has exactly the jvm key set`() {
+        // Community JVM is a normal IDE-dist image like jvm: SAME key set (no QD_CHANNEL, no
+        // QD_DISTRIBUTION_FEED — it uses the PUBLIC feed via the dockerfile default), differing only in
+        // slug/version/build/product-info/base values. Asserting an identical key set keeps the two
+        // images' contracts in lockstep.
+        val community = parseEnv("qodana-jvm-community")
+        assertEquals(parseEnv("qodana-jvm").keys, community.keys, "jvm-community must share jvm's exact key set")
+        assertTrue("QD_CHANNEL" !in community, "QD_CHANNEL was removed by the foundation refactor")
+        assertTrue(
+            "QD_DISTRIBUTION_FEED" !in community,
+            "jvm-community uses the public feed (dockerfile default), so it must omit QD_DISTRIBUTION_FEED",
+        )
+        assertEquals("qodana-jvm-community", community["QD_LINTER_SLUG"], "jvm-community has its own dist slug")
+        assertEquals("IC", community["QD_PRODUCT_INFO_CODE"], "jvm-community product-info code is IC (Community)")
+        assertEquals(
+            "dhi.io/debian-base:trixie-debian13@sha256:" +
+                "e440d0dabdc54675aa9601f0d794c39f549b6178946cfeffd3b5a31da33ec2d3",
+            community["QD_BASE_IMAGE"],
+            "jvm-community pins the plain trixie hardened base",
+        )
+        assertEquals("amd64", community["CLI_ARCH"], "jvm-community is amd64-only")
+    }
+
+    @Test
+    fun `jvm-community pins match phase-0-decisions`() {
+        val d = decisions.readText()
+
+        fun pin(k: String) =
+            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
+                ?: error("$k not recorded in $decisions")
+        val community = parseEnv("qodana-jvm-community")
+        assertEquals(
+            pin("QODANA_JVM_COMMUNITY_VERSION"),
+            community["QD_VERSION"],
+            "jvm-community major must match phase-0-decisions",
+        )
+        assertEquals(
+            pin("QODANA_JVM_COMMUNITY_BUILD"),
+            community["QD_BUILD"],
+            "jvm-community build pin must match phase-0-decisions",
+        )
+        assertEquals(
+            pin("QODANA_JVM_COMMUNITY_PRODUCT_INFO_CODE"),
+            community["QD_PRODUCT_INFO_CODE"],
+            "jvm-community product-info code must match phase-0-decisions",
+        )
     }
 
     @Test
