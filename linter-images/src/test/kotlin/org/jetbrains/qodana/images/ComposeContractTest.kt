@@ -14,7 +14,8 @@ class ComposeContractTest {
 
     private fun load(name: String): JsonNode = mapper.readTree(Path.of(name).readText())
 
-    private val slugs = listOf("qodana-jvm", "qodana-jvm-community", "qodana-android", "qodana-clang", "qodana-cdnet")
+    private val slugs =
+        listOf("qodana-jvm", "qodana-jvm-community", "qodana-android", "qodana-android-community", "qodana-clang", "qodana-cdnet")
 
     @Test
     fun `compose defines a service per linter with docker context, tooling context, release source, dev tag`() {
@@ -77,9 +78,9 @@ class ComposeContractTest {
             val args = root[slug]["build"]["args"]
             assertEquals("tools", args["CLI_BASE_STAGE"].asText(), "$slug must build CLI onto the tools stage")
         }
-        // jvm/jvm-community/android have a dist stage; they must NOT override CLI_BASE_STAGE (it stays the
-        // `dist` default).
-        for (slug in listOf("qodana-jvm", "qodana-jvm-community", "qodana-android")) {
+        // jvm/jvm-community/android/android-community have a dist stage; they must NOT override
+        // CLI_BASE_STAGE (it stays the `dist` default).
+        for (slug in listOf("qodana-jvm", "qodana-jvm-community", "qodana-android", "qodana-android-community")) {
             val args = root[slug]["build"]["args"]
             assertTrue(args["CLI_BASE_STAGE"] == null, "$slug must not override CLI_BASE_STAGE (defaults to dist)")
         }
@@ -161,6 +162,11 @@ class ComposeContractTest {
             "jvm-community uses only the feed token",
         )
         assertEquals(setOf("feed_token"), secretsOf("qodana-android"), "android uses only the feed token")
+        assertEquals(
+            setOf("feed_token"),
+            secretsOf("qodana-android-community"),
+            "android-community uses only the feed token",
+        )
         assertEquals(
             setOf("qodana_cli_deps_token"),
             secretsOf("qodana-clang"),

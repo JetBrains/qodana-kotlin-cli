@@ -1,0 +1,41 @@
+{
+  "case": "android-community-app-agp",
+  "image": "qodana-android-community",
+  "description": "Community twin of qodana-android's android-app-agp: a single-module AGP app whose qodana.yaml bootstrap accepts SDK licenses and installs platforms;android-34 + build-tools;34.0.0 (the documented customer flow), then Qodana imports + scans. Validates the qodana-android-community image end to end: build + customer bootstrap + AGP import + scan producing SARIF, with plugins loaded cleanly. Network on (android's accepted cost). tool.driverName/driverFullName are NEEDS-PINNING (the QDANDC code is unconfirmed): pin both from a CI control run. The result assertion is an id-agnostic >=1 floor (same as android — broadening it to the AndroidLint family, QD-11439, is a follow-up).",
+  "run": {
+    "network": "bridge",
+    "extraArgs": ["--no-statistics"],
+    "env": {
+      "_JAVA_OPTIONS": "-Xmx4g"
+    }
+  },
+  "expectExitCode": 0,
+  "sarif": {
+    "tool": {
+      "driverName": null,
+      "driverFullName": null
+    },
+    "qodanaSeverityRequired": false,
+    "expectations": [
+      {
+        "presence": "present",
+        "count": ">=1",
+        "pin": "needs-pinning",
+        "guards": [],
+        "reason": "The qodana-android-community image must produce >=1 result when scanning a real AGP project after the customer-style sdkmanager bootstrap — proves the build + bootstrap + AGP import + scan pipeline works end to end. Id-agnostic floor; pin the exact QDANDC driver name + rule ids from a CI control run."
+      }
+    ]
+  },
+  "log": {
+    "mustNotContain": [
+      {
+        "text": "Read access is allowed from inside read-action only",
+        "guards": ["QD-11439"]
+      },
+      {
+        "text": "Problems found loading plugins:",
+        "guards": []
+      }
+    ]
+  }
+}
