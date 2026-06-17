@@ -33,6 +33,12 @@ services:
         CLI_SOURCE: context
       additional_contexts:
         cli: ../qodana-cli/build/release-staging
+  qodana-python:
+    build:
+      args:
+        CLI_SOURCE: context
+      additional_contexts:
+        cli: ../qodana-cli/build/release-staging
   qodana-clang:
     build:
       args:

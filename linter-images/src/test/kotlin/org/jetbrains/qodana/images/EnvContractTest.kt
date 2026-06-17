@@ -32,6 +32,7 @@ class EnvContractTest {
             "qodana-android-community",
             "qodana-clang",
             "qodana-python-community",
+            "qodana-python",
             "qodana-cdnet",
         )
 
@@ -320,6 +321,52 @@ class EnvContractTest {
             pin("QODANA_PYTHON_COMMUNITY_PRODUCT_INFO_CODE"),
             python["QD_PRODUCT_INFO_CODE"],
             "python-community product-info code must match phase-0-decisions",
+        )
+    }
+
+    @Test
+    fun `qodana-python env has exactly the python-community key set plus node`() {
+        // Ultimate Python = Community Python + node, exactly as Ultimate jvm = community-JVM-lineage +
+        // node. SAME key set as python-community (conda toolchain, DIST_BASE_STAGE=conda-toolchain), PLUS
+        // NODE_MAJOR for the appended node stage; product-info is PY (PyCharm Professional), not PC.
+        val env = parseEnv("qodana-python")
+        val expected = parseEnv("qodana-python-community").keys + "NODE_MAJOR"
+        assertEquals(expected, env.keys, "python must be python-community's key set plus NODE_MAJOR")
+        assertEquals("qodana-python", env["QD_LINTER_SLUG"], "python has its own Ultimate dist slug")
+        assertEquals("PY", env["QD_PRODUCT_INFO_CODE"], "python product-info code is PY (PyCharm Professional)")
+        assertEquals("amd64", env["CLI_ARCH"], "python is amd64-only")
+        assertEquals("conda-toolchain", env["DIST_BASE_STAGE"], "python dist layers onto the conda(+node) stage")
+        assertTrue("QD_CHANNEL" !in env, "QD_CHANNEL was removed by the foundation refactor")
+        assertTrue(
+            "QD_DISTRIBUTION_FEED" !in env,
+            "python uses the public feed (dockerfile default), so it must omit QD_DISTRIBUTION_FEED",
+        )
+        assertEquals(
+            parseEnv("qodana-jvm")["NODE_MAJOR"],
+            env["NODE_MAJOR"],
+            "python's NODE_MAJOR must match jvm's (shared node toolchain pin)",
+        )
+    }
+
+    @Test
+    fun `python pins match phase-0-decisions`() {
+        val d = decisions.readText()
+
+        fun pin(k: String) =
+            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
+                ?: error("$k not recorded in $decisions")
+        val python = parseEnv("qodana-python")
+        assertEquals(
+            pin("QD_TRIXIE_BASE_IMAGE"),
+            python["QD_BASE_IMAGE"],
+            "python base digest must match the shared trixie pin in phase-0-decisions",
+        )
+        assertEquals(pin("QODANA_PYTHON_VERSION"), python["QD_VERSION"], "python major must match phase-0-decisions")
+        assertEquals(pin("QODANA_PYTHON_BUILD"), python["QD_BUILD"], "python build pin must match phase-0-decisions")
+        assertEquals(
+            pin("QODANA_PYTHON_PRODUCT_INFO_CODE"),
+            python["QD_PRODUCT_INFO_CODE"],
+            "python product-info code must match phase-0-decisions",
         )
     }
 
