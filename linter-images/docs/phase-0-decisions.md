@@ -198,6 +198,33 @@ in the plan's example `.env` blocks.
 
 QD_BASE_IMAGE = dhi.io/debian-base:bookworm@sha256:802b1fe0c2ac7827f82f4a33918f3bd69293fe83d18ddf471ae57f4312400cd5
 
+### dhi.io trixie hardened base digest (shared by new debian-base images)
+
+New linter images build on the **trixie-debian13** dhi.io base generation; the
+existing three images (`qodana-jvm`/`qodana-android`/`qodana-clang`) stay on
+`:bookworm` and migrate to trixie later as a separate effort. The key below is a
+SHARED pin: every new generic-debian-base image (jvm-community, and the upcoming
+android-community, python(-community), rust, dotnet, cpp) references this one
+trixie base. `EnvContractTest` asserts each such image's `QD_BASE_IMAGE` is
+byte-identical to this value.
+
+`dhi.io/debian-base:trixie-debian13` resolved daemonless 2026-06-17 via
+`docker buildx imagetools inspect dhi.io/debian-base:trixie-debian13 --format '{{json .Manifest.Digest}}'`
+(the `:trixie` tag resolves to the same digest):
+
+```
+sha256:e440d0dabdc54675aa9601f0d794c39f549b6178946cfeffd3b5a31da33ec2d3
+```
+
+This is the **plain** (non-`-dev`) base, deliberately mirroring the existing
+plain `:bookworm` pattern: `lib/base.dockerfile` installs the apt packages it
+needs. The `-dev` variant (`:trixie-debian13-dev` →
+`sha256:68b5f4c2c789b99dc6ab7574c7e695e724646f64616619c48c3245f8aaeae459`) is
+intentionally NOT used. The value keeps the `:trixie-debian13` tag before the
+digest, so the Phase-4 `.env` files MUST use this exact string.
+
+QD_TRIXIE_BASE_IMAGE = dhi.io/debian-base:trixie-debian13@sha256:e440d0dabdc54675aa9601f0d794c39f549b6178946cfeffd3b5a31da33ec2d3
+
 ### Vendored JetBrains public key (verification only — we never sign)
 
 `download.jetbrains.com/KEYS` contains exactly one armored public-key block, so
