@@ -25,7 +25,14 @@ class EnvContractTest {
 
     /** Slugs whose `.env` are authored. */
     private val authoredSlugs =
-        listOf("qodana-jvm", "qodana-jvm-community", "qodana-android", "qodana-android-community", "qodana-clang")
+        listOf(
+            "qodana-jvm",
+            "qodana-jvm-community",
+            "qodana-android",
+            "qodana-android-community",
+            "qodana-clang",
+            "qodana-python-community",
+        )
 
     private fun parseEnv(slug: String): Map<String, String> {
         // Build the map by hand so a duplicate key fails LOUDLY: `associate` would silently keep the
@@ -204,6 +211,75 @@ class EnvContractTest {
         }
         assertEquals("qodana-clang", env["CLI_BINARY"], "clang's inner CLI is qodana-clang")
         assertEquals("amd64", env["CLI_ARCH"], "clang is amd64-only")
+    }
+
+    @Test
+    fun `qodana-python-community env has exactly the python key set and no node`() {
+        // First NEW toolchain image: a normal IDE-dist image (like jvm-community) that layers the conda
+        // toolchain instead of node. SAME dist/cli/runtime keys, NO NODE_MAJOR, plus the conda keys
+        // (MINICONDA_VERSION/MINICONDA_SHA256) and DIST_BASE_STAGE=conda-toolchain (the dist layers onto
+        // the conda stage, mirroring android's DIST_BASE_STAGE=android-toolchain).
+        val env = parseEnv("qodana-python-community")
+        val expected =
+            setOf(
+                "QD_LINTER_SLUG",
+                "QD_VERSION",
+                "QD_BUILD",
+                "QD_RELEASE_TYPE",
+                "QD_PRODUCT_INFO_CODE",
+                "QD_BASE_IMAGE",
+                "DIST_BASE_STAGE",
+                "CLI_BINARY",
+                "CLI_VERSION",
+                "CLI_OS",
+                "CLI_ARCH",
+                "MINICONDA_VERSION",
+                "MINICONDA_SHA256",
+                "TINI_VERSION",
+                "TINI_ARCH",
+                "TINI_SHA256",
+            )
+        assertEquals(expected, env.keys)
+        assertTrue("NODE_MAJOR" !in env, "python-community must not set NODE_MAJOR (conda toolchain, not node)")
+        assertTrue("QD_CHANNEL" !in env, "QD_CHANNEL was removed by the foundation refactor")
+        assertTrue(
+            "QD_DISTRIBUTION_FEED" !in env,
+            "python-community uses the public feed (dockerfile default), so it must omit QD_DISTRIBUTION_FEED",
+        )
+        assertEquals("qodana-python-community", env["QD_LINTER_SLUG"], "python-community has its own dist slug")
+        assertEquals("PC", env["QD_PRODUCT_INFO_CODE"], "python-community product-info code is PC (Community)")
+        assertEquals("amd64", env["CLI_ARCH"], "python-community is amd64-only")
+        assertEquals("conda-toolchain", env["DIST_BASE_STAGE"], "python-community dist layers onto the conda stage")
+    }
+
+    @Test
+    fun `python-community pins match phase-0-decisions`() {
+        val d = decisions.readText()
+
+        fun pin(k: String) =
+            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
+                ?: error("$k not recorded in $decisions")
+        val python = parseEnv("qodana-python-community")
+        assertEquals(
+            pin("QD_TRIXIE_BASE_IMAGE"),
+            python["QD_BASE_IMAGE"],
+            "python-community base digest must match the shared trixie pin in phase-0-decisions",
+        )
+        assertEquals(
+            pin("QODANA_PYTHON_COMMUNITY_VERSION"),
+            python["QD_VERSION"],
+            "python-community major must match phase-0-decisions",
+        )
+        assertEquals(
+            pin("QODANA_PYTHON_COMMUNITY_BUILD"),
+            python["QD_BUILD"],
+            "python-community build pin must match phase-0-decisions",
+        )
+        assertEquals(
+            pin("QODANA_PYTHON_COMMUNITY_PRODUCT_INFO_CODE"),
+            python["QD_PRODUCT_INFO_CODE"],
+            "python-community product-info code must match phase-0-decisions",
+        )
     }
 
     @Test

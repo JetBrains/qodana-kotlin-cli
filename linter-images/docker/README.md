@@ -17,6 +17,7 @@ includes in composition order.
 | `toolchain/node`    | Node + Yarn for JS/TS analysis (in-place — no `FROM`, extends `base`)                          | jvm, android |
 | `toolchain/android` | Android SDK + Corretto                                                                         | android      |
 | `toolchain/clang`   | clang/clang++/cmake (apt + LLVM repo)                                                          | clang        |
+| `toolchain/conda`   | Miniconda3 (sha-pinned) + poetry + pipenv (conda-forge)                                        | python       |
 | `dist`              | download + GPG/sha256-verify the IDE dist (`provision-dist`), then `verify-dist-layout`        | jvm, android |
 | `privileged`        | passwordless `sudo` for the `qodana` user                                                      | clang        |
 | `tools`             | clang-tidy from the private qodana-cli-deps mirror                                             | clang        |
@@ -25,13 +26,15 @@ includes in composition order.
 
 Resolved stage lineage of the final image:
 
-    qodana-jvm:     base → node → dist → cli → runtime
-    qodana-android: base → node → android-toolchain → dist → cli → runtime   (dist FROMs android-toolchain via DIST_BASE_STAGE)
-    qodana-clang:   base → clang-toolchain → privileged → tools → cli → runtime   (no dist; CLI_BASE_STAGE=tools)
+    qodana-jvm:              base → node → dist → cli → runtime
+    qodana-android:          base → node → android-toolchain → dist → cli → runtime   (dist FROMs android-toolchain via DIST_BASE_STAGE)
+    qodana-python-community: base → conda-toolchain → dist → cli → runtime            (dist FROMs conda-toolchain via DIST_BASE_STAGE)
+    qodana-clang:            base → clang-toolchain → privileged → tools → cli → runtime   (no dist; CLI_BASE_STAGE=tools)
 
-`node`/`android-toolchain` etc. must land in the final image's lineage, so `dist` builds `FROM
-${DIST_BASE_STAGE:-base}` (android sets it to `android-toolchain`; jvm keeps `base`) and `cli` builds
-`FROM ${CLI_BASE_STAGE}` (clang sets it to `tools`, which has no dist).
+`node`/`android-toolchain`/`conda-toolchain` etc. must land in the final image's lineage, so `dist`
+builds `FROM ${DIST_BASE_STAGE:-base}` (android sets it to `android-toolchain`, python to
+`conda-toolchain`; jvm keeps `base`) and `cli` builds `FROM ${CLI_BASE_STAGE}` (clang sets it to
+`tools`, which has no dist).
 
 ## Pins and verification
 
