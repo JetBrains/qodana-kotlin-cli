@@ -17,7 +17,7 @@ includes in composition order.
 | `toolchain/node`    | Node + Yarn for JS/TS analysis (in-place — no `FROM`, extends `base`)                          | jvm, android |
 | `toolchain/android` | Android SDK + Corretto                                                                         | android      |
 | `toolchain/clang`   | clang/clang++/cmake (apt + LLVM repo)                                                          | clang        |
-| `toolchain/conda`   | Miniconda3 (sha-pinned) + poetry + pipenv (conda-forge)                                        | python       |
+| `toolchain/conda`   | Miniconda3 (sha-pinned) + poetry + pipenv (pip, version-pinned)                                | python       |
 | `dist`              | download + GPG/sha256-verify the IDE dist (`provision-dist`), then `verify-dist-layout`        | jvm, android |
 | `privileged`        | passwordless `sudo` for the `qodana` user                                                      | clang        |
 | `tools`             | clang-tidy from the private qodana-cli-deps mirror                                             | clang        |
