@@ -9,6 +9,12 @@ services:
         CLI_SOURCE: context
       additional_contexts:
         cli: ../qodana-cli/build/release-staging
+  qodana-jvm-community:
+    build:
+      args:
+        CLI_SOURCE: context
+      additional_contexts:
+        cli: ../qodana-cli/build/release-staging
   qodana-android:
     build:
       args:

@@ -18,6 +18,10 @@ services:
     build:
       secrets:
         - feed_token
+  qodana-jvm-community:
+    build:
+      secrets:
+        - feed_token
   qodana-android:
     build:
       secrets:
