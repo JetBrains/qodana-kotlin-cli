@@ -1,0 +1,43 @@
+{
+  "case": "python-basic",
+  "image": "qodana-python",
+  "description": "Single-file Python project with two planted defects, hermetic run. First e2e for the Ultimate Python image (conda + node toolchain): proves qodana-python builds (base + conda + node + dist + cli + runtime), loads its Ultimate PyCharm Pro profile, and scans a real .py producing SARIF. Driver name + rule ids are NEEDS-PINNING starting guesses — pin from a CI control run and confirm both are enabled in THIS image's default PY (PyCharm Professional) profile.",
+  "run": {
+    "network": "none",
+    "extraArgs": ["--no-statistics"]
+  },
+  "expectExitCode": 0,
+  "sarif": {
+    "tool": {
+      "driverName": null,
+      "driverFullName": null
+    },
+    "schemaValid": false,
+    "qodanaSeverityRequired": true,
+    "expectations": [
+      {
+        "ruleId": "PyUnusedLocal",
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "main.py",
+        "pin": "needs-pinning",
+        "guards": [],
+        "reason": "STARTING-GUESS id: the planted `unused = 42` local that is never read must surface; pin the exact id from a CI control run and confirm it is in the Ultimate PyCharm Pro profile."
+      },
+      {
+        "ruleId": "PyMethodMayBeStatic",
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "main.py",
+        "pin": "needs-pinning",
+        "guards": [],
+        "reason": "STARTING-GUESS id: `Greeter.shout` never uses `self`, so a may-be-static inspection must report; pin the exact id from a CI control run and confirm it is in the Ultimate PyCharm Pro profile."
+      }
+    ]
+  },
+  "log": {
+    "mustNotContain": [
+      { "text": "Problems found loading plugins:", "guards": [] }
+    ]
+  }
+}

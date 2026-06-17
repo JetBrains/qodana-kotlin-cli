@@ -66,6 +66,17 @@ services:
         tooling: build/install/image-tool
     platform: linux/amd64
     image: qodana-python-community:dev
+  qodana-python:
+    build:
+      context: docker
+      dockerfile: images/qodana-python.dockerfile
+      args:
+        CLI_SOURCE: release
+        CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+      additional_contexts:
+        tooling: build/install/image-tool
+    platform: linux/amd64
+    image: qodana-python:dev
   qodana-clang:
     build:
       context: docker
