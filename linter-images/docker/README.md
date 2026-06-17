@@ -14,7 +14,7 @@ includes in composition order.
 | `lib/` include      | concern                                                                                        | used by                  |
 | ------------------- | ---------------------------------------------------------------------------------------------- | ------------------------ |
 | `base`              | dhi.io hardened OS, `qodana` user, writable dirs, `QODANA_*` env, locale                       | all                      |
-| `toolchain/node`    | Node + Yarn for JS/TS analysis (in-place — no `FROM`, extends the current stage)               | jvm, android, python     |
+| `toolchain/node`    | Node + Yarn for JS/TS analysis (in-place — no `FROM`, extends the current stage)               | jvm, python              |
 | `toolchain/android` | Android SDK + Corretto                                                                         | android                  |
 | `toolchain/clang`   | clang/clang++/cmake (apt + LLVM repo)                                                          | clang                    |
 | `toolchain/conda`   | Miniconda3 (sha-pinned) + poetry + pipenv (pip, version-pinned)                                | python, python-community |
@@ -29,7 +29,7 @@ includes in composition order.
 Resolved stage lineage of the final image:
 
     qodana-jvm:              base → node → dist → cli → runtime
-    qodana-android:          base → node → android-toolchain → dist → cli → runtime   (dist FROMs android-toolchain via DIST_BASE_STAGE)
+    qodana-android:          base → android-toolchain → dist → cli → runtime   (dist FROMs android-toolchain via DIST_BASE_STAGE)
     qodana-python-community: base → conda-toolchain → dist → cli → runtime            (dist FROMs conda-toolchain via DIST_BASE_STAGE)
     qodana-python:           base → conda-toolchain(+node) → dist → cli → runtime      (node appends onto conda-toolchain; dist FROMs it via DIST_BASE_STAGE)
     qodana-clang:            base → clang-toolchain → privileged → tools → cli → runtime   (no dist; CLI_BASE_STAGE=tools)
