@@ -10,25 +10,31 @@ import kotlin.test.assertEquals
 import kotlin.test.fail
 
 /**
- * No-scan image smoke check for qodana-android (QD-1237 / QD-1317 / QD-4285).
+ * No-scan image smoke check for the android-family images (QD-1237 / QD-1317 / QD-4285 / QD-15034).
  *
- * Unlike [LinterE2eTest] this produces no SARIF: it execs a shell into `qodana-android:dev` and
- * asserts the image's Android SDK + Corretto provisioning is intact (ANDROID_HOME, sdkmanager,
- * platform-tools, Corretto 11 + 17). Different KIND of assertion (image filesystem invariants), so it
- * stays out of the manifest/SARIF pipeline and does not touch DockerRunPlanner / evaluator / manifest.
+ * Unlike [LinterE2eTest] this produces no SARIF: it execs a shell into the selected image's `:dev`
+ * tag and asserts the image's Android SDK + Corretto provisioning is intact (ANDROID_HOME,
+ * sdkmanager, platform-tools, Corretto 11 + 17). Different KIND of assertion (image filesystem
+ * invariants), so it stays out of the manifest/SARIF pipeline and does not touch DockerRunPlanner /
+ * evaluator / manifest.
  *
- * Routing mirrors [LinterE2eTest.discover] EXACTLY: a `@TestFactory` that returns an EMPTY stream
- * unless `-Dlinter.e2e.image == qodana-android`. So the qodana-jvm / qodana-clang cells emit ZERO
- * tests here — no JUnit "skipped/aborted" noise. (We deliberately avoid `assumeTrue`, which reports a
- * skip; an empty stream is the clean per-image routing.)
+ * Both `qodana-android` and `qodana-android-community` carry byte-identical provisioning (same
+ * `lib/toolchain/android.dockerfile`, same `ANDROID_SDK_*`/`CORRETTO*` `.env` values), so the
+ * assertions are shared and only the image tag under test varies.
+ *
+ * Routing mirrors [LinterE2eTest.discover]: a `@TestFactory` that returns an EMPTY stream unless
+ * `-Dlinter.e2e.image` names an android-family image. So the qodana-jvm / qodana-clang cells emit
+ * ZERO tests here — no JUnit "skipped/aborted" noise. (We deliberately avoid `assumeTrue`, which
+ * reports a skip; an empty stream is the clean per-image routing.)
  */
 @Tag("linter-e2e")
 class AndroidImageSmokeTest {
     @TestFactory
     fun androidImageSmoke(): Stream<DynamicNode> {
-        if (System.getProperty("linter.e2e.image") != IMAGE) return Stream.empty()
+        val image = System.getProperty("linter.e2e.image")
+        if (image !in ANDROID_IMAGES) return Stream.empty()
         return Stream.of(
-            DynamicTest.dynamicTest("$IMAGE image carries the SDK and Corretto layout") {
+            DynamicTest.dynamicTest("$image image carries the SDK and Corretto layout") {
                 requireDocker()
                 // Single `docker run` that asserts every invariant, printing which one failed.
                 // Exit 0 iff all hold; exit codes 11-15 make a CI failure self-identifying.
@@ -61,7 +67,7 @@ class AndroidImageSmokeTest {
                             "none",
                             "--entrypoint",
                             "bash",
-                            "$IMAGE:dev",
+                            "$image:dev",
                             "-c",
                             script,
                         ),
@@ -86,10 +92,12 @@ class AndroidImageSmokeTest {
     }
 
     private companion object {
-        const val IMAGE = "qodana-android"
+        // Android-family images: both consume the same lib/toolchain/android.dockerfile with identical
+        // ANDROID_SDK_*/CORRETTO* args, so the filesystem invariants below hold for either.
+        val ANDROID_IMAGES = setOf("qodana-android", "qodana-android-community")
 
-        // CONFIRMED from linter-images/docker/images/qodana-android.dockerfile +
-        // lib/toolchain/android.dockerfile (QD-1237 / QD-1317 / QD-4285).
+        // CONFIRMED from linter-images/docker/images/qodana-android{,-community}.dockerfile +
+        // lib/toolchain/android.dockerfile (QD-1237 / QD-1317 / QD-4285 / QD-15034).
         const val ANDROID_HOME = "/opt/android-sdk"
         const val CORRETTO11 = "/opt/java/corretto11"
         const val CORRETTO17 = "/opt/java/corretto17"
