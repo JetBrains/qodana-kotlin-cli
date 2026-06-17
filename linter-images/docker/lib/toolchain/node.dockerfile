@@ -1,5 +1,7 @@
-# toolchain/node — Node (NodeSource, NODE_MAJOR-pinned) + Yarn via corepack. jvm-only.
-# Consumes: NODE_MAJOR.  Layers onto the `base` stage.
+# toolchain/node — Node (NodeSource, NODE_MAJOR-pinned) + Yarn via corepack.
+# In-place (no `FROM`): layers onto the current stage — `base` for jvm, `conda-toolchain` for python.
+# Used by jvm + python (later go/php/ruby/dotnet); not android.
+# Consumes: NODE_MAJOR.
 ARG NODE_MAJOR
 
 # DL4006 is satisfied: set -eux + the heredoc body run under /bin/sh -e.
