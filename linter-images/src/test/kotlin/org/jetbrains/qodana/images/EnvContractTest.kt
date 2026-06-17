@@ -9,9 +9,9 @@ import kotlin.io.path.readText
 /**
  * Per-slug `.env` contract guard (plan Phase 4.4).
  *
- * Covers all three slugs: jvm, android, clang. The clang `.env` carries NO IDE-dist/feed keys
- * (clang has no dist) and pins clang-tidy via CLANG_TIDY_VERSION + CLANG_TIDY_MIRROR, both asserted
- * byte-identical to phase-0-decisions.md.
+ * Covers every authored slug: jvm, jvm-community, android, android-community, clang. The clang
+ * `.env` carries NO IDE-dist/feed keys (clang has no dist) and pins clang-tidy via CLANG_TIDY_VERSION
+ * + CLANG_TIDY_MIRROR, both asserted byte-identical to phase-0-decisions.md.
  *
  * Android carries DIST_BASE_STAGE (beyond the plan's verbatim key set): the dist orphan-fix
  * parameterizes `FROM ${DIST_BASE_STAGE:-base} AS dist`, and android sets it to android-toolchain so
@@ -24,7 +24,8 @@ class EnvContractTest {
     private val decisions: Path = Path.of("docs/phase-0-decisions.md")
 
     /** Slugs whose `.env` are authored. */
-    private val authoredSlugs = listOf("qodana-jvm", "qodana-jvm-community", "qodana-android", "qodana-clang")
+    private val authoredSlugs =
+        listOf("qodana-jvm", "qodana-jvm-community", "qodana-android", "qodana-android-community", "qodana-clang")
 
     private fun parseEnv(slug: String): Map<String, String> {
         // Build the map by hand so a duplicate key fails LOUDLY: `associate` would silently keep the
@@ -151,6 +152,33 @@ class EnvContractTest {
     }
 
     @Test
+    fun `qodana-android-community env has exactly the android key set and no node`() {
+        // Community twin of qodana-android: SAME key set as android (DIST_BASE_STAGE + SDK/Corretto
+        // toolchain, no NODE_MAJOR), differing only in slug/product-info/base values. Asserting an
+        // identical key set keeps the two android images' contracts in lockstep, exactly as
+        // jvm-community mirrors jvm.
+        val community = parseEnv("qodana-android-community")
+        assertEquals(
+            parseEnv("qodana-android").keys,
+            community.keys,
+            "android-community must share android's exact key set",
+        )
+        assertTrue("NODE_MAJOR" !in community, "android-community must not set NODE_MAJOR (no node toolchain)")
+        assertTrue("QD_CHANNEL" !in community, "QD_CHANNEL was removed by the foundation refactor")
+        assertTrue(
+            "QD_DISTRIBUTION_FEED" !in community,
+            "android-community uses the public feed (dockerfile default), so it must omit QD_DISTRIBUTION_FEED",
+        )
+        assertEquals("amd64", community["CLI_ARCH"], "android-community is amd64-only")
+        assertEquals(
+            "android-toolchain",
+            community["DIST_BASE_STAGE"],
+            "android-community dist layers onto the SDK stage",
+        )
+        assertEquals("IC", community["QD_PRODUCT_INFO_CODE"], "android-community product-info code is IC (Community)")
+    }
+
+    @Test
     fun `qodana-clang env has exactly the clang key set and no dist keys`() {
         // Clang has NO IDE dist (no provision-dist): it pins clang-tidy via the qodana-cli-deps mirror.
         // CLI_BASE_STAGE=tools is a build ARG the compose clang service passes, NOT an `.env` key.
@@ -188,6 +216,54 @@ class EnvContractTest {
         assertEquals(jvm["QD_PRODUCT_INFO_CODE"], android["QD_PRODUCT_INFO_CODE"])
         assertEquals(jvm["QD_BASE_IMAGE"], android["QD_BASE_IMAGE"])
         assertEquals("IU", android["QD_PRODUCT_INFO_CODE"])
+    }
+
+    @Test
+    fun `android-community reuses the qodana-jvm-community dist slug and shares pins`() {
+        // Community twin of `android reuses the qodana-jvm dist`: android-community shares the
+        // jvm-community Community dist exactly as android shares the jvm Ultimate dist.
+        val community = parseEnv("qodana-jvm-community")
+        val android = parseEnv("qodana-android-community")
+        assertEquals(
+            "qodana-jvm-community",
+            android["QD_LINTER_SLUG"],
+            "android-community reuses the qodana-jvm-community dist",
+        )
+        assertEquals(community["QD_VERSION"], android["QD_VERSION"])
+        assertEquals(community["QD_BUILD"], android["QD_BUILD"])
+        assertEquals(community["QD_PRODUCT_INFO_CODE"], android["QD_PRODUCT_INFO_CODE"])
+        assertEquals(community["QD_BASE_IMAGE"], android["QD_BASE_IMAGE"])
+        assertEquals("IC", android["QD_PRODUCT_INFO_CODE"])
+    }
+
+    @Test
+    fun `android-community pins match phase-0-decisions`() {
+        val d = decisions.readText()
+
+        fun pin(k: String) =
+            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
+                ?: error("$k not recorded in $decisions")
+        val android = parseEnv("qodana-android-community")
+        assertEquals(
+            pin("QD_TRIXIE_BASE_IMAGE"),
+            android["QD_BASE_IMAGE"],
+            "android-community base digest must match the shared trixie pin in phase-0-decisions",
+        )
+        assertEquals(
+            pin("QODANA_JVM_COMMUNITY_VERSION"),
+            android["QD_VERSION"],
+            "android-community major must match the Community JVM dist pin in phase-0-decisions",
+        )
+        assertEquals(
+            pin("QODANA_JVM_COMMUNITY_BUILD"),
+            android["QD_BUILD"],
+            "android-community build pin must match the Community JVM dist pin in phase-0-decisions",
+        )
+        assertEquals(
+            pin("QODANA_JVM_COMMUNITY_PRODUCT_INFO_CODE"),
+            android["QD_PRODUCT_INFO_CODE"],
+            "android-community product-info code must match the Community JVM dist pin in phase-0-decisions",
+        )
     }
 
     @Test

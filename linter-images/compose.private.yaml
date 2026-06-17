@@ -26,6 +26,10 @@ services:
     build:
       secrets:
         - feed_token
+  qodana-android-community:
+    build:
+      secrets:
+        - feed_token
   qodana-clang:
     build:
       secrets:
