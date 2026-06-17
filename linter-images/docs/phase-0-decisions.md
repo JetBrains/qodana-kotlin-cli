@@ -232,3 +232,114 @@ artifact code, not the product-info code.
 
 QODANA_JVM_COMMUNITY_PRODUCT_INFO_CODE = IC
 QODANA_JVM_COMMUNITY_FEED_CODE = QDJVMC
+
+## Python dist (qodana-python — Ultimate)
+
+Resolved 2026-06-17 from `download.jetbrains.com/qodana/feed/qodana-python.releases.json`
+(max-by-Date among `Type==release`). Unlike the JVM pins (forced to engine major
+`2025.3`), each Python image tracks ITS OWN newest release, mirroring the existing
+per-image fleet: the current newest `release` is the 2026.1 line (`261.25883`).
+Top-level feed `Code` is `QDPY`. The feed is the PUBLIC feed (`/qodana/feed`, no
+token): qodana-python is a released linter, so the image's `.env` OMITS
+`QD_DISTRIBUTION_FEED` and relies on the public default. Keys are named to match
+`BumpPinsCommand.syncDecisions` (slug `qodana-python` → `QODANA_PYTHON_BUILD`);
+`EnvContractTest` asserts byte-identity against the Phase-4 `.env`'s `QD_VERSION`
+(MajorVersion `2026.1`) and `QD_BUILD` (`261.25883`). The download Link embeds an
+extra build segment (`...-261.25883.162.tar.gz`); use the feed's Link VERBATIM —
+do not reconstruct it from `Build`.
+
+QODANA_PYTHON_VERSION = 2026.1
+QODANA_PYTHON_BUILD = 261.25883
+
+Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+
+QODANA_PYTHON_FULL_VERSION = 2026.1.4
+
+Download links (verbatim from the feed):
+
+QODANA_PYTHON_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDPY-261.25883.162.tar.gz
+QODANA_PYTHON_LINUX_ARM64_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDPY-261.25883.162-aarch64.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link return HTTP 200 (probed live 2026-06-17,
+following CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the
+`.sha256.asc` detached GPG signature (`ChecksumLink + ".asc"`).
+
+QODANA_PYTHON_LINUX_SHA256_SIBLING = 200
+QODANA_PYTHON_LINUX_ASC_SIBLING = 200
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`PY` (PyCharm Professional). Verified, not assumed: qodana-cli's
+`internal/platform/product/intelllij_linters.go:72` declares
+`PythonLinterProperties.ProductInfoJsonCode = "PY"` — this is the `productCode`
+inside the dist's `product-info.json` that `verify-dist-layout` checks. The feed
+`Code` `QDPY` (`public.json` `python.qd_code`) is the distinct feed artifact code,
+not the product-info code.
+
+QODANA_PYTHON_PRODUCT_INFO_CODE = PY
+QODANA_PYTHON_FEED_CODE = QDPY
+
+## Python dist (qodana-python-community — Community)
+
+Resolved 2026-06-17 from `download.jetbrains.com/qodana/feed/qodana-python-community.releases.json`
+(max-by-Date among `Type==release`). Tracks its own newest release: the current
+newest `release` is the 2026.1 line (`261.25883`) — same engine line as Ultimate
+Python this cycle, but pinned independently, not force-matched. Top-level feed
+`Code` is `QDPYC`. The feed is the PUBLIC feed (`/qodana/feed`, no token):
+qodana-python-community is a released linter, so the image's `.env` OMITS
+`QD_DISTRIBUTION_FEED` and relies on the public default. Keys are named to match
+`BumpPinsCommand.syncDecisions` (slug `qodana-python-community` →
+`QODANA_PYTHON_COMMUNITY_BUILD`); `EnvContractTest` asserts byte-identity against
+the Phase-4 `.env`'s `QD_VERSION` (MajorVersion `2026.1`) and `QD_BUILD`
+(`261.25883`). The download Link embeds an extra build segment
+(`...-261.25883.161.tar.gz`); use the feed's Link VERBATIM — its `.161` differs
+from Ultimate Python's `.162`, so do not reconstruct it from `Build`.
+
+QODANA_PYTHON_COMMUNITY_VERSION = 2026.1
+QODANA_PYTHON_COMMUNITY_BUILD = 261.25883
+
+Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+
+QODANA_PYTHON_COMMUNITY_FULL_VERSION = 2026.1.4
+
+Download links (verbatim from the feed):
+
+QODANA_PYTHON_COMMUNITY_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDPYC-261.25883.161.tar.gz
+QODANA_PYTHON_COMMUNITY_LINUX_ARM64_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDPYC-261.25883.161-aarch64.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link return HTTP 200 (probed live 2026-06-17,
+following CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the
+`.sha256.asc` detached GPG signature (`ChecksumLink + ".asc"`).
+
+QODANA_PYTHON_COMMUNITY_LINUX_SHA256_SIBLING = 200
+QODANA_PYTHON_COMMUNITY_LINUX_ASC_SIBLING = 200
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`PC` (PyCharm Community), where `qodana-python` uses `PY` (Professional).
+Verified, not assumed: qodana-cli's
+`internal/platform/product/intelllij_linters.go:80` declares
+`PythonLinterCommunityProperties.ProductInfoJsonCode = "PC"` (vs
+`PythonLinterProperties = "PY"`) — this is the `productCode` inside the dist's
+`product-info.json` that `verify-dist-layout` checks. The feed `Code` `QDPYC`
+(`public.json` `python-community.qd_code`) is the distinct feed artifact code, not
+the product-info code.
+
+QODANA_PYTHON_COMMUNITY_PRODUCT_INFO_CODE = PC
+QODANA_PYTHON_COMMUNITY_FEED_CODE = QDPYC
+
+## Why `qdist` is not wired (deferred — QD-15062)
+
+The `QD_DISTRIBUTION_FEED` build arg selects which feed an image fetches its IDE
+dist from. It DEFAULTS to the public CDN (`download.jetbrains.com/qodana/feed`)
+and is intentionally NOT pointed at the internal `qdist` feed. qdist's `feed.json`
+`Link`s resolve to the VPN-only TeamCity build server
+(`buildserver.labs.intellij.net/.../.lastSuccessful/...`), which CI cannot reach;
+wiring it in would break the build on every CI runner. Released linters (jvm,
+jvm-community, python, python-community, …) ship from the public feed and OMIT
+`QD_DISTRIBUTION_FEED` entirely, so this is moot for them. Pointing the switch at
+qdist for unreleased/internal builds is tracked by followup QD-15062.
