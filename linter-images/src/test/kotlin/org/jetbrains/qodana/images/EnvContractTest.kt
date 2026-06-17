@@ -84,12 +84,6 @@ class EnvContractTest {
         )
         assertEquals("qodana-jvm-community", community["QD_LINTER_SLUG"], "jvm-community has its own dist slug")
         assertEquals("IC", community["QD_PRODUCT_INFO_CODE"], "jvm-community product-info code is IC (Community)")
-        assertEquals(
-            "dhi.io/debian-base:trixie-debian13@sha256:" +
-                "e440d0dabdc54675aa9601f0d794c39f549b6178946cfeffd3b5a31da33ec2d3",
-            community["QD_BASE_IMAGE"],
-            "jvm-community pins the plain trixie hardened base",
-        )
         assertEquals("amd64", community["CLI_ARCH"], "jvm-community is amd64-only")
     }
 
@@ -101,6 +95,11 @@ class EnvContractTest {
             Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
                 ?: error("$k not recorded in $decisions")
         val community = parseEnv("qodana-jvm-community")
+        assertEquals(
+            pin("QD_TRIXIE_BASE_IMAGE"),
+            community["QD_BASE_IMAGE"],
+            "jvm-community base digest must match the shared trixie pin in phase-0-decisions",
+        )
         assertEquals(
             pin("QODANA_JVM_COMMUNITY_VERSION"),
             community["QD_VERSION"],
