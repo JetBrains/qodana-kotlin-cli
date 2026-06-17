@@ -20,9 +20,7 @@ object CdnetOptions {
         val sarifPath = context.paths.resultsDir.resolve("qodana.sarif.json")
 
         return buildList {
-            add("dotnet")
-            add(cltPath.toString())
-            add("inspectcode")
+            add(cltPath.toString()) // the inspectcode launcher (PATH name or abs path)
             add(target)
             add("-o=\"$sarifPath\"")
             add("-f=\"Qodana\"")

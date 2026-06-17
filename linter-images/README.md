@@ -1,6 +1,6 @@
 # linter-images
 
-Build system for Qodana linter images (`qodana-jvm`, `qodana-android`, `qodana-clang`). One source of
+Build system for Qodana linter images (`qodana-jvm`, `qodana-android`, `qodana-clang`, `qodana-cdnet`). One source of
 truth per image: a thin `docker/images/<slug>.dockerfile` + `<slug>.env`, composed from shared
 `docker/lib/` includes via [dockerfile-x](https://github.com/devthefuture-org/dockerfile-x).
 
@@ -32,6 +32,12 @@ qodana-cli-deps mirror, so the build mounts a `QODANA_CLI_DEPS_TOKEN` (a JB Spac
 it cannot build from the bare `compose.yaml`. clang has no IDE dist, so it does NOT need `QD_FEED_TOKEN`:
 
     QODANA_CLI_DEPS_TOKEN=<bearer-token> docker compose -f compose.yaml -f compose.private.yaml build qodana-clang
+
+`qodana-cdnet` needs the private overlay for the same reason: its ReSharper CLT (InspectCode) archive
+comes from the private qodana-cli-deps mirror, so the build mounts the shared `QODANA_CLI_DEPS_TOKEN`
+secret. Like clang it has no IDE dist, so it does NOT need `QD_FEED_TOKEN`:
+
+    QODANA_CLI_DEPS_TOKEN=<bearer-token> docker compose -f compose.yaml -f compose.private.yaml build qodana-cdnet
 
 ## Build from this tree (CI path)
 

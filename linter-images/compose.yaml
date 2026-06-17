@@ -47,3 +47,18 @@ services:
         tooling: build/install/image-tool
     platform: linux/amd64
     image: qodana-clang:dev
+  qodana-cdnet:
+    build:
+      context: docker
+      dockerfile: images/qodana-cdnet.dockerfile
+      args:
+        CLI_SOURCE: release
+        CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+        # cdnet has NO dist stage: the inner CLI layers onto `tools` (the CLT), not `dist`. And its
+        # privileged layer sits on the .NET toolchain, not clang's. Both are build ARGs, not .env keys.
+        CLI_BASE_STAGE: tools
+        PRIVILEGED_BASE_STAGE: dotnet-toolchain
+      additional_contexts:
+        tooling: build/install/image-tool
+    platform: linux/amd64
+    image: qodana-cdnet:dev

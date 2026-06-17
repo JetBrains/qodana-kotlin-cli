@@ -4,7 +4,9 @@ Single source of truth for every build ARG / runtime ENV the thin images pass to
 Every `images/<slug>.env` MUST set exactly the keys its INCLUDEs consume — no undefined args, no
 extras. The Phase-4 validation test (`EnvContractTest`) asserts each `.env` against this table.
 
-This table lists the `.env` keys `EnvContractTest` asserts. (Build ARGs with include-side defaults — `QD_DISTRIBUTION_FEED` (public feed; private images override it on the build command), `QD_DIST`, `QD_GPG_FINGERPRINT` via `$(cat .fpr)`, `CLI_SOURCE`, `CLI_BASE_STAGE`, `CLANG_TIDY_SHA256`, `CLANG_TIDY_TOOLS_DIR`, `JDK_BUILDER_IMAGE` — are NOT `.env` keys; see the Phase-2b/3 "ARG/ENV contract" table for those.)
+This table lists the `.env` keys `EnvContractTest` asserts. (Build ARGs with include-side defaults — `QD_DISTRIBUTION_FEED` (public feed; private images override it on the build command), `QD_DIST`, `QD_GPG_FINGERPRINT` via `$(cat .fpr)`, `CLI_SOURCE`, `CLI_BASE_STAGE`, `PRIVILEGED_BASE_STAGE`, `CLANG_TIDY_SHA256`, `CLANG_TIDY_TOOLS_DIR`, `CLT_SHA256`, `JDK_BUILDER_IMAGE` — are NOT `.env` keys; see the Phase-2b/3 "ARG/ENV contract" table for those.)
+
+`CLI_BASE_STAGE` and `PRIVILEGED_BASE_STAGE` are stage selectors the compose service passes, NOT `.env` keys. `CLI_BASE_STAGE` picks the stage `lib/cli.dockerfile` FROMs (clang/cdnet set `tools`, which has no dist). `PRIVILEGED_BASE_STAGE` picks the stage `lib/privileged.dockerfile` FROMs: cdnet sets `dotnet-toolchain`; everyone else relies on the `clang-toolchain` global default in `lib/base.dockerfile`.
 
 | `.env` Key             | Consumed by include                                     | Source                   | Notes                                                                                |
 | ---------------------- | ------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------ |
@@ -29,6 +31,8 @@ This table lists the `.env` keys `EnvContractTest` asserts. (Build ARGs with inc
 | `CLANG_OS`             | `lib/toolchain/clang.dockerfile`                        | clang-versions.txt       | debian codename for the clang major; CI matrix overrides (clang only)                |
 | `CLANG_TIDY_VERSION`   | `lib/tools.dockerfile`                                  | phase-0-decisions.md     | clang-tidy pin (clang only)                                                          |
 | `CLANG_TIDY_MIRROR`    | `lib/tools.dockerfile`                                  | phase-0-decisions.md     | qodana-cli-deps Space mirror base URL (clang only)                                   |
+| `CLT_VERSION`          | `lib/resharper-clt.dockerfile`                          | phase-0-decisions.md     | ReSharper CLT (InspectCode) pin (cdnet only)                                         |
+| `CLT_MIRROR`           | `lib/resharper-clt.dockerfile`                          | phase-0-decisions.md     | qodana-cli-deps Space mirror base URL (cdnet only)                                   |
 | `TINI_VERSION`         | `lib/runtime.dockerfile`                                | phase-0-decisions.md     | PID-1 init                                                                           |
 | `TINI_ARCH`            | `lib/runtime.dockerfile`                                | per-linter               | `amd64` \| `arm64` (matches `CLI_ARCH`); fetch is `tini-${TINI_ARCH}`                |
 | `TINI_SHA256`          | `lib/runtime.dockerfile`                                | phase-0-decisions.md     | `ADD --checksum` guard for `tini-${TINI_ARCH}`                                       |

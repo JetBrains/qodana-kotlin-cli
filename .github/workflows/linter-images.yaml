@@ -55,6 +55,9 @@ jobs:
           - name: qodana-clang
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "true"
+          - name: qodana-cdnet
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
     env:
       # QODANA_CLI_DEPS_TOKEN is surfaced as `env.*` so the clang gating `if:` can reference it
       # (`secrets.*` is not addressable in a step-level `if:`). QODANA_TOKEN feeds the harness's
@@ -111,26 +114,27 @@ jobs:
         # asserts SARIF content + exit code + log gate. Missing/unparseable SARIF or Docker-down → loud.
         run: ./gradlew :linter-images:linterE2eTest -Dlinter.e2e.image=${{ matrix.image.name }}
 
-      # --- Token-gated image (clang): identical flow, but build + e2e require the mirror token. --------
-      - name: Stage from-tree contexts (cli + image-tool + clang binary)
+      # --- Token-gated images (clang, cdnet): identical flow, but build + e2e require the mirror token. -
+      - name: Stage from-tree contexts (cli + image-tool + ${{ matrix.image.name }} binary)
         if: ${{ matrix.image.token_gated == 'true' && env.QODANA_CLI_DEPS_TOKEN != '' }}
         run: |
           set -euo pipefail
           ./gradlew \
             :qodana-cli:assembleRelease -PtargetOs=linux -PtargetArch=amd64 -Pquick=true \
-            :qodana-clang:assembleRelease -PtargetOs=linux -PtargetArch=amd64 -Pquick=true \
+            :${{ matrix.image.name }}:assembleRelease -PtargetOs=linux -PtargetArch=amd64 -Pquick=true \
             :linter-images:installDist
           test -x qodana-cli/build/release-staging/qodana
-          # clang's inner CLI is qodana-clang (Tool kind: a raw binary qodana-clang_<version>_linux_amd64,
-          # NOT staged). Place it at release-staging/qodana-clang so /cli-src/qodana-clang resolves.
+          # The token-gated images' inner CLI is a Tool-kind raw binary <module>_<version>_linux_amd64
+          # (NOT staged). Place it at release-staging/<module> so /cli-src/<module> resolves. Parameterized
+          # on matrix.image.name so each token-gated cell (clang, cdnet) stages ITS own binary.
           shopt -s nullglob
-          tool_binaries=(qodana-clang/build/release/qodana-clang_*_linux_amd64)
+          tool_binaries=(${{ matrix.image.name }}/build/release/${{ matrix.image.name }}_*_linux_amd64)
           if [ "${#tool_binaries[@]}" -ne 1 ]; then
-            echo "::error::expected exactly one qodana-clang tool binary, found ${#tool_binaries[@]}: ${tool_binaries[*]:-<none>}"
+            echo "::error::expected exactly one ${{ matrix.image.name }} tool binary, found ${#tool_binaries[@]}: ${tool_binaries[*]:-<none>}"
             exit 1
           fi
-          cp "${tool_binaries[0]}" qodana-cli/build/release-staging/qodana-clang
-          chmod 0755 qodana-cli/build/release-staging/qodana-clang
+          cp "${tool_binaries[0]}" "qodana-cli/build/release-staging/${{ matrix.image.name }}"
+          chmod 0755 "qodana-cli/build/release-staging/${{ matrix.image.name }}"
       - name: Build ${{ matrix.image.name }} (token-gated clang-tidy mirror)
         # clang's clang-tidy comes from the PRIVATE qodana-cli-deps mirror, so its build REQUIRES the
         # token (lib/tools.dockerfile mounts the secret required=true). On a fork PR the secret is

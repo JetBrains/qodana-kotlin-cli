@@ -33,6 +33,14 @@
     },
     {
       "customType": "regex",
+      "description": "Track CLT_VERSION (qodana-cli-deps resharper-clt package tag) in the cdnet .env (QD-15021). Token-gated versions.json datasource is custom.qodana-cli-deps; inert until the mirror cdnet->resharper-clt rename lands.",
+      "managerFilePatterns": ["linter-images/docker/images/qodana-cdnet.env"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+CLT_VERSION=(?<currentValue>\\S+)"
+      ]
+    },
+    {
+      "customType": "regex",
       "description": "Track the stock GraalVM CE pinned in setup-native-build (QD-14917).",
       "managerFilePatterns": [".github/actions/setup-native-build/action.yaml"],
       "matchStrings": [
@@ -90,11 +98,12 @@
       "versioning": "semver"
     },
     {
-      "description": "clang-tidy bumps need a manual CLANG_TIDY_SHA256 refresh (the build verifies the archive), so do not automerge; the PR carries the refresh instructions.",
+      "description": "qodana-cli-deps bumps (clang-tidy, resharper-clt) need a manual SHA256 refresh (the build verifies the archive), so do not automerge; the PR carries the refresh instructions.",
       "matchDatasources": ["custom.qodana-cli-deps"],
       "automerge": false,
       "prBodyNotes": [
-        "After merge, refresh CLANG_TIDY_SHA256 for the build: download `clang-tidy-linux-amd64.tar.gz` from the qodana-cli-deps mirror at the new tag (with QODANA_CLI_DEPS_TOKEN) and update the sha256 the clang image build verifies."
+        "clang-tidy: refresh CLANG_TIDY_SHA256 (the `ARG` default in `lib/tools.dockerfile`) — download `clang-tidy-linux-amd64.tar.gz` from the qodana-cli-deps mirror at the new tag (with QODANA_CLI_DEPS_TOKEN) and update the sha256 the clang image build verifies.",
+        "resharper-clt: refresh CLT_SHA256 (the `ARG` default in `lib/resharper-clt.dockerfile`) — download `clt.zip` from the qodana-cli-deps mirror at the new tag (with QODANA_CLI_DEPS_TOKEN) and update the sha256 the cdnet image build verifies."
       ]
     }
   ]
