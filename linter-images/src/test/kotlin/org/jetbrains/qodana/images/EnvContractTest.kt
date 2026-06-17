@@ -24,7 +24,7 @@ class EnvContractTest {
     private val decisions: Path = Path.of("docs/phase-0-decisions.md")
 
     /** Slugs whose `.env` are authored. */
-    private val authoredSlugs = listOf("qodana-jvm", "qodana-android", "qodana-clang")
+    private val authoredSlugs = listOf("qodana-jvm", "qodana-android", "qodana-clang", "qodana-cdnet")
 
     private fun parseEnv(slug: String): Map<String, String> {
         // Build the map by hand so a duplicate key fails LOUDLY: `associate` would silently keep the
@@ -130,6 +130,46 @@ class EnvContractTest {
         }
         assertEquals("qodana-clang", env["CLI_BINARY"], "clang's inner CLI is qodana-clang")
         assertEquals("amd64", env["CLI_ARCH"], "clang is amd64-only")
+    }
+
+    @Test
+    fun `qodana-cdnet env has exactly the cdnet key set and no dist keys`() {
+        // cdnet has NO IDE dist (no provision-dist): feed-less, like clang. It pins the ReSharper CLT
+        // via CLT_VERSION + CLT_MIRROR. CLI_BASE_STAGE=tools + PRIVILEGED_BASE_STAGE=dotnet-toolchain
+        // are build ARGs the compose service passes, NOT .env keys.
+        val env = parseEnv("qodana-cdnet")
+        val expected =
+            setOf(
+                "QD_BASE_IMAGE",
+                "CLI_BINARY",
+                "CLI_VERSION",
+                "CLI_OS",
+                "CLI_ARCH",
+                "CLT_VERSION",
+                "CLT_MIRROR",
+                "TINI_VERSION",
+                "TINI_ARCH",
+                "TINI_SHA256",
+            )
+        assertEquals(expected, env.keys)
+        for (distKey in listOf("QD_LINTER_SLUG", "QD_VERSION", "QD_BUILD", "QD_PRODUCT_INFO_CODE")) {
+            assertTrue(distKey !in env, "cdnet has no IDE dist, must not set $distKey")
+        }
+        assertEquals("qodana-cdnet", env["CLI_BINARY"], "cdnet's inner CLI is qodana-cdnet")
+        assertEquals("amd64", env["CLI_ARCH"], "cdnet is amd64-only")
+    }
+
+    @Test
+    fun `cdnet pins match phase-0-decisions`() {
+        val d = decisions.readText()
+
+        fun pin(k: String) =
+            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
+                ?: error("$k not recorded in $decisions")
+        val cdnet = parseEnv("qodana-cdnet")
+        assertEquals(pin("QD_BASE_IMAGE"), cdnet["QD_BASE_IMAGE"], "cdnet base digest must match phase-0-decisions")
+        assertEquals(pin("CLT_VERSION"), cdnet["CLT_VERSION"], "CLT pin must match phase-0-decisions")
+        assertEquals(pin("CLT_MIRROR"), cdnet["CLT_MIRROR"], "CLT mirror must match phase-0-decisions")
     }
 
     @Test

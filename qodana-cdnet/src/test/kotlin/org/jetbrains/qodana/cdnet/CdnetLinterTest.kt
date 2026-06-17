@@ -14,6 +14,7 @@ import org.jetbrains.qodana.core.port.RunningProcess
 import org.jetbrains.qodana.core.port.Terminal
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.assertEquals
@@ -123,67 +124,80 @@ class CdnetLinterTest {
         }
 
     @Test
-    fun `mountTools finds DLL directly`(
+    fun `mountTools resolves inspectcode on PATH when present`(
         @TempDir toolsDir: Path,
     ) {
-        val dllPath = toolsDir.resolve("tools").resolve("JetBrains.InspectCode.dll")
-        Files.createDirectories(dllPath.parent)
-        Files.createFile(dllPath)
+        val onPath = Path.of("/opt/qodana-cdnet/bin/inspectcode")
+        val linter =
+            CdnetLinter(fakeProcessRunner, fakeFileSystem(), fakeTerminal, pathLookup = { name ->
+                if (name == "inspectcode") onPath else null
+            })
 
-        // First walk call (for **/*InspectCode*.dll) returns the DLL
-        val fs = fakeFileSystem(walkResults = mutableListOf(listOf(dllPath)))
-
-        val linter = CdnetLinter(fakeProcessRunner, fs, fakeTerminal)
         val result = linter.mountTools(toolsDir)
 
-        assertEquals(dllPath, result["clt"])
+        assertEquals(onPath, result["clt"])
     }
 
     @Test
-    fun `mountTools extracts archive then finds DLL`(
+    fun `mountTools extracts clt zip and finds the launcher when not on PATH`(
         @TempDir toolsDir: Path,
     ) {
-        // Create the archive file so Files.exists returns true
-        val archivePath = toolsDir.resolve("clt.zip")
-        Files.createFile(archivePath)
+        val archive = toolsDir.resolve("clt.zip")
+        Files.createFile(archive)
+        val launcher =
+            toolsDir
+                .resolve("tools")
+                .resolve("net8.0")
+                .resolve("any")
+                .resolve("inspectcode.sh")
 
-        val dllPath = toolsDir.resolve("tools").resolve("JetBrains.InspectCode.dll")
-
-        // First two walk calls (before extraction) return empty.
-        // After extraction, the next walk call returns the DLL.
         val fs =
             fakeFileSystem(
                 walkResults =
                     mutableListOf(
-                        emptyList(), // first findInspectCodeDll: **/*InspectCode*.dll
-                        emptyList(), // first findInspectCodeDll: **/inspectcode*
-                        listOf(dllPath), // second findInspectCodeDll: **/*InspectCode*.dll
+                        emptyList(), // pre-extract: **/inspectcode.sh
+                        emptyList(), // pre-extract: **/inspectcode
+                        listOf(launcher), // post-extract: **/inspectcode.sh
                     ),
                 onExtractArchive = { _, target ->
-                    Files.createDirectories(target.resolve("tools"))
-                    Files.createFile(target.resolve("tools").resolve("JetBrains.InspectCode.dll"))
+                    Files.createDirectories(launcher.parent)
+                    Files.createFile(launcher)
                 },
             )
+        val linter = CdnetLinter(fakeProcessRunner, fs, fakeTerminal, pathLookup = { null })
 
-        val linter = CdnetLinter(fakeProcessRunner, fs, fakeTerminal)
         val result = linter.mountTools(toolsDir)
 
-        assertEquals(dllPath, result["clt"])
+        assertEquals(launcher, result["clt"])
+        assertTrue(Files.isExecutable(result["clt"]!!), "cache-resolved launcher must be executable")
     }
 
     @Test
-    fun `mountTools throws when DLL not found`(
+    fun `mountTools finds an already-extracted launcher in the cache`(
         @TempDir toolsDir: Path,
     ) {
-        // No archive, walk always returns empty
-        val fs = fakeFileSystem()
+        val launcher =
+            toolsDir
+                .resolve("tools")
+                .resolve("net8.0")
+                .resolve("any")
+                .resolve("inspectcode.sh")
+        val fs = fakeFileSystem(walkResults = mutableListOf(listOf(launcher)))
+        val linter = CdnetLinter(fakeProcessRunner, fs, fakeTerminal, pathLookup = { null })
 
-        val linter = CdnetLinter(fakeProcessRunner, fs, fakeTerminal)
+        val result = linter.mountTools(toolsDir)
 
-        val ex =
-            assertFailsWith<IllegalStateException> {
-                linter.mountTools(toolsDir)
-            }
+        assertEquals(launcher, result["clt"])
+    }
+
+    @Test
+    fun `mountTools throws when not on PATH and no cache archive`(
+        @TempDir toolsDir: Path,
+    ) {
+        val fs = fakeFileSystem() // walk returns empty, no archive
+        val linter = CdnetLinter(fakeProcessRunner, fs, fakeTerminal, pathLookup = { null })
+
+        val ex = assertFailsWith<IllegalStateException> { linter.mountTools(toolsDir) }
         assertTrue(ex.message!!.contains("ReSharper CLT not found"))
     }
 
@@ -227,9 +241,7 @@ class CdnetLinterTest {
 
         assertTrue(capturedSpecs.isNotEmpty(), "processRunner.run should have been called")
         val spec = capturedSpecs.first()
-        assertEquals("dotnet", spec.command)
-        assertTrue(spec.args.contains(cltPath.toString()))
-        assertTrue(spec.args.contains("inspectcode"))
+        assertEquals(cltPath.toString(), spec.command)
         assertTrue(spec.args.contains("App.sln"))
         assertEquals(paths.projectDir, spec.workDir)
         assertEquals(
@@ -241,5 +253,23 @@ class CdnetLinterTest {
             ),
             spec.env,
         )
+    }
+
+    @Test
+    fun `resolveOnSystemPath skips a same-named directory and picks the executable file`(
+        @TempDir tmp: Path,
+    ) {
+        val dirEntry = tmp.resolve("a")
+        val fileEntry = tmp.resolve("b")
+        Files.createDirectories(dirEntry.resolve("inspectcode")) // a directory named inspectcode
+        val exe = fileEntry.resolve("inspectcode")
+        Files.createDirectories(fileEntry)
+        Files.createFile(exe)
+        exe.toFile().setExecutable(true)
+
+        val resolved =
+            resolveOnSystemPath("inspectcode", pathEnv = "$dirEntry${File.pathSeparatorChar}$fileEntry")
+
+        assertEquals(exe, resolved)
     }
 }

@@ -94,7 +94,7 @@ class CdnetOptionsTest {
     // --- computeArgs tests ---
 
     @Test
-    fun `basic args with solution contain dotnet inspectcode and solution path`() {
+    fun `basic args invoke the clt launcher with the solution path`() {
         val cltPath = Path.of("/tools/jb/inspectcode.dll")
         val ctx =
             context(
@@ -103,10 +103,10 @@ class CdnetOptionsTest {
             )
         val args = CdnetOptions.computeArgs(ctx)
 
-        assertEquals("dotnet", args[0])
-        assertEquals(cltPath.toString(), args[1])
-        assertEquals("inspectcode", args[2])
-        assertEquals("My.sln", args[3])
+        assertEquals(ctx.customTools["clt"].toString(), args[0])
+        assertEquals("My.sln", args[1])
+        assertTrue("dotnet" !in args)
+        assertTrue("inspectcode" !in args)
     }
 
     @Test

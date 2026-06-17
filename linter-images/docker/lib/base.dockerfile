@@ -7,6 +7,7 @@
 # build ARGs, NOT .env keys; override per build (e.g. compose CLI_BASE_STAGE=tools for clang).
 ARG JDK_BUILDER_IMAGE=eclipse-temurin:25-jdk@sha256:edb3aa0f621796d8f5f9d602c7611ffdf015cd89e6ddda1894d85a3a99d170a8
 ARG CLI_BASE_STAGE=dist
+ARG PRIVILEGED_BASE_STAGE=clang-toolchain
 ARG QD_BASE_IMAGE
 FROM ${QD_BASE_IMAGE} AS base
 ARG QD_DIST=/opt/idea

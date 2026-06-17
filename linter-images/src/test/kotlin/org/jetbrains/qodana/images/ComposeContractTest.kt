@@ -14,7 +14,7 @@ class ComposeContractTest {
 
     private fun load(name: String): JsonNode = mapper.readTree(Path.of(name).readText())
 
-    private val slugs = listOf("qodana-jvm", "qodana-android", "qodana-clang")
+    private val slugs = listOf("qodana-jvm", "qodana-android", "qodana-clang", "qodana-cdnet")
 
     @Test
     fun `compose defines a service per linter with docker context, tooling context, release source, dev tag`() {
@@ -69,37 +69,58 @@ class ComposeContractTest {
 
     @Test
     fun `clang layers the inner CLI onto the tools stage (no dist), via a compose build arg`() {
-        // Clang has NO dist stage: base.dockerfile defaults CLI_BASE_STAGE=dist, so the clang service
-        // MUST override it to `tools` (a build ARG, not an .env key) or the cli stage's `FROM
+        // Clang/cdnet have NO dist stage: base.dockerfile defaults CLI_BASE_STAGE=dist, so they MUST
+        // override it to `tools` (a build ARG, not an .env key) or the cli stage's `FROM
         // ${CLI_BASE_STAGE}` resolves to a non-existent `dist` stage and the build breaks.
-        val clang = load("compose.yaml")["services"]["qodana-clang"]["build"]
-        assertEquals("tools", clang["args"]["CLI_BASE_STAGE"].asText(), "clang must build CLI onto the tools stage")
+        val root = load("compose.yaml")["services"]
+        for (slug in listOf("qodana-clang", "qodana-cdnet")) {
+            val args = root[slug]["build"]["args"]
+            assertEquals("tools", args["CLI_BASE_STAGE"].asText(), "$slug must build CLI onto the tools stage")
+        }
         // jvm/android have a dist stage; they must NOT override CLI_BASE_STAGE (it stays the `dist` default).
         for (slug in listOf("qodana-jvm", "qodana-android")) {
-            val args = load("compose.yaml")["services"][slug]["build"]["args"]
+            val args = root[slug]["build"]["args"]
             assertTrue(args["CLI_BASE_STAGE"] == null, "$slug must not override CLI_BASE_STAGE (defaults to dist)")
+        }
+        // PRIVILEGED_BASE_STAGE: base.dockerfile defaults it to `clang-toolchain`. cdnet's privileged
+        // layer sits on the .NET toolchain, so cdnet MUST override it to `dotnet-toolchain`. clang relies
+        // on the global default and jvm/android have no privileged stage — none of them may set it.
+        assertEquals(
+            "dotnet-toolchain",
+            root["qodana-cdnet"]["build"]["args"]["PRIVILEGED_BASE_STAGE"].asText(),
+            "cdnet's privileged layer sits on the .NET toolchain",
+        )
+        for (slug in listOf("qodana-jvm", "qodana-android", "qodana-clang")) {
+            val args = root[slug]["build"]["args"]
+            assertTrue(
+                args["PRIVILEGED_BASE_STAGE"] == null,
+                "$slug must not override PRIVILEGED_BASE_STAGE (clang relies on the global clang-toolchain default)",
+            )
         }
     }
 
     @Test
     fun `clang release-path CLI_VERSION matches the release tag (the tool asset name embeds it)`() {
-        // The qodana-clang TOOL asset is `qodana-clang_<CLI_VERSION>_linux_amd64` (CliArtifactResolver),
-        // so on --source release CLI_VERSION MUST equal the version segment of the compose tag, or the
-        // download 404s. (Cli-kind jvm/android have no version in their `qodana_<os>_<arch>.tar.gz` name,
-        // so they are exempt.) Guards the W2 path where clang pulls its inner CLI from the nightly release.
-        val build = load("compose.yaml")["services"]["qodana-clang"]["build"]
-        val baseUrl = build["args"]["CLI_RELEASE_BASE_URL"].asText()
-        val tag = baseUrl.substringAfterLast('/')
-        val tagVersion = tag.removePrefix("v")
+        // The qodana-clang/qodana-cdnet TOOL asset is `<binary>_<CLI_VERSION>_linux_amd64`
+        // (CliArtifactResolver), so on --source release CLI_VERSION MUST equal the version segment of the
+        // compose tag, or the download 404s. (Cli-kind jvm/android have no version in their
+        // `qodana_<os>_<arch>.tar.gz` name, so they are exempt.) Guards the W2 path where the feed-less
+        // linters pull their inner CLI from the nightly release.
+        for (slug in listOf("qodana-clang", "qodana-cdnet")) {
+            val build = load("compose.yaml")["services"][slug]["build"]
+            val baseUrl = build["args"]["CLI_RELEASE_BASE_URL"].asText()
+            val tag = baseUrl.substringAfterLast('/')
+            val tagVersion = tag.removePrefix("v")
 
-        val cliVersion =
-            imagesEnv("qodana-clang")["CLI_VERSION"]
-                ?: error("qodana-clang.env must set CLI_VERSION")
-        assertEquals(
-            tagVersion,
-            cliVersion,
-            "clang CLI_VERSION must equal the CLI_RELEASE_BASE_URL tag version, or the tool asset 404s",
-        )
+            val cliVersion =
+                imagesEnv(slug)["CLI_VERSION"]
+                    ?: error("$slug.env must set CLI_VERSION")
+            assertEquals(
+                tagVersion,
+                cliVersion,
+                "$slug CLI_VERSION must equal the CLI_RELEASE_BASE_URL tag version, or the tool asset 404s",
+            )
+        }
     }
 
     /**
@@ -138,6 +159,11 @@ class ComposeContractTest {
             setOf("qodana_cli_deps_token"),
             secretsOf("qodana-clang"),
             "clang has no dist stage, so it must reference only the clang-tidy mirror token",
+        )
+        assertEquals(
+            setOf("qodana_cli_deps_token"),
+            secretsOf("qodana-cdnet"),
+            "cdnet has no dist stage, so it must reference only the qodana-cli-deps mirror token (ReSharper CLT)",
         )
         // Both tokens are declared at the top level, sourced from their env vars.
         val declared = root["secrets"]

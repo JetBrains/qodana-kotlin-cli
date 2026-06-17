@@ -1,0 +1,25 @@
+{
+  "case": "cdnet-unused-local",
+  "image": "qodana-cdnet",
+  "description": "Minimal net9.0 console with an unused local (int x;). Proves the cdnet image scans .NET end-to-end via the bundled ReSharper CLT (InspectCode discovered on PATH) and emits SARIF with a finding in Program.cs (QD-15021). network: bridge — a .NET restore can reach NuGet even for a zero-dependency project; the CLT itself is baked, so no tool download.",
+  "run": {
+    "network": "bridge",
+    "capAdd": ["SYS_ADMIN"],
+    "securityOpt": ["apparmor:unconfined"],
+    "extraArgs": ["--no-statistics"]
+  },
+  "expectExitCode": 0,
+  "sarif": {
+    "qodanaSeverityRequired": false,
+    "expectations": [
+      {
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "Program.cs",
+        "pin": "confirmed",
+        "guards": ["QD-15021"],
+        "reason": "The CLT must analyze the project and report at least one finding in Program.cs (the unused local `int x;`). Zero findings means the image's .NET SDK + ReSharper CLT scan path is broken — a real signal, not a fixture to weaken. Selector-less by design: asserts the scan ran and located a result, without pinning a ReSharper rule id that can vary by CLT build."
+      }
+    ]
+  }
+}

@@ -26,6 +26,10 @@ services:
     build:
       secrets:
         - qodana_cli_deps_token
+  qodana-cdnet:
+    build:
+      secrets:
+        - qodana_cli_deps_token
 
 secrets:
   feed_token:

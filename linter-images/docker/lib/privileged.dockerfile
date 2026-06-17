@@ -1,6 +1,6 @@
 # privileged — grant the qodana user passwordless sudo (clang-tidy provisioning + some scans).
 # Layers onto the clang-toolchain stage.
-FROM clang-toolchain AS privileged
+FROM ${PRIVILEGED_BASE_STAGE} AS privileged
 
 RUN <<-EOT
 	set -eux

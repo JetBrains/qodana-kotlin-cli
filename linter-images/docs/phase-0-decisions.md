@@ -99,6 +99,58 @@ datasource `transformTemplates`) is a top-level `{"versions": ["v1.0.0", …]}`
 array, per qodana-cli's own `.github/renovate.json` (its proven config maps it
 with the identical JSONata `{ "releases": versions.{ "version": $ } }`).
 
+## Spike D — qodana-cli-deps ReSharper CLT mirror (cdnet)
+
+The cdnet aux tool is the ReSharper CLT (InspectCode), fetched from the same
+PRIVATE `qodana-cli-deps` JB Space project as clang-tidy, under a sibling path.
+`lib/resharper-clt.dockerfile` fetches `${CLT_MIRROR}/v${CLT_VERSION}/clt.zip`
+(the path prepends `v`, like clang-tidy); the archive is architecture-independent
+(managed .NET). Access mode is the same PRIVATE bearer-token flow as Spike B —
+the build supplies `QODANA_CLI_DEPS_TOKEN` via `Authorization: Bearer`, and CI
+provisions it; the same `qodana_cli_deps_token` build secret is shared with clang.
+
+`EnvContractTest`'s `cdnet pins match phase-0-decisions` asserts the two pins
+below equal `qodana-cdnet.env`'s `CLT_MIRROR` / `CLT_VERSION`:
+
+CLT_MIRROR = https://packages.jetbrains.team/files/p/sa/qodana-cli-deps/resharper-clt
+CLT_VERSION = 2026.1.3
+
+`CLT_VERSION` is the qodana-cli-deps **package** tag (the `$version` segment).
+The `clt.zip` sha256 for the pinned tag lives as the default `ARG CLT_SHA256` in
+`lib/resharper-clt.dockerfile` (Renovate's `.env`-row manager does not track the
+ARG, so a version bump + SHA refresh is one human step, gated by the Renovate note):
+
+CLT_LINUX_AMD64_SHA256 = 35d8ada966411cdecdc883a8d5bfacde41b7c8b147aaac85a7140da10f489658
+
+The mirror package is named `cdnet` today and is renamed to `resharper-clt` as an
+external prerequisite; until that lands the token-gated `versions.json` (and the
+`CLT_MIRROR` archive path) 404, so the Renovate manager is inert and a build from
+the recorded `CLT_MIRROR` fails — expected. The values above are the post-rename
+pins.
+
+### CLT dispatcher + the runtime launcher our image generates
+
+The CLT zip's managed dispatcher lives at the path below (TFM-tagged); the
+`net8.0` segment can change on a CLT bump, so `lib/resharper-clt.dockerfile`
+discovers the `inspectcode.exe` launcher TFM-agnostically rather than hardcoding
+the TFM. The runtime launcher our image bakes (`/opt/qodana-cdnet/bin/inspectcode`,
+on PATH) wraps `inspectcode.exe` via `dotnet exec` with its sibling
+`inspectcode.unix.runtimeconfig.json`, NOT the dispatcher DLL directly.
+
+CLT_DISPATCHER_PATH = tools/net8.0/any/JetBrains.CommandLine.Products.dll
+
+### .NET SDK install-script pin (manually maintained, build-verified)
+
+`lib/toolchain/dotnet.dockerfile` installs the .NET SDKs via a revision-pinned
+`dotnet-install.sh`, verified fail-closed (`sha256sum -c`) at build. These pins
+live as ARGs in that dockerfile (mirrored here for traceability) and are manually
+maintained — there is NO Renovate manager — so re-verify the sha when bumping the
+revision, consistent with the dockerfile comment.
+
+DOTNET_INSTALL_SH_REVISION = 2e497bbe880cf47b209fe0d1f9c5e051916f830e
+DOTNET_INSTALL_SH_SHA256 = 3f30fbfa69e182be7e60fd0cd9189c53cb61799b6077159fec74341112f1715e
+DOTNET_CHANNELS = 8.0 9.0 10.0
+
 ## Spike C — live feed pin, dhi.io base digest, JetBrains key
 
 ### qodana-jvm feed pin (shared by jvm + android)
