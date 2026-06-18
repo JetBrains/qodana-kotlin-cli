@@ -23,6 +23,7 @@ class ComposeContractTest {
             "qodana-clang",
             "qodana-python-community",
             "qodana-python",
+            "qodana-js",
         )
 
     @Test
@@ -92,9 +93,38 @@ class ComposeContractTest {
             "qodana-android-community",
             "qodana-python-community",
             "qodana-python",
+            "qodana-js",
         )) {
             val args = load("compose.yaml")["services"][slug]["build"]["args"]
             assertTrue(args["CLI_BASE_STAGE"] == null, "$slug must not override CLI_BASE_STAGE (defaults to dist)")
+        }
+    }
+
+    @Test
+    fun `qodana-js passes the QODANA_UID-GID build args matching phase-0-decisions (dhi-node uid-1000 conflict)`() {
+        // The dhi.io/node base ships a `node` user at uid/gid 1000, so qodana shifts to 1001. The override
+        // is a COMPOSE BUILD ARG (not an .env key): dockerfile-x's INCLUDE_ARGS emits each .env key as an
+        // `ARG NAME="val"` default that base.dockerfile's own `ARG QODANA_UID=1000` (emitted later) clobbers
+        // back to 1000; a --build-arg always wins. This guards that contract + byte-identity to phase-0.
+        val args = load("compose.yaml")["services"]["qodana-js"]["build"]["args"]
+        val uid = args["QODANA_UID"]
+        val gid = args["QODANA_GID"]
+        assertTrue(uid != null && gid != null, "qodana-js must pass QODANA_UID/QODANA_GID build args")
+
+        val d = Path.of("docs/phase-0-decisions.md").readText()
+
+        fun pin(k: String) =
+            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
+                ?: error("$k not recorded in phase-0-decisions.md")
+        assertEquals(pin("QODANA_JS_UID"), uid.asText(), "qodana-js QODANA_UID must match phase-0-decisions")
+        assertEquals(pin("QODANA_JS_GID"), gid.asText(), "qodana-js QODANA_GID must match phase-0-decisions")
+        // No other service overrides the uid (they keep base.dockerfile's default 1000).
+        for (slug in slugs.filter { it != "qodana-js" }) {
+            val a = load("compose.yaml")["services"][slug]["build"]["args"]
+            assertTrue(
+                a["QODANA_UID"] == null && a["QODANA_GID"] == null,
+                "$slug must not override QODANA_UID/GID (keeps base.dockerfile's default 1000)",
+            )
         }
     }
 
@@ -170,6 +200,11 @@ class ComposeContractTest {
             setOf("feed_token"),
             secretsOf("qodana-python"),
             "python uses only the feed token",
+        )
+        assertEquals(
+            setOf("feed_token"),
+            secretsOf("qodana-js"),
+            "js uses only the feed token",
         )
         assertEquals(
             setOf("qodana_cli_deps_token"),

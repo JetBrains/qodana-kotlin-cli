@@ -77,6 +77,24 @@ services:
         tooling: build/install/image-tool
     platform: linux/amd64
     image: qodana-python:dev
+  qodana-js:
+    build:
+      context: docker
+      dockerfile: images/qodana-js.dockerfile
+      args:
+        CLI_SOURCE: release
+        CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+        # The dhi.io/node base ships a `node` user at uid/gid 1000, so the qodana user shifts to 1001.
+        # Passed as build ARGs (NOT .env keys): dockerfile-x's INCLUDE_ARGS emits each .env key as an
+        # `ARG NAME="val"` default that base.dockerfile's own `ARG QODANA_UID=1000` (emitted later) would
+        # clobber back to 1000; a --build-arg always wins. base.dockerfile defaults these to 1000, so the
+        # existing debian-base images that omit them are unaffected.
+        QODANA_UID: "1001"
+        QODANA_GID: "1001"
+      additional_contexts:
+        tooling: build/install/image-tool
+    platform: linux/amd64
+    image: qodana-js:dev
   qodana-clang:
     build:
       context: docker

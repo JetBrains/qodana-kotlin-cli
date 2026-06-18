@@ -64,6 +64,9 @@ jobs:
           - name: qodana-python
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
+          - name: qodana-js
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            token_gated: "false"
           - name: qodana-clang
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "true"
@@ -91,7 +94,8 @@ jobs:
           username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
           password: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
       - name: dhi.io login (Docker Hardened Images base)
-        # QD_BASE_IMAGE is dhi.io/debian-base; authenticate the pull with the same credentials. No
+        # QD_BASE_IMAGE is a dhi.io OS or language base (debian-base for jvm/android/python/clang,
+        # node for js); this login authenticates the whole dhi.io registry with the same credentials. No
         # if-gate: the base is mandatory, so a missing credential must fail loudly here, not skip.
         uses: docker/login-action@v3
         with:

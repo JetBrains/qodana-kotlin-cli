@@ -33,6 +33,7 @@ class EnvContractTest {
             "qodana-clang",
             "qodana-python-community",
             "qodana-python",
+            "qodana-js",
         )
 
     private fun parseEnv(slug: String): Map<String, String> {
@@ -326,6 +327,74 @@ class EnvContractTest {
             pin("QODANA_PYTHON_PRODUCT_INFO_CODE"),
             python["QD_PRODUCT_INFO_CODE"],
             "python product-info code must match phase-0-decisions",
+        )
+    }
+
+    @Test
+    fun `qodana-js env has exactly the js key set and no node and no uid keys`() {
+        // FIRST DHI-language-base image: node + Yarn come from the dhi.io/node base, so NO NODE_MAJOR and
+        // NO node toolchain. SAME dist/cli/runtime keys as a normal IDE-dist image (like jvm), NO
+        // DIST_BASE_STAGE (eslint is in-place on base, the dist FROMs base). The qodana uid shifts to 1001
+        // (the node base's `node` user occupies 1000), but QODANA_UID/QODANA_GID are COMPOSE BUILD ARGS
+        // (asserted by ComposeContractTest), NOT `.env` keys — dockerfile-x's INCLUDE_ARGS emit order would
+        // clobber an `.env` value back to the base default. The eslint pin lives in
+        // lib/toolchain/eslint/package.json (renovate-tracked), NOT in the .env.
+        val env = parseEnv("qodana-js")
+        val expected =
+            setOf(
+                "QD_LINTER_SLUG",
+                "QD_VERSION",
+                "QD_BUILD",
+                "QD_RELEASE_TYPE",
+                "QD_PRODUCT_INFO_CODE",
+                "QD_BASE_IMAGE",
+                "CLI_BINARY",
+                "CLI_VERSION",
+                "CLI_OS",
+                "CLI_ARCH",
+                "TINI_VERSION",
+                "TINI_ARCH",
+                "TINI_SHA256",
+            )
+        assertEquals(expected, env.keys)
+        assertTrue("NODE_MAJOR" !in env, "qodana-js must not set NODE_MAJOR (node is in the DHI node base)")
+        assertTrue(
+            "DIST_BASE_STAGE" !in env,
+            "qodana-js dist layers onto base (eslint is in-place), no DIST_BASE_STAGE",
+        )
+        assertTrue(
+            "QODANA_UID" !in env && "QODANA_GID" !in env,
+            "qodana-js uid override is a compose build arg, not an .env key (INCLUDE_ARGS would clobber it)",
+        )
+        assertTrue("QD_CHANNEL" !in env, "QD_CHANNEL was removed by the foundation refactor")
+        assertTrue(
+            "QD_DISTRIBUTION_FEED" !in env,
+            "qodana-js uses the public feed (dockerfile default), so it must omit QD_DISTRIBUTION_FEED",
+        )
+        assertEquals("qodana-js", env["QD_LINTER_SLUG"], "qodana-js has its own dist slug")
+        assertEquals("WS", env["QD_PRODUCT_INFO_CODE"], "qodana-js product-info code is WS (WebStorm)")
+        assertEquals("amd64", env["CLI_ARCH"], "qodana-js is amd64-only")
+    }
+
+    @Test
+    fun `js pins match phase-0-decisions`() {
+        val d = decisions.readText()
+
+        fun pin(k: String) =
+            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
+                ?: error("$k not recorded in $decisions")
+        val js = parseEnv("qodana-js")
+        assertEquals(
+            pin("QD_NODE_BASE_IMAGE"),
+            js["QD_BASE_IMAGE"],
+            "qodana-js base digest must match the dhi.io/node base pin in phase-0-decisions",
+        )
+        assertEquals(pin("QODANA_JS_VERSION"), js["QD_VERSION"], "js major must match phase-0-decisions")
+        assertEquals(pin("QODANA_JS_BUILD"), js["QD_BUILD"], "js build pin must match phase-0-decisions")
+        assertEquals(
+            pin("QODANA_JS_PRODUCT_INFO_CODE"),
+            js["QD_PRODUCT_INFO_CODE"],
+            "js product-info code must match phase-0-decisions",
         )
     }
 

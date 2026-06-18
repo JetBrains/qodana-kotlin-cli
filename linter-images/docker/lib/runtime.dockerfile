@@ -10,6 +10,10 @@ ARG TINI_VERSION
 ARG TINI_ARCH
 ARG TINI_SHA256
 ARG CLI_BINARY
+# Bare (no default): inherit the global QODANA_UID/GID declared in base.dockerfile (the language-base
+# override). A `=1000` default here would SHADOW the INCLUDE_ARGS override (cli.dockerfile trap).
+ARG QODANA_UID
+ARG QODANA_GID
 
 # tini as PID 1: declarative sha-verified remote fetch (DL3020 is waived in .hadolint.yaml).
 # Arch-parameterized: tini-${TINI_ARCH} with the matching TINI_SHA256 — never hard-wired tini-amd64.
@@ -25,7 +29,7 @@ RUN <<-EOT
 	ln -sf "/usr/local/bin/${CLI_BINARY}" /usr/local/bin/qodana-entrypoint
 EOT
 
-USER 1000:1000
+USER ${QODANA_UID}:${QODANA_GID}
 WORKDIR /data/project
 # tini PID 1 execs the inner CLI and FORWARDS all container args ($@ via CMD) to it. NO baked `scan`
 # subcommand — callers always pass `scan …` explicitly (smoke/dogfood `docker run <slug>:dev scan …`).

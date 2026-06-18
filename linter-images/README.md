@@ -1,8 +1,8 @@
 # linter-images
 
 Build system for Qodana linter images (`qodana-jvm`, `qodana-jvm-community`, `qodana-android`,
-`qodana-android-community`, `qodana-clang`, `qodana-python-community`, `qodana-python`). One source of
-truth per image: a
+`qodana-android-community`, `qodana-clang`, `qodana-python-community`, `qodana-python`, `qodana-js`).
+One source of truth per image: a
 thin `docker/images/<slug>.dockerfile` + `<slug>.env`, composed from shared `docker/lib/` includes via
 [dockerfile-x](https://github.com/devthefuture-org/dockerfile-x).
 

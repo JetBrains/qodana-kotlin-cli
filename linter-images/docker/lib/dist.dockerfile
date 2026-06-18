@@ -73,4 +73,7 @@ EOT
 # FROM-ARG: a plain ${DIST_BASE_STAGE} + a mid-file ARG would be inter-stage, blanking the base name.
 FROM ${DIST_BASE_STAGE:-base} AS dist
 ARG QD_DIST=/opt/idea
-COPY --from=dist-builder --chown=1000:1000 ${QD_DIST} ${QD_DIST}
+# Bare (no default): inherit the global QODANA_UID/GID (cli.dockerfile shadowing trap).
+ARG QODANA_UID
+ARG QODANA_GID
+COPY --from=dist-builder --chown=${QODANA_UID}:${QODANA_GID} ${QD_DIST} ${QD_DIST}
