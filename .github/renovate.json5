@@ -41,6 +41,21 @@
     },
     {
       "customType": "regex",
+      "description": "Track RUST_VERSION (the rustup default-toolchain) in the rust .env AND the byte-identical RUST_VERSION row in phase-0-decisions.md (RustEnvContractTest asserts they match). ONE manager owns both so a bump rewrites them in a single PR — splitting it would red the contract guard between the two PRs (the dockerfile-x/digest managers do the same). The Docker `rust` image tags use the same x.y.z scheme, so the docker datasource + docker versioning track new releases. The companion RUSTUP_INIT_SHA256 pin is version-INDEPENDENT (rustup-init is a static installer), so it is NOT renovate-tracked; refresh it manually only when rustup ships a new installer.",
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "rust",
+      "versioningTemplate": "docker",
+      "managerFilePatterns": [
+        "linter-images/docker/images/qodana-rust.env",
+        "linter-images/docs/phase-0-decisions.md"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+RUST_VERSION=(?<currentValue>\\S+)",
+        "RUST_VERSION = (?<currentValue>\\S+)"
+      ]
+    },
+    {
+      "customType": "regex",
       "description": "Track the stock GraalVM CE pinned in setup-native-build (QD-14917).",
       "managerFilePatterns": [".github/actions/setup-native-build/action.yaml"],
       "matchStrings": [

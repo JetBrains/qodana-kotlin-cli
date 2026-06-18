@@ -39,13 +39,14 @@ Resolved stage lineage of the final image:
     qodana-js:               base → eslint → dist → cli → runtime             (node + Yarn from the dhi.io/node base; eslint in-place on base so dist FROMs base; QODANA_UID=1001)
     qodana-go:               base → go → node → eslint → dist → cli → runtime   (Go pre-baked in the dhi.io/golang base; go/node/eslint in-place on base so dist FROMs base; golang base does not occupy uid 1000, so default 1000)
     qodana-php:              base → node → eslint → php-toolchain(composer) → dist → cli → runtime   (PHP pre-baked in the dhi.io/php base; node/eslint in-place on base, composer COPYd onto php-toolchain (FROM base); dist FROMs php-toolchain via DIST_BASE_STAGE; php base does not occupy uid 1000, so default 1000)
+    qodana-rust:             base → rust-toolchain → dist → cli → runtime            (no Rust in the trixie base, so rustup-init installs the toolchain in rust-toolchain (FROM base, the conda pattern); dist FROMs rust-toolchain via DIST_BASE_STAGE; no node — RustRover has no JS analysis; trixie base does not occupy uid 1000, so default 1000)
     qodana-ruby[-3.2|-3.4]:  base → node → eslint → ruby → privileged(FROM base) → dist(FROM privileged) → cli → runtime   (ruby pre-baked in the dhi.io/ruby base; node/eslint/ruby in-place on base; privileged FROMs base via the PRIVILEGED_BASE_STAGE=base build arg; dist FROMs privileged via DIST_BASE_STAGE=privileged (.env key); 3 variants differ only in QD_BASE_IMAGE; ruby base does not occupy uid 1000, so default 1000; the shipped image carries sudo for project-gem installs, source PRIVILEGED=true)
     qodana-clang:            base → clang-toolchain → privileged → tools → cli → runtime   (no dist; CLI_BASE_STAGE=tools)
     qodana-cdnet:            base → dotnet-toolchain → privileged → tools(CLT) → cli → runtime   (no dist; CLI_BASE_STAGE=tools, PRIVILEGED_BASE_STAGE=dotnet-toolchain)
 
 `node`/`android-toolchain`/`conda-toolchain` etc. must land in the final image's lineage, so `dist`
 builds `FROM ${DIST_BASE_STAGE:-base}` (android sets it to `android-toolchain`, python to
-`conda-toolchain`, php to `php-toolchain`, ruby to `privileged`; jvm keeps `base`), `privileged` builds `FROM ${PRIVILEGED_BASE_STAGE}` (cdnet sets it
+`conda-toolchain`, php to `php-toolchain`, rust to `rust-toolchain`, ruby to `privileged`; jvm keeps `base`), `privileged` builds `FROM ${PRIVILEGED_BASE_STAGE}` (cdnet sets it
 to `dotnet-toolchain`, ruby to `base`; clang relies on the `clang-toolchain` global default in `base.dockerfile`), and
 `cli` builds `FROM ${CLI_BASE_STAGE}` (clang/cdnet set it to `tools`, which has no dist). `DIST_BASE_STAGE` is an
 `.env` key (`base.dockerfile` does not declare it, so the value survives), but `PRIVILEGED_BASE_STAGE`/`CLI_BASE_STAGE`

@@ -30,6 +30,7 @@ class ComposeContractTest {
             "qodana-ruby",
             "qodana-ruby-3.2",
             "qodana-ruby-3.4",
+            "qodana-rust",
         )
 
     @Test
@@ -108,6 +109,7 @@ class ComposeContractTest {
             "qodana-ruby",
             "qodana-ruby-3.2",
             "qodana-ruby-3.4",
+            "qodana-rust",
         )) {
             val args = root[slug]["build"]["args"]
             assertTrue(args["CLI_BASE_STAGE"] == null, "$slug must not override CLI_BASE_STAGE (defaults to dist)")
@@ -120,7 +122,7 @@ class ComposeContractTest {
             root["qodana-cdnet"]["build"]["args"]["PRIVILEGED_BASE_STAGE"].asText(),
             "cdnet's privileged layer sits on the .NET toolchain",
         )
-        for (slug in listOf("qodana-jvm", "qodana-android", "qodana-clang")) {
+        for (slug in listOf("qodana-jvm", "qodana-android", "qodana-clang", "qodana-rust")) {
             val args = root[slug]["build"]["args"]
             assertTrue(
                 args["PRIVILEGED_BASE_STAGE"] == null,

@@ -848,6 +848,95 @@ that some tools expect, but `lib/base` + `lib/privileged` already handle this
 (`grep -q '^root:' || echo ...`). `ComposeContractTest`'s uid-1000-conflict test
 already asserts every service except `qodana-js` omits the uid build args.
 
+## Rust dist (qodana-rust — RustRover, EAP)
+
+Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-rust.releases.json`. Top-level feed
+`Code` is `QDRST`. Like ruby, ALL feed releases are `Type=eap` — there are ZERO `release` entries — so
+this is the fleet's second eap image. `QD_RELEASE_TYPE=eap` is consumed ONLY by `BumpPinsCommand`
+(drift) to pick the newest EAP within the major (`resolveNewestBuild` filters `it.type ==
+QD_RELEASE_TYPE`); `provision-dist` selects the release + resolves the Link from the verbatim
+`QD_VERSION`/`QD_BUILD`. The newest 2026.1 EAP is `261.25885` (version `2026.1`, Date 2026-06-15). The
+feed is the PUBLIC feed (`/qodana/feed`, no token): the image's `.env` OMITS `QD_DISTRIBUTION_FEED` and
+relies on the public default. Keys are named to match `BumpPinsCommand.syncDecisions` (slug
+`qodana-rust` → `QODANA_RUST_BUILD`); `RustEnvContractTest` asserts byte-identity against the `.env`'s
+`QD_VERSION` (MajorVersion `2026.1`) and `QD_BUILD` (`261.25885`). The download Link embeds an extra
+build segment (`...-261.25885.149.tar.gz`); use it VERBATIM, do not reconstruct it from `Build`.
+
+QODANA_RUST_VERSION = 2026.1
+QODANA_RUST_BUILD = 261.25885
+
+Download link (verbatim from the feed):
+
+QODANA_RUST_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDRST-261.25885.149.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link are present (probed live 2026-06-18 via a single-byte range GET
+following CDN redirects): the `.sha256` checksum and the `.sha256.asc` detached GPG signature.
+
+QODANA_RUST_LINUX_SHA256_SIBLING = 206
+QODANA_RUST_LINUX_ASC_SIBLING = 206
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`RR` (RustRover). Verified EMPIRICALLY, not assumed: stream-extracting the dist tarball's metadata
+(`bsdtar -xO --include '*/product-info.json' --include '*/dist.flavour.txt'`, 2026-06-18) shows
+`productCode=RR`, `name="RustRover"`, version `2026.1`, buildNumber `261.25885`, and
+`vmOptionsFilePath=bin/rustrover64.vmoptions`. RustRover is Ultimate-only (no Community trap like the
+JVM `IC`/Python `PC` mismatch). `dist.flavour.txt=QDRST`. The `rustrover64.vmoptions` file confirms the
+generalized `bin/*.vmoptions` `idea.log.path` strip in `lib/dist.dockerfile` covers RustRover. The feed
+`Code` `QDRST` is the distinct feed artifact code, not the product-info code.
+
+QODANA_RUST_PRODUCT_INFO_CODE = RR
+QODANA_RUST_FEED_CODE = QDRST
+
+## Rust toolchain (qodana-rust — rustup-init install stage)
+
+`qodana-rust` builds on the SHARED trixie debian-base (the same `QD_TRIXIE_BASE_IMAGE` as
+jvm-community/python(-community)), which ships NO Rust. So — unlike go/php/ruby, whose DHI language
+bases bake their runtime in-place — rust LAYERS an install STAGE (`lib/toolchain/rust.dockerfile`,
+`FROM base AS rust-toolchain`, the conda/clang pattern): it fetches a sha-pinned `rustup-init`, runs
+`rustup-init -y --no-modify-path --default-toolchain ${RUST_VERSION}` then `rustup component add
+rust-src`, and apt-installs `build-essential` + `pkg-config` (real runtime deps for native crates, NOT
+purged). The dist FROMs that stage via `DIST_BASE_STAGE=rust-toolchain` (the conda/android convention,
+an `.env` KEY: `base.dockerfile` does not declare `ARG DIST_BASE_STAGE`, so the INCLUDE_ARGS value
+survives uncloberred). Chain: `base → rust-toolchain(FROM base) → dist(FROM rust-toolchain) → cli →
+runtime`.
+
+**NO node/eslint — DELIBERATE.** The source `dockerfiles/base/rust.Dockerfile` sets `ESLINT_VERSION`
+but NEVER uses it: there is no `node_base` FROM, no `COPY --from`, and no `npm install` (unlike
+`go.Dockerfile`/`php.Dockerfile`, which DO copy node + `npm install -g eslint`). RustRover bundles no
+JS/TS analysis, so the `ESLINT_VERSION` line is a dead copy-paste vestige. qodana-rust therefore omits
+the node toolchain and `NODE_MAJOR` entirely.
+
+**CARGO_HOME on the stable /usr/local (NOT /data/cache).** `CARGO_HOME=/usr/local/cargo` (the source's
+path) and `RUSTUP_HOME=/usr/local/rustup`. Critically, CARGO_HOME must NOT point under `/data/cache`:
+the runtime bind-mounts an empty host dir over `/data/cache` for the writable scan cache
+(`DockerRunPlanner` `-v <cache>:/data/cache`), which would SHADOW the cargo/rustc/rustup PROXIES
+rustup-init writes to `$CARGO_HOME/bin` — they would vanish off PATH at scan time. This is the same
+invariant conda (bin at `/opt/miniconda3`) and go (`go` at `/usr/local/go`) hold: the toolchain
+EXECUTABLES stay on a stable path, only the CACHE is redirected. cargo's registry/git cache also lives
+under `$CARGO_HOME` (the go GOMODCACHE analog) and is the writable scan-time target, so `/usr/local/cargo`
+is chowned to uid 1000 — the registry is rebuilt per container (ephemeral, not on the mount), acceptable
+for a scan. `RUSTUP_HOME` is made world-readable (uid 1000 only reads the toolchain). `RustToolchainTest`
+guards the stage shape, the stable-path placement, the chown, the PATH wiring, the rust-src component,
+and the rustup-init sha-pin.
+
+### rustup-init installer sha256 (build verify; version-INDEPENDENT)
+
+`lib/toolchain/rust.dockerfile` fetches `rustup-init` for `x86_64-unknown-linux-gnu` (amd64-only fleet,
+so the source's TARGETPLATFORM switch is dropped) and verifies it fail-closed via `ADD --checksum=` +
+a re-`sha256sum -c` (the conda/android installer-pin convention). The sha below was resolved
+EMPIRICALLY 2026-06-18 (`curl … | sha256sum`) and cross-checked byte-identical against the upstream
+`rustup-init.sha256` sidecar. `rustup-init` is a self-contained static installer — its sha is
+INDEPENDENT of `RUST_VERSION` (it installs whatever `--default-toolchain` names) — so unlike a tagged
+download there is no clean datasource; `RUSTUP_INIT_SHA256` is a MANUALLY-maintained pin (no Renovate
+manager), refreshed only when rustup ships a new installer. `RustEnvContractTest`'s `rust pins match
+phase-0-decisions` asserts both pins below equal `qodana-rust.env`'s `RUST_VERSION` / `RUSTUP_INIT_SHA256`.
+
+RUST_VERSION = 1.94.0
+RUSTUP_INIT_SHA256 = 4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10
+
 ## Why `qdist` is not wired (deferred — QD-15062)
 
 The `QD_DISTRIBUTION_FEED` build arg selects which feed an image fetches its IDE

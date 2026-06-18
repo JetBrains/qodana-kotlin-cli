@@ -121,6 +121,22 @@ services:
         tooling: build/install/image-tool
     platform: linux/amd64
     image: qodana-php:dev
+  qodana-rust:
+    build:
+      context: docker
+      dockerfile: images/qodana-rust.dockerfile
+      args:
+        CLI_SOURCE: release
+        CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+        # No QODANA_UID/GID override: the trixie debian-base does NOT occupy uid 1000, so qodana-rust
+        # keeps base.dockerfile's default 1000, like the other debian-base images. No CLI_BASE_STAGE
+        # override (rust has a dist, so the inner CLI layers onto the `dist` default) and no
+        # PRIVILEGED_BASE_STAGE (rust is not privileged). The dist's DIST_BASE_STAGE=rust-toolchain
+        # lives in the .env (base.dockerfile does not declare it, so the INCLUDE_ARGS value survives).
+      additional_contexts:
+        tooling: build/install/image-tool
+    platform: linux/amd64
+    image: qodana-rust:dev
   qodana-ruby:
     build:
       context: docker

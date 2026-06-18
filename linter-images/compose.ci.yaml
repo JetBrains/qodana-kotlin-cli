@@ -57,6 +57,12 @@ services:
         CLI_SOURCE: context
       additional_contexts:
         cli: ../qodana-cli/build/release-staging
+  qodana-rust:
+    build:
+      args:
+        CLI_SOURCE: context
+      additional_contexts:
+        cli: ../qodana-cli/build/release-staging
   qodana-ruby:
     build:
       args:

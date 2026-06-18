@@ -50,6 +50,10 @@ services:
     build:
       secrets:
         - feed_token
+  qodana-rust:
+    build:
+      secrets:
+        - feed_token
   qodana-ruby:
     build:
       secrets:
