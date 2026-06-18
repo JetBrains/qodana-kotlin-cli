@@ -937,6 +937,71 @@ phase-0-decisions` asserts both pins below equal `qodana-rust.env`'s `RUST_VERSI
 RUST_VERSION = 1.94.0
 RUSTUP_INIT_SHA256 = 4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10
 
+## .NET dist (qodana-dotnet — Ultimate Rider, RELEASE)
+
+Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-dotnet.releases.json`. Top-level feed
+`Code` is `QDNET`. Unlike ruby/rust (eap-only feeds), the QDNET feed HAS `release` entries, so this is a
+RELEASE image: `QD_RELEASE_TYPE=release` (consumed ONLY by `BumpPinsCommand` drift to pick the newest
+release within the major; `provision-dist` selects the release + resolves the Link from the verbatim
+`QD_VERSION`/`QD_BUILD`). The newest 2026.1 release is `261.24105` (MajorVersion `2026.1`, full Version
+`2026.1.2`, Date 2026-04-21). The feed is the PUBLIC feed (`/qodana/feed`, no token): the image's `.env`
+OMITS `QD_DISTRIBUTION_FEED` and relies on the public default. Keys are named to match
+`BumpPinsCommand.syncDecisions` (slug `qodana-dotnet` → `QODANA_DOTNET_BUILD`); `DotnetEnvContractTest`
+asserts byte-identity against the `.env`'s `QD_VERSION` (MajorVersion `2026.1`) and `QD_BUILD`
+(`261.24105`). The download Link embeds an extra build segment (`...-261.24105.117.tar.gz`); use it
+VERBATIM, do not reconstruct it from `Build`.
+
+QODANA_DOTNET_VERSION = 2026.1
+QODANA_DOTNET_BUILD = 261.24105
+
+Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+
+QODANA_DOTNET_FULL_VERSION = 2026.1.2
+
+Download link (verbatim from the feed):
+
+QODANA_DOTNET_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDNET-261.24105.117.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link are present (probed live 2026-06-18 via a single-byte range GET following
+CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the `.sha256.asc` detached GPG signature
+(`ChecksumLink + ".asc"`).
+
+QODANA_DOTNET_LINUX_SHA256_SIBLING = 206
+QODANA_DOTNET_LINUX_ASC_SIBLING = 206
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`RD` (Rider). Verified EMPIRICALLY, not assumed: stream-extracting the dist tarball's metadata (`bsdtar
+-xO --include '*/product-info.json' --include '*/dist.flavour.txt'`, 2026-06-18) shows `productCode=RD`,
+`name="JetBrains Rider"`, version `2026.1`, buildNumber `261.24105`, and
+`vmOptionsFilePath=bin/rider64.vmoptions`. Rider is Ultimate-only (no Community trap like the JVM `IC`/
+Python `PC` mismatch). `dist.flavour.txt=QDNET`. The `rider64.vmoptions` file confirms the generalized
+`bin/*.vmoptions` `idea.log.path` strip in `lib/dist.dockerfile` covers Rider. The feed `Code` `QDNET` is
+the distinct feed artifact code, not the product-info code.
+
+QODANA_DOTNET_PRODUCT_INFO_CODE = RD
+QODANA_DOTNET_FEED_CODE = QDNET
+
+## .NET toolchain libicu (qodana-dotnet — shared `dotnet-toolchain` fragment, parameterized)
+
+`qodana-dotnet` shares `lib/toolchain/dotnet.dockerfile` (`FROM base AS dotnet-toolchain`, .NET SDK
+8/9/10 via the pinned `dotnet-install.sh`) with `qodana-cdnet`. The fragment apt-installs the ICU shared
+lib, whose major tracks the base distro generation: cdnet's bookworm base ships `libicu72`, while
+qodana-dotnet's trixie base ships `libicu76` (CONFIRMED against the upstream trixie
+`dockerfiles/base/dotnet-community.Dockerfile`, which installs `libicu76`). The fragment is parameterized
+via the `.env`-keyed `LIBICU_PKG`: the apt line installs `${LIBICU_PKG:-libicu72}`, and the stage
+declares a BARE `ARG LIBICU_PKG` (no default — a same-name `ARG` default declared after dockerfile-x's
+INCLUDE_ARGS block would CLOBBER the `.env` value, the QODANA_UID trap). cdnet sets NO key (its `.env` is
+unchanged) → the `:-libicu72` fallback keeps it on libicu72; qodana-dotnet sets `LIBICU_PKG=libicu76`.
+`LIBICU_PKG` is a base-coupled Debian package name, NOT a JetBrains feed pin — it is NOT Renovate- or
+drift-tracked (it changes only when an image migrates to a new Debian generation). `DotnetEnvContractTest`
+asserts `qodana-dotnet.env`'s `LIBICU_PKG=libicu76`; `DotnetToolchainTest` guards the fragment shape +
+the cdnet-libicu72 fallback. The .NET SDK install (revision/sha/channels) is unchanged from cdnet.
+
+LIBICU_PKG = libicu76
+
 ## Why `qdist` is not wired (deferred — QD-15062)
 
 The `QD_DISTRIBUTION_FEED` build arg selects which feed an image fetches its IDE

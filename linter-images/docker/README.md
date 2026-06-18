@@ -43,16 +43,18 @@ Resolved stage lineage of the final image:
     qodana-ruby[-3.2|-3.4]:  base → node → eslint → ruby → privileged(FROM base) → dist(FROM privileged) → cli → runtime   (ruby pre-baked in the dhi.io/ruby base; node/eslint/ruby in-place on base; privileged FROMs base via the PRIVILEGED_BASE_STAGE=base build arg; dist FROMs privileged via DIST_BASE_STAGE=privileged (.env key); 3 variants differ only in QD_BASE_IMAGE; ruby base does not occupy uid 1000, so default 1000; the shipped image carries sudo for project-gem installs, source PRIVILEGED=true)
     qodana-clang:            base → clang-toolchain → privileged → tools → cli → runtime   (no dist; CLI_BASE_STAGE=tools)
     qodana-cdnet:            base → dotnet-toolchain → privileged → tools(CLT) → cli → runtime   (no dist; CLI_BASE_STAGE=tools, PRIVILEGED_BASE_STAGE=dotnet-toolchain)
+    qodana-dotnet:           base → node → eslint → dotnet-toolchain(FROM base) → privileged(FROM dotnet-toolchain) → dist(FROM privileged) → cli → runtime   (Ultimate Rider; no .NET in the trixie base, so the shared dotnet-toolchain installs SDK 8/9/10; node/eslint in-place on base (Rider analyzes JS/TS), dotnet-toolchain FROMs base and inherits them; privileged FROMs dotnet-toolchain via PRIVILEGED_BASE_STAGE build arg; dist FROMs privileged via DIST_BASE_STAGE=privileged (.env key); NO resharper-clt — InspectCode ships in the Rider dist; LIBICU_PKG=libicu76 (trixie); trixie base does not occupy uid 1000, so default 1000; shipped image carries sudo, source PRIVILEGED=true)
 
 `node`/`android-toolchain`/`conda-toolchain` etc. must land in the final image's lineage, so `dist`
 builds `FROM ${DIST_BASE_STAGE:-base}` (android sets it to `android-toolchain`, python to
-`conda-toolchain`, php to `php-toolchain`, rust to `rust-toolchain`, ruby to `privileged`; jvm keeps `base`), `privileged` builds `FROM ${PRIVILEGED_BASE_STAGE}` (cdnet sets it
+`conda-toolchain`, php to `php-toolchain`, rust to `rust-toolchain`, ruby and dotnet to `privileged`; jvm keeps `base`), `privileged` builds `FROM ${PRIVILEGED_BASE_STAGE}` (cdnet and dotnet set it
 to `dotnet-toolchain`, ruby to `base`; clang relies on the `clang-toolchain` global default in `base.dockerfile`), and
 `cli` builds `FROM ${CLI_BASE_STAGE}` (clang/cdnet set it to `tools`, which has no dist). `DIST_BASE_STAGE` is an
 `.env` key (`base.dockerfile` does not declare it, so the value survives), but `PRIVILEGED_BASE_STAGE`/`CLI_BASE_STAGE`
 are compose build args (`base.dockerfile` declares defaults for them, so an `.env` value would be clobbered — a
-`--build-arg` must win). Ruby is the first image to combine `privileged` with a `dist`: its dist FROMs `privileged`,
-so the shipped runtime carries sudo.
+`--build-arg` must win). Ruby is the first image to combine `privileged` with a `dist` (its dist FROMs `privileged`,
+so the shipped runtime carries sudo); dotnet does the same but layers `privileged` onto the shared `dotnet-toolchain`
+(PRIVILEGED_BASE_STAGE=dotnet-toolchain) rather than `base`.
 
 cdnet's CLT installs under `/opt/<image>/bin` (on PATH) — `/opt/qodana-cdnet/bin/inspectcode`, found by
 name — distinct from `/data/cache`, the runtime cache where clang's `tools` pre-stages clang-tidy

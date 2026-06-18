@@ -181,6 +181,26 @@ services:
         tooling: build/install/image-tool
     platform: linux/amd64
     image: qodana-ruby-3.4:dev
+  qodana-dotnet:
+    build:
+      context: docker
+      dockerfile: images/qodana-dotnet.dockerfile
+      args:
+        CLI_SOURCE: release
+        CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+        # dotnet's privileged sudo layer sits on the .NET toolchain (node+eslint are in-place on base, then
+        # dotnet-toolchain FROMs base and inherits them). PRIVILEGED_BASE_STAGE=dotnet-toolchain is a build
+        # ARG ONLY: base.dockerfile defaults it to clang-toolchain, which would clobber an .env value, so
+        # --build-arg must win (the cdnet convention). The dist's DIST_BASE_STAGE=privileged is NOT here — it
+        # lives in the .env (base.dockerfile does not default it, so the INCLUDE_ARGS value survives; the
+        # android/php/ruby convention). No CLI_BASE_STAGE override (dotnet has a dist, so the inner CLI layers
+        # onto the `dist` default). No QODANA_UID/GID override: the trixie debian-base does NOT occupy uid
+        # 1000, so dotnet keeps base.dockerfile's default 1000.
+        PRIVILEGED_BASE_STAGE: dotnet-toolchain
+      additional_contexts:
+        tooling: build/install/image-tool
+    platform: linux/amd64
+    image: qodana-dotnet:dev
   qodana-clang:
     build:
       context: docker

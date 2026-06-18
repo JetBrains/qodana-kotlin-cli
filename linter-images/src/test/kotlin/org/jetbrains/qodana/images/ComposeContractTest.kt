@@ -31,6 +31,7 @@ class ComposeContractTest {
             "qodana-ruby-3.2",
             "qodana-ruby-3.4",
             "qodana-rust",
+            "qodana-dotnet",
         )
 
     @Test
@@ -110,6 +111,7 @@ class ComposeContractTest {
             "qodana-ruby-3.2",
             "qodana-ruby-3.4",
             "qodana-rust",
+            "qodana-dotnet",
         )) {
             val args = root[slug]["build"]["args"]
             assertTrue(args["CLI_BASE_STAGE"] == null, "$slug must not override CLI_BASE_STAGE (defaults to dist)")
@@ -147,6 +149,27 @@ class ComposeContractTest {
                 "$slug DIST_BASE_STAGE is an .env key (no clobber), not a compose build arg",
             )
         }
+    }
+
+    @Test
+    fun `dotnet layers privileged onto the dotnet-toolchain via a build arg, with DIST_BASE_STAGE as an env key`() {
+        // dotnet is the FIRST dist+privileged+dotnet-toolchain image: its privileged layer sits on the
+        // .NET toolchain (like cdnet), so PRIVILEGED_BASE_STAGE=dotnet-toolchain is a build ARG
+        // (base.dockerfile defaults it to clang-toolchain, which would clobber an .env value).
+        // DIST_BASE_STAGE=privileged is an .env KEY (no clobber — base.dockerfile does not declare it),
+        // NOT a compose build arg, so it must be ABSENT here (DotnetEnvContractTest asserts it lives in
+        // the .env). CLI_BASE_STAGE stays the `dist` default (dotnet has a dist) — asserted in the
+        // no-CLI_BASE_STAGE-override loop above.
+        val args = load("compose.yaml")["services"]["qodana-dotnet"]["build"]["args"]
+        assertEquals(
+            "dotnet-toolchain",
+            args["PRIVILEGED_BASE_STAGE"].asText(),
+            "dotnet's privileged layer sits on the .NET toolchain (the cdnet convention)",
+        )
+        assertTrue(
+            args["DIST_BASE_STAGE"] == null,
+            "dotnet DIST_BASE_STAGE is an .env key (no clobber), not a compose build arg",
+        )
     }
 
     @Test
