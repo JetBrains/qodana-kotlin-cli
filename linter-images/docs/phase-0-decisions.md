@@ -703,6 +703,151 @@ as an `.env` key NOR as a compose build arg. `ComposeContractTest`'s
 uid-1000-conflict test already asserts every service except `qodana-js` omits the
 uid build args.
 
+## Ruby dist (qodana-ruby — RubyMine, 3 variants, EAP)
+
+Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-ruby.releases.json`.
+Top-level feed `Code` is `QDRUBY`. ALL 10 feed releases are `Type=eap` — there are
+ZERO `release` entries — so this is the fleet's FIRST eap image. `QD_RELEASE_TYPE=eap`
+is consumed ONLY by `BumpPinsCommand` (drift) to pick the newest EAP within the major
+(`resolveNewestBuild` filters `it.type == QD_RELEASE_TYPE`); `provision-dist` selects
+the release + resolves `Downloads.linux.Link` from the verbatim `QD_VERSION`/`QD_BUILD`.
+The newest 2026.1 EAP is `261.25886` (full version `2026.1.4`, Date 2026-06-15). The
+feed is the PUBLIC feed (`/qodana/feed`, no token): the image's `.env` OMITS
+`QD_DISTRIBUTION_FEED` and relies on the public default. Keys are named to match
+`BumpPinsCommand.syncDecisions` (slug `qodana-ruby` → `QODANA_RUBY_BUILD`);
+`EnvContractTest` asserts byte-identity against the `.env`'s `QD_VERSION`
+(MajorVersion `2026.1`) and `QD_BUILD` (`261.25886`). The verbatim linux Link lives
+under the entry's `Downloads.linux.Link` and embeds an extra build segment
+(`...-261.25886.142.tar.gz`) — use it VERBATIM, do not reconstruct it from `Build`.
+
+All 3 ruby variants (3.2, 3.3-primary, 3.4) share this SINGLE RM dist (the IDE dist is
+ruby-runtime-agnostic — the android precedent, where android reuses the jvm dist), so
+all 3 `.env` carry `QD_LINTER_SLUG=qodana-ruby` and exactly ONE `QODANA_RUBY_BUILD` row
+suffices (the 3 bump passes idempotently rewrite the same row — the jvm+android
+precedent).
+
+QODANA_RUBY_VERSION = 2026.1
+QODANA_RUBY_BUILD = 261.25886
+
+Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+
+QODANA_RUBY_FULL_VERSION = 2026.1.4
+
+Download link (verbatim from the feed's `Downloads.linux.Link`):
+
+QODANA_RUBY_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDRUBY-261.25886.142.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link are present (probed live 2026-06-18 via a single-byte
+range GET following CDN redirects): the `.sha256` checksum and the `.sha256.asc`
+detached GPG signature.
+
+QODANA_RUBY_LINUX_SHA256_SIBLING = 206
+QODANA_RUBY_LINUX_ASC_SIBLING = 206
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`RM` (RubyMine). Verified EMPIRICALLY, not assumed: stream-extracting the dist
+tarball's metadata (`bsdtar -xO --include '*/product-info.json'`) shows
+`productCode=RM`, `name="RubyMine"`, version `2026.1.3`, buildNumber `261.25886`, and
+`vmOptionsFilePath=bin/rubymine64.vmoptions`. `dist.flavour.txt=QDRUBY`. The
+`rubymine64.vmoptions` file confirms the generalized `bin/*.vmoptions` `idea.log.path`
+strip in `lib/dist.dockerfile` covers RubyMine. This matches the qodana-cli source
+`RubyLinterProperties.ProductInfoJsonCode = "RM"`. The feed `Code` `QDRUBY` is the
+distinct feed artifact code, not the product-info code.
+
+QODANA_RUBY_PRODUCT_INFO_CODE = RM
+QODANA_RUBY_FEED_CODE = QDRUBY
+
+## dhi.io ruby language base + gem-cache toolchain (qodana-ruby, 3 variants)
+
+`qodana-ruby` builds on the DHI **ruby** language base — ruby/gem/bundle PRE-BAKED at
+`/usr/local/bin` — but the base ships NO node. So like qodana-go/php it LAYERS the
+node toolchain (`lib/toolchain/node.dockerfile`, NODE_MAJOR-pinned) then the in-place
+global eslint pin (`lib/toolchain/eslint.dockerfile`) for its JS/TS support, plus the
+in-place `lib/toolchain/ruby.dockerfile` gem-cache redirect.
+
+**NODE_MAJOR=20 — DELIBERATE DIVERGENCE from the source's node 22:** fleet lockstep
+(jvm/go/php also hold 20). The fleet's node toolchain is NodeSource apt
+(`lib/toolchain/node.dockerfile`), not the source's COPY-from-node-base.
+
+**Gem-cache redirect — DELIBERATE DIVERGENCE.** `lib/toolchain/ruby.dockerfile` is a
+two-line ENV fragment (ruby is PRE-BAKED, so nothing is installed) following the
+`go.dockerfile` ENV-redirect idiom, NOT the source `dockerfiles/base/ruby.Dockerfile`
+(which writes a HOME-relative `BUNDLE_PATH: ${HOME}/.local/share/gem` into
+`$HOME/.bundle/config` and sets NEITHER `GEM_HOME` NOR `BUNDLE_APP_CONFIG`). We
+diverge because (a) the fleet's writable scan-cache convention is `/data/cache`
+(chowned to the qodana user by `lib/base`), not the user's `$HOME`; (b) the go-pattern
+ENV redirect is the established fleet idiom. We set ALL THREE of `GEM_HOME`/
+`BUNDLE_PATH`/`BUNDLE_APP_CONFIG=/data/cache/gem` to cover both `gem install` (reads
+`GEM_HOME`) and `bundle install` (reads `BUNDLE_PATH`/`BUNDLE_APP_CONFIG`) — the base
+default `GEM_HOME=/usr/local/bundle` is root-owned and would break `gem install` as
+uid 1000 — and prepend `/data/cache/gem/bin` to PATH so project-installed gem
+executables (e.g. rubocop) run as uid 1000. `RubyToolchainTest` guards the redirect +
+the INCLUDE.
+
+**Privileged + dist wiring — NOVEL (ruby is the FIRST dist+privileged image).** The
+source `dockerfiles/ruby/internal.Dockerfile` defaults `PRIVILEGED="true"` (installs
+sudo + `qodana ALL=(ALL) NOPASSWD:ALL`) because ruby scans shell out to sudo to
+install project gems, so ruby INCLUDEs `lib/privileged.dockerfile`. `privileged` does
+`FROM ${PRIVILEGED_BASE_STAGE} AS privileged`; `base.dockerfile` defaults
+`PRIVILEGED_BASE_STAGE=clang-toolchain` (WRONG for ruby), and that default is a build
+ARG declared AFTER the INCLUDE_ARGS block, so it CLOBBERS any `.env` value — ruby must
+pass `PRIVILEGED_BASE_STAGE=base` as a **compose build arg** (the cdnet convention) so
+privileged FROMs `base` (carrying node+eslint+ruby in-place). The dist then layers onto
+privileged via `DIST_BASE_STAGE=privileged`, which is an **`.env` KEY** (the
+android/php convention): `base.dockerfile` does NOT declare `ARG DIST_BASE_STAGE`, so
+the INCLUDE_ARGS value survives uncloberred to `FROM ${DIST_BASE_STAGE:-base} AS dist`.
+Resolved chain: `base → node → eslint → ruby → privileged(FROM base) → dist(FROM
+privileged) → cli(FROM dist) → runtime`. Consequence (intended): the shipped runtime
+layers on top of `privileged`, so the final image carries sudo + `/etc/sudoers.d/qodana`
+NOPASSWD — matching the source `PRIVILEGED=true`. cdnet has privileged but NO dist
+(`CLI_BASE_STAGE=tools`); php/android/python have dist but NO privileged — this
+dist-on-privileged combination has no precedent, so its ONLY validation is the CI e2e
+`docker compose build`.
+
+### Three variants; 3.1 DROPPED
+
+Three ruby-runtime variants: `qodana-ruby` (RUBY 3.3, PRIMARY/default tag),
+`qodana-ruby-3.2`, `qodana-ruby-3.4`. `dhi.io/ruby:3.1-debian13-dev` returns
+`not found` (404, confirmed 2026-06-18 via `docker buildx imagetools inspect`), so 3.1
+is DROPPED. The bases (the tag the source pins, in the `-debian13-dev` flavour — `-dev`
+ships apt-get, which `lib/base` needs) resolved daemonless 2026-06-18 via
+`docker buildx imagetools inspect dhi.io/ruby:<ver>-debian13-dev`. `EnvContractTest`
+asserts each variant `.env`'s `QD_BASE_IMAGE` is byte-identical to its row here.
+
+QD_RUBY_BASE_IMAGE = dhi.io/ruby:3.3-debian13-dev@sha256:207bdd81b3fbec45e858f7255a0e4032cd6c6bfa4c1348532c2c50989e361a73
+QD_RUBY_32_BASE_IMAGE = dhi.io/ruby:3.2-debian13-dev@sha256:b5ccc40b29ec7d3c60239340857c984497fd87a76f5e6e98d3b8f1bab83146d9
+QD_RUBY_34_BASE_IMAGE = dhi.io/ruby:3.4-debian13-dev@sha256:3f86a864dbd00ad09e92268c0cac6604fe2e472604a16e06ea826d57cae45abd
+
+### Variant-modeling: 3 thin dockerfiles + 3 `.env` (Option A)
+
+`ComposeContractTest` asserts each service's `build.dockerfile` equals
+`images/$slug.dockerfile` EXACTLY, and `EnvContractTest` iterates ALL `authoredSlugs`
+reading `docker/images/$slug.env` — so every authored slug needs BOTH its own
+dockerfile AND its own `.env`. A single shared dockerfile (per-service `QD_BASE_IMAGE`
+compose override) cannot satisfy the per-slug `dockerfile`-path assertion without
+restructuring the contract tests, so Option A (3 thin files + 3 `.env`) is the
+zero-structural-change choice. The 3 thin dockerfiles are byte-identical except their
+`INCLUDE_ARGS images/<slug>.env` line; the 3 `.env` share an identical key set + the
+dist pins and differ ONLY in `QD_BASE_IMAGE`.
+
+### uid 1000 is FREE → qodana-ruby keeps the default uid 1000 (NO uid override)
+
+**DELIBERATE DIVERGENCE from the source's 1001:** the source
+`dockerfiles/ruby/internal.Dockerfile` does `useradd -u 1001 qodana`, but `lib/base`
+creates the qodana user at the FREE uid 1000. Verified EMPIRICALLY on the linux/amd64
+build target, 2026-06-18: all 3 pinned ruby bases' `/etc/passwd` list ONLY `root` (0),
+`nonroot` (65532), `_apt` (42), `nobody` (65534) — uid/gid 1000 AND 1001 all return
+free from `getent`. So `lib/base`'s `groupadd --gid 1000 qodana` succeeds, and all 3
+ruby variants keep `base.dockerfile`'s DEFAULT uid/gid 1000 (byte-identical to the
+debian/golang/php-base images). They set NO `QODANA_UID`/`QODANA_GID` — neither as an
+`.env` key NOR as a compose build arg. The ruby bases also lack a `root` NAME entry
+that some tools expect, but `lib/base` + `lib/privileged` already handle this
+(`grep -q '^root:' || echo ...`). `ComposeContractTest`'s uid-1000-conflict test
+already asserts every service except `qodana-js` omits the uid build args.
+
 ## Why `qdist` is not wired (deferred — QD-15062)
 
 The `QD_DISTRIBUTION_FEED` build arg selects which feed an image fetches its IDE
