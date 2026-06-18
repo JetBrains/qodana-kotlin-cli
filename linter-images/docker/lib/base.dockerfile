@@ -26,9 +26,11 @@ ARG QD_DIST=/opt/idea
 # so `USER root` fails with "unable to find user root".
 USER 0
 
-# OS glue: git for VCS-aware scans; curl for runtime fetches; jq for entrypoint JSON wrangling;
-# ca-certificates + locales for TLS and UTF-8. NO gnupg — signature verification happens only in
-# the dist-builder stage (which apt-installs gnupg there); nothing at scan-time needs gpg.
+# OS glue: git for VCS-aware scans; curl for runtime fetches; gzip so locale-gen can read glibc's
+# gzip-compressed charmaps (the DHI node base omits gzip, so locale-gen silently produces a broken
+# locale without it); jq for entrypoint JSON wrangling; ca-certificates + locales for TLS and UTF-8.
+# NO gnupg — signature verification happens only in the dist-builder stage (which apt-installs gnupg
+# there); nothing at scan-time needs gpg.
 RUN <<-EOT
 	set -eux
 	export DEBIAN_FRONTEND=noninteractive
@@ -37,6 +39,7 @@ RUN <<-EOT
 		ca-certificates \
 		curl \
 		git \
+		gzip \
 		jq \
 		locales
 	sed -i 's/^# *\(en_US.UTF-8\)/\1/' /etc/locale.gen
