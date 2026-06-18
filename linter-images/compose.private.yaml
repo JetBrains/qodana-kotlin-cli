@@ -50,6 +50,18 @@ services:
     build:
       secrets:
         - feed_token
+  qodana-ruby:
+    build:
+      secrets:
+        - feed_token
+  qodana-ruby-3.2:
+    build:
+      secrets:
+        - feed_token
+  qodana-ruby-3.4:
+    build:
+      secrets:
+        - feed_token
   qodana-clang:
     build:
       secrets:

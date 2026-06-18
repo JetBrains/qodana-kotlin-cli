@@ -121,6 +121,50 @@ services:
         tooling: build/install/image-tool
     platform: linux/amd64
     image: qodana-php:dev
+  qodana-ruby:
+    build:
+      context: docker
+      dockerfile: images/qodana-ruby.dockerfile
+      args:
+        CLI_SOURCE: release
+        CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+        # Ruby's privileged sudo layer sits on `base` (node+eslint+ruby are in-place there).
+        # PRIVILEGED_BASE_STAGE=base is a build ARG ONLY: base.dockerfile defaults it to clang-toolchain,
+        # which would clobber an .env value, so --build-arg must win (the cdnet convention). The dist's
+        # DIST_BASE_STAGE=privileged is NOT here — it lives in the .env (base.dockerfile does not default
+        # it, so the INCLUDE_ARGS value survives; the android/php convention). No QODANA_UID/GID override:
+        # the dhi.io/ruby base does NOT occupy uid 1000, so ruby keeps base.dockerfile's default 1000.
+        PRIVILEGED_BASE_STAGE: base
+      additional_contexts:
+        tooling: build/install/image-tool
+    platform: linux/amd64
+    image: qodana-ruby:dev
+  qodana-ruby-3.2:
+    build:
+      context: docker
+      dockerfile: images/qodana-ruby-3.2.dockerfile
+      args:
+        CLI_SOURCE: release
+        CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+        # Ruby 3.2 variant: same wiring as qodana-ruby, differing only in QD_BASE_IMAGE (the .env).
+        PRIVILEGED_BASE_STAGE: base
+      additional_contexts:
+        tooling: build/install/image-tool
+    platform: linux/amd64
+    image: qodana-ruby-3.2:dev
+  qodana-ruby-3.4:
+    build:
+      context: docker
+      dockerfile: images/qodana-ruby-3.4.dockerfile
+      args:
+        CLI_SOURCE: release
+        CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+        # Ruby 3.4 variant: same wiring as qodana-ruby, differing only in QD_BASE_IMAGE (the .env).
+        PRIVILEGED_BASE_STAGE: base
+      additional_contexts:
+        tooling: build/install/image-tool
+    platform: linux/amd64
+    image: qodana-ruby-3.4:dev
   qodana-clang:
     build:
       context: docker

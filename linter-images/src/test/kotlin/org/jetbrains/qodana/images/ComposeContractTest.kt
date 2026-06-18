@@ -27,6 +27,9 @@ class ComposeContractTest {
             "qodana-go",
             "qodana-php",
             "qodana-cdnet",
+            "qodana-ruby",
+            "qodana-ruby-3.2",
+            "qodana-ruby-3.4",
         )
 
     @Test
@@ -102,6 +105,9 @@ class ComposeContractTest {
             "qodana-js",
             "qodana-go",
             "qodana-php",
+            "qodana-ruby",
+            "qodana-ruby-3.2",
+            "qodana-ruby-3.4",
         )) {
             val args = root[slug]["build"]["args"]
             assertTrue(args["CLI_BASE_STAGE"] == null, "$slug must not override CLI_BASE_STAGE (defaults to dist)")
@@ -119,6 +125,24 @@ class ComposeContractTest {
             assertTrue(
                 args["PRIVILEGED_BASE_STAGE"] == null,
                 "$slug must not override PRIVILEGED_BASE_STAGE (clang relies on the global clang-toolchain default)",
+            )
+        }
+        // Ruby is the FIRST dist+privileged image: its privileged layer sits on `base` (node+eslint+ruby
+        // are in-place there), so PRIVILEGED_BASE_STAGE=base is a build ARG (base.dockerfile defaults it
+        // to clang-toolchain, which would clobber an .env value). DIST_BASE_STAGE=privileged is an .env
+        // KEY (no clobber — base.dockerfile does not declare it), NOT a compose build arg, so it must be
+        // ABSENT here (EnvContractTest asserts it lives in the .env). CLI_BASE_STAGE stays the `dist`
+        // default (ruby has a dist) — asserted in the no-override loop above.
+        for (slug in listOf("qodana-ruby", "qodana-ruby-3.2", "qodana-ruby-3.4")) {
+            val args = root[slug]["build"]["args"]
+            assertEquals(
+                "base",
+                args["PRIVILEGED_BASE_STAGE"].asText(),
+                "$slug privileged layers onto base (the in-place node+eslint+ruby toolchains)",
+            )
+            assertTrue(
+                args["DIST_BASE_STAGE"] == null,
+                "$slug DIST_BASE_STAGE is an .env key (no clobber), not a compose build arg",
             )
         }
     }
@@ -242,6 +266,13 @@ class ComposeContractTest {
             secretsOf("qodana-php"),
             "php uses only the feed token",
         )
+        for (slug in listOf("qodana-ruby", "qodana-ruby-3.2", "qodana-ruby-3.4")) {
+            assertEquals(
+                setOf("feed_token"),
+                secretsOf(slug),
+                "$slug has a dist stage, so it uses only the feed token",
+            )
+        }
         assertEquals(
             setOf("qodana_cli_deps_token"),
             secretsOf("qodana-clang"),
