@@ -384,6 +384,95 @@ the product-info code.
 QODANA_PYTHON_COMMUNITY_PRODUCT_INFO_CODE = PC
 QODANA_PYTHON_COMMUNITY_FEED_CODE = QDPYC
 
+## JS dist (qodana-js — Ultimate WebStorm)
+
+Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-js.releases.json`
+(max-by-Date among `Type==release`). Like the Python images, each JS image tracks
+ITS OWN newest release; the current newest `release` is the 2026.1 line
+(`261.25882`, Date 2026-06-15). Top-level feed `Code` is `QDJS`. The feed is the
+PUBLIC feed (`/qodana/feed`, no token): qodana-js is a released linter, so the
+image's `.env` OMITS `QD_DISTRIBUTION_FEED` and relies on the public default. Keys
+are named to match `BumpPinsCommand.syncDecisions` (slug `qodana-js` →
+`QODANA_JS_BUILD`); `EnvContractTest` asserts byte-identity against the `.env`'s
+`QD_VERSION` (MajorVersion `2026.1`) and `QD_BUILD` (`261.25882`). The download
+Link embeds an extra build segment (`...-261.25882.140.tar.gz`); use the feed's
+Link VERBATIM — do not reconstruct it from `Build`.
+
+QODANA_JS_VERSION = 2026.1
+QODANA_JS_BUILD = 261.25882
+
+Download link (verbatim from the feed):
+
+QODANA_JS_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDJS-261.25882.140.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link return HTTP 200/206 (probed live 2026-06-18,
+following CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the
+`.sha256.asc` detached GPG signature (`ChecksumLink + ".asc"`).
+
+QODANA_JS_LINUX_SHA256_SIBLING = 200
+QODANA_JS_LINUX_ASC_SIBLING = 200
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`WS` (WebStorm). Verified, not assumed: qodana-cli's
+`internal/platform/product/intelllij_linters.go:88` declares the JS linter's
+`ProductInfoJsonCode = "WS"` — this is the `productCode` inside the dist's
+`product-info.json` that `verify-dist-layout` checks. The feed `Code` `QDJS` is the
+distinct feed artifact code, not the product-info code.
+
+QODANA_JS_PRODUCT_INFO_CODE = WS
+QODANA_JS_FEED_CODE = QDJS
+
+## dhi.io node language base (qodana-js; the FIRST DHI language base)
+
+`qodana-js` builds on the DHI **Node** language base — Node 22 + npm + Yarn +
+corepack PRE-BAKED at `/usr/bin` — so it needs NO node toolchain. This is the
+first DHI-language-base image; go/php/ruby will follow the same shape (their own
+DHI language base + the node toolchain for their JS/TS support).
+
+`dhi.io/node:22-debian13-dev` resolved daemonless 2026-06-18 via
+`docker buildx imagetools inspect dhi.io/node:22-debian13-dev --format '{{json .Manifest.Digest}}'`:
+
+```
+sha256:e2df7b939a83d8825e7f5fcd8c9b54ecf53fd40565e5523d71a0442c7a098f10
+```
+
+The `-dev` variant is deliberate (NOT the minimal runtime variant): it ships
+`apt-get`, `git`, and a bash shell — `lib/base.dockerfile` apt-installs the OS glue
+it needs on top. `EnvContractTest` asserts `qodana-js.env`'s `QD_BASE_IMAGE` is
+byte-identical to this value, so the `.env` MUST use this exact string (tag +
+digest).
+
+QD_NODE_BASE_IMAGE = dhi.io/node:22-debian13-dev@sha256:e2df7b939a83d8825e7f5fcd8c9b54ecf53fd40565e5523d71a0442c7a098f10
+
+### uid 1000 conflict → QODANA_UID/QODANA_GID (COMPOSE BUILD ARGS, not `.env` keys)
+
+The node base ships a `node` user at **uid 1000 / gid 1000** (`/home/node`), so
+`lib/base.dockerfile`'s `groupadd --gid 1000 qodana` FAILS
+(`groupadd: GID '1000' already exists`, reproduced live 2026-06-18). `lib/base`
+(and `lib/dist`/`lib/cli`/`lib/runtime`) therefore parameterize the qodana uid/gid
+via `QODANA_UID`/`QODANA_GID` build ARGs, **default 1000** (declared once in
+`base.dockerfile`'s global pre-FROM block) so every existing debian-base image
+(jvm/android/python/clang) resolves byte-identically. qodana-js overrides them to
+1001 (the next free id above the base's `node`).
+
+The override is passed as a **compose build arg** (mirroring clang's
+`CLI_BASE_STAGE=tools`), NOT an `.env` key. Reason, verified empirically
+2026-06-18: dockerfile-x emits each `INCLUDE_ARGS` key as a literal
+`ARG NAME="val"` default placed at the very top of the resolved file; the
+`base.dockerfile` fragment's own `ARG QODANA_UID=1000` is emitted AFTER that block,
+and a later `ARG NAME=default` CLOBBERS the earlier INCLUDE_ARGS value (a build
+shows uid resolving back to 1000). A `--build-arg` always wins over a redeclared
+default, so the per-image override lives in `compose.yaml`'s build `args`.
+`ComposeContractTest` asserts the qodana-js service passes `QODANA_UID`/`QODANA_GID`
+= the values below; the upcoming ruby image will likewise need 1001, and go/php
+reuse this same compose-build-arg mechanism.
+
+QODANA_JS_UID = 1001
+QODANA_JS_GID = 1001
+
 ## Why `qdist` is not wired (deferred — QD-15062)
 
 The `QD_DISTRIBUTION_FEED` build arg selects which feed an image fetches its IDE

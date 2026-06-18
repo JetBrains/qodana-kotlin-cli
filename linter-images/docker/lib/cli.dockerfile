@@ -64,4 +64,7 @@ FROM ${CLI_BASE_STAGE} AS cli-installed
 # stage default over the global), making the COPY below resolve to qodana even for the clang image. Bare
 # `ARG` inherits the global value (qodana-clang for clang), matching the cli-builder stage above.
 ARG CLI_BINARY
-COPY --from=cli-builder --chown=1000:1000 /staging/bin/${CLI_BINARY} /usr/local/bin/${CLI_BINARY}
+# Bare (no default) for the SAME reason: inherit the global QODANA_UID/GID (the language-base override).
+ARG QODANA_UID
+ARG QODANA_GID
+COPY --from=cli-builder --chown=${QODANA_UID}:${QODANA_GID} /staging/bin/${CLI_BINARY} /usr/local/bin/${CLI_BINARY}

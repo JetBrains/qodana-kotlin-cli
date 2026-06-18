@@ -1,0 +1,43 @@
+{
+  "case": "js-basic",
+  "image": "qodana-js",
+  "description": "Single-file JS project with two planted defects, hermetic run. First e2e for the JS image (the FIRST DHI-language-base image: node + Yarn from the dhi.io/node base + the in-place global eslint pin, no node toolchain). Proves qodana-js builds (base + eslint + dist + cli + runtime), loads its Ultimate WebStorm profile, and scans a real .js producing SARIF. Driver name + rule ids are NEEDS-PINNING starting guesses — pin from a CI control run and confirm both are enabled in THIS image's default WS (WebStorm) profile.",
+  "run": {
+    "network": "none",
+    "extraArgs": ["--no-statistics"]
+  },
+  "expectExitCode": 0,
+  "sarif": {
+    "tool": {
+      "driverName": null,
+      "driverFullName": null
+    },
+    "schemaValid": false,
+    "qodanaSeverityRequired": true,
+    "expectations": [
+      {
+        "ruleId": "JSUnusedLocalSymbols",
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "main.js",
+        "pin": "needs-pinning",
+        "guards": [],
+        "reason": "STARTING-GUESS id: the planted `const unused = 42` local that is never read must surface; pin the exact id from a CI control run and confirm it is in the Ultimate WebStorm profile."
+      },
+      {
+        "ruleId": "JSEqualityComparisonWithCoercion",
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "main.js",
+        "pin": "needs-pinning",
+        "guards": [],
+        "reason": "STARTING-GUESS id: the planted loose `==` comparison must surface as an equality-with-coercion inspection; pin the exact id from a CI control run and confirm it is in the Ultimate WebStorm profile."
+      }
+    ]
+  },
+  "log": {
+    "mustNotContain": [
+      { "text": "Problems found loading plugins:", "guards": [] }
+    ]
+  }
+}
