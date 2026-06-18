@@ -201,6 +201,24 @@ services:
         tooling: build/install/image-tool
     platform: linux/amd64
     image: qodana-dotnet:dev
+  qodana-cpp:
+    build:
+      context: docker
+      dockerfile: images/qodana-cpp.dockerfile
+      args:
+        CLI_SOURCE: release
+        CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+        # cpp REUSES the clang toolchain (node+eslint append onto clang-toolchain), so its privileged
+        # layer sits on `clang-toolchain` — base.dockerfile's PRIVILEGED_BASE_STAGE default — and cpp sets
+        # NO override (the qodana-clang convention; ruby/dotnet must override because their node+eslint sit
+        # on base). The dist's DIST_BASE_STAGE=privileged lives in the .env (base.dockerfile does not
+        # default it, so the INCLUDE_ARGS value survives — the android/php/ruby/dotnet convention). No
+        # CLI_BASE_STAGE override (cpp has a dist). No QODANA_UID/GID override: the trixie base does not
+        # occupy uid 1000, so cpp keeps base.dockerfile's default 1000.
+      additional_contexts:
+        tooling: build/install/image-tool
+    platform: linux/amd64
+    image: qodana-cpp:dev
   qodana-clang:
     build:
       context: docker

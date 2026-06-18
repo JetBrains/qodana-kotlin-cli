@@ -44,6 +44,7 @@ class EnvContractTest {
             "qodana-ruby-3.4",
             "qodana-rust",
             "qodana-dotnet",
+            "qodana-cpp",
         )
 
     private fun parseEnv(slug: String): Map<String, String> {

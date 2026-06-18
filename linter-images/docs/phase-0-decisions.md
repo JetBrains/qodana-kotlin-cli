@@ -1002,6 +1002,77 @@ the cdnet-libicu72 fallback. The .NET SDK install (revision/sha/channels) is unc
 
 LIBICU_PKG = libicu76
 
+## C/C++ dist (qodana-cpp — CLion, RELEASE)
+
+Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-cpp.releases.json`. Top-level feed
+`Code` is `QDCPP`. Unlike ruby/rust (eap-only feeds), the QDCPP feed HAS `release` entries (cpp is no
+longer eap, Anna-confirmed), so this is a RELEASE image: `QD_RELEASE_TYPE=release` (consumed ONLY by
+`BumpPinsCommand` drift to pick the newest release within the major; `provision-dist` selects the release
+and resolves the Link from the verbatim `QD_VERSION`/`QD_BUILD`). The newest 2026.1 release is `261.25887`
+(MajorVersion `2026.1`, full Version `2026.1.4`, Date 2026-06-15). The feed is the PUBLIC feed
+(`/qodana/feed`, no token): the image's `.env` OMITS `QD_DISTRIBUTION_FEED`. Keys match
+`BumpPinsCommand.syncDecisions` (slug `qodana-cpp` → `QODANA_CPP_BUILD`); `CppEnvContractTest` asserts
+byte-identity against the `.env`'s `QD_VERSION` (`2026.1`) and `QD_BUILD` (`261.25887`). The download Link
+embeds an extra build segment (`...-261.25887.177.tar.gz`); use it VERBATIM, do not reconstruct it.
+
+QODANA_CPP_VERSION = 2026.1
+QODANA_CPP_BUILD = 261.25887
+
+Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+
+QODANA_CPP_FULL_VERSION = 2026.1.4
+
+Download link (verbatim from the feed):
+
+QODANA_CPP_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDCPP-261.25887.177.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link are present (probed live 2026-06-18 via a single-byte range GET following
+CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the `.sha256.asc` detached GPG signature
+(`ChecksumLink + ".asc"`).
+
+QODANA_CPP_LINUX_SHA256_SIBLING = 206
+QODANA_CPP_LINUX_ASC_SIBLING = 206
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`CL` (CLion). Verified EMPIRICALLY, not assumed (the Community-dist trap lesson): stream-extracting the
+dist tarball's metadata (`bsdtar -xO --include '*/product-info.json' --include '*/dist.flavour.txt'`,
+2026-06-18) shows `productCode=CL`, `name="CLion"`, version `2026.1.4`, buildNumber `261.25887`, and
+`vmOptionsFilePath=bin/clion64.vmoptions`. `dist.flavour.txt=QDCPP`. The `clion64.vmoptions` file confirms
+the generalized `bin/*.vmoptions` `idea.log.path` strip in `lib/dist.dockerfile` covers CLion. The feed
+`Code` `QDCPP` is the distinct feed artifact code, not the product-info code; the qodana-cli source maps
+`"CL" → QDCPP` (`product_info.go`, `product_test.go`), confirming `CL` is the product-info code.
+
+QODANA_CPP_PRODUCT_INFO_CODE = CL
+QODANA_CPP_FEED_CODE = QDCPP
+
+## C/C++ toolchain (qodana-cpp — REUSES clang + node + eslint; single clang cell; CXX/CC)
+
+`qodana-cpp` adds NO toolchain fragment: it REUSES `lib/toolchain/clang.dockerfile`
+(`FROM base AS clang-toolchain`, the LLVM apt repo pinned by `CLANG`/`CLANG_OS`) — the SAME fragment
+`qodana-clang` uses — then the in-place `node` + `eslint` fragments append onto `clang-toolchain` (CLion
+analyzes JS/TS). The privileged sudo layer then FROMs `clang-toolchain` via `base.dockerfile`'s GLOBAL
+`PRIVILEGED_BASE_STAGE=clang-toolchain` default, so cpp sets NO `PRIVILEGED_BASE_STAGE` override (the
+qodana-clang convention) — distinct from ruby/dotnet, whose node+eslint sit on `base`. The dist FROMs
+privileged via `DIST_BASE_STAGE=privileged` (an `.env` key). Resolved lineage:
+`base → clang-toolchain(+node+eslint) → privileged(FROM clang-toolchain) → dist(FROM privileged) → cli →
+runtime`.
+
+SINGLE clang build cell `CLANG=20`, `CLANG_OS=trixie` — NOT the source's bookworm-era 15-18 matrix (the
+source `cpp.Dockerfile` is already on `apt.llvm.org/trixie/` with `CLANG=20`, the only LLVM majors the
+trixie repo carries are 20/21). It matches the existing `clang-versions.txt` `20 trixie` row, so no
+`ClangVersionsTest` change. The multi-clang tag matrix is deferred to the same future effort that wires
+`qodana-clang`'s (also single-tag today).
+
+CXX/CC/CPLUS_INCLUDE_PATH: the source `cpp.Dockerfile` exports `CXX=/usr/lib/llvm-${CLANG}/bin/clang++`,
+`CC=/usr/lib/llvm-${CLANG}/bin/clang`, `CPLUS_INCLUDE_PATH=/usr/lib/clang/${CLANG}/include` so CLion's
+analysis resolves the compiler for `compile_commands.json` TUs. The repo's `clang.dockerfile` uses
+`update-alternatives` for `/usr/bin/clang` and does NOT set these, so `qodana-cpp.dockerfile` sets them
+CPP-LOCALLY (a trailing `ARG CLANG` + `ENV` on the `runtime` stage), keeping `qodana-clang` byte-unchanged.
+A faithful carry-over of source behavior; flagged for the CI control run.
+
 ## Why `qdist` is not wired (deferred — QD-15062)
 
 The `QD_DISTRIBUTION_FEED` build arg selects which feed an image fetches its IDE

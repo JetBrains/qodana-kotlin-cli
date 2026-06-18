@@ -32,6 +32,7 @@ class ComposeContractTest {
             "qodana-ruby-3.4",
             "qodana-rust",
             "qodana-dotnet",
+            "qodana-cpp",
         )
 
     @Test
@@ -112,6 +113,7 @@ class ComposeContractTest {
             "qodana-ruby-3.4",
             "qodana-rust",
             "qodana-dotnet",
+            "qodana-cpp",
         )) {
             val args = root[slug]["build"]["args"]
             assertTrue(args["CLI_BASE_STAGE"] == null, "$slug must not override CLI_BASE_STAGE (defaults to dist)")
@@ -124,13 +126,22 @@ class ComposeContractTest {
             root["qodana-cdnet"]["build"]["args"]["PRIVILEGED_BASE_STAGE"].asText(),
             "cdnet's privileged layer sits on the .NET toolchain",
         )
-        for (slug in listOf("qodana-jvm", "qodana-android", "qodana-clang", "qodana-rust")) {
+        // cpp is privileged but — like clang — its privileged layer sits on `clang-toolchain` (node+eslint
+        // append there), which is base.dockerfile's global PRIVILEGED_BASE_STAGE default, so cpp sets no
+        // override either. Unlike clang it HAS a dist that FROMs privileged: DIST_BASE_STAGE=privileged is
+        // an .env KEY (no clobber), so it must be ABSENT from the compose args (CppEnvContractTest asserts
+        // it lives in the .env).
+        for (slug in listOf("qodana-jvm", "qodana-android", "qodana-clang", "qodana-rust", "qodana-cpp")) {
             val args = root[slug]["build"]["args"]
             assertTrue(
                 args["PRIVILEGED_BASE_STAGE"] == null,
                 "$slug must not override PRIVILEGED_BASE_STAGE (clang relies on the global clang-toolchain default)",
             )
         }
+        assertTrue(
+            root["qodana-cpp"]["build"]["args"]["DIST_BASE_STAGE"] == null,
+            "cpp DIST_BASE_STAGE is an .env key (no clobber), not a compose build arg",
+        )
         // Ruby is the FIRST dist+privileged image: its privileged layer sits on `base` (node+eslint+ruby
         // are in-place there), so PRIVILEGED_BASE_STAGE=base is a build ARG (base.dockerfile defaults it
         // to clang-toolchain, which would clobber an .env value). DIST_BASE_STAGE=privileged is an .env

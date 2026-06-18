@@ -3,7 +3,7 @@
 End-to-end tests for the in-repo Qodana linter images (`qodana-jvm`, `qodana-jvm-community`,
 `qodana-android`, `qodana-android-community`, `qodana-clang`, `qodana-python-community`,
 `qodana-python`, `qodana-js`, `qodana-go`, `qodana-php`, `qodana-rust`, `qodana-ruby`, `qodana-ruby-3.2`,
-`qodana-ruby-3.4`, `qodana-dotnet`). Each image
+`qodana-ruby-3.4`, `qodana-dotnet`, `qodana-cpp`). Each image
 gets its own CI job — **`Docker e2e (<image>)`** — that builds the image
 from this tree and runs every fixture under `fixtures/<image>/`, asserting the produced
 `qodana.sarif.json` against a per-case `expected.json`. A job goes red on any problem with its image,
@@ -24,7 +24,7 @@ linter-images/e2e/
 
 `<image>` ∈ {`qodana-jvm`, `qodana-jvm-community`, `qodana-android`, `qodana-android-community`,
 `qodana-clang`, `qodana-python-community`, `qodana-python`, `qodana-js`, `qodana-go`, `qodana-php`,
-`qodana-rust`, `qodana-ruby`, `qodana-ruby-3.2`, `qodana-ruby-3.4`, `qodana-dotnet`} (`qodana-cpp` is reserved for later).
+`qodana-rust`, `qodana-ruby`, `qodana-ruby-3.2`, `qodana-ruby-3.4`, `qodana-dotnet`, `qodana-cpp`}.
 
 ## Running
 

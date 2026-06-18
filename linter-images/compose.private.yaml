@@ -70,6 +70,10 @@ services:
     build:
       secrets:
         - feed_token
+  qodana-cpp:
+    build:
+      secrets:
+        - feed_token
   qodana-clang:
     build:
       secrets:
