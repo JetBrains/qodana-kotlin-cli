@@ -300,7 +300,12 @@ class EnvContractTest {
             "python-community uses the public feed (dockerfile default), so it must omit QD_DISTRIBUTION_FEED",
         )
         assertEquals("qodana-python-community", env["QD_LINTER_SLUG"], "python-community has its own dist slug")
-        assertEquals("PC", env["QD_PRODUCT_INFO_CODE"], "python-community product-info code is PC (Community)")
+        assertEquals(
+            "PY",
+            env["QD_PRODUCT_INFO_CODE"],
+            "python-community product-info code is PY (the QDPYC Community dist embeds the PyCharm Professional " +
+                "platform; Community-ness comes from dist.flavour.txt)",
+        )
         assertEquals("amd64", env["CLI_ARCH"], "python-community is amd64-only")
         assertEquals("conda-toolchain", env["DIST_BASE_STAGE"], "python-community dist layers onto the conda stage")
     }

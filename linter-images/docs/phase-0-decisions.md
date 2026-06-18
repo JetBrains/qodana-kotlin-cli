@@ -375,16 +375,18 @@ QODANA_PYTHON_COMMUNITY_LINUX_ASC_SIBLING = 200
 
 ### product-info.json code (verify-dist-layout depends on this)
 
-`PC` (PyCharm Community), where `qodana-python` uses `PY` (Professional).
-Verified, not assumed: qodana-cli's
-`internal/platform/product/intelllij_linters.go:80` declares
-`PythonLinterCommunityProperties.ProductInfoJsonCode = "PC"` (vs
-`PythonLinterProperties = "PY"`) — this is the `productCode` inside the dist's
-`product-info.json` that `verify-dist-layout` checks. The feed `Code` `QDPYC`
-(`public.json` `python-community.qd_code`) is the distinct feed artifact code, not
-the product-info code.
+`PY` (PyCharm Professional platform), same as `qodana-python`. The QDPYC dist
+embeds the PyCharm Professional platform: downloading `qodana-QDPYC-261.25883.161.tar.gz`
+and inspecting its `product-info.json` shows `productCode=PY`, `name="PyCharm"`.
+The **Community identity is carried by `dist.flavour.txt=QDPYC`**, which qodana-cli
+reads first (`ReadDistFlavour`) — that is the authoritative signal for community
+vs. professional, not `product-info.json productCode`. Note: qodana-cli's
+`PythonLinterCommunityProperties.ProductInfoJsonCode = "PC"` does **NOT** match
+the real packaged dist and is not the source of truth for `QD_PRODUCT_INFO_CODE`.
+The feed `Code` `QDPYC` (`public.json` `python-community.qd_code`) is the distinct
+feed artifact code, unchanged.
 
-QODANA_PYTHON_COMMUNITY_PRODUCT_INFO_CODE = PC
+QODANA_PYTHON_COMMUNITY_PRODUCT_INFO_CODE = PY
 QODANA_PYTHON_COMMUNITY_FEED_CODE = QDPYC
 
 ## JS dist (qodana-js — Ultimate WebStorm)
