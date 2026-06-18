@@ -35,6 +35,14 @@ RUN <<-EOT
 	set -eux
 	export DEBIAN_FRONTEND=noninteractive
 	apt-get update
+	# The dhi.io/php:8.4-dev base ships a pre-broken apt state: its cross-gcc-14 has an unsatisfiable
+	# `Depends: binutils (>= 2.39)` (only the unversioned-Providing binutils-latest libs are installed),
+	# which poisons the solver so even jq/locales below fail to plan. `--fix-broken install` drops the
+	# broken gcc-14 chain (the php image needs no C compiler) and repairs the state. Gated on `apt-get
+	# check` so the healthy bases (debian-base/golang/node) skip it and stay byte-equivalent.
+	if ! apt-get check; then
+		apt-get --fix-broken install -y --no-install-recommends
+	fi
 	apt-get install -y --no-install-recommends \
 		ca-certificates \
 		curl \
