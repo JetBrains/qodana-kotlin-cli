@@ -274,15 +274,18 @@ QODANA_JVM_COMMUNITY_LINUX_ASC_SIBLING = 200
 
 ### product-info.json code (verify-dist-layout depends on this)
 
-`IC` (IntelliJ Community), where `qodana-jvm` uses `IU` (Ultimate). Verified, not
-assumed: qodana-cli's `internal/platform/product/intelllij_linters.go` declares
-`JvmCommunityLinterProperties.ProductInfoJsonCode = "IC"` (vs `JvmLinterProperties
-= "IU"`) — this is the `productCode` inside the dist's `product-info.json` that
-`verify-dist-layout` checks. The feed `Code` / `Linter.ProductCode` `QDJVMC`
-(`product.go`, and `public.json` `jvm-community.qd_code`) is the distinct feed
-artifact code, not the product-info code.
+`IU`, the same code `qodana-jvm` uses. The QDJVMC Community dist embeds the IU
+IDEA platform: downloading `qodana-QDJVMC-253.31821.152.tar.gz` shows its root
+`product-info.json` carries `productCode=IU` and `name` "IntelliJ IDEA" (the
+product-info `version` field reads 2025.3.3). The Community identity is NOT in
+`product-info.json` — it is carried by `dist.flavour.txt=QDJVMC` at the dist root,
+which qodana-cli reads first (`ReadDistFlavour`) to resolve the Community linter.
+So `verify-dist-layout`, which checks the `product-info.json` `productCode`, must
+expect `IU`. Note that qodana-cli's `JvmCommunityLinterProperties.ProductInfoJsonCode
+= "IC"` does NOT match the real packaged dist and is not the source of truth here.
+The feed `Code` / `Linter.ProductCode` `QDJVMC` is the distinct feed artifact code.
 
-QODANA_JVM_COMMUNITY_PRODUCT_INFO_CODE = IC
+QODANA_JVM_COMMUNITY_PRODUCT_INFO_CODE = IU
 QODANA_JVM_COMMUNITY_FEED_CODE = QDJVMC
 
 ## Python dist (qodana-python — Ultimate)

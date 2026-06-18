@@ -94,7 +94,12 @@ class EnvContractTest {
             "jvm-community uses the public feed (dockerfile default), so it must omit QD_DISTRIBUTION_FEED",
         )
         assertEquals("qodana-jvm-community", community["QD_LINTER_SLUG"], "jvm-community has its own dist slug")
-        assertEquals("IC", community["QD_PRODUCT_INFO_CODE"], "jvm-community product-info code is IC (Community)")
+        assertEquals(
+            "IU",
+            community["QD_PRODUCT_INFO_CODE"],
+            "jvm-community/android-community product-info code is IU (the QDJVMC Community dist embeds the IU IDEA " +
+                "platform; Community-ness comes from dist.flavour.txt)",
+        )
         assertEquals("amd64", community["CLI_ARCH"], "jvm-community is amd64-only")
     }
 
@@ -185,7 +190,12 @@ class EnvContractTest {
             community["DIST_BASE_STAGE"],
             "android-community dist layers onto the SDK stage",
         )
-        assertEquals("IC", community["QD_PRODUCT_INFO_CODE"], "android-community product-info code is IC (Community)")
+        assertEquals(
+            "IU",
+            community["QD_PRODUCT_INFO_CODE"],
+            "jvm-community/android-community product-info code is IU (the QDJVMC Community dist embeds the IU IDEA " +
+                "platform; Community-ness comes from dist.flavour.txt)",
+        )
     }
 
     @Test
@@ -466,7 +476,7 @@ class EnvContractTest {
         assertEquals(community["QD_BUILD"], android["QD_BUILD"])
         assertEquals(community["QD_PRODUCT_INFO_CODE"], android["QD_PRODUCT_INFO_CODE"])
         assertEquals(community["QD_BASE_IMAGE"], android["QD_BASE_IMAGE"])
-        assertEquals("IC", android["QD_PRODUCT_INFO_CODE"])
+        assertEquals("IU", android["QD_PRODUCT_INFO_CODE"])
     }
 
     @Test
