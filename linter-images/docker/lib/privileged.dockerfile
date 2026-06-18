@@ -1,5 +1,6 @@
 # privileged — grant the qodana user passwordless sudo (clang-tidy provisioning + some scans).
-# Layers onto ${PRIVILEGED_BASE_STAGE} (clang-toolchain for clang/cdnet; base for ruby).
+# Layers onto ${PRIVILEGED_BASE_STAGE} — the consuming image's final pre-dist stage (base.dockerfile
+# defaults it to clang-toolchain; each image overrides as needed).
 FROM ${PRIVILEGED_BASE_STAGE} AS privileged
 
 RUN <<-EOT
