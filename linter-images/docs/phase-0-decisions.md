@@ -586,6 +586,123 @@ debian-base images). qodana-go sets NO `QODANA_UID`/`QODANA_GID` — neither as 
 `.env` key NOR as a compose build arg. `ComposeContractTest`'s uid-1000-conflict
 test already asserts every service except `qodana-js` omits the uid build args.
 
+## PHP dist (qodana-php — PhpStorm)
+
+Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-php.releases.json`
+(max-by-Date among `Type==release`). The current newest `release` is the 2026.1
+line (`261.25880`, Date 2026-06-15) — the same engine major as the JS (261.25882),
+Python (261.25883), and Go (261.25884) images this cycle, pinned independently.
+Top-level feed `Code` is `QDPHP`. The feed is the PUBLIC feed (`/qodana/feed`, no
+token): qodana-php is a released linter, so the image's `.env` OMITS
+`QD_DISTRIBUTION_FEED` and relies on the public default. Keys are named to match
+`BumpPinsCommand.syncDecisions` (slug `qodana-php` → `QODANA_PHP_BUILD`);
+`EnvContractTest` asserts byte-identity against the `.env`'s `QD_VERSION`
+(MajorVersion `2026.1`) and `QD_BUILD` (`261.25880`). The release-feed top-level
+`Link`/`ChecksumLink` are null; the verbatim linux Link lives under the entry's
+`Downloads.linux.Link` and embeds an extra build segment
+(`...-261.25880.138.tar.gz`) — use it VERBATIM, do not reconstruct it from `Build`.
+
+QODANA_PHP_VERSION = 2026.1
+QODANA_PHP_BUILD = 261.25880
+
+Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+
+QODANA_PHP_FULL_VERSION = 2026.1.5
+
+Download link (verbatim from the feed's `Downloads.linux.Link`):
+
+QODANA_PHP_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDPHP-261.25880.138.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link return HTTP 206 (probed live 2026-06-18 via a
+single-byte range GET, following CDN redirects): the `.sha256` checksum
+(`ChecksumLink`) and the `.sha256.asc` detached GPG signature
+(`ChecksumLink + ".asc"`).
+
+QODANA_PHP_LINUX_SHA256_SIBLING = 206
+QODANA_PHP_LINUX_ASC_SIBLING = 206
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`PS` (PhpStorm). Verified EMPIRICALLY, not assumed: stream-extracting the dist
+tarball's metadata (`bsdtar -xO --include '*/product-info.json' --include
+'*/dist.flavour.txt'`) shows `productCode=PS`, `name="PhpStorm"`, version
+`2026.1.4`, buildNumber `261.25880`, and `vmOptionsFilePath=bin/phpstorm64.vmoptions`.
+PhpStorm is Ultimate-only (no Community trap like the JVM `IC`/Python `PC`
+mismatch). `dist.flavour.txt=QDPHP`. The `phpstorm64.vmoptions` file confirms the
+generalized `bin/*.vmoptions` `idea.log.path` strip in `lib/dist.dockerfile` covers
+PhpStorm. The feed `Code` `QDPHP` is the distinct feed artifact code, not the
+product-info code.
+
+QODANA_PHP_PRODUCT_INFO_CODE = PS
+QODANA_PHP_FEED_CODE = QDPHP
+
+## dhi.io php language base + composer toolchain (qodana-php)
+
+`qodana-php` builds on the DHI **php** language base — PHP 8.4 PRE-BAKED — but the
+base ships NO node and NO composer. So like qodana-go it LAYERS the node toolchain
+(`lib/toolchain/node.dockerfile`, NODE_MAJOR-pinned) then the in-place global
+eslint pin (`lib/toolchain/eslint.dockerfile`) for its JS/TS support, exactly as
+the source qodana-cli `php.Dockerfile` copies node from the node base and
+`npm install -g eslint`. Composer is NOT in the php base (verified empirically:
+the source `php.Dockerfile` does `COPY --from=composer:2.8.10 /usr/bin/composer`,
+so it provisions composer itself); the fleet mirrors this via
+`lib/toolchain/composer.dockerfile`, a multi-stage `COPY --from` off a
+digest-pinned `composer:2.8.10` image (analogous to android's Corretto
+`COPY --from`), landing the self-contained composer phar at `/usr/bin/composer`.
+Unlike the in-place node/eslint fragments (no `FROM`, layers onto `base`), a
+cross-image COPY needs its own source stage, so the composer fragment opens a
+`php-toolchain` stage (`FROM base`, inheriting node+eslint) and COPYs composer onto
+it — mirroring `android-toolchain`/`conda-toolchain`. qodana-php therefore sets
+`DIST_BASE_STAGE=php-toolchain` so the dist FROMs the composer stage (the conda/
+android pattern). Chain: `base → node → eslint → composer(php-toolchain) →
+dist(FROM php-toolchain) → cli → runtime` — jvm's INCLUDE shape (node toolchain +
+dist) plus the in-place eslint include and the composer toolchain stage.
+
+`dhi.io/php:8.4-dev` (the tag the source `php.Dockerfile` pins as `PHP_TAG`)
+resolved daemonless 2026-06-18 via
+`docker buildx imagetools inspect dhi.io/php:8.4-dev --format '{{json .Manifest.Digest}}'`:
+
+```
+sha256:6640324da549fe224c038df12edc886588ea9607cf8121d1424014af1d70d1c6
+```
+
+The `-dev` variant is required because the minimal runtime variant ships no apt-get
+(`lib/base` needs apt); `-dev` ships `apt-get`, matching the qodana-cli source.
+`EnvContractTest` asserts `qodana-php.env`'s `QD_BASE_IMAGE` is byte-identical to
+this value, so the `.env` MUST use this exact string (tag + digest).
+
+QD_PHP_BASE_IMAGE = dhi.io/php:8.4-dev@sha256:6640324da549fe224c038df12edc886588ea9607cf8121d1424014af1d70d1c6
+
+### composer image pin (digest, build-verified)
+
+The source pins `composer:2.8.10` (Docker Hub official). Resolved daemonless
+2026-06-18 via
+`docker buildx imagetools inspect composer:2.8.10 --format '{{json .Manifest.Digest}}'`;
+the binary location + version are verified empirically (`docker run --network none
+composer:2.8.10`): `/usr/bin/composer`, `Composer version 2.8.10`, a self-contained
+root-owned world-readable PHP phar (no chown needed for the runtime user).
+`lib/toolchain/composer.dockerfile` consumes `COMPOSER_IMAGE` (an `.env` digest pin,
+like android's `CORRETTO*_IMAGE`); `ComposerToolchainTest` guards the `COPY --from`.
+
+COMPOSER_IMAGE = composer:2.8.10@sha256:20462d70afcfa999ad75dbd9333194067f4d869078bdb37430339e8d97e541d6
+
+### uid 1000 is FREE → qodana-php keeps the default uid 1000 (NO uid override)
+
+Like the golang `-dev` base (and unlike the dhi.io/node base whose `node` user
+occupies uid 1000), the php `-dev` base does NOT occupy uid 1000. Verified
+EMPIRICALLY on the linux/amd64 build target, 2026-06-18:
+`docker run --rm --network none --platform linux/amd64 --entrypoint /bin/bash
+<php-base> -c 'cat /etc/passwd'` lists ONLY `root`, `nonroot` (65532), `_apt` (42),
+`nobody` (65534) — uid/gid 1000 and 1001 all return free from `getent`. So
+`lib/base`'s `groupadd --gid 1000 qodana` succeeds, and qodana-php keeps
+`base.dockerfile`'s DEFAULT uid/gid 1000 (byte-identical to the existing
+debian/golang-base images). qodana-php sets NO `QODANA_UID`/`QODANA_GID` — neither
+as an `.env` key NOR as a compose build arg. `ComposeContractTest`'s
+uid-1000-conflict test already asserts every service except `qodana-js` omits the
+uid build args.
+
 ## Why `qdist` is not wired (deferred — QD-15062)
 
 The `QD_DISTRIBUTION_FEED` build arg selects which feed an image fetches its IDE

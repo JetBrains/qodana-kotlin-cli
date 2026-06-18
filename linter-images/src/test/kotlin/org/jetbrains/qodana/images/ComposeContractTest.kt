@@ -25,6 +25,7 @@ class ComposeContractTest {
             "qodana-python",
             "qodana-js",
             "qodana-go",
+            "qodana-php",
             "qodana-cdnet",
         )
 
@@ -100,6 +101,7 @@ class ComposeContractTest {
             "qodana-python",
             "qodana-js",
             "qodana-go",
+            "qodana-php",
         )) {
             val args = root[slug]["build"]["args"]
             assertTrue(args["CLI_BASE_STAGE"] == null, "$slug must not override CLI_BASE_STAGE (defaults to dist)")
@@ -234,6 +236,11 @@ class ComposeContractTest {
             setOf("feed_token"),
             secretsOf("qodana-go"),
             "go uses only the feed token",
+        )
+        assertEquals(
+            setOf("feed_token"),
+            secretsOf("qodana-php"),
+            "php uses only the feed token",
         )
         assertEquals(
             setOf("qodana_cli_deps_token"),

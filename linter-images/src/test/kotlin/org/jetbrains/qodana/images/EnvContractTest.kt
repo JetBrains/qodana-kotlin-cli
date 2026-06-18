@@ -37,6 +37,7 @@ class EnvContractTest {
             "qodana-python",
             "qodana-js",
             "qodana-go",
+            "qodana-php",
             "qodana-cdnet",
         )
 
@@ -510,6 +511,77 @@ class EnvContractTest {
             pin("QODANA_GO_PRODUCT_INFO_CODE"),
             go["QD_PRODUCT_INFO_CODE"],
             "go product-info code must match phase-0-decisions",
+        )
+    }
+
+    @Test
+    fun `qodana-php env has exactly the jvm key set plus the composer toolchain keys`() {
+        // PhpStorm-on-DHI-php-base: the php base ships PHP pre-baked but NO node and NO composer, so php
+        // layers the node toolchain (NODE_MAJOR) + the in-place eslint pin for its JS/TS support — jvm's
+        // key set — PLUS the composer toolchain. Composer is a cross-image COPY (the source php.Dockerfile
+        // copies it from the upstream composer image), so unlike the in-place node/eslint fragments it
+        // needs its own stage: lib/toolchain/composer.dockerfile opens `php-toolchain` (FROM base, so it
+        // inherits node+eslint) and COPYs composer from the digest-pinned COMPOSER_IMAGE (like android's
+        // CORRETTO*_IMAGE). The dist FROMs that stage, so php carries DIST_BASE_STAGE=php-toolchain (the
+        // conda/android pattern) + COMPOSER_IMAGE. The php base does NOT occupy uid 1000 (empirically:
+        // /etc/passwd has only root/nonroot/_apt/nobody, like the golang base), so — unlike qodana-js — php
+        // keeps the default uid 1000 and sets NO uid keys/build args. The eslint pin lives in
+        // lib/toolchain/eslint/package.json (renovate-tracked), NOT in the .env.
+        val env = parseEnv("qodana-php")
+        val expected = parseEnv("qodana-jvm").keys + "DIST_BASE_STAGE" + "COMPOSER_IMAGE"
+        assertEquals(
+            expected,
+            env.keys,
+            "php must be jvm's key set (dist + node toolchain) plus DIST_BASE_STAGE + COMPOSER_IMAGE",
+        )
+        assertEquals(
+            "php-toolchain",
+            env["DIST_BASE_STAGE"],
+            "qodana-php dist layers onto the php-toolchain stage (the composer COPY)",
+        )
+        assertTrue(
+            "QODANA_UID" !in env && "QODANA_GID" !in env,
+            "qodana-php keeps the default uid 1000 (php base does not occupy 1000), no uid keys",
+        )
+        assertTrue("QD_CHANNEL" !in env, "QD_CHANNEL was removed by the foundation refactor")
+        assertTrue(
+            "QD_DISTRIBUTION_FEED" !in env,
+            "qodana-php uses the public feed (dockerfile default), so it must omit QD_DISTRIBUTION_FEED",
+        )
+        assertEquals("qodana-php", env["QD_LINTER_SLUG"], "qodana-php has its own dist slug")
+        assertEquals("PS", env["QD_PRODUCT_INFO_CODE"], "qodana-php product-info code is PS (PhpStorm)")
+        assertEquals("amd64", env["CLI_ARCH"], "qodana-php is amd64-only")
+        assertEquals(
+            parseEnv("qodana-jvm")["NODE_MAJOR"],
+            env["NODE_MAJOR"],
+            "php's NODE_MAJOR must match jvm's (shared node toolchain pin)",
+        )
+    }
+
+    @Test
+    fun `php pins match phase-0-decisions`() {
+        val d = decisions.readText()
+
+        fun pin(k: String) =
+            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
+                ?: error("$k not recorded in $decisions")
+        val php = parseEnv("qodana-php")
+        assertEquals(
+            pin("QD_PHP_BASE_IMAGE"),
+            php["QD_BASE_IMAGE"],
+            "qodana-php base digest must match the dhi.io/php base pin in phase-0-decisions",
+        )
+        assertEquals(pin("QODANA_PHP_VERSION"), php["QD_VERSION"], "php major must match phase-0-decisions")
+        assertEquals(pin("QODANA_PHP_BUILD"), php["QD_BUILD"], "php build pin must match phase-0-decisions")
+        assertEquals(
+            pin("QODANA_PHP_PRODUCT_INFO_CODE"),
+            php["QD_PRODUCT_INFO_CODE"],
+            "php product-info code must match phase-0-decisions",
+        )
+        assertEquals(
+            pin("COMPOSER_IMAGE"),
+            php["COMPOSER_IMAGE"],
+            "php composer image digest must match phase-0-decisions",
         )
     }
 

@@ -108,6 +108,19 @@ services:
         tooling: build/install/image-tool
     platform: linux/amd64
     image: qodana-go:dev
+  qodana-php:
+    build:
+      context: docker
+      dockerfile: images/qodana-php.dockerfile
+      args:
+        CLI_SOURCE: release
+        CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+        # No QODANA_UID/GID override: the dhi.io/php base does NOT occupy uid 1000 (like the golang base,
+        # unlike the node base), so qodana-php keeps base.dockerfile's default 1000.
+      additional_contexts:
+        tooling: build/install/image-tool
+    platform: linux/amd64
+    image: qodana-php:dev
   qodana-clang:
     build:
       context: docker

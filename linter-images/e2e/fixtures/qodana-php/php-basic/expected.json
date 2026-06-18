@@ -1,0 +1,43 @@
+{
+  "case": "php-basic",
+  "image": "qodana-php",
+  "description": "Single-file PHP project with two planted defects, hermetic run. First e2e for the PHP image (DHI php language base: PHP pre-baked, plus the layered node toolchain + in-place global eslint pin for JS/TS support, plus the composer toolchain). Proves qodana-php builds (base + node + eslint + composer + dist + cli + runtime), loads its Ultimate PhpStorm profile, and scans a real .php producing SARIF. Driver name + rule ids are NEEDS-PINNING starting guesses — pin from a CI control run and confirm both are enabled in THIS image's default PS (PhpStorm) profile.",
+  "run": {
+    "network": "none",
+    "extraArgs": ["--no-statistics"]
+  },
+  "expectExitCode": 0,
+  "sarif": {
+    "tool": {
+      "driverName": null,
+      "driverFullName": null
+    },
+    "schemaValid": false,
+    "qodanaSeverityRequired": true,
+    "expectations": [
+      {
+        "ruleId": "PhpUnusedLocalVariableInspection",
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "index.php",
+        "pin": "needs-pinning",
+        "guards": [],
+        "reason": "STARTING-GUESS id: the planted `$unused = $value * 2;` local that is assigned and never read must surface as an unused-local-variable inspection; pin the exact id from a CI control run and confirm it is in the Ultimate PhpStorm profile."
+      },
+      {
+        "ruleId": "TypeUnsafeComparisonInspection",
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "index.php",
+        "pin": "needs-pinning",
+        "guards": [],
+        "reason": "STARTING-GUESS id: the planted non-strict comparison `if ($name == 0)` (string vs int literal) must surface as a type-unsafe-comparison inspection; pin the exact id from a CI control run and confirm it is in the Ultimate PhpStorm profile."
+      }
+    ]
+  },
+  "log": {
+    "mustNotContain": [
+      { "text": "Problems found loading plugins:", "guards": [] }
+    ]
+  }
+}

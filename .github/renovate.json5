@@ -57,7 +57,7 @@
     },
     {
       "customType": "regex",
-      "description": "Track digest-pinned Docker images for the linter images (QD-14960): QD_BASE_IMAGE (dhi.io hardened base) and CORRETTO11/17_IMAGE in the .env files, plus the JDK_BUILDER_IMAGE ARG default in lib/. The same refs are mirrored byte-identically in phase-0-decisions.md (EnvContractTest asserts QD_BASE_IMAGE byte-identity), so including the decisions doc in the file set updates every occurrence in ONE PR and keeps the contract guard green. The KEY= anchor (uppercase env/ARG name) deliberately excludes the lowercase `# syntax=` directive, which the dockerfile-x manager below owns.",
+      "description": "Track digest-pinned Docker images for the linter images (QD-14960): QD_BASE_IMAGE (dhi.io hardened base), CORRETTO11/17_IMAGE, and COMPOSER_IMAGE in the .env files, plus the JDK_BUILDER_IMAGE ARG default in lib/. The same refs are mirrored byte-identically in phase-0-decisions.md (EnvContractTest asserts QD_BASE_IMAGE byte-identity), so including the decisions doc in the file set updates every occurrence in ONE PR and keeps the contract guard green. The KEY= anchor (uppercase env/ARG name) deliberately excludes the lowercase `# syntax=` directive, which the dockerfile-x manager below owns.",
       "datasourceTemplate": "docker",
       "managerFilePatterns": [
         "/^linter-images/docker/images/.*\\.env$/",
