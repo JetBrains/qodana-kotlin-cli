@@ -208,22 +208,21 @@ android-community, python(-community), rust, dotnet, cpp) references this one
 trixie base. `EnvContractTest` asserts each such image's `QD_BASE_IMAGE` is
 byte-identical to this value.
 
-`dhi.io/debian-base:trixie-debian13` resolved daemonless 2026-06-17 via
-`docker buildx imagetools inspect dhi.io/debian-base:trixie-debian13 --format '{{json .Manifest.Digest}}'`
-(the `:trixie` tag resolves to the same digest):
+`dhi.io/debian-base:trixie-debian13-dev` resolved daemonless 2026-06-17 via
+`docker buildx imagetools inspect dhi.io/debian-base:trixie-debian13-dev --format '{{json .Manifest.Digest}}'`:
 
 ```
-sha256:e440d0dabdc54675aa9601f0d794c39f549b6178946cfeffd3b5a31da33ec2d3
+sha256:68b5f4c2c789b99dc6ab7574c7e695e724646f64616619c48c3245f8aaeae459
 ```
 
-This is the **plain** (non-`-dev`) base, deliberately mirroring the existing
-plain `:bookworm` pattern: `lib/base.dockerfile` installs the apt packages it
-needs. The `-dev` variant (`:trixie-debian13-dev` →
-`sha256:68b5f4c2c789b99dc6ab7574c7e695e724646f64616619c48c3245f8aaeae459`) is
-intentionally NOT used. The value keeps the `:trixie-debian13` tag before the
-digest, so the Phase-4 `.env` files MUST use this exact string.
+The **-dev** variant is required because the plain `:trixie-debian13` ships
+**no apt-get** (CI-confirmed: `apt-get: command not found`, exit 127, breaks
+`lib/base`); the existing bookworm images keep **plain** `:bookworm` because
+plain bookworm DOES include apt; -dev matches the qodana-cli source. The value
+keeps the `:trixie-debian13-dev` tag before the digest, so the Phase-4 `.env`
+files MUST use this exact string.
 
-QD_TRIXIE_BASE_IMAGE = dhi.io/debian-base:trixie-debian13@sha256:e440d0dabdc54675aa9601f0d794c39f549b6178946cfeffd3b5a31da33ec2d3
+QD_TRIXIE_BASE_IMAGE = dhi.io/debian-base:trixie-debian13-dev@sha256:68b5f4c2c789b99dc6ab7574c7e695e724646f64616619c48c3245f8aaeae459
 
 ### Vendored JetBrains public key (verification only — we never sign)
 
