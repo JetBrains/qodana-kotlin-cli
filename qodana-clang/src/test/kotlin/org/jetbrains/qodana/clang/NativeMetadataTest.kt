@@ -98,19 +98,19 @@ class NativeMetadataTest {
             val entry = byName[fqcn]
             if (entry == null) {
                 problems.add("$fqcn: not registered")
-                continue
-            }
-            if (entry["allDeclaredFields"] != true) {
-                problems.add("$fqcn: allDeclaredFields must be true (Jackson reads every field)")
-            }
-            if (entry["allDeclaredConstructors"] != true) {
-                problems.add("$fqcn: allDeclaredConstructors must be true (constructor drift guard)")
-            }
-            if (entry["queryAllDeclaredConstructors"] != true) {
-                problems.add("$fqcn: queryAllDeclaredConstructors must be true (native constructor lookup)")
-            }
-            if (entry["queryAllDeclaredMethods"] != true) {
-                problems.add("$fqcn: queryAllDeclaredMethods must be true (native method lookup)")
+            } else {
+                if (entry["allDeclaredFields"] != true) {
+                    problems.add("$fqcn: allDeclaredFields must be true (Jackson reads every field)")
+                }
+                if (entry["allDeclaredConstructors"] != true) {
+                    problems.add("$fqcn: allDeclaredConstructors must be true (constructor drift guard)")
+                }
+                if (entry["queryAllDeclaredConstructors"] != true) {
+                    problems.add("$fqcn: queryAllDeclaredConstructors must be true (native constructor lookup)")
+                }
+                if (entry["queryAllDeclaredMethods"] != true) {
+                    problems.add("$fqcn: queryAllDeclaredMethods must be true (native method lookup)")
+                }
             }
         }
 

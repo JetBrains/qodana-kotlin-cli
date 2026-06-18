@@ -500,30 +500,12 @@ class NativeSmokeTest {
 
         val problems = mutableListOf<String>()
         for ((fqcn, requiredCtors) in requiredNativeScanPathCtors()) {
-            val entry = byName[fqcn]
-            if (entry == null) {
-                problems.add("$fqcn: not registered")
-                continue
-            }
-            if (entry["allDeclaredFields"] != true) {
-                problems.add("$fqcn: allDeclaredFields must be true (Jackson reads every field)")
-            }
-            if (entry["allDeclaredConstructors"] == true) {
-                continue
-            }
-
-            @Suppress("UNCHECKED_CAST")
-            val methods = entry["methods"] as? List<Map<String, Any?>> ?: emptyList()
-            val ctorParamLists =
-                methods
-                    .filter { it["name"] == "<init>" }
-                    .map { (it["parameterTypes"] as? List<*>)?.map(Any?::toString) ?: emptyList() }
-                    .toSet()
-            for (ctor in requiredCtors) {
-                if (ctor !in ctorParamLists) {
-                    problems.add("$fqcn: missing <init>(${ctor.joinToString(", ")})")
-                }
-            }
+            collectCtorMetadataProblems(
+                entry = byName[fqcn],
+                fqcn = fqcn,
+                requiredCtors = requiredCtors,
+                problems = problems,
+            )
         }
         assertTrue(
             problems.isEmpty(),
@@ -552,19 +534,19 @@ class NativeSmokeTest {
             val entry = byName[fqcn]
             if (entry == null) {
                 problems.add("$fqcn: not registered")
-                continue
-            }
-            if (entry["allDeclaredFields"] != true) {
-                problems.add("$fqcn: allDeclaredFields must be true (Jackson reads every field)")
-            }
-            if (entry["allDeclaredConstructors"] != true) {
-                problems.add("$fqcn: allDeclaredConstructors must be true (constructor drift guard)")
-            }
-            if (entry["queryAllDeclaredConstructors"] != true) {
-                problems.add("$fqcn: queryAllDeclaredConstructors must be true (native constructor lookup)")
-            }
-            if (entry["queryAllDeclaredMethods"] != true) {
-                problems.add("$fqcn: queryAllDeclaredMethods must be true (native method lookup)")
+            } else {
+                if (entry["allDeclaredFields"] != true) {
+                    problems.add("$fqcn: allDeclaredFields must be true (Jackson reads every field)")
+                }
+                if (entry["allDeclaredConstructors"] != true) {
+                    problems.add("$fqcn: allDeclaredConstructors must be true (constructor drift guard)")
+                }
+                if (entry["queryAllDeclaredConstructors"] != true) {
+                    problems.add("$fqcn: queryAllDeclaredConstructors must be true (native constructor lookup)")
+                }
+                if (entry["queryAllDeclaredMethods"] != true) {
+                    problems.add("$fqcn: queryAllDeclaredMethods must be true (native method lookup)")
+                }
             }
         }
         assertTrue(
@@ -808,6 +790,37 @@ private fun requiredNativeScanPathCtors(): Map<String, List<List<String>>> {
                 listOf(str, "long", str, "int", dcm),
             ),
     )
+}
+
+private fun collectCtorMetadataProblems(
+    entry: Map<String, Any?>?,
+    fqcn: String,
+    requiredCtors: List<List<String>>,
+    problems: MutableList<String>,
+) {
+    if (entry == null) {
+        problems.add("$fqcn: not registered")
+        return
+    }
+    if (entry["allDeclaredFields"] != true) {
+        problems.add("$fqcn: allDeclaredFields must be true (Jackson reads every field)")
+    }
+    if (entry["allDeclaredConstructors"] == true) {
+        return
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    val methods = entry["methods"] as? List<Map<String, Any?>> ?: emptyList()
+    val ctorParamLists =
+        methods
+            .filter { it["name"] == "<init>" }
+            .map { (it["parameterTypes"] as? List<*>)?.map(Any?::toString) ?: emptyList() }
+            .toSet()
+    for (ctor in requiredCtors) {
+        if (ctor !in ctorParamLists) {
+            problems.add("$fqcn: missing <init>(${ctor.joinToString(", ")})")
+        }
+    }
 }
 
 private fun requiredQodanaYamlModelClasses(): List<String> =
