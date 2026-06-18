@@ -25,14 +25,18 @@ ADD --checksum=sha256:${MINICONDA_SHA256} \
 # jetbrains.pub. pip reads it inside the conda base env below.
 COPY lib/toolchain/conda-requirements.txt /tmp/conda-requirements.txt
 
-# bzip2 (the installer needs it) + the native shared libs conda-shipped wheels link against at scan
-# time (libglib2.0-0/libsm6/libxext6/libxrender1) — runtime deps, so NOT purged (unlike node/clang's
-# transient gnupg). conda + the pinned poetry/pipenv install at BUILD time; the runtime needs no net.
+# init-system-helpers provides /usr/sbin/update-rc.d, which the X11 libs' postinst calls (libsm6 →
+# libice6 → x11-common); the minimized trixie -dev base omits it, so without it apt fails with
+# "update-rc.d: command not found". bzip2 (the installer needs it) + the native shared libs
+# conda-shipped wheels link against at scan time (libglib2.0-0/libsm6/libxext6/libxrender1) — runtime
+# deps, so NOT purged (unlike node/clang's transient gnupg). conda + the pinned poetry/pipenv install
+# at BUILD time; the runtime needs no net.
 RUN <<-EOT
 	set -eux
 	export DEBIAN_FRONTEND=noninteractive
 	apt-get update
 	apt-get install -y --no-install-recommends \
+		init-system-helpers \
 		bzip2 \
 		libglib2.0-0 \
 		libsm6 \
