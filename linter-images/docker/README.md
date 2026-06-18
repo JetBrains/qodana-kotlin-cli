@@ -11,24 +11,24 @@ inherits another. The thin file lists `INCLUDE_ARGS images/<slug>.env` **first**
 `ARG` declared before the first `INCLUDE`, so build args must arrive via `INCLUDE_ARGS`), then the
 includes in composition order.
 
-| `lib/` include       | concern                                                                                             | used by                                       |
-| -------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `base`               | dhi.io hardened OS, `qodana` user, writable dirs, `QODANA_*` env, locale                            | all                                           |
-| `toolchain/node`     | Node + Yarn for JS/TS analysis (in-place — no `FROM`, extends the current stage)                    | jvm, python, go, php, ruby                    |
-| `toolchain/android`  | Android SDK + Corretto                                                                              | android                                       |
-| `toolchain/clang`    | clang/clang++/cmake (apt + LLVM repo)                                                               | clang                                         |
-| `toolchain/conda`    | Miniconda3 (sha-pinned) + poetry + pipenv (pip, version-pinned)                                     | python, python-community                      |
-| `toolchain/eslint`   | global ESLint (pinned in `eslint/package.json`, renovate-npm-tracked) for JS/TS analysis (in-place) | js, go, php, ruby                             |
-| `toolchain/go`       | redirect `GOMODCACHE` to the writable `/data/cache` (Go is pre-baked in the golang base; in-place)  | go                                            |
-| `toolchain/ruby`     | redirect the gem/bundle cache to the writable `/data/cache` (Ruby is pre-baked in the ruby base; in-place) | ruby                                   |
-| `toolchain/composer` | Composer (`COPY --from` the pinned `COMPOSER_IMAGE`); opens `php-toolchain` stage (`FROM base`)     | php                                           |
-| `toolchain/dotnet`   | .NET SDKs (8/9/10) via a pinned `dotnet-install.sh`                                                 | cdnet                                         |
-| `dist`               | download + GPG/sha256-verify the IDE dist (`provision-dist`), then `verify-dist-layout`             | jvm, android, python(-community), js, go, php, ruby(-3.2/-3.4) |
-| `privileged`         | passwordless `sudo` for the `qodana` user (FROMs `${PRIVILEGED_BASE_STAGE}`)                        | clang, cdnet, ruby (first to combine privileged + dist) |
-| `tools`              | clang-tidy from the private qodana-cli-deps mirror                                                  | clang                                         |
-| `resharper-clt`      | ReSharper CLT (InspectCode) from the private qodana-cli-deps mirror                                 | cdnet                                         |
-| `cli`                | install the inner CLI (`install-cli`; release download or from-tree context)                        | all                                           |
-| `runtime`            | `tini` PID 1, drop to `qodana`, `WORKDIR`, `ENTRYPOINT` (execs `${CLI_BINARY}`, forwards args)      | all                                           |
+| `lib/` include       | concern                                                                                                    | used by                                                        |
+| -------------------- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `base`               | dhi.io hardened OS, `qodana` user, writable dirs, `QODANA_*` env, locale                                   | all                                                            |
+| `toolchain/node`     | Node + Yarn for JS/TS analysis (in-place — no `FROM`, extends the current stage)                           | jvm, python, go, php, ruby                                     |
+| `toolchain/android`  | Android SDK + Corretto                                                                                     | android                                                        |
+| `toolchain/clang`    | clang/clang++/cmake (apt + LLVM repo)                                                                      | clang                                                          |
+| `toolchain/conda`    | Miniconda3 (sha-pinned) + poetry + pipenv (pip, version-pinned)                                            | python, python-community                                       |
+| `toolchain/eslint`   | global ESLint (pinned in `eslint/package.json`, renovate-npm-tracked) for JS/TS analysis (in-place)        | js, go, php, ruby                                              |
+| `toolchain/go`       | redirect `GOMODCACHE` to the writable `/data/cache` (Go is pre-baked in the golang base; in-place)         | go                                                             |
+| `toolchain/ruby`     | redirect the gem/bundle cache to the writable `/data/cache` (Ruby is pre-baked in the ruby base; in-place) | ruby                                                           |
+| `toolchain/composer` | Composer (`COPY --from` the pinned `COMPOSER_IMAGE`); opens `php-toolchain` stage (`FROM base`)            | php                                                            |
+| `toolchain/dotnet`   | .NET SDKs (8/9/10) via a pinned `dotnet-install.sh`                                                        | cdnet                                                          |
+| `dist`               | download + GPG/sha256-verify the IDE dist (`provision-dist`), then `verify-dist-layout`                    | jvm, android, python(-community), js, go, php, ruby(-3.2/-3.4) |
+| `privileged`         | passwordless `sudo` for the `qodana` user (FROMs `${PRIVILEGED_BASE_STAGE}`)                               | clang, cdnet, ruby (first to combine privileged + dist)        |
+| `tools`              | clang-tidy from the private qodana-cli-deps mirror                                                         | clang                                                          |
+| `resharper-clt`      | ReSharper CLT (InspectCode) from the private qodana-cli-deps mirror                                        | cdnet                                                          |
+| `cli`                | install the inner CLI (`install-cli`; release download or from-tree context)                               | all                                                            |
+| `runtime`            | `tini` PID 1, drop to `qodana`, `WORKDIR`, `ENTRYPOINT` (execs `${CLI_BINARY}`, forwards args)             | all                                                            |
 
 Resolved stage lineage of the final image:
 

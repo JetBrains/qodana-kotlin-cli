@@ -229,60 +229,18 @@ class ComposeContractTest {
             return secrets.asSequence().map { it.asText() }.toSet()
         }
 
-        assertEquals(setOf("feed_token"), secretsOf("qodana-jvm"), "jvm uses only the feed token")
-        assertEquals(
-            setOf("feed_token"),
-            secretsOf("qodana-jvm-community"),
-            "jvm-community uses only the feed token",
-        )
-        assertEquals(setOf("feed_token"), secretsOf("qodana-android"), "android uses only the feed token")
-        assertEquals(
-            setOf("feed_token"),
-            secretsOf("qodana-android-community"),
-            "android-community uses only the feed token",
-        )
-        assertEquals(
-            setOf("feed_token"),
-            secretsOf("qodana-python-community"),
-            "python-community uses only the feed token",
-        )
-        assertEquals(
-            setOf("feed_token"),
-            secretsOf("qodana-python"),
-            "python uses only the feed token",
-        )
-        assertEquals(
-            setOf("feed_token"),
-            secretsOf("qodana-js"),
-            "js uses only the feed token",
-        )
-        assertEquals(
-            setOf("feed_token"),
-            secretsOf("qodana-go"),
-            "go uses only the feed token",
-        )
-        assertEquals(
-            setOf("feed_token"),
-            secretsOf("qodana-php"),
-            "php uses only the feed token",
-        )
-        for (slug in listOf("qodana-ruby", "qodana-ruby-3.2", "qodana-ruby-3.4")) {
+        // Every dist-stage image (jvm/android/python/js/go/php/ruby + their variants) pulls ONLY
+        // feed_token; the no-dist images (clang/cdnet) pull ONLY the qodana-cli-deps mirror token.
+        for (slug in slugs.filter { it != "qodana-clang" && it != "qodana-cdnet" }) {
+            assertEquals(setOf("feed_token"), secretsOf(slug), "$slug has a dist stage, so it uses only the feed token")
+        }
+        for (slug in listOf("qodana-clang", "qodana-cdnet")) {
             assertEquals(
-                setOf("feed_token"),
+                setOf("qodana_cli_deps_token"),
                 secretsOf(slug),
-                "$slug has a dist stage, so it uses only the feed token",
+                "$slug has no dist stage, so it must reference only the qodana-cli-deps mirror token",
             )
         }
-        assertEquals(
-            setOf("qodana_cli_deps_token"),
-            secretsOf("qodana-clang"),
-            "clang has no dist stage, so it must reference only the clang-tidy mirror token",
-        )
-        assertEquals(
-            setOf("qodana_cli_deps_token"),
-            secretsOf("qodana-cdnet"),
-            "cdnet has no dist stage, so it must reference only the qodana-cli-deps mirror token (ReSharper CLT)",
-        )
         // Both tokens are declared at the top level, sourced from their env vars.
         val declared = root["secrets"]
         assertEquals(
