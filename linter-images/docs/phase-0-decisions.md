@@ -478,6 +478,114 @@ reuse this same compose-build-arg mechanism.
 QODANA_JS_UID = 1001
 QODANA_JS_GID = 1001
 
+## Go dist (qodana-go — GoLand)
+
+Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-go.releases.json`
+(max-by-Date among `Type==release`). Like the JS/Python images, each Go image
+tracks ITS OWN newest release; the current newest `release` is the 2026.1 line
+(`261.25884`, Date 2026-06-15) — the same engine major as the JS (261.25882) and
+Python (261.25883) images this cycle, but pinned independently. Top-level feed
+`Code` is `QDGO`. The feed is the PUBLIC feed (`/qodana/feed`, no token):
+qodana-go is a released linter, so the image's `.env` OMITS `QD_DISTRIBUTION_FEED`
+and relies on the public default. Keys are named to match
+`BumpPinsCommand.syncDecisions` (slug `qodana-go` → `QODANA_GO_BUILD`);
+`EnvContractTest` asserts byte-identity against the `.env`'s `QD_VERSION`
+(MajorVersion `2026.1`) and `QD_BUILD` (`261.25884`). The download Link embeds an
+extra build segment (`...-261.25884.406.tar.gz`); use the feed's Link VERBATIM —
+do not reconstruct it from `Build`.
+
+QODANA_GO_VERSION = 2026.1
+QODANA_GO_BUILD = 261.25884
+
+Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+
+QODANA_GO_FULL_VERSION = 2026.1.4
+
+Download link (verbatim from the feed):
+
+QODANA_GO_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDGO-261.25884.406.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link return HTTP 206 (probed live 2026-06-18 via a
+single-byte range GET, following CDN redirects): the `.sha256` checksum
+(`ChecksumLink`) and the `.sha256.asc` detached GPG signature
+(`ChecksumLink + ".asc"`).
+
+QODANA_GO_LINUX_SHA256_SIBLING = 206
+QODANA_GO_LINUX_ASC_SIBLING = 206
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`GO` (GoLand). Verified EMPIRICALLY, not assumed: stream-extracting the dist
+tarball's metadata (`bsdtar -xO --include '*/product-info.json' --include
+'*/dist.flavour.txt'`) shows `productCode=GO`, `name="GoLand"`, version `2026.1`,
+buildNumber `261.25884`, and `vmOptionsFilePath=bin/goland64.vmoptions`. This
+matches qodana-cli's `intelllij_linters.go` `GoLinterProperties.ProductInfoJsonCode
+= "GO"` (a GoLand-only Ultimate linter — there is no Community trap like the JVM
+`IC`/Python `PC` mismatch). `dist.flavour.txt=QDGO`. The `goland64.vmoptions`
+file confirms the generalized `bin/*.vmoptions` `idea.log.path` strip in
+`lib/dist.dockerfile` covers GoLand. The feed `Code` `QDGO` is the distinct feed
+artifact code, not the product-info code.
+
+QODANA_GO_PRODUCT_INFO_CODE = GO
+QODANA_GO_FEED_CODE = QDGO
+
+## dhi.io golang language base (qodana-go)
+
+`qodana-go` builds on the DHI **golang** language base — Go PRE-BAKED at
+`/usr/local/go/bin` (go1.26.4) — but the base ships NO node. So unlike
+qodana-js (whose dhi.io/node base bakes node + Yarn), go LAYERS the node toolchain
+(`lib/toolchain/node.dockerfile`, NODE_MAJOR-pinned) then the in-place global
+eslint pin (`lib/toolchain/eslint.dockerfile`) for its JS/TS support, exactly as
+the source qodana-cli `go.Dockerfile` copies node from the node base and
+`npm install -g eslint`. (The source ALSO installs `pnpm`; the linter-images
+fleet pins only eslint via the shared renovate-tracked `lib/toolchain/eslint`
+package — qodana-js drops pnpm the same way, so go follows that established
+fleet pattern.) Chain: `base → go → node → eslint → dist(FROM base) → cli →
+runtime` — the same INCLUDE shape as qodana-jvm (node toolchain + dist), plus the
+in-place eslint include and the in-place `lib/toolchain/go.dockerfile`. No
+`DIST_BASE_STAGE` (the toolchains are in-place on base; the dist FROMs base).
+
+`lib/toolchain/go.dockerfile` is a one-line ENV fragment (Go itself is PRE-BAKED
+in the golang base at `/usr/local/go`, already on PATH for every stage incl. the
+runtime user — verified empirically — so nothing is installed). It redirects
+`GOMODCACHE` from the base default `/go/pkg/mod` (ROOT-owned) to `/data/cache/go`
+(the writable `/data` mount `lib/base.dockerfile` chowns to the qodana user),
+mirroring the source `go.Dockerfile`'s `ENV GOMODCACHE="$QODANA_DATA/cache/go"`.
+Without it, a Go project that resolves external modules would fail to populate the
+cache as the unprivileged uid 1000. `GoToolchainTest` guards the redirect + the
+INCLUDE.
+
+`dhi.io/golang:1.26-debian13-dev` (the tag the source `go.Dockerfile` pins as
+`GO_TAG`) resolved daemonless 2026-06-18 via
+`docker buildx imagetools inspect dhi.io/golang:1.26-debian13-dev --format '{{json .Manifest.Digest}}'`:
+
+```
+sha256:d1295e34ae659bfd57c305d67ec5177c15694fb82f25d98aee76d0ae08ef8ad1
+```
+
+The `-dev` variant is required because the plain `:1.26-debian13` ships no apt-get
+(`lib/base` needs apt); `-dev` ships `apt-get`, matching the qodana-cli source.
+`EnvContractTest` asserts `qodana-go.env`'s `QD_BASE_IMAGE` is byte-identical to
+this value, so the `.env` MUST use this exact string (tag + digest).
+
+QD_GOLANG_BASE_IMAGE = dhi.io/golang:1.26-debian13-dev@sha256:d1295e34ae659bfd57c305d67ec5177c15694fb82f25d98aee76d0ae08ef8ad1
+
+### uid 1000 is FREE → qodana-go keeps the default uid 1000 (NO uid override)
+
+Unlike the dhi.io/node base (whose `node` user occupies uid 1000, forcing
+qodana-js to 1001), the golang `-dev` base does NOT occupy uid 1000. Verified
+EMPIRICALLY on the linux/amd64 platform (the build target), 2026-06-18:
+`docker run --rm --network none --platform linux/amd64 <golang-base> sh -c 'cat
+/etc/passwd'` lists ONLY `root`, `nonroot` (65532), `_apt` (42), `nobody` (65534)
+— uid 1000, gid 1000, uid 1001, gid 1001 all return free from `getent`. So
+`lib/base`'s `groupadd --gid 1000 qodana` succeeds, and qodana-go keeps
+`base.dockerfile`'s DEFAULT uid/gid 1000 (byte-identical to the existing
+debian-base images). qodana-go sets NO `QODANA_UID`/`QODANA_GID` — neither as an
+`.env` key NOR as a compose build arg. `ComposeContractTest`'s uid-1000-conflict
+test already asserts every service except `qodana-js` omits the uid build args.
+
 ## Why `qdist` is not wired (deferred — QD-15062)
 
 The `QD_DISTRIBUTION_FEED` build arg selects which feed an image fetches its IDE

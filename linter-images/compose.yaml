@@ -95,6 +95,19 @@ services:
         tooling: build/install/image-tool
     platform: linux/amd64
     image: qodana-js:dev
+  qodana-go:
+    build:
+      context: docker
+      dockerfile: images/qodana-go.dockerfile
+      args:
+        CLI_SOURCE: release
+        CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
+        # No QODANA_UID/GID override: the dhi.io/golang base does NOT occupy uid 1000 (unlike the node
+        # base), so qodana-go keeps base.dockerfile's default 1000, like the debian-base images.
+      additional_contexts:
+        tooling: build/install/image-tool
+    platform: linux/amd64
+    image: qodana-go:dev
   qodana-clang:
     build:
       context: docker

@@ -9,9 +9,11 @@ import kotlin.io.path.readText
 /**
  * Per-slug `.env` contract guard (plan Phase 4.4).
  *
- * Covers every authored slug: jvm, jvm-community, android, android-community, clang. The clang
- * `.env` carries NO IDE-dist/feed keys (clang has no dist) and pins clang-tidy via CLANG_TIDY_VERSION
- * + CLANG_TIDY_MIRROR, both asserted byte-identical to phase-0-decisions.md.
+ * Covers every authored slug: jvm(-community), android(-community), python(-community), js, go, clang,
+ * cdnet. The clang/cdnet `.env` carry NO IDE-dist/feed keys (no dist) and pin their aux tool via a
+ * mirror, asserted byte-identical to phase-0-decisions.md. go is a GoLand-on-DHI-golang-base image:
+ * jvm's key set (dist + node toolchain), product-info GO, default uid 1000 (the golang base does not
+ * occupy 1000), GOMODCACHE redirect in lib/toolchain/go.dockerfile (see GoToolchainTest).
  *
  * Android carries DIST_BASE_STAGE (beyond the plan's verbatim key set): the dist orphan-fix
  * parameterizes `FROM ${DIST_BASE_STAGE:-base} AS dist`, and android sets it to android-toolchain so
@@ -34,6 +36,7 @@ class EnvContractTest {
             "qodana-python-community",
             "qodana-python",
             "qodana-js",
+            "qodana-go",
             "qodana-cdnet",
         )
 
@@ -451,6 +454,62 @@ class EnvContractTest {
             pin("QODANA_JS_PRODUCT_INFO_CODE"),
             js["QD_PRODUCT_INFO_CODE"],
             "js product-info code must match phase-0-decisions",
+        )
+    }
+
+    @Test
+    fun `qodana-go env has exactly the go key set and node`() {
+        // GoLand-on-DHI-golang-base: the golang base ships Go pre-baked but NO node, so go layers the
+        // node toolchain (NODE_MAJOR) + the in-place eslint pin for its JS/TS support — exactly jvm's key
+        // set. SAME dist/cli/runtime keys + NODE_MAJOR. NO DIST_BASE_STAGE (node+eslint are in-place on
+        // base, the dist FROMs base). The golang base does NOT occupy uid 1000 (empirically: /etc/passwd
+        // has only root/nonroot/_apt/nobody), so — unlike qodana-js's dhi.io/node base — go keeps the
+        // default uid 1000 and sets NO uid keys/build args. The eslint pin lives in
+        // lib/toolchain/eslint/package.json (renovate-tracked), NOT in the .env.
+        val env = parseEnv("qodana-go")
+        assertEquals(parseEnv("qodana-jvm").keys, env.keys, "go must share jvm's exact key set (dist + node toolchain)")
+        assertTrue(
+            "DIST_BASE_STAGE" !in env,
+            "qodana-go dist layers onto base (node+eslint are in-place), no DIST_BASE_STAGE",
+        )
+        assertTrue(
+            "QODANA_UID" !in env && "QODANA_GID" !in env,
+            "qodana-go keeps the default uid 1000 (golang base does not occupy 1000), no uid keys",
+        )
+        assertTrue("QD_CHANNEL" !in env, "QD_CHANNEL was removed by the foundation refactor")
+        assertTrue(
+            "QD_DISTRIBUTION_FEED" !in env,
+            "qodana-go uses the public feed (dockerfile default), so it must omit QD_DISTRIBUTION_FEED",
+        )
+        assertEquals("qodana-go", env["QD_LINTER_SLUG"], "qodana-go has its own dist slug")
+        assertEquals("GO", env["QD_PRODUCT_INFO_CODE"], "qodana-go product-info code is GO (GoLand)")
+        assertEquals("amd64", env["CLI_ARCH"], "qodana-go is amd64-only")
+        assertEquals(
+            parseEnv("qodana-jvm")["NODE_MAJOR"],
+            env["NODE_MAJOR"],
+            "go's NODE_MAJOR must match jvm's (shared node toolchain pin)",
+        )
+    }
+
+    @Test
+    fun `go pins match phase-0-decisions`() {
+        val d = decisions.readText()
+
+        fun pin(k: String) =
+            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
+                ?: error("$k not recorded in $decisions")
+        val go = parseEnv("qodana-go")
+        assertEquals(
+            pin("QD_GOLANG_BASE_IMAGE"),
+            go["QD_BASE_IMAGE"],
+            "qodana-go base digest must match the dhi.io/golang base pin in phase-0-decisions",
+        )
+        assertEquals(pin("QODANA_GO_VERSION"), go["QD_VERSION"], "go major must match phase-0-decisions")
+        assertEquals(pin("QODANA_GO_BUILD"), go["QD_BUILD"], "go build pin must match phase-0-decisions")
+        assertEquals(
+            pin("QODANA_GO_PRODUCT_INFO_CODE"),
+            go["QD_PRODUCT_INFO_CODE"],
+            "go product-info code must match phase-0-decisions",
         )
     }
 

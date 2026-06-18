@@ -2,7 +2,7 @@
 
 Build system for Qodana linter images (`qodana-jvm`, `qodana-jvm-community`, `qodana-android`,
 `qodana-android-community`, `qodana-clang`, `qodana-python-community`, `qodana-python`, `qodana-js`,
-`qodana-cdnet`). One source of truth per image: a thin `docker/images/<slug>.dockerfile` + `<slug>.env`,
+`qodana-go`, `qodana-cdnet`). One source of truth per image: a thin `docker/images/<slug>.dockerfile` + `<slug>.env`,
 composed from shared `docker/lib/` includes via [dockerfile-x](https://github.com/devthefuture-org/dockerfile-x).
 
 ## Reconstruct an image locally (public path)
