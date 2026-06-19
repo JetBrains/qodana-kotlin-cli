@@ -26,6 +26,7 @@ data class RunSpec(
     val securityOpt: List<String> = emptyList(),
     val extraArgs: List<String> = emptyList(),
     val env: Map<String, String> = emptyMap(),
+    val passEnv: List<String> = emptyList(),
     val failThreshold: Int? = null,
     val variants: List<Variant> = listOf(Variant()),
 )

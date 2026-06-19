@@ -53,11 +53,19 @@ class DockerRunPlannerTest {
         val run =
             RunSpec(
                 network = "bridge",
-                env = mapOf("QODANA_TOKEN" to "tok"),
+                passEnv = listOf("QODANA_TOKEN"),
                 failThreshold = 10,
             )
 
-        val argv = DockerRunPlanner.dockerArgs("qodana-android:dev", projectDir, resultsDir, cacheDir, run)
+        val argv =
+            DockerRunPlanner.dockerArgs(
+                "qodana-android:dev",
+                projectDir,
+                resultsDir,
+                cacheDir,
+                run,
+                hostEnv = mapOf("QODANA_TOKEN" to "tok"),
+            )
 
         assertEquals(
             listOf(
@@ -73,7 +81,7 @@ class DockerRunPlannerTest {
                 "-v",
                 "/tmp/case/cache:/data/cache",
                 "-e",
-                "QODANA_TOKEN=tok",
+                "QODANA_TOKEN",
                 "qodana-android:dev",
                 "scan",
                 "--results-dir",
@@ -83,5 +91,45 @@ class DockerRunPlannerTest {
             ),
             argv,
         )
+    }
+
+    @Test
+    fun `passEnv fails loudly when a requested host env is missing`() {
+        val run = RunSpec(passEnv = listOf("QODANA_TOKEN"))
+
+        val error =
+            kotlin
+                .runCatching {
+                    DockerRunPlanner.dockerArgs(
+                        "qodana-jvm:dev",
+                        projectDir,
+                        resultsDir,
+                        cacheDir,
+                        run,
+                        hostEnv = emptyMap(),
+                    )
+                }.exceptionOrNull()
+
+        assertEquals("required host env 'QODANA_TOKEN' is missing or blank", error?.message)
+    }
+
+    @Test
+    fun `passEnv fails loudly when a requested host env is blank`() {
+        val run = RunSpec(passEnv = listOf("QODANA_TOKEN"))
+
+        val error =
+            kotlin
+                .runCatching {
+                    DockerRunPlanner.dockerArgs(
+                        "qodana-jvm:dev",
+                        projectDir,
+                        resultsDir,
+                        cacheDir,
+                        run,
+                        hostEnv = mapOf("QODANA_TOKEN" to ""),
+                    )
+                }.exceptionOrNull()
+
+        assertEquals("required host env 'QODANA_TOKEN' is missing or blank", error?.message)
     }
 }
