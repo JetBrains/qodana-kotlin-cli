@@ -2,6 +2,9 @@ package org.jetbrains.qodana.cli
 
 import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
+import com.fasterxml.jackson.module.kotlin.kotlinModule
+import com.fasterxml.jackson.module.kotlin.readValue
 import com.github.ajalt.clikt.completion.CompletionCommand
 import com.github.ajalt.clikt.core.NoSuchOption
 import com.github.ajalt.clikt.core.PrintHelpMessage
@@ -427,6 +430,54 @@ class NativeSmokeTest {
         assertEquals(emptyList(), minimalProduct.releases, "omitted Releases must default to empty")
     }
 
+    @Test
+    fun `qodana yaml model graph is reachable for the agent`() {
+        val yaml =
+            """
+            profile:
+              name: starter
+            script:
+              name: custom
+            include:
+              - name: included-rule
+            exclude:
+              - name: excluded-rule
+            plugins:
+              - {}
+            dotnet:
+              solution: app.sln
+            php: {}
+            cpp:
+              buildSystem: cmake
+            failureConditions:
+              severityThresholds:
+                critical: 1
+              testCoverageThresholds:
+                total: 80
+            licenseRules:
+              - keys: ["MIT"]
+            dependencyIgnores:
+              - {}
+            dependencyOverrides:
+              - name: override
+                version: "1.0"
+            projectLicenses:
+              - key: Apache-2.0
+            customDependencies:
+              - name: dep
+                version: "2.0"
+            dependencySbomExclude:
+              - {}
+            modulesToAnalyze:
+              - {}
+            coverage: {}
+            hardcodedPasswords: {}
+            """.trimIndent()
+
+        val config: org.jetbrains.qodana.core.model.QodanaYaml = YAML_MAPPER.readValue(yaml)
+        assertNotNull(config)
+    }
+
     // QD-14960 regression guard: a real test (not just a capture driver) that
     // FAILS if a future metadata regen drops these classes — or their required
     // constructors — from the committed reflect-config.json. JVM deserialization
@@ -449,27 +500,12 @@ class NativeSmokeTest {
 
         val problems = mutableListOf<String>()
         for ((fqcn, requiredCtors) in requiredNativeScanPathCtors()) {
-            val entry = byName[fqcn]
-            if (entry == null) {
-                problems.add("$fqcn: not registered")
-                continue
-            }
-            if (entry["allDeclaredFields"] != true) {
-                problems.add("$fqcn: allDeclaredFields must be true (Jackson reads every field)")
-            }
-
-            @Suppress("UNCHECKED_CAST")
-            val methods = entry["methods"] as? List<Map<String, Any?>> ?: emptyList()
-            val ctorParamLists =
-                methods
-                    .filter { it["name"] == "<init>" }
-                    .map { (it["parameterTypes"] as? List<*>)?.map(Any?::toString) ?: emptyList() }
-                    .toSet()
-            for (ctor in requiredCtors) {
-                if (ctor !in ctorParamLists) {
-                    problems.add("$fqcn: missing <init>(${ctor.joinToString(", ")})")
-                }
-            }
+            collectCtorMetadataProblems(
+                entry = byName[fqcn],
+                fqcn = fqcn,
+                requiredCtors = requiredCtors,
+                problems = problems,
+            )
         }
         assertTrue(
             problems.isEmpty(),
@@ -478,6 +514,47 @@ class NativeSmokeTest {
                 "\nRe-run agent capture (`./gradlew -Pagent :qodana-cli:test :qodana-cli:parityTest " +
                 "--rerun-tasks` then `:qodana-cli:metadataCopy`); on a stale toolchain, transcribe the " +
                 "agent's captured `<init>` lists (incl. the DefaultConstructorMarker variant) by hand.",
+        )
+    }
+
+    @Test
+    fun `committed reflect-config registers qodana yaml Jackson models`() {
+        val reflectConfig = Path.of(REFLECT_CONFIG_PATH)
+        assertTrue(
+            Files.exists(reflectConfig),
+            "expected $reflectConfig to exist; regenerate via `./gradlew :qodana-cli:metadataCopy`",
+        )
+
+        val entries: List<Map<String, Any?>> =
+            ObjectMapper().readValue(reflectConfig.toFile(), object : TypeReference<List<Map<String, Any?>>>() {})
+        val byName = entries.filter { it["name"] is String }.associateBy { it["name"] as String }
+
+        val problems = mutableListOf<String>()
+        for (fqcn in requiredQodanaYamlModelClasses()) {
+            val entry = byName[fqcn]
+            if (entry == null) {
+                problems.add("$fqcn: not registered")
+            } else {
+                if (entry["allDeclaredFields"] != true) {
+                    problems.add("$fqcn: allDeclaredFields must be true (Jackson reads every field)")
+                }
+                if (entry["allDeclaredConstructors"] != true) {
+                    problems.add("$fqcn: allDeclaredConstructors must be true (constructor drift guard)")
+                }
+                if (entry["queryAllDeclaredConstructors"] != true) {
+                    problems.add("$fqcn: queryAllDeclaredConstructors must be true (native constructor lookup)")
+                }
+                if (entry["queryAllDeclaredMethods"] != true) {
+                    problems.add("$fqcn: queryAllDeclaredMethods must be true (native method lookup)")
+                }
+            }
+        }
+        assertTrue(
+            problems.isEmpty(),
+            "reflect-config.json qodana-yaml Jackson models are incomplete:\n" +
+                problems.joinToString("\n") { "  $it" } +
+                "\nRe-run agent capture (`./gradlew -Pagent :qodana-cli:test --rerun-tasks` then " +
+                "`:qodana-cli:metadataCopy`) and keep the full Kotlin default-argument constructors.",
         )
     }
 
@@ -661,6 +738,8 @@ class NativeSmokeTest {
         )
 
     private companion object {
+        val YAML_MAPPER = YAMLMapper().registerModule(kotlinModule())
+
         // Module-relative; tests run with the qodana-cli dir as cwd (same
         // convention as MetadataHygieneTest).
         const val REFLECT_CONFIG_PATH =
@@ -712,6 +791,60 @@ private fun requiredNativeScanPathCtors(): Map<String, List<List<String>>> {
             ),
     )
 }
+
+private fun collectCtorMetadataProblems(
+    entry: Map<String, Any?>?,
+    fqcn: String,
+    requiredCtors: List<List<String>>,
+    problems: MutableList<String>,
+) {
+    if (entry == null) {
+        problems.add("$fqcn: not registered")
+        return
+    }
+    if (entry["allDeclaredFields"] != true) {
+        problems.add("$fqcn: allDeclaredFields must be true (Jackson reads every field)")
+    }
+    if (entry["allDeclaredConstructors"] == true) {
+        return
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    val methods = entry["methods"] as? List<Map<String, Any?>> ?: emptyList()
+    val ctorParamLists =
+        methods
+            .filter { it["name"] == "<init>" }
+            .map { (it["parameterTypes"] as? List<*>)?.map(Any?::toString) ?: emptyList() }
+            .toSet()
+    for (ctor in requiredCtors) {
+        if (ctor !in ctorParamLists) {
+            problems.add("$fqcn: missing <init>(${ctor.joinToString(", ")})")
+        }
+    }
+}
+
+private fun requiredQodanaYamlModelClasses(): List<String> =
+    listOf(
+        "org.jetbrains.qodana.core.model.InspectScope",
+        "org.jetbrains.qodana.core.model.QodanaYaml",
+        "org.jetbrains.qodana.core.model.YamlCoverage",
+        "org.jetbrains.qodana.core.model.YamlCoverageThresholds",
+        "org.jetbrains.qodana.core.model.YamlCpp",
+        "org.jetbrains.qodana.core.model.YamlCustomDependency",
+        "org.jetbrains.qodana.core.model.YamlDependencyIgnore",
+        "org.jetbrains.qodana.core.model.YamlDependencyOverride",
+        "org.jetbrains.qodana.core.model.YamlDotNet",
+        "org.jetbrains.qodana.core.model.YamlFailureConditions",
+        "org.jetbrains.qodana.core.model.YamlHardcodedPasswords",
+        "org.jetbrains.qodana.core.model.YamlLicenseOverride",
+        "org.jetbrains.qodana.core.model.YamlLicenseRule",
+        "org.jetbrains.qodana.core.model.YamlModuleToAnalyze",
+        "org.jetbrains.qodana.core.model.YamlPhp",
+        "org.jetbrains.qodana.core.model.YamlPlugin",
+        "org.jetbrains.qodana.core.model.YamlProfile",
+        "org.jetbrains.qodana.core.model.YamlScript",
+        "org.jetbrains.qodana.core.model.YamlSeverityThresholds",
+    )
 
 // A minimal HttpTransport that returns [body] for every GET and empty 200s
 // otherwise — enough to drive IdeInstaller.getProductByCode's feed fetch under
