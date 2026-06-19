@@ -52,6 +52,7 @@ jobs:
       contents: read
       pull-requests: write
       checks: write
+      actions: read
     steps:
       - uses: actions/checkout@v6
         with:
@@ -65,7 +66,7 @@ jobs:
       # Requires the QODANA_TOKEN secret on the repo (project token from
       # https://qodana.cloud). Without it the linter fails fast with
       # "Starting from 2023.2 release versions require connection to Qodana Cloud."
-      - uses: JetBrains/qodana-action@v2026.1.0
+      - uses: JetBrains/qodana-action@821eac0410bf54032962a073e65c66706ea56b1f # azhukova/QD-14800 — proof of work for JetBrains/qodana-action#599; revert to a tagged release once merged
         env:
           QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
         with:
