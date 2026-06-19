@@ -6,6 +6,8 @@ import org.jetbrains.qodana.core.env.QodanaEnv
 import org.jetbrains.qodana.core.model.ExitCode
 import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.core.product.Linters
+import org.jetbrains.qodana.engine.cloud.LicenseSetup
+import org.jetbrains.qodana.engine.cloud.LicenseToken
 import org.jetbrains.qodana.engine.cloud.LicenseValidator
 import org.jetbrains.qodana.engine.config.EffectiveConfig
 import org.jetbrains.qodana.engine.fs.FileUtils
@@ -63,18 +65,39 @@ class ScanUseCase(
                 effectiveContext
             }
 
-        val validationToken =
-            effectiveContextWithIde.auth.token
-                ?.takeIf { it.isNotBlank() }
-                ?: effectiveContextWithIde.auth.licenseOnlyToken?.takeIf { it.isNotBlank() }
-        if (!validationToken.isNullOrBlank() && licenseValidator != null) {
-            val licenseResult = licenseValidator.validate(validationToken)
-            licenseResult.onSuccess { licenseData ->
-                System.setProperty(QodanaEnv.PROJECT_ID_HASH, licenseData.projectIdHash)
-                System.setProperty(QodanaEnv.ORGANISATION_ID_HASH, licenseData.organisationIdHash)
+        val licenseEnv = mutableMapOf<String, String>()
+        val linter = effectiveContextWithIde.linter?.let { Linters.findByName(it) }
+        if (linter != null && licenseValidator != null) {
+            val setup =
+                LicenseSetup.setupLicenseAndProjectHash(
+                    linter = linter,
+                    licenseToken =
+                        LicenseToken.resolve(
+                            cloudToken = effectiveContextWithIde.auth.token,
+                            licenseOnlyToken = effectiveContextWithIde.auth.licenseOnlyToken,
+                        ),
+                    validator = licenseValidator,
+                    existingLicense = System.getenv(QodanaEnv.LICENSE),
+                )
+            setup.onSuccess { r ->
+                // The Qodana dist reads the license + project/org hashes ONLY from the analyzer's env
+                // vars; propagate them via the analysis env (NativeScan forwards runtime.envVars to the
+                // IDE). Previously the key was discarded and the hashes written via System.setProperty,
+                // which the dist never reads — so no paid linter ever licensed. Don't clobber a license
+                // supplied via --env (LicenseSetup already honours a pre-set QODANA_LICENSE process env).
+                if (r.licenseKey.isNotBlank() &&
+                    !effectiveContextWithIde.runtime.envVars.containsKey(QodanaEnv.LICENSE)
+                ) {
+                    licenseEnv[QodanaEnv.LICENSE] = r.licenseKey
+                }
+                if (r.projectIdHash.isNotBlank()) licenseEnv[QodanaEnv.PROJECT_ID_HASH] = r.projectIdHash
+                if (r.organisationIdHash.isNotBlank()) licenseEnv[QodanaEnv.ORGANISATION_ID_HASH] = r.organisationIdHash
             }
-            licenseResult.onFailure { e ->
-                terminal.warn("License validation failed: ${e.message}")
+            setup.onFailure { e ->
+                // warn (not fail): preserves today's QDJVM/QDPY Community-EAP behavior while surfacing a
+                // clear cause (e.g. "Community plan does not support paid linters") instead of the dist's
+                // cryptic "No valid license found" crash.
+                terminal.warn("License setup failed: ${e.message}")
             }
         }
 
@@ -83,7 +106,14 @@ class ScanUseCase(
             log.info("DotNet configuration: solution={}, project={}", dotnetConfig.solution, dotnetConfig.project)
         }
 
-        val contextForAnalysis = prepareScenarioContext(effectiveContextWithIde)
+        val contextForAnalysis =
+            prepareScenarioContext(effectiveContextWithIde).let { ctx ->
+                if (licenseEnv.isEmpty()) {
+                    ctx
+                } else {
+                    ctx.copy(runtime = ctx.runtime.copy(envVars = ctx.runtime.envVars + licenseEnv))
+                }
+            }
         val bootstrapExitCode = runBootstrapIfNeeded(contextForAnalysis, pipeline)
         if (bootstrapExitCode != 0) {
             return bootstrapExitCode
