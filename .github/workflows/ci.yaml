@@ -62,12 +62,13 @@ jobs:
           distribution: temurin
           java-version: 25
       - uses: gradle/actions/setup-gradle@v6
-      # Requires the QODANA_TOKEN secret on the repo (project token from
+      # Requires the QODANA_CI_ACTION_TOKEN secret on the repo (project token from
       # https://qodana.cloud). Without it the linter fails fast with
       # "Starting from 2023.2 release versions require connection to Qodana Cloud."
+      # The env var stays QODANA_TOKEN (qodana-action's contract); only the secret it maps from changed.
       - uses: JetBrains/qodana-action@v2026.1.0
         env:
-          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
+          QODANA_TOKEN: ${{ secrets.QODANA_CI_ACTION_TOKEN }}
         with:
           pr-mode: false
           post-pr-comment: true

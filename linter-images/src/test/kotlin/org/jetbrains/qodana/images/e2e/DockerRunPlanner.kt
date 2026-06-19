@@ -16,6 +16,7 @@ object DockerRunPlanner {
         resultsDir: Path,
         cacheDir: Path,
         run: RunSpec,
+        hostEnv: Map<String, String> = System.getenv(),
     ): List<String> =
         buildList {
             add("docker")
@@ -40,6 +41,15 @@ object DockerRunPlanner {
             for ((key, value) in run.env) {
                 add("-e")
                 add("$key=$value")
+            }
+            // Validate the host-side secret exists, then let Docker resolve the actual value from the
+            // parent process environment via `-e KEY` so the secret does not end up in argv.
+            for (key in run.passEnv) {
+                if (hostEnv[key].isNullOrBlank()) {
+                    error("required host env '$key' is missing or blank")
+                }
+                add("-e")
+                add(key)
             }
             add(imageTag)
             add("scan")

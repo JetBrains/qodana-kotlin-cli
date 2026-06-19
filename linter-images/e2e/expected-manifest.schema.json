@@ -20,6 +20,12 @@
         "securityOpt": { "type": "array", "items": { "type": "string" }, "default": [] },
         "extraArgs": { "type": "array", "items": { "type": "string" }, "default": [] },
         "env": { "type": "object", "additionalProperties": { "type": "string" }, "default": {} },
+        "passEnv": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$" },
+          "uniqueItems": true,
+          "default": []
+        },
         "failThreshold": { "type": ["integer", "null"], "default": null },
         "variants": {
           "type": "array",

@@ -46,67 +46,88 @@ jobs:
           # compose_files: the exact `-f` flags for `docker compose` (repo-root-relative).
           # token_gated: clang's clang-tidy comes from the PRIVATE mirror, so both its build and its
           # e2e require QODANA_CLI_DEPS_TOKEN; on a fork PR the secret is empty → no-op, not red.
+          # requires_license: this image's e2e fixture passes QODANA_LICENSE_ONLY_TOKEN via passEnv (a
+          # paid IDE-dist linter), so the scan step is gated on that secret — fork PRs (empty secret)
+          # skip it instead of hard-failing at planning time. Flip to "true" in the commit that adds the
+          # image's passEnv fixture.
           - name: qodana-jvm
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
+            requires_license: "false"
           - name: qodana-jvm-community
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
+            requires_license: "false"
           - name: qodana-android
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
+            requires_license: "false"
           - name: qodana-android-community
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
+            requires_license: "false"
           - name: qodana-python-community
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
+            requires_license: "false"
           - name: qodana-python
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
+            requires_license: "false"
           - name: qodana-js
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
+            requires_license: "true"
           - name: qodana-go
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
+            requires_license: "false"
           - name: qodana-php
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
+            requires_license: "false"
           - name: qodana-rust
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
+            requires_license: "false"
           - name: qodana-ruby
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
+            requires_license: "false"
           - name: qodana-ruby-3.2
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
+            requires_license: "false"
           - name: qodana-ruby-3.4
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
+            requires_license: "false"
           - name: qodana-dotnet
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
+            requires_license: "false"
           - name: qodana-cpp
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
+            requires_license: "false"
           - name: qodana-clang
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "true"
+            requires_license: "false"
           - name: qodana-cdnet
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "true"
+            requires_license: "false"
     env:
-      # QODANA_CLI_DEPS_TOKEN is surfaced as `env.*` so the clang gating `if:` can reference it
-      # (`secrets.*` is not addressable in a step-level `if:`). QODANA_TOKEN feeds the harness's
-      # `linterE2eTest` task (forwarded to the test JVM); it auto-uploads scans to a throwaway Qodana
-      # Cloud project when present. The DOCKER_READ_PUBLIC_REGISTRY_* creds authenticate the docker.io
-      # and dhi.io pulls (see the two login steps below).
+      # QODANA_CLI_DEPS_TOKEN is surfaced as `env.*` so the clang/cdnet gating `if:` can reference it
+      # (`secrets.*` is not addressable in a step-level `if:`). QODANA_LICENSE_ONLY_TOKEN licenses the
+      # paid IDE-dist linters at scan time in license-only mode (no upload); it is likewise surfaced as
+      # `env.*` for the paid-image fork-PR gate. The DOCKER_READ_PUBLIC_REGISTRY_* creds authenticate
+      # the docker.io and dhi.io pulls (see the two login steps below).
       DOCKER_READ_PUBLIC_REGISTRY_TOKEN: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
       DOCKER_READ_PUBLIC_REGISTRY_USER: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_USER }}
       QODANA_CLI_DEPS_TOKEN: ${{ secrets.QODANA_CLI_DEPS_TOKEN }}
-      QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
+      QODANA_LICENSE_ONLY_TOKEN: ${{ secrets.QODANA_LICENSE_ONLY_TOKEN }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -147,12 +168,20 @@ jobs:
         if: ${{ matrix.image.token_gated != 'true' }}
         # No token: jvm/android fetch the IDE dist from the public mirror (GPG+sha256 verified).
         run: docker compose ${{ matrix.image.compose_files }} build ${{ matrix.image.name }}
-      - name: e2e ${{ matrix.image.name }}
-        if: ${{ matrix.image.token_gated != 'true' }}
+      - name: e2e ${{ matrix.image.name }} (free)
+        if: ${{ matrix.image.token_gated != 'true' && matrix.image.requires_license != 'true' }}
         # Builds the @Tag("linter-e2e") harness, discovers fixtures under
         # linter-images/e2e/fixtures/${image}/*/expected.json, scans the pre-built <image>:dev, and
         # asserts SARIF content + exit code + log gate. Missing/unparseable SARIF or Docker-down → loud.
         run: ./gradlew :linter-images:linterE2eTest -Dlinter.e2e.image=${{ matrix.image.name }}
+      - name: e2e ${{ matrix.image.name }} (licensed)
+        # Paid IDE-dist linters license over the bridge network in license-only mode. On a fork PR the
+        # secret is empty → skip rather than hard-fail (the harness fails loudly on a missing passEnv).
+        if: ${{ matrix.image.token_gated != 'true' && matrix.image.requires_license == 'true' && env.QODANA_LICENSE_ONLY_TOKEN != '' }}
+        run: ./gradlew :linter-images:linterE2eTest -Dlinter.e2e.image=${{ matrix.image.name }}
+      - name: Note skipped ${{ matrix.image.name }} (no license token)
+        if: ${{ matrix.image.token_gated != 'true' && matrix.image.requires_license == 'true' && env.QODANA_LICENSE_ONLY_TOKEN == '' }}
+        run: echo "::notice::${{ matrix.image.name }} e2e skipped — QODANA_LICENSE_ONLY_TOKEN unavailable (fork PR)."
 
       # --- Token-gated images (clang, cdnet): identical flow, but build + e2e require the mirror token. -
       - name: Stage from-tree contexts (cli + image-tool + ${{ matrix.image.name }} binary)
@@ -187,3 +216,15 @@ jobs:
       - name: Note skipped ${{ matrix.image.name }} (no token)
         if: ${{ matrix.image.token_gated == 'true' && env.QODANA_CLI_DEPS_TOKEN == '' }}
         run: echo "::notice::${{ matrix.image.name }} e2e skipped — QODANA_CLI_DEPS_TOKEN unavailable (fork PR)."
+
+      - name: Upload e2e artifacts (idea.log + sarif)
+        # Always upload whatever the harness archived to build/linter-e2e-artifacts (idea.log + SARIF per
+        # case), so a failing scan's real cause is downloadable. if-no-files-found:ignore covers skipped
+        # cells (no artifacts produced).
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-artifacts-${{ matrix.image.name }}
+          path: linter-images/build/linter-e2e-artifacts/
+          if-no-files-found: ignore
+          retention-days: 14

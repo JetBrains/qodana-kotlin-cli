@@ -100,6 +100,19 @@ class LinterE2eCaseRunner(
         val ideaLogPath = resultsDir.resolve("log").resolve("idea.log")
         val ideaLog = if (ideaLogPath.isRegularFile()) ideaLogPath.readText() else null
 
+        // Preserve THIS container run's diagnostics (idea.log + SARIF) to a stable, CI-uploadable path.
+        // Done in the runner so the control re-run [LinterE2eTest.resolveVariantExpectations] is captured
+        // too; keyed by the unique work-dir name so runs never clobber each other. Best-effort: an
+        // archiver IO error must NOT mask the scan's real outcome (the @TempDir is otherwise unguessable).
+        runCatching {
+            ArtifactArchiver.archive(
+                resultsDir,
+                Path.of("build", "linter-e2e-artifacts", manifest.image, work.fileName.toString()),
+            )
+        }.onFailure {
+            System.err.println("WARN: failed to archive e2e artifacts for ${manifest.case}: ${it.message}")
+        }
+
         return CaseRunResult(command, report, sarifParseError, ideaLog, resultsDir)
     }
 
