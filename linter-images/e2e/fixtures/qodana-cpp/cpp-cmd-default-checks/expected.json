@@ -3,7 +3,8 @@
   "image": "qodana-cpp",
   "description": "Flat C++ TU with a checked-in compile_commands.json, default CLion C/C++ profile. Guards: the analyzer finds the planted smells (QD-14974), the llvmlibc/fuchsia/altera noise families stay absent (QD-14272), and no 'unknown target triple' clang-diagnostic-error (QD-14974). qodana-cpp (CLion/QDCPP) is distinct from qodana-clang (QDCL, clang-tidy tool).",
   "run": {
-    "network": "none",
+    "passEnv": ["QODANA_LICENSE_ONLY_TOKEN"],
+    "network": "bridge",
     "capAdd": ["SYS_ADMIN"],
     "securityOpt": ["apparmor:unconfined"],
     "extraArgs": ["--no-statistics", "--compile-commands", "/data/project/compile_commands.json"]

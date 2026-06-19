@@ -73,7 +73,7 @@ jobs:
           - name: qodana-python
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
-            requires_license: "false"
+            requires_license: "true"
           - name: qodana-js
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
@@ -81,11 +81,11 @@ jobs:
           - name: qodana-go
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
-            requires_license: "false"
+            requires_license: "true"
           - name: qodana-php
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
-            requires_license: "false"
+            requires_license: "true"
           - name: qodana-rust
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
@@ -93,23 +93,23 @@ jobs:
           - name: qodana-ruby
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
-            requires_license: "false"
+            requires_license: "true"
           - name: qodana-ruby-3.2
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
-            requires_license: "false"
+            requires_license: "true"
           - name: qodana-ruby-3.4
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
-            requires_license: "false"
+            requires_license: "true"
           - name: qodana-dotnet
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
-            requires_license: "false"
+            requires_license: "true"
           - name: qodana-cpp
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
-            requires_license: "false"
+            requires_license: "true"
           - name: qodana-clang
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "true"

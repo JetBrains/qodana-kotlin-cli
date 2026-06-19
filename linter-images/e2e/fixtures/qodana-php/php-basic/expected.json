@@ -3,7 +3,8 @@
   "image": "qodana-php",
   "description": "Single-file PHP project with two planted defects, hermetic run. First e2e for the PHP image (DHI php language base: PHP pre-baked, plus the layered node toolchain + in-place global eslint pin for JS/TS support, plus the composer toolchain). Proves qodana-php builds (base + node + eslint + composer + dist + cli + runtime), loads its Ultimate PhpStorm profile, and scans a real .php producing SARIF. Driver name + rule ids are NEEDS-PINNING starting guesses — pin from a CI control run and confirm both are enabled in THIS image's default PS (PhpStorm) profile.",
   "run": {
-    "network": "none",
+    "passEnv": ["QODANA_LICENSE_ONLY_TOKEN"],
+    "network": "bridge",
     "extraArgs": ["--no-statistics"]
   },
   "expectExitCode": 0,

@@ -3,7 +3,8 @@
   "image": "qodana-python",
   "description": "Single-file Python project with two planted defects, hermetic run. First e2e for the Ultimate Python image (conda + node toolchain): proves qodana-python builds (base + conda + node + dist + cli + runtime), loads its Ultimate PyCharm Pro profile, and scans a real .py producing SARIF. Driver name + rule ids are NEEDS-PINNING starting guesses — pin from a CI control run and confirm both are enabled in THIS image's default PY (PyCharm Professional) profile.",
   "run": {
-    "network": "none",
+    "passEnv": ["QODANA_LICENSE_ONLY_TOKEN"],
+    "network": "bridge",
     "extraArgs": ["--no-statistics"]
   },
   "expectExitCode": 0,
