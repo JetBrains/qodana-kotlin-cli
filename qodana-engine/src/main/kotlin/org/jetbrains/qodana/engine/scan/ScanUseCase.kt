@@ -68,36 +68,40 @@ class ScanUseCase(
         val licenseEnv = mutableMapOf<String, String>()
         val linter = effectiveContextWithIde.linter?.let { Linters.findByName(it) }
         if (linter != null && licenseValidator != null) {
-            val setup =
-                LicenseSetup.setupLicenseAndProjectHash(
-                    linter = linter,
-                    licenseToken =
-                        LicenseToken.resolve(
-                            cloudToken = effectiveContextWithIde.auth.token,
-                            licenseOnlyToken = effectiveContextWithIde.auth.licenseOnlyToken,
-                        ),
-                    validator = licenseValidator,
-                    existingLicense = System.getenv(QodanaEnv.LICENSE),
-                )
-            setup.onSuccess { r ->
-                // The Qodana dist reads the license + project/org hashes ONLY from the analyzer's env
-                // vars; propagate them via the analysis env (NativeScan forwards runtime.envVars to the
-                // IDE). Previously the key was discarded and the hashes written via System.setProperty,
-                // which the dist never reads — so no paid linter ever licensed. Don't clobber a license
-                // supplied via --env (LicenseSetup already honours a pre-set QODANA_LICENSE process env).
-                if (r.licenseKey.isNotBlank() &&
-                    !effectiveContextWithIde.runtime.envVars.containsKey(QodanaEnv.LICENSE)
-                ) {
-                    licenseEnv[QodanaEnv.LICENSE] = r.licenseKey
-                }
-                if (r.projectIdHash.isNotBlank()) licenseEnv[QodanaEnv.PROJECT_ID_HASH] = r.projectIdHash
-                if (r.organisationIdHash.isNotBlank()) licenseEnv[QodanaEnv.ORGANISATION_ID_HASH] = r.organisationIdHash
+            val licenseResult =
+                LicenseSetup
+                    .setupLicenseAndProjectHash(
+                        linter = linter,
+                        licenseToken =
+                            LicenseToken.resolve(
+                                cloudToken = effectiveContextWithIde.auth.token,
+                                licenseOnlyToken = effectiveContextWithIde.auth.licenseOnlyToken,
+                            ),
+                        validator = licenseValidator,
+                        existingLicense = System.getenv(QodanaEnv.LICENSE),
+                    ).getOrElse { e ->
+                        // Fail fast with the clear cause (e.g. "Community plan does not support paid linters")
+                        // rather than booting the analyzer only for the dist to abort with a cryptic
+                        // "No valid license found" (exit 7). Matches the Go CLI's hard-fail.
+                        terminal.error("License setup failed: ${e.message}")
+                        return 1
+                    }
+            // The Qodana dist reads the license + project/org hashes ONLY from the analyzer's env vars;
+            // propagate them via the analysis env (NativeScan forwards runtime.envVars to the IDE).
+            // Previously the key was discarded and the hashes written via System.setProperty, which the
+            // dist never reads — so no paid linter ever licensed. Don't clobber a license supplied via
+            // --env (already in runtime.envVars); LicenseSetup separately honours a pre-set QODANA_LICENSE
+            // read from the process env.
+            if (licenseResult.licenseKey.isNotBlank() &&
+                !effectiveContextWithIde.runtime.envVars.containsKey(QodanaEnv.LICENSE)
+            ) {
+                licenseEnv[QodanaEnv.LICENSE] = licenseResult.licenseKey
             }
-            setup.onFailure { e ->
-                // warn (not fail): preserves today's QDJVM/QDPY Community-EAP behavior while surfacing a
-                // clear cause (e.g. "Community plan does not support paid linters") instead of the dist's
-                // cryptic "No valid license found" crash.
-                terminal.warn("License setup failed: ${e.message}")
+            if (licenseResult.projectIdHash.isNotBlank()) {
+                licenseEnv[QodanaEnv.PROJECT_ID_HASH] = licenseResult.projectIdHash
+            }
+            if (licenseResult.organisationIdHash.isNotBlank()) {
+                licenseEnv[QodanaEnv.ORGANISATION_ID_HASH] = licenseResult.organisationIdHash
             }
         }
 

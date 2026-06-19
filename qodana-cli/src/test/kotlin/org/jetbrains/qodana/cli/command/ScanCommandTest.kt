@@ -513,6 +513,8 @@ class ScanCommandTest {
         val context = requireNotNull(capturedContext)
         assertEquals(org.jetbrains.qodana.engine.model.NativeExecutionProfile, context.executionProfile)
         assertEquals(distDir.toAbsolutePath().normalize(), context.runtime.ideDir)
+        // The sanctioned dist's product code (GO) resolves the linter, overriding --linter qodana-jvm.
+        assertEquals("qodana-go", context.linter)
     }
 
     @Test

@@ -367,7 +367,7 @@ class ScanUseCaseTest {
         }
 
     @Test
-    fun `community plan does not inject a license for a paid linter`() =
+    fun `community plan hard-fails a paid linter scan`() =
         runTest {
             recordingLicenseHttp.responseBody = """{
                 "licenseKey": "",
@@ -377,12 +377,10 @@ class ScanUseCaseTest {
             }"""
 
             val useCase = buildScanUseCase()
-            useCase.run(buildContext(nativeMode = true, linter = "qodana-js", licenseOnlyToken = "t"))
+            val exit = useCase.run(buildContext(nativeMode = true, linter = "qodana-js", licenseOnlyToken = "t"))
 
-            assertFalse(
-                recordingProcessRunner.lastSpec?.env?.containsKey("QODANA_LICENSE") ?: false,
-                "a Community-plan token must not produce a QODANA_LICENSE (LicenseSetup rejects it; we warn)",
-            )
+            assertEquals(1, exit, "a Community-plan token must hard-fail a paid-linter scan, not run unlicensed")
+            assertFalse(recordingProcessRunner.started, "the analyzer must not start when licensing failed")
         }
 
     @Test
@@ -440,7 +438,8 @@ class ScanUseCaseTest {
                             revision = "abc123",
                             jobUrl = "https://ci.example/job/42",
                         ),
-                    linter = "qodana-jvm",
+                    // Free linter so this enrichment-focused test needs no license token.
+                    linter = "qodana-jvm-community",
                 )
 
             val result = useCase.run(context)
