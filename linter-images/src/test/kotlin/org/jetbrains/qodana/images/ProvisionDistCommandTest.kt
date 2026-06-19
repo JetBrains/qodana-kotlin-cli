@@ -11,6 +11,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class ProvisionDistCommandTest {
@@ -70,13 +71,138 @@ class ProvisionDistCommandTest {
             on({ it.contains("sha256sum") }, CommandResult(0, "$goodSha *$archiveName\n", ""))
         }
 
+    private fun baseArgs(
+        feedUrl: String,
+        target: Path,
+        key: Path,
+    ) = listOf(
+        "--distribution-feed",
+        feedUrl,
+        "--linter-slug",
+        "qodana-jvm",
+        "--version",
+        "2025.3",
+        "--build",
+        build,
+        "--gpg-key",
+        key.toString(),
+        "--gpg-fingerprint",
+        fingerprint,
+        "--target",
+        target.toString(),
+    )
+
     @Test
-    fun `public channel provisions extracts and needs no token`(
+    fun `distribution-feed URL is forwarded verbatim to FeedClient`(
+        @TempDir tmp: Path,
+    ) {
+        val customFeed = "https://custom.example.com/feed"
+        val target = Files.createDirectories(tmp.resolve("staging"))
+        val key = gpgKey(tmp)
+        val runner = runner()
+
+        // The runner records all invocations; we inspect the curl that fetches `.releases.json`
+        // to verify the URL contains exactly the custom feed base.
+        val command =
+            ProvisionDistCommand(
+                feedClient = FeedClient(runner),
+                verifier = DistVerifier(runner),
+                extractor = RecordingExtractor(),
+                getEnv = { null },
+            )
+
+        val result = command.test(baseArgs(customFeed, target, key))
+
+        assertEquals(0, result.statusCode, result.output)
+        val feedCurl = runner.invocations.first { it.contains("curl") && it.any { a -> a.endsWith(".releases.json") } }
+        val feedUrl = feedCurl.last { it.endsWith(".releases.json") }
+        assertTrue(feedUrl.startsWith(customFeed), "expected feed URL to start with '$customFeed', got: $feedUrl")
+    }
+
+    @Test
+    fun `token from getEnv is forwarded to FeedClient when set, null when unset`(
+        @TempDir tmp: Path,
+    ) {
+        val key = gpgKey(tmp)
+        val feedUrl = "https://download.jetbrains.com/qodana/feed"
+
+        // Token present: the feed curl carries the bearer header.
+        val runnerWithToken = runner()
+        val targetWithToken = Files.createDirectories(tmp.resolve("staging-with-token"))
+        val commandWithToken =
+            ProvisionDistCommand(
+                feedClient = FeedClient(runnerWithToken),
+                verifier = DistVerifier(runnerWithToken),
+                extractor = RecordingExtractor(),
+                getEnv = { name -> if (name == QD_FEED_TOKEN) "tok-123" else null },
+            )
+        val resultWithToken = commandWithToken.test(baseArgs(feedUrl, targetWithToken, key))
+        assertEquals(0, resultWithToken.statusCode, resultWithToken.output)
+        val feedCurlWithToken =
+            runnerWithToken.invocations.first { it.contains("curl") && it.any { a -> a.endsWith(".releases.json") } }
+        assertTrue(
+            feedCurlWithToken.any { it.contains("tok-123") },
+            "expected bearer token in curl args: $feedCurlWithToken",
+        )
+
+        // Token absent: the feed curl has no Authorization header.
+        val runnerNoToken = runner()
+        val targetNoToken = Files.createDirectories(tmp.resolve("staging-no-token"))
+        val commandNoToken =
+            ProvisionDistCommand(
+                feedClient = FeedClient(runnerNoToken),
+                verifier = DistVerifier(runnerNoToken),
+                extractor = RecordingExtractor(),
+                getEnv = { null },
+            )
+        val resultNoToken = commandNoToken.test(baseArgs(feedUrl, targetNoToken, key))
+        assertEquals(0, resultNoToken.statusCode, resultNoToken.output)
+        val feedCurlNoToken =
+            runnerNoToken.invocations.first { it.contains("curl") && it.any { a -> a.endsWith(".releases.json") } }
+        assertTrue(
+            feedCurlNoToken.none { it.contains("Authorization") },
+            "expected no Authorization in curl args: $feedCurlNoToken",
+        )
+    }
+
+    @Test
+    fun `FeedClient failure propagates loudly`(
+        @TempDir tmp: Path,
+    ) {
+        val target = Files.createDirectories(tmp.resolve("staging"))
+        val key = gpgKey(tmp)
+
+        // Runner that returns exit code 1 on all curl calls, simulating a 401/network error.
+        val failingRunner =
+            FakeCommandRunner().apply {
+                on({ it.contains("curl") }, CommandResult(1, "", "HTTP 401 Unauthorized"))
+            }
+
+        val extractor = RecordingExtractor()
+        val command =
+            ProvisionDistCommand(
+                feedClient = FeedClient(failingRunner),
+                verifier = DistVerifier(runner()),
+                extractor = extractor,
+                getEnv = { null },
+            )
+
+        // Feed failure propagates as an exception (FeedClient throws on non-zero curl exit).
+        // Clikt's test() only catches CliktError, so any other exception is unhandled — fail-closed.
+        assertFailsWith<Exception> {
+            command.test(baseArgs("https://packages.jetbrains.team/files/p/qd/private-feed", target, key))
+        }
+        // No side effects: the extractor was never reached.
+        assertEquals(null, extractor.archive)
+    }
+
+    @Test
+    fun `provisions extracts and accepts absent token`(
         @TempDir tmp: Path,
     ) {
         val target = Files.createDirectories(tmp.resolve("staging"))
         val runner = runner()
-        val feedClient = FeedClient(runner) // canonical: curl through the runner, no Downloader/workDir
+        val feedClient = FeedClient(runner)
         val verifier = DistVerifier(runner)
         val extractor = RecordingExtractor()
         val key = gpgKey(tmp)
@@ -86,122 +212,14 @@ class ProvisionDistCommandTest {
                 feedClient = feedClient,
                 verifier = verifier,
                 extractor = extractor,
-                getEnv = { null }, // no QD_FEED_TOKEN — and the public channel must not need it
+                getEnv = { null },
             )
 
-        val result =
-            command.test(
-                listOf(
-                    "--feed-url",
-                    "https://download.jetbrains.com/qodana/feed",
-                    "--linter-slug",
-                    "qodana-jvm",
-                    "--version",
-                    "2025.3",
-                    "--build",
-                    build,
-                    "--channel",
-                    "public",
-                    "--gpg-key",
-                    key.toString(),
-                    "--gpg-fingerprint",
-                    fingerprint,
-                    "--target",
-                    target.toString(),
-                ),
-            )
+        val result = command.test(baseArgs("https://download.jetbrains.com/qodana/feed", target, key))
 
         assertEquals(0, result.statusCode, result.output)
         assertEquals(archiveName, extractor.archive?.fileName?.toString())
         // Canonical: --target IS the IDE root (flattened), NOT target/idea.
         assertEquals(target, extractor.targetDir)
-    }
-
-    @Test
-    fun `private channel without QD_FEED_TOKEN fails loudly`(
-        @TempDir tmp: Path,
-    ) {
-        val target = Files.createDirectories(tmp.resolve("staging"))
-        val feedClient = FeedClient(runner()) // canonical: curl through the CommandRunner, no Downloader
-        val verifier = DistVerifier(runner())
-        val extractor = RecordingExtractor()
-        val key = gpgKey(tmp)
-
-        val command =
-            ProvisionDistCommand(
-                feedClient = feedClient,
-                verifier = verifier,
-                extractor = extractor,
-                getEnv = { null }, // QD_FEED_TOKEN unset
-            )
-
-        val result =
-            command.test(
-                listOf(
-                    "--feed-url",
-                    "https://packages.jetbrains.team/files/p/qd/private-feed",
-                    "--linter-slug",
-                    "qodana-jvm",
-                    "--version",
-                    "2025.3",
-                    "--build",
-                    build,
-                    "--channel",
-                    "private",
-                    "--gpg-key",
-                    key.toString(),
-                    "--gpg-fingerprint",
-                    fingerprint,
-                    "--target",
-                    target.toString(),
-                ),
-            )
-
-        assertEquals(1, result.statusCode)
-        assertTrue(result.output.contains("QD_FEED_TOKEN"), result.output)
-        // Nothing was provisioned: the extractor was never invoked.
-        assertEquals(null, extractor.archive)
-    }
-
-    @Test
-    fun `private channel with QD_FEED_TOKEN adds the bearer header on the feed curl`(
-        @TempDir tmp: Path,
-    ) {
-        val target = Files.createDirectories(tmp.resolve("staging"))
-        val runner = runner() // canonical FakeCommandRunner serving feed/sha256/asc/archive + gpg/sha256sum
-        val command =
-            ProvisionDistCommand(
-                feedClient = FeedClient(runner),
-                verifier = DistVerifier(runner),
-                extractor = RecordingExtractor(),
-                getEnv = { name -> if (name == "QD_FEED_TOKEN") "tok-123" else null },
-            )
-
-        val result =
-            command.test(
-                listOf(
-                    "--feed-url",
-                    "https://packages.jetbrains.team/files/p/qd/private-feed",
-                    "--linter-slug",
-                    "qodana-jvm",
-                    "--version",
-                    "2025.3",
-                    "--build",
-                    build,
-                    "--channel",
-                    "private",
-                    "--gpg-key",
-                    gpgKey(tmp).toString(),
-                    "--gpg-fingerprint",
-                    fingerprint,
-                    "--target",
-                    target.toString(),
-                ),
-            )
-
-        assertEquals(0, result.statusCode, result.output)
-        // The feed curl carries the bearer token; assert it appears in the recorded argv.
-        val feedCurl = runner.invocations.first { it.contains("curl") && it.any { a -> a.endsWith(".releases.json") } }
-        assertTrue(feedCurl.any { it.contains("tok-123") }, feedCurl.toString())
     }
 }

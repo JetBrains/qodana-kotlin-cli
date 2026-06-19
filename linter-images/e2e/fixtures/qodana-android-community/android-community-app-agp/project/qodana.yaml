@@ -1,0 +1,9 @@
+version: "1.0"
+linter: qodana-android-community
+projectJDK: "17"
+
+# Customer-style SDK provisioning. The image exports ANDROID_HOME=/opt/android-sdk and bundles
+# cmdline-tools + Corretto 11/17, but bakes NO compile-SDK platform/build-tools — the customer
+# installs those here (QD-15022). bootstrap also gives the Gradle daemon a complete JDK
+# (the QD-14924 pattern): the bundled JBR is a runtime, not a full JDK.
+bootstrap: bash bootstrap.sh

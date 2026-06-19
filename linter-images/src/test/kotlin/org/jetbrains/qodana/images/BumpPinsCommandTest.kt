@@ -12,12 +12,24 @@ import kotlin.test.assertTrue
 /**
  * bump-pins rewrites ONLY `QD_BUILD` within the pinned major, never `QD_VERSION` (which is
  * contractually the MAJOR — EnvContractTest pins it byte-identical to phase-0-decisions.md). It picks
- * the newest within-major release of the pinned `QD_RELEASE_TYPE` and never crosses majors.
+ * the newest within-major release of the pinned `QD_RELEASE_TYPE` and never crosses majors. The feed
+ * is read per-`.env` from `QD_DISTRIBUTION_FEED` (falling back to [DEFAULT_DISTRIBUTION_FEED]).
  */
 class BumpPinsCommandTest {
     private fun feedRunner(body: String) =
         FakeCommandRunner().apply {
             on({ it.contains("curl") }) { argv ->
+                File(argv[argv.indexOf("-o") + 1]).writeText(body)
+                CommandResult(0, "", "")
+            }
+        }
+
+    /** A runner that serves a different feed body per requested feed-base URL (matched on the curl URL). */
+    private fun feedRunnerByUrl(bodyByFeed: Map<String, String>) =
+        FakeCommandRunner().apply {
+            on({ it.contains("curl") }) { argv ->
+                val url = argv.last { it.endsWith(".releases.json") }
+                val body = bodyByFeed.entries.first { url.startsWith(it.key) }.value
                 File(argv[argv.indexOf("-o") + 1]).writeText(body)
                 CommandResult(0, "", "")
             }
@@ -105,6 +117,76 @@ class BumpPinsCommandTest {
     }
 
     @Test
+    fun `the feed URL is read per-env from QD_DISTRIBUTION_FEED and used for the fetch`(
+        @TempDir dir: File,
+    ) {
+        val customFeed = "https://custom.example.com/feed"
+        File(dir, "qodana-jvm.env").writeText(
+            """
+            QD_LINTER_SLUG=qodana-jvm
+            QD_VERSION=2025.3
+            QD_BUILD=253.1000
+            QD_RELEASE_TYPE=release
+            QD_DISTRIBUTION_FEED=$customFeed
+            """.trimIndent(),
+        )
+        val runner =
+            feedRunner(
+                """{"Code":"QDJVM","Releases":[
+                  {"Date":"2025-10-01","Type":"release","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
+                ]}""",
+            )
+        BumpPinsCommand(FeedClient(runner)).rewrite(dir.toPath())
+        val feedCurl = runner.invocations.first { it.contains("curl") && it.any { a -> a.endsWith(".releases.json") } }
+        val feedUrl = feedCurl.last { it.endsWith(".releases.json") }
+        assertTrue(feedUrl.startsWith(customFeed), "expected feed URL to start with '$customFeed', got: $feedUrl")
+    }
+
+    @Test
+    fun `same slug-major-type but different QD_DISTRIBUTION_FEED resolve independently`(
+        @TempDir dir: File,
+    ) {
+        val feedA = "https://feed-a.example.com/feed"
+        val feedB = "https://feed-b.example.com/feed"
+        // Two files with the SAME slug/major/releaseType differing ONLY in their feed: each must fetch
+        // its own feed and may land on a different build (the dedup key now includes the feed).
+        File(dir, "qodana-jvm-a.env").writeText(
+            """
+            QD_LINTER_SLUG=qodana-jvm
+            QD_VERSION=2025.3
+            QD_BUILD=253.1000
+            QD_RELEASE_TYPE=release
+            QD_DISTRIBUTION_FEED=$feedA
+            """.trimIndent(),
+        )
+        File(dir, "qodana-jvm-b.env").writeText(
+            """
+            QD_LINTER_SLUG=qodana-jvm
+            QD_VERSION=2025.3
+            QD_BUILD=253.1000
+            QD_RELEASE_TYPE=release
+            QD_DISTRIBUTION_FEED=$feedB
+            """.trimIndent(),
+        )
+        val runner =
+            feedRunnerByUrl(
+                mapOf(
+                    feedA to """{"Code":"QDJVM","Releases":[
+                      {"Date":"2025-10-01","Type":"release","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
+                    ]}""",
+                    feedB to """{"Code":"QDJVM","Releases":[
+                      {"Date":"2025-11-01","Type":"release","Version":"2025.3.5","MajorVersion":"2025.3","Build":"253.5000","Downloads":{}}
+                    ]}""",
+                ),
+            )
+        BumpPinsCommand(FeedClient(runner)).rewrite(dir.toPath())
+        assertTrue(File(dir, "qodana-jvm-a.env").readText().contains("QD_BUILD=253.2000"), "feed A build")
+        assertTrue(File(dir, "qodana-jvm-b.env").readText().contains("QD_BUILD=253.5000"), "feed B build")
+        // Two distinct feeds → two fetches (the dedup key must NOT collapse them).
+        assertEquals(2, runner.invocations.count { it.contains("curl") }, runner.invocations.toString())
+    }
+
+    @Test
     fun `jvm and android sharing the pin resolve once and agree on the new build`(
         @TempDir dir: File,
     ) {
@@ -133,6 +215,30 @@ class BumpPinsCommandTest {
         assertTrue(File(dir, "qodana-android.env").readText().contains("QD_BUILD=253.2000"))
         // The shared pin is resolved ONCE — exactly one feed fetch (curl) for both files.
         assertEquals(1, runner.invocations.count { it.contains("curl") }, runner.invocations.toString())
+    }
+
+    @Test
+    fun `forwards the QD_FEED_TOKEN bearer to the feed fetch when set`(
+        @TempDir dir: File,
+    ) {
+        File(dir, "qodana-jvm.env").writeText(
+            """
+            QD_LINTER_SLUG=qodana-jvm
+            QD_VERSION=2025.3
+            QD_BUILD=253.1000
+            QD_RELEASE_TYPE=release
+            """.trimIndent(),
+        )
+        val runner =
+            feedRunner(
+                """{"Code":"QDJVM","Releases":[
+                  {"Date":"2025-10-01","Type":"release","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
+                ]}""",
+            )
+        BumpPinsCommand(FeedClient(runner), getEnv = { name -> if (name == "QD_FEED_TOKEN") "tok-123" else null })
+            .rewrite(dir.toPath())
+        val feedCurl = runner.invocations.first { it.contains("curl") && it.any { a -> a.endsWith(".releases.json") } }
+        assertTrue(feedCurl.any { it.contains("tok-123") }, "expected bearer token in curl args: $feedCurl")
     }
 
     @Test
@@ -170,5 +276,38 @@ class BumpPinsCommandTest {
         assertTrue(text.contains("QODANA_JVM_BUILD = 253.2000"), "decisions build row synced: $text")
         assertTrue(text.contains("The pin `QODANA_JVM_BUILD` must match"), "prose mention untouched: $text")
         assertTrue(text.contains("QODANA_JVM_VERSION = 2025.3"), "version row untouched: $text")
+    }
+
+    @Test
+    fun `normalizes a hyphenated community slug to QODANA_JVM_COMMUNITY_BUILD in the decisions doc`(
+        @TempDir dir: File,
+    ) {
+        File(dir, "qodana-jvm-community.env").writeText(
+            """
+            QD_LINTER_SLUG=qodana-jvm-community
+            QD_VERSION=2025.3
+            QD_BUILD=253.1000
+            QD_RELEASE_TYPE=release
+            """.trimIndent(),
+        )
+        val decisions =
+            File(dir, "decisions.md").apply {
+                writeText(
+                    """
+                    QODANA_JVM_COMMUNITY_VERSION = 2025.3
+                    QODANA_JVM_COMMUNITY_BUILD = 253.1000
+                    """.trimIndent(),
+                )
+            }
+        val runner =
+            feedRunner(
+                """{"Code":"QDJVMC","Releases":[
+                  {"Date":"2025-10-01","Type":"release","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
+                ]}""",
+            )
+        BumpPinsCommand(FeedClient(runner)).rewrite(dir.toPath(), decisions.toPath())
+        val text = decisions.readText()
+        // Hyphens in the slug normalize to underscores: qodana-jvm-community → QODANA_JVM_COMMUNITY_BUILD.
+        assertTrue(text.contains("QODANA_JVM_COMMUNITY_BUILD = 253.2000"), "community build row synced: $text")
     }
 }

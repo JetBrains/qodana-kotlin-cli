@@ -1,8 +1,9 @@
 # linter-images
 
-Build system for Qodana linter images (`qodana-jvm`, `qodana-android`, `qodana-clang`, `qodana-cdnet`). One source of
-truth per image: a thin `docker/images/<slug>.dockerfile` + `<slug>.env`, composed from shared
-`docker/lib/` includes via [dockerfile-x](https://github.com/devthefuture-org/dockerfile-x).
+Build system for Qodana linter images (`qodana-jvm`, `qodana-jvm-community`, `qodana-android`,
+`qodana-android-community`, `qodana-clang`, `qodana-python-community`, `qodana-python`, `qodana-js`,
+`qodana-go`, `qodana-php`, `qodana-rust`, `qodana-ruby`, `qodana-ruby-3.2`, `qodana-ruby-3.4`, `qodana-dotnet`, `qodana-cpp`, `qodana-cdnet`). One source of truth per image: a thin `docker/images/<slug>.dockerfile` + `<slug>.env`,
+composed from shared `docker/lib/` includes via [dockerfile-x](https://github.com/devthefuture-org/dockerfile-x).
 
 ## Reconstruct an image locally (public path)
 
@@ -20,8 +21,10 @@ build `image-tool` is supplied by the `tooling` context (`build/install/image-to
 No other from-tree build is required, and `QD_FEED_TOKEN` can be unset — the IDE dist is fetched from the
 public mirror and GPG- + sha256-verified, fail-closed.
 
-A private feed channel (nightly/unreleased) needs a token; layer the private overlay (the only file that
-defines the `feed_token` secret). The feed token is consumed only when `QD_CHANNEL=private`:
+An image selects its feed by setting `QD_DISTRIBUTION_FEED` in its own `.env`; absent (as in the current
+`jvm`/`android` images) it defaults to the public feed above. A private feed additionally needs
+`QD_FEED_TOKEN`, supplied by the private overlay (the only file that defines the `feed_token` secret);
+the token is sent whenever `QD_FEED_TOKEN` is present:
 
     QD_FEED_TOKEN=<token> docker compose -f compose.yaml -f compose.private.yaml build qodana-jvm
 

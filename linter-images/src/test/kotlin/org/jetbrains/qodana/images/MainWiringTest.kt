@@ -14,7 +14,7 @@ class MainWiringTest {
     @Test
     fun `provision-dist help is reachable`() {
         val result = buildImageTool().test(listOf("provision-dist", "--help"))
-        assertTrue(result.output.contains("--feed-url"), result.output)
+        assertTrue(result.output.contains("--distribution-feed"), result.output)
         assertTrue(result.output.contains("--linter-slug"), result.output)
     }
 }

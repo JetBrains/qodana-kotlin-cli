@@ -14,7 +14,26 @@ class ComposeContractTest {
 
     private fun load(name: String): JsonNode = mapper.readTree(Path.of(name).readText())
 
-    private val slugs = listOf("qodana-jvm", "qodana-android", "qodana-clang", "qodana-cdnet")
+    private val slugs =
+        listOf(
+            "qodana-jvm",
+            "qodana-jvm-community",
+            "qodana-android",
+            "qodana-android-community",
+            "qodana-clang",
+            "qodana-python-community",
+            "qodana-python",
+            "qodana-js",
+            "qodana-go",
+            "qodana-php",
+            "qodana-cdnet",
+            "qodana-ruby",
+            "qodana-ruby-3.2",
+            "qodana-ruby-3.4",
+            "qodana-rust",
+            "qodana-dotnet",
+            "qodana-cpp",
+        )
 
     @Test
     fun `compose defines a service per linter with docker context, tooling context, release source, dev tag`() {
@@ -77,8 +96,25 @@ class ComposeContractTest {
             val args = root[slug]["build"]["args"]
             assertEquals("tools", args["CLI_BASE_STAGE"].asText(), "$slug must build CLI onto the tools stage")
         }
-        // jvm/android have a dist stage; they must NOT override CLI_BASE_STAGE (it stays the `dist` default).
-        for (slug in listOf("qodana-jvm", "qodana-android")) {
+        // jvm/jvm-community/android/android-community/python-community/python have a dist stage; they
+        // must NOT override CLI_BASE_STAGE (it stays the `dist` default).
+        for (slug in listOf(
+            "qodana-jvm",
+            "qodana-jvm-community",
+            "qodana-android",
+            "qodana-android-community",
+            "qodana-python-community",
+            "qodana-python",
+            "qodana-js",
+            "qodana-go",
+            "qodana-php",
+            "qodana-ruby",
+            "qodana-ruby-3.2",
+            "qodana-ruby-3.4",
+            "qodana-rust",
+            "qodana-dotnet",
+            "qodana-cpp",
+        )) {
             val args = root[slug]["build"]["args"]
             assertTrue(args["CLI_BASE_STAGE"] == null, "$slug must not override CLI_BASE_STAGE (defaults to dist)")
         }
@@ -90,11 +126,87 @@ class ComposeContractTest {
             root["qodana-cdnet"]["build"]["args"]["PRIVILEGED_BASE_STAGE"].asText(),
             "cdnet's privileged layer sits on the .NET toolchain",
         )
-        for (slug in listOf("qodana-jvm", "qodana-android", "qodana-clang")) {
+        // cpp is privileged but — like clang — its privileged layer sits on `clang-toolchain` (node+eslint
+        // append there), which is base.dockerfile's global PRIVILEGED_BASE_STAGE default, so cpp sets no
+        // override either. Unlike clang it HAS a dist that FROMs privileged: DIST_BASE_STAGE=privileged is
+        // an .env KEY (no clobber), so it must be ABSENT from the compose args (CppEnvContractTest asserts
+        // it lives in the .env).
+        for (slug in listOf("qodana-jvm", "qodana-android", "qodana-clang", "qodana-rust", "qodana-cpp")) {
             val args = root[slug]["build"]["args"]
             assertTrue(
                 args["PRIVILEGED_BASE_STAGE"] == null,
                 "$slug must not override PRIVILEGED_BASE_STAGE (clang relies on the global clang-toolchain default)",
+            )
+        }
+        assertTrue(
+            root["qodana-cpp"]["build"]["args"]["DIST_BASE_STAGE"] == null,
+            "cpp DIST_BASE_STAGE is an .env key (no clobber), not a compose build arg",
+        )
+        // Ruby is the FIRST dist+privileged image: its privileged layer sits on `base` (node+eslint+ruby
+        // are in-place there), so PRIVILEGED_BASE_STAGE=base is a build ARG (base.dockerfile defaults it
+        // to clang-toolchain, which would clobber an .env value). DIST_BASE_STAGE=privileged is an .env
+        // KEY (no clobber — base.dockerfile does not declare it), NOT a compose build arg, so it must be
+        // ABSENT here (EnvContractTest asserts it lives in the .env). CLI_BASE_STAGE stays the `dist`
+        // default (ruby has a dist) — asserted in the no-override loop above.
+        for (slug in listOf("qodana-ruby", "qodana-ruby-3.2", "qodana-ruby-3.4")) {
+            val args = root[slug]["build"]["args"]
+            assertEquals(
+                "base",
+                args["PRIVILEGED_BASE_STAGE"].asText(),
+                "$slug privileged layers onto base (the in-place node+eslint+ruby toolchains)",
+            )
+            assertTrue(
+                args["DIST_BASE_STAGE"] == null,
+                "$slug DIST_BASE_STAGE is an .env key (no clobber), not a compose build arg",
+            )
+        }
+    }
+
+    @Test
+    fun `dotnet layers privileged onto the dotnet-toolchain via a build arg, with DIST_BASE_STAGE as an env key`() {
+        // dotnet is the FIRST dist+privileged+dotnet-toolchain image: its privileged layer sits on the
+        // .NET toolchain (like cdnet), so PRIVILEGED_BASE_STAGE=dotnet-toolchain is a build ARG
+        // (base.dockerfile defaults it to clang-toolchain, which would clobber an .env value).
+        // DIST_BASE_STAGE=privileged is an .env KEY (no clobber — base.dockerfile does not declare it),
+        // NOT a compose build arg, so it must be ABSENT here (DotnetEnvContractTest asserts it lives in
+        // the .env). CLI_BASE_STAGE stays the `dist` default (dotnet has a dist) — asserted in the
+        // no-CLI_BASE_STAGE-override loop above.
+        val args = load("compose.yaml")["services"]["qodana-dotnet"]["build"]["args"]
+        assertEquals(
+            "dotnet-toolchain",
+            args["PRIVILEGED_BASE_STAGE"].asText(),
+            "dotnet's privileged layer sits on the .NET toolchain (the cdnet convention)",
+        )
+        assertTrue(
+            args["DIST_BASE_STAGE"] == null,
+            "dotnet DIST_BASE_STAGE is an .env key (no clobber), not a compose build arg",
+        )
+    }
+
+    @Test
+    fun `qodana-js passes the QODANA_UID-GID build args matching phase-0-decisions (dhi-node uid-1000 conflict)`() {
+        // The dhi.io/node base ships a `node` user at uid/gid 1000, so qodana shifts to 1001. The override
+        // is a COMPOSE BUILD ARG (not an .env key): dockerfile-x's INCLUDE_ARGS emits each .env key as an
+        // `ARG NAME="val"` default that base.dockerfile's own `ARG QODANA_UID=1000` (emitted later) clobbers
+        // back to 1000; a --build-arg always wins. This guards that contract + byte-identity to phase-0.
+        val args = load("compose.yaml")["services"]["qodana-js"]["build"]["args"]
+        val uid = args["QODANA_UID"]
+        val gid = args["QODANA_GID"]
+        assertTrue(uid != null && gid != null, "qodana-js must pass QODANA_UID/QODANA_GID build args")
+
+        val d = Path.of("docs/phase-0-decisions.md").readText()
+
+        fun pin(k: String) =
+            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
+                ?: error("$k not recorded in phase-0-decisions.md")
+        assertEquals(pin("QODANA_JS_UID"), uid.asText(), "qodana-js QODANA_UID must match phase-0-decisions")
+        assertEquals(pin("QODANA_JS_GID"), gid.asText(), "qodana-js QODANA_GID must match phase-0-decisions")
+        // No other service overrides the uid (they keep base.dockerfile's default 1000).
+        for (slug in slugs.filter { it != "qodana-js" }) {
+            val a = load("compose.yaml")["services"][slug]["build"]["args"]
+            assertTrue(
+                a["QODANA_UID"] == null && a["QODANA_GID"] == null,
+                "$slug must not override QODANA_UID/GID (keeps base.dockerfile's default 1000)",
             )
         }
     }
@@ -153,18 +265,18 @@ class ComposeContractTest {
             return secrets.asSequence().map { it.asText() }.toSet()
         }
 
-        assertEquals(setOf("feed_token"), secretsOf("qodana-jvm"), "jvm uses only the feed token")
-        assertEquals(setOf("feed_token"), secretsOf("qodana-android"), "android uses only the feed token")
-        assertEquals(
-            setOf("qodana_cli_deps_token"),
-            secretsOf("qodana-clang"),
-            "clang has no dist stage, so it must reference only the clang-tidy mirror token",
-        )
-        assertEquals(
-            setOf("qodana_cli_deps_token"),
-            secretsOf("qodana-cdnet"),
-            "cdnet has no dist stage, so it must reference only the qodana-cli-deps mirror token (ReSharper CLT)",
-        )
+        // Every dist-stage image (jvm/android/python/js/go/php/ruby + their variants) pulls ONLY
+        // feed_token; the no-dist images (clang/cdnet) pull ONLY the qodana-cli-deps mirror token.
+        for (slug in slugs.filter { it != "qodana-clang" && it != "qodana-cdnet" }) {
+            assertEquals(setOf("feed_token"), secretsOf(slug), "$slug has a dist stage, so it uses only the feed token")
+        }
+        for (slug in listOf("qodana-clang", "qodana-cdnet")) {
+            assertEquals(
+                setOf("qodana_cli_deps_token"),
+                secretsOf(slug),
+                "$slug has no dist stage, so it must reference only the qodana-cli-deps mirror token",
+            )
+        }
         // Both tokens are declared at the top level, sourced from their env vars.
         val declared = root["secrets"]
         assertEquals(

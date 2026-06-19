@@ -1,0 +1,43 @@
+{
+  "case": "rust-basic",
+  "image": "qodana-rust",
+  "description": "Single-crate Rust project with two planted defects, hermetic run (no external crates, so no cargo fetch under --network none). First e2e for the rust install-stage toolchain: proves the qodana-rust image builds (base + rust-toolchain + dist + cli + runtime), loads its Ultimate RustRover profile, and scans a real .rs producing SARIF. Driver name + rule ids are NEEDS-PINNING starting guesses — pin from a CI control run and confirm both are enabled in THIS image's default RR (RustRover) profile.",
+  "run": {
+    "network": "none",
+    "extraArgs": ["--no-statistics"]
+  },
+  "expectExitCode": 0,
+  "sarif": {
+    "tool": {
+      "driverName": null,
+      "driverFullName": null
+    },
+    "schemaValid": false,
+    "qodanaSeverityRequired": true,
+    "expectations": [
+      {
+        "ruleId": "RsUnusedImport",
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "main.rs",
+        "pin": "needs-pinning",
+        "guards": [],
+        "reason": "STARTING-GUESS id: the planted `use std::fmt::Write;` that is never used must surface as an unused-import inspection; pin the exact id from a CI control run and confirm it is in the Ultimate RustRover profile."
+      },
+      {
+        "ruleId": "RsVariableNaming",
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "main.rs",
+        "pin": "needs-pinning",
+        "guards": [],
+        "reason": "STARTING-GUESS id: the planted non-snake-case binding `let MyValue = 42` must surface as a naming-convention inspection; pin the exact id from a CI control run and confirm it is in the Ultimate RustRover profile."
+      }
+    ]
+  },
+  "log": {
+    "mustNotContain": [
+      { "text": "Problems found loading plugins:", "guards": [] }
+    ]
+  }
+}

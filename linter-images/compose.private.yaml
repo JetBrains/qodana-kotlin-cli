@@ -18,7 +18,59 @@ services:
     build:
       secrets:
         - feed_token
+  qodana-jvm-community:
+    build:
+      secrets:
+        - feed_token
   qodana-android:
+    build:
+      secrets:
+        - feed_token
+  qodana-android-community:
+    build:
+      secrets:
+        - feed_token
+  qodana-python-community:
+    build:
+      secrets:
+        - feed_token
+  qodana-python:
+    build:
+      secrets:
+        - feed_token
+  qodana-js:
+    build:
+      secrets:
+        - feed_token
+  qodana-go:
+    build:
+      secrets:
+        - feed_token
+  qodana-php:
+    build:
+      secrets:
+        - feed_token
+  qodana-rust:
+    build:
+      secrets:
+        - feed_token
+  qodana-ruby:
+    build:
+      secrets:
+        - feed_token
+  qodana-ruby-3.2:
+    build:
+      secrets:
+        - feed_token
+  qodana-ruby-3.4:
+    build:
+      secrets:
+        - feed_token
+  qodana-dotnet:
+    build:
+      secrets:
+        - feed_token
+  qodana-cpp:
     build:
       secrets:
         - feed_token

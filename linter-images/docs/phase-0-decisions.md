@@ -198,6 +198,32 @@ in the plan's example `.env` blocks.
 
 QD_BASE_IMAGE = dhi.io/debian-base:bookworm@sha256:802b1fe0c2ac7827f82f4a33918f3bd69293fe83d18ddf471ae57f4312400cd5
 
+### dhi.io trixie hardened base digest (shared by new debian-base images)
+
+New linter images build on the **trixie-debian13** dhi.io base generation; the
+existing three images (`qodana-jvm`/`qodana-android`/`qodana-clang`) stay on
+`:bookworm` and migrate to trixie later as a separate effort. The key below is a
+SHARED pin: every new generic-debian-base image (jvm-community, and the upcoming
+android-community, python(-community), rust, dotnet, cpp) references this one
+trixie base. `EnvContractTest` asserts each such image's `QD_BASE_IMAGE` is
+byte-identical to this value.
+
+`dhi.io/debian-base:trixie-debian13-dev` resolved daemonless 2026-06-17 via
+`docker buildx imagetools inspect dhi.io/debian-base:trixie-debian13-dev --format '{{json .Manifest.Digest}}'`:
+
+```
+sha256:68b5f4c2c789b99dc6ab7574c7e695e724646f64616619c48c3245f8aaeae459
+```
+
+The **-dev** variant is required because the plain `:trixie-debian13` ships
+**no apt-get** (CI-confirmed: `apt-get: command not found`, exit 127, breaks
+`lib/base`); the existing bookworm images keep **plain** `:bookworm` because
+plain bookworm DOES include apt; -dev matches the qodana-cli source. The value
+keeps the `:trixie-debian13-dev` tag before the digest, so the Phase-4 `.env`
+files MUST use this exact string.
+
+QD_TRIXIE_BASE_IMAGE = dhi.io/debian-base:trixie-debian13-dev@sha256:68b5f4c2c789b99dc6ab7574c7e695e724646f64616619c48c3245f8aaeae459
+
 ### Vendored JetBrains public key (verification only — we never sign)
 
 `download.jetbrains.com/KEYS` contains exactly one armored public-key block, so
@@ -209,3 +235,852 @@ below; `docker/lib/jetbrains.pub.fpr` records the same fingerprint on one line.
 JETBRAINS_PUB_KEY = docker/lib/jetbrains.pub
 JETBRAINS_PUB_KEY_FPR_FILE = docker/lib/jetbrains.pub.fpr
 JETBRAINS_PUB_KEY_FINGERPRINT = B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501
+
+## Community JVM dist (shared by jvm-community + android-community)
+
+Resolved 2026-06-17 from `download.jetbrains.com/qodana/feed/qodana-jvm-community.releases.json`
+(max-by-Date among `MajorVersion==2025.3` AND `Type==release` — same engine major as
+the `qodana-jvm` pin above, so community + ultimate JVM track one engine major).
+Top-level feed `Code` is `QDJVMC`. The feed is the PUBLIC feed
+(`/qodana/feed`, no token): jvm-community is a released linter, so the image's
+`.env` OMITS `QD_DISTRIBUTION_FEED` and relies on the public default. Keys are
+named to match `BumpPinsCommand.syncDecisions` (slug `qodana-jvm-community` →
+`QODANA_JVM_COMMUNITY_BUILD`); `EnvContractTest` asserts byte-identity against the
+Phase-4 `.env`'s `QD_VERSION` (MajorVersion `2025.3`) and `QD_BUILD` (`253.31821`).
+The download Link embeds an extra build segment (`...-253.31821.152.tar.gz`); use
+the feed's Link VERBATIM — its `.152` differs from `qodana-jvm`'s `.234`, so do
+not reconstruct it from `Build`.
+
+QODANA_JVM_COMMUNITY_VERSION = 2025.3
+QODANA_JVM_COMMUNITY_BUILD = 253.31821
+
+Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+
+QODANA_JVM_COMMUNITY_FULL_VERSION = 2025.3.4
+
+Download links (verbatim from the feed):
+
+QODANA_JVM_COMMUNITY_LINUX_LINK = https://download.jetbrains.com/qodana/2025.3/qodana-QDJVMC-253.31821.152.tar.gz
+QODANA_JVM_COMMUNITY_LINUX_ARM64_LINK = https://download.jetbrains.com/qodana/2025.3/qodana-QDJVMC-253.31821.152-aarch64.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link return HTTP 200 (probed live 2026-06-17,
+following CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the
+`.sha256.asc` detached GPG signature (`ChecksumLink + ".asc"`).
+
+QODANA_JVM_COMMUNITY_LINUX_SHA256_SIBLING = 200
+QODANA_JVM_COMMUNITY_LINUX_ASC_SIBLING = 200
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`IU`, the same code `qodana-jvm` uses. The QDJVMC Community dist embeds the IU
+IDEA platform: downloading `qodana-QDJVMC-253.31821.152.tar.gz` shows its root
+`product-info.json` carries `productCode=IU` and `name` "IntelliJ IDEA" (the
+product-info `version` field reads 2025.3.3). The Community identity is NOT in
+`product-info.json` — it is carried by `dist.flavour.txt=QDJVMC` at the dist root,
+which qodana-cli reads first (`ReadDistFlavour`) to resolve the Community linter.
+So `verify-dist-layout`, which checks the `product-info.json` `productCode`, must
+expect `IU`. Note that qodana-cli's `JvmCommunityLinterProperties.ProductInfoJsonCode
+= "IC"` does NOT match the real packaged dist and is not the source of truth here.
+The feed `Code` / `Linter.ProductCode` `QDJVMC` is the distinct feed artifact code.
+
+QODANA_JVM_COMMUNITY_PRODUCT_INFO_CODE = IU
+QODANA_JVM_COMMUNITY_FEED_CODE = QDJVMC
+
+## Python dist (qodana-python — Ultimate)
+
+Resolved 2026-06-17 from `download.jetbrains.com/qodana/feed/qodana-python.releases.json`
+(max-by-Date among `Type==release`). Unlike the JVM pins (forced to engine major
+`2025.3`), each Python image tracks ITS OWN newest release, mirroring the existing
+per-image fleet: the current newest `release` is the 2026.1 line (`261.25883`).
+Top-level feed `Code` is `QDPY`. The feed is the PUBLIC feed (`/qodana/feed`, no
+token): qodana-python is a released linter, so the image's `.env` OMITS
+`QD_DISTRIBUTION_FEED` and relies on the public default. Keys are named to match
+`BumpPinsCommand.syncDecisions` (slug `qodana-python` → `QODANA_PYTHON_BUILD`);
+`EnvContractTest` asserts byte-identity against the Phase-4 `.env`'s `QD_VERSION`
+(MajorVersion `2026.1`) and `QD_BUILD` (`261.25883`). The download Link embeds an
+extra build segment (`...-261.25883.162.tar.gz`); use the feed's Link VERBATIM —
+do not reconstruct it from `Build`.
+
+QODANA_PYTHON_VERSION = 2026.1
+QODANA_PYTHON_BUILD = 261.25883
+
+Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+
+QODANA_PYTHON_FULL_VERSION = 2026.1.4
+
+Download links (verbatim from the feed):
+
+QODANA_PYTHON_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDPY-261.25883.162.tar.gz
+QODANA_PYTHON_LINUX_ARM64_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDPY-261.25883.162-aarch64.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link return HTTP 200 (probed live 2026-06-17,
+following CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the
+`.sha256.asc` detached GPG signature (`ChecksumLink + ".asc"`).
+
+QODANA_PYTHON_LINUX_SHA256_SIBLING = 200
+QODANA_PYTHON_LINUX_ASC_SIBLING = 200
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`PY` (PyCharm Professional). Verified, not assumed: qodana-cli's
+`internal/platform/product/intelllij_linters.go:72` declares
+`PythonLinterProperties.ProductInfoJsonCode = "PY"` — this is the `productCode`
+inside the dist's `product-info.json` that `verify-dist-layout` checks. The feed
+`Code` `QDPY` (`public.json` `python.qd_code`) is the distinct feed artifact code,
+not the product-info code.
+
+QODANA_PYTHON_PRODUCT_INFO_CODE = PY
+QODANA_PYTHON_FEED_CODE = QDPY
+
+## Python dist (qodana-python-community — Community)
+
+Resolved 2026-06-17 from `download.jetbrains.com/qodana/feed/qodana-python-community.releases.json`
+(max-by-Date among `Type==release`). Tracks its own newest release: the current
+newest `release` is the 2026.1 line (`261.25883`) — same engine line as Ultimate
+Python this cycle, but pinned independently, not force-matched. Top-level feed
+`Code` is `QDPYC`. The feed is the PUBLIC feed (`/qodana/feed`, no token):
+qodana-python-community is a released linter, so the image's `.env` OMITS
+`QD_DISTRIBUTION_FEED` and relies on the public default. Keys are named to match
+`BumpPinsCommand.syncDecisions` (slug `qodana-python-community` →
+`QODANA_PYTHON_COMMUNITY_BUILD`); `EnvContractTest` asserts byte-identity against
+the Phase-4 `.env`'s `QD_VERSION` (MajorVersion `2026.1`) and `QD_BUILD`
+(`261.25883`). The download Link embeds an extra build segment
+(`...-261.25883.161.tar.gz`); use the feed's Link VERBATIM — its `.161` differs
+from Ultimate Python's `.162`, so do not reconstruct it from `Build`.
+
+QODANA_PYTHON_COMMUNITY_VERSION = 2026.1
+QODANA_PYTHON_COMMUNITY_BUILD = 261.25883
+
+Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+
+QODANA_PYTHON_COMMUNITY_FULL_VERSION = 2026.1.4
+
+Download links (verbatim from the feed):
+
+QODANA_PYTHON_COMMUNITY_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDPYC-261.25883.161.tar.gz
+QODANA_PYTHON_COMMUNITY_LINUX_ARM64_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDPYC-261.25883.161-aarch64.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link return HTTP 200 (probed live 2026-06-17,
+following CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the
+`.sha256.asc` detached GPG signature (`ChecksumLink + ".asc"`).
+
+QODANA_PYTHON_COMMUNITY_LINUX_SHA256_SIBLING = 200
+QODANA_PYTHON_COMMUNITY_LINUX_ASC_SIBLING = 200
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`PY` (PyCharm Professional platform), same as `qodana-python`. The QDPYC dist
+embeds the PyCharm Professional platform: downloading `qodana-QDPYC-261.25883.161.tar.gz`
+and inspecting its `product-info.json` shows `productCode=PY`, `name="PyCharm"`.
+The **Community identity is carried by `dist.flavour.txt=QDPYC`**, which qodana-cli
+reads first (`ReadDistFlavour`) — that is the authoritative signal for community
+vs. professional, not `product-info.json productCode`. Note: qodana-cli's
+`PythonLinterCommunityProperties.ProductInfoJsonCode = "PC"` does **NOT** match
+the real packaged dist and is not the source of truth for `QD_PRODUCT_INFO_CODE`.
+The feed `Code` `QDPYC` (`public.json` `python-community.qd_code`) is the distinct
+feed artifact code, unchanged.
+
+QODANA_PYTHON_COMMUNITY_PRODUCT_INFO_CODE = PY
+QODANA_PYTHON_COMMUNITY_FEED_CODE = QDPYC
+
+## JS dist (qodana-js — Ultimate WebStorm)
+
+Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-js.releases.json`
+(max-by-Date among `Type==release`). Like the Python images, each JS image tracks
+ITS OWN newest release; the current newest `release` is the 2026.1 line
+(`261.25882`, Date 2026-06-15). Top-level feed `Code` is `QDJS`. The feed is the
+PUBLIC feed (`/qodana/feed`, no token): qodana-js is a released linter, so the
+image's `.env` OMITS `QD_DISTRIBUTION_FEED` and relies on the public default. Keys
+are named to match `BumpPinsCommand.syncDecisions` (slug `qodana-js` →
+`QODANA_JS_BUILD`); `EnvContractTest` asserts byte-identity against the `.env`'s
+`QD_VERSION` (MajorVersion `2026.1`) and `QD_BUILD` (`261.25882`). The download
+Link embeds an extra build segment (`...-261.25882.140.tar.gz`); use the feed's
+Link VERBATIM — do not reconstruct it from `Build`.
+
+QODANA_JS_VERSION = 2026.1
+QODANA_JS_BUILD = 261.25882
+
+Download link (verbatim from the feed):
+
+QODANA_JS_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDJS-261.25882.140.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link return HTTP 200/206 (probed live 2026-06-18,
+following CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the
+`.sha256.asc` detached GPG signature (`ChecksumLink + ".asc"`).
+
+QODANA_JS_LINUX_SHA256_SIBLING = 200
+QODANA_JS_LINUX_ASC_SIBLING = 200
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`WS` (WebStorm). Verified, not assumed: qodana-cli's
+`internal/platform/product/intelllij_linters.go:88` declares the JS linter's
+`ProductInfoJsonCode = "WS"` — this is the `productCode` inside the dist's
+`product-info.json` that `verify-dist-layout` checks. The feed `Code` `QDJS` is the
+distinct feed artifact code, not the product-info code.
+
+QODANA_JS_PRODUCT_INFO_CODE = WS
+QODANA_JS_FEED_CODE = QDJS
+
+## dhi.io node language base (qodana-js; the FIRST DHI language base)
+
+`qodana-js` builds on the DHI **Node** language base — Node 22 + npm + Yarn +
+corepack PRE-BAKED at `/usr/bin` — so it needs NO node toolchain. This is the
+first DHI-language-base image; go/php/ruby will follow the same shape (their own
+DHI language base + the node toolchain for their JS/TS support).
+
+`dhi.io/node:22-debian13-dev` resolved daemonless 2026-06-18 via
+`docker buildx imagetools inspect dhi.io/node:22-debian13-dev --format '{{json .Manifest.Digest}}'`:
+
+```
+sha256:e2df7b939a83d8825e7f5fcd8c9b54ecf53fd40565e5523d71a0442c7a098f10
+```
+
+The `-dev` variant is deliberate (NOT the minimal runtime variant): it ships
+`apt-get`, `git`, and a bash shell — `lib/base.dockerfile` apt-installs the OS glue
+it needs on top. `EnvContractTest` asserts `qodana-js.env`'s `QD_BASE_IMAGE` is
+byte-identical to this value, so the `.env` MUST use this exact string (tag +
+digest).
+
+QD_NODE_BASE_IMAGE = dhi.io/node:22-debian13-dev@sha256:e2df7b939a83d8825e7f5fcd8c9b54ecf53fd40565e5523d71a0442c7a098f10
+
+### uid 1000 conflict → QODANA_UID/QODANA_GID (COMPOSE BUILD ARGS, not `.env` keys)
+
+The node base ships a `node` user at **uid 1000 / gid 1000** (`/home/node`), so
+`lib/base.dockerfile`'s `groupadd --gid 1000 qodana` FAILS
+(`groupadd: GID '1000' already exists`, reproduced live 2026-06-18). `lib/base`
+(and `lib/dist`/`lib/cli`/`lib/runtime`) therefore parameterize the qodana uid/gid
+via `QODANA_UID`/`QODANA_GID` build ARGs, **default 1000** (declared once in
+`base.dockerfile`'s global pre-FROM block) so every existing debian-base image
+(jvm/android/python/clang) resolves byte-identically. qodana-js overrides them to
+1001 (the next free id above the base's `node`).
+
+The override is passed as a **compose build arg** (mirroring clang's
+`CLI_BASE_STAGE=tools`), NOT an `.env` key. Reason, verified empirically
+2026-06-18: dockerfile-x emits each `INCLUDE_ARGS` key as a literal
+`ARG NAME="val"` default placed at the very top of the resolved file; the
+`base.dockerfile` fragment's own `ARG QODANA_UID=1000` is emitted AFTER that block,
+and a later `ARG NAME=default` CLOBBERS the earlier INCLUDE_ARGS value (a build
+shows uid resolving back to 1000). A `--build-arg` always wins over a redeclared
+default, so the per-image override lives in `compose.yaml`'s build `args`.
+`ComposeContractTest` asserts the qodana-js service passes `QODANA_UID`/`QODANA_GID`
+= the values below; the upcoming ruby image will likewise need 1001, and go/php
+reuse this same compose-build-arg mechanism.
+
+QODANA_JS_UID = 1001
+QODANA_JS_GID = 1001
+
+## Go dist (qodana-go — GoLand)
+
+Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-go.releases.json`
+(max-by-Date among `Type==release`). Like the JS/Python images, each Go image
+tracks ITS OWN newest release; the current newest `release` is the 2026.1 line
+(`261.25884`, Date 2026-06-15) — the same engine major as the JS (261.25882) and
+Python (261.25883) images this cycle, but pinned independently. Top-level feed
+`Code` is `QDGO`. The feed is the PUBLIC feed (`/qodana/feed`, no token):
+qodana-go is a released linter, so the image's `.env` OMITS `QD_DISTRIBUTION_FEED`
+and relies on the public default. Keys are named to match
+`BumpPinsCommand.syncDecisions` (slug `qodana-go` → `QODANA_GO_BUILD`);
+`EnvContractTest` asserts byte-identity against the `.env`'s `QD_VERSION`
+(MajorVersion `2026.1`) and `QD_BUILD` (`261.25884`). The download Link embeds an
+extra build segment (`...-261.25884.406.tar.gz`); use the feed's Link VERBATIM —
+do not reconstruct it from `Build`.
+
+QODANA_GO_VERSION = 2026.1
+QODANA_GO_BUILD = 261.25884
+
+Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+
+QODANA_GO_FULL_VERSION = 2026.1.4
+
+Download link (verbatim from the feed):
+
+QODANA_GO_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDGO-261.25884.406.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link return HTTP 206 (probed live 2026-06-18 via a
+single-byte range GET, following CDN redirects): the `.sha256` checksum
+(`ChecksumLink`) and the `.sha256.asc` detached GPG signature
+(`ChecksumLink + ".asc"`).
+
+QODANA_GO_LINUX_SHA256_SIBLING = 206
+QODANA_GO_LINUX_ASC_SIBLING = 206
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`GO` (GoLand). Verified EMPIRICALLY, not assumed: stream-extracting the dist
+tarball's metadata (`bsdtar -xO --include '*/product-info.json' --include
+'*/dist.flavour.txt'`) shows `productCode=GO`, `name="GoLand"`, version `2026.1`,
+buildNumber `261.25884`, and `vmOptionsFilePath=bin/goland64.vmoptions`. This
+matches qodana-cli's `intelllij_linters.go` `GoLinterProperties.ProductInfoJsonCode
+= "GO"` (a GoLand-only Ultimate linter — there is no Community trap like the JVM
+`IC`/Python `PC` mismatch). `dist.flavour.txt=QDGO`. The `goland64.vmoptions`
+file confirms the generalized `bin/*.vmoptions` `idea.log.path` strip in
+`lib/dist.dockerfile` covers GoLand. The feed `Code` `QDGO` is the distinct feed
+artifact code, not the product-info code.
+
+QODANA_GO_PRODUCT_INFO_CODE = GO
+QODANA_GO_FEED_CODE = QDGO
+
+## dhi.io golang language base (qodana-go)
+
+`qodana-go` builds on the DHI **golang** language base — Go PRE-BAKED at
+`/usr/local/go/bin` (go1.26.4) — but the base ships NO node. So unlike
+qodana-js (whose dhi.io/node base bakes node + Yarn), go LAYERS the node toolchain
+(`lib/toolchain/node.dockerfile`, NODE_MAJOR-pinned) then the in-place global
+eslint pin (`lib/toolchain/eslint.dockerfile`) for its JS/TS support, exactly as
+the source qodana-cli `go.Dockerfile` copies node from the node base and
+`npm install -g eslint`. (The source ALSO installs `pnpm`; the linter-images
+fleet pins only eslint via the shared renovate-tracked `lib/toolchain/eslint`
+package — qodana-js drops pnpm the same way, so go follows that established
+fleet pattern.) Chain: `base → go → node → eslint → dist(FROM base) → cli →
+runtime` — the same INCLUDE shape as qodana-jvm (node toolchain + dist), plus the
+in-place eslint include and the in-place `lib/toolchain/go.dockerfile`. No
+`DIST_BASE_STAGE` (the toolchains are in-place on base; the dist FROMs base).
+
+`lib/toolchain/go.dockerfile` is a one-line ENV fragment (Go itself is PRE-BAKED
+in the golang base at `/usr/local/go`, already on PATH for every stage incl. the
+runtime user — verified empirically — so nothing is installed). It redirects
+`GOMODCACHE` from the base default `/go/pkg/mod` (ROOT-owned) to `/data/cache/go`
+(the writable `/data` mount `lib/base.dockerfile` chowns to the qodana user),
+mirroring the source `go.Dockerfile`'s `ENV GOMODCACHE="$QODANA_DATA/cache/go"`.
+Without it, a Go project that resolves external modules would fail to populate the
+cache as the unprivileged uid 1000. `GoToolchainTest` guards the redirect + the
+INCLUDE.
+
+`dhi.io/golang:1.26-debian13-dev` (the tag the source `go.Dockerfile` pins as
+`GO_TAG`) resolved daemonless 2026-06-18 via
+`docker buildx imagetools inspect dhi.io/golang:1.26-debian13-dev --format '{{json .Manifest.Digest}}'`:
+
+```
+sha256:d1295e34ae659bfd57c305d67ec5177c15694fb82f25d98aee76d0ae08ef8ad1
+```
+
+The `-dev` variant is required because the plain `:1.26-debian13` ships no apt-get
+(`lib/base` needs apt); `-dev` ships `apt-get`, matching the qodana-cli source.
+`EnvContractTest` asserts `qodana-go.env`'s `QD_BASE_IMAGE` is byte-identical to
+this value, so the `.env` MUST use this exact string (tag + digest).
+
+QD_GOLANG_BASE_IMAGE = dhi.io/golang:1.26-debian13-dev@sha256:d1295e34ae659bfd57c305d67ec5177c15694fb82f25d98aee76d0ae08ef8ad1
+
+### uid 1000 is FREE → qodana-go keeps the default uid 1000 (NO uid override)
+
+Unlike the dhi.io/node base (whose `node` user occupies uid 1000, forcing
+qodana-js to 1001), the golang `-dev` base does NOT occupy uid 1000. Verified
+EMPIRICALLY on the linux/amd64 platform (the build target), 2026-06-18:
+`docker run --rm --network none --platform linux/amd64 <golang-base> sh -c 'cat
+/etc/passwd'` lists ONLY `root`, `nonroot` (65532), `_apt` (42), `nobody` (65534)
+— uid 1000, gid 1000, uid 1001, gid 1001 all return free from `getent`. So
+`lib/base`'s `groupadd --gid 1000 qodana` succeeds, and qodana-go keeps
+`base.dockerfile`'s DEFAULT uid/gid 1000 (byte-identical to the existing
+debian-base images). qodana-go sets NO `QODANA_UID`/`QODANA_GID` — neither as an
+`.env` key NOR as a compose build arg. `ComposeContractTest`'s uid-1000-conflict
+test already asserts every service except `qodana-js` omits the uid build args.
+
+## PHP dist (qodana-php — PhpStorm)
+
+Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-php.releases.json`
+(max-by-Date among `Type==release`). The current newest `release` is the 2026.1
+line (`261.25880`, Date 2026-06-15) — the same engine major as the JS (261.25882),
+Python (261.25883), and Go (261.25884) images this cycle, pinned independently.
+Top-level feed `Code` is `QDPHP`. The feed is the PUBLIC feed (`/qodana/feed`, no
+token): qodana-php is a released linter, so the image's `.env` OMITS
+`QD_DISTRIBUTION_FEED` and relies on the public default. Keys are named to match
+`BumpPinsCommand.syncDecisions` (slug `qodana-php` → `QODANA_PHP_BUILD`);
+`EnvContractTest` asserts byte-identity against the `.env`'s `QD_VERSION`
+(MajorVersion `2026.1`) and `QD_BUILD` (`261.25880`). The release-feed top-level
+`Link`/`ChecksumLink` are null; the verbatim linux Link lives under the entry's
+`Downloads.linux.Link` and embeds an extra build segment
+(`...-261.25880.138.tar.gz`) — use it VERBATIM, do not reconstruct it from `Build`.
+
+QODANA_PHP_VERSION = 2026.1
+QODANA_PHP_BUILD = 261.25880
+
+Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+
+QODANA_PHP_FULL_VERSION = 2026.1.5
+
+Download link (verbatim from the feed's `Downloads.linux.Link`):
+
+QODANA_PHP_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDPHP-261.25880.138.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link return HTTP 206 (probed live 2026-06-18 via a
+single-byte range GET, following CDN redirects): the `.sha256` checksum
+(`ChecksumLink`) and the `.sha256.asc` detached GPG signature
+(`ChecksumLink + ".asc"`).
+
+QODANA_PHP_LINUX_SHA256_SIBLING = 206
+QODANA_PHP_LINUX_ASC_SIBLING = 206
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`PS` (PhpStorm). Verified EMPIRICALLY, not assumed: stream-extracting the dist
+tarball's metadata (`bsdtar -xO --include '*/product-info.json' --include
+'*/dist.flavour.txt'`) shows `productCode=PS`, `name="PhpStorm"`, version
+`2026.1.4`, buildNumber `261.25880`, and `vmOptionsFilePath=bin/phpstorm64.vmoptions`.
+PhpStorm is Ultimate-only (no Community trap like the JVM `IC`/Python `PC`
+mismatch). `dist.flavour.txt=QDPHP`. The `phpstorm64.vmoptions` file confirms the
+generalized `bin/*.vmoptions` `idea.log.path` strip in `lib/dist.dockerfile` covers
+PhpStorm. The feed `Code` `QDPHP` is the distinct feed artifact code, not the
+product-info code.
+
+QODANA_PHP_PRODUCT_INFO_CODE = PS
+QODANA_PHP_FEED_CODE = QDPHP
+
+## dhi.io php language base + composer toolchain (qodana-php)
+
+`qodana-php` builds on the DHI **php** language base — PHP 8.4 PRE-BAKED — but the
+base ships NO node and NO composer. So like qodana-go it LAYERS the node toolchain
+(`lib/toolchain/node.dockerfile`, NODE_MAJOR-pinned) then the in-place global
+eslint pin (`lib/toolchain/eslint.dockerfile`) for its JS/TS support, exactly as
+the source qodana-cli `php.Dockerfile` copies node from the node base and
+`npm install -g eslint`. Composer is NOT in the php base (verified empirically:
+the source `php.Dockerfile` does `COPY --from=composer:2.8.10 /usr/bin/composer`,
+so it provisions composer itself); the fleet mirrors this via
+`lib/toolchain/composer.dockerfile`, a multi-stage `COPY --from` off a
+digest-pinned `composer:2.8.10` image (analogous to android's Corretto
+`COPY --from`), landing the self-contained composer phar at `/usr/bin/composer`.
+Unlike the in-place node/eslint fragments (no `FROM`, layers onto `base`), a
+cross-image COPY needs its own source stage, so the composer fragment opens a
+`php-toolchain` stage (`FROM base`, inheriting node+eslint) and COPYs composer onto
+it — mirroring `android-toolchain`/`conda-toolchain`. qodana-php therefore sets
+`DIST_BASE_STAGE=php-toolchain` so the dist FROMs the composer stage (the conda/
+android pattern). Chain: `base → node → eslint → composer(php-toolchain) →
+dist(FROM php-toolchain) → cli → runtime` — jvm's INCLUDE shape (node toolchain +
+dist) plus the in-place eslint include and the composer toolchain stage.
+
+`dhi.io/php:8.4-dev` (the tag the source `php.Dockerfile` pins as `PHP_TAG`)
+resolved daemonless 2026-06-18 via
+`docker buildx imagetools inspect dhi.io/php:8.4-dev --format '{{json .Manifest.Digest}}'`:
+
+```
+sha256:6640324da549fe224c038df12edc886588ea9607cf8121d1424014af1d70d1c6
+```
+
+The `-dev` variant is required because the minimal runtime variant ships no apt-get
+(`lib/base` needs apt); `-dev` ships `apt-get`, matching the qodana-cli source.
+`EnvContractTest` asserts `qodana-php.env`'s `QD_BASE_IMAGE` is byte-identical to
+this value, so the `.env` MUST use this exact string (tag + digest).
+
+QD_PHP_BASE_IMAGE = dhi.io/php:8.4-dev@sha256:6640324da549fe224c038df12edc886588ea9607cf8121d1424014af1d70d1c6
+
+### composer image pin (digest, build-verified)
+
+The source pins `composer:2.8.10` (Docker Hub official). Resolved daemonless
+2026-06-18 via
+`docker buildx imagetools inspect composer:2.8.10 --format '{{json .Manifest.Digest}}'`;
+the binary location + version are verified empirically (`docker run --network none
+composer:2.8.10`): `/usr/bin/composer`, `Composer version 2.8.10`, a self-contained
+root-owned world-readable PHP phar (no chown needed for the runtime user).
+`lib/toolchain/composer.dockerfile` consumes `COMPOSER_IMAGE` (an `.env` digest pin,
+like android's `CORRETTO*_IMAGE`); `ComposerToolchainTest` guards the `COPY --from`.
+
+COMPOSER_IMAGE = composer:2.8.10@sha256:20462d70afcfa999ad75dbd9333194067f4d869078bdb37430339e8d97e541d6
+
+### uid 1000 is FREE → qodana-php keeps the default uid 1000 (NO uid override)
+
+Like the golang `-dev` base (and unlike the dhi.io/node base whose `node` user
+occupies uid 1000), the php `-dev` base does NOT occupy uid 1000. Verified
+EMPIRICALLY on the linux/amd64 build target, 2026-06-18:
+`docker run --rm --network none --platform linux/amd64 --entrypoint /bin/bash
+<php-base> -c 'cat /etc/passwd'` lists ONLY `root`, `nonroot` (65532), `_apt` (42),
+`nobody` (65534) — uid/gid 1000 and 1001 all return free from `getent`. So
+`lib/base`'s `groupadd --gid 1000 qodana` succeeds, and qodana-php keeps
+`base.dockerfile`'s DEFAULT uid/gid 1000 (byte-identical to the existing
+debian/golang-base images). qodana-php sets NO `QODANA_UID`/`QODANA_GID` — neither
+as an `.env` key NOR as a compose build arg. `ComposeContractTest`'s
+uid-1000-conflict test already asserts every service except `qodana-js` omits the
+uid build args.
+
+## Ruby dist (qodana-ruby — RubyMine, 3 variants, EAP)
+
+Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-ruby.releases.json`.
+Top-level feed `Code` is `QDRUBY`. ALL 10 feed releases are `Type=eap` — there are
+ZERO `release` entries — so this is the fleet's FIRST eap image. `QD_RELEASE_TYPE=eap`
+is consumed ONLY by `BumpPinsCommand` (drift) to pick the newest EAP within the major
+(`resolveNewestBuild` filters `it.type == QD_RELEASE_TYPE`); `provision-dist` selects
+the release + resolves `Downloads.linux.Link` from the verbatim `QD_VERSION`/`QD_BUILD`.
+The newest 2026.1 EAP is `261.25886` (full version `2026.1.4`, Date 2026-06-15). The
+feed is the PUBLIC feed (`/qodana/feed`, no token): the image's `.env` OMITS
+`QD_DISTRIBUTION_FEED` and relies on the public default. Keys are named to match
+`BumpPinsCommand.syncDecisions` (slug `qodana-ruby` → `QODANA_RUBY_BUILD`);
+`EnvContractTest` asserts byte-identity against the `.env`'s `QD_VERSION`
+(MajorVersion `2026.1`) and `QD_BUILD` (`261.25886`). The verbatim linux Link lives
+under the entry's `Downloads.linux.Link` and embeds an extra build segment
+(`...-261.25886.142.tar.gz`) — use it VERBATIM, do not reconstruct it from `Build`.
+
+All 3 ruby variants (3.2, 3.3-primary, 3.4) share this SINGLE RM dist (the IDE dist is
+ruby-runtime-agnostic — the android precedent, where android reuses the jvm dist), so
+all 3 `.env` carry `QD_LINTER_SLUG=qodana-ruby` and exactly ONE `QODANA_RUBY_BUILD` row
+suffices (the 3 bump passes idempotently rewrite the same row — the jvm+android
+precedent).
+
+QODANA_RUBY_VERSION = 2026.1
+QODANA_RUBY_BUILD = 261.25886
+
+Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+
+QODANA_RUBY_FULL_VERSION = 2026.1.4
+
+Download link (verbatim from the feed's `Downloads.linux.Link`):
+
+QODANA_RUBY_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDRUBY-261.25886.142.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link are present (probed live 2026-06-18 via a single-byte
+range GET following CDN redirects): the `.sha256` checksum and the `.sha256.asc`
+detached GPG signature.
+
+QODANA_RUBY_LINUX_SHA256_SIBLING = 206
+QODANA_RUBY_LINUX_ASC_SIBLING = 206
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`RM` (RubyMine). Verified EMPIRICALLY, not assumed: stream-extracting the dist
+tarball's metadata (`bsdtar -xO --include '*/product-info.json'`) shows
+`productCode=RM`, `name="RubyMine"`, version `2026.1.3`, buildNumber `261.25886`, and
+`vmOptionsFilePath=bin/rubymine64.vmoptions`. `dist.flavour.txt=QDRUBY`. The
+`rubymine64.vmoptions` file confirms the generalized `bin/*.vmoptions` `idea.log.path`
+strip in `lib/dist.dockerfile` covers RubyMine. This matches the qodana-cli source
+`RubyLinterProperties.ProductInfoJsonCode = "RM"`. The feed `Code` `QDRUBY` is the
+distinct feed artifact code, not the product-info code.
+
+QODANA_RUBY_PRODUCT_INFO_CODE = RM
+QODANA_RUBY_FEED_CODE = QDRUBY
+
+## dhi.io ruby language base + gem-cache toolchain (qodana-ruby, 3 variants)
+
+`qodana-ruby` builds on the DHI **ruby** language base — ruby/gem/bundle PRE-BAKED at
+`/usr/local/bin` — but the base ships NO node. So like qodana-go/php it LAYERS the
+node toolchain (`lib/toolchain/node.dockerfile`, NODE_MAJOR-pinned) then the in-place
+global eslint pin (`lib/toolchain/eslint.dockerfile`) for its JS/TS support, plus the
+in-place `lib/toolchain/ruby.dockerfile` gem-cache redirect.
+
+**NODE_MAJOR=20 — DELIBERATE DIVERGENCE from the source's node 22:** fleet lockstep
+(jvm/go/php also hold 20). The fleet's node toolchain is NodeSource apt
+(`lib/toolchain/node.dockerfile`), not the source's COPY-from-node-base.
+
+**Gem-cache redirect — DELIBERATE DIVERGENCE.** `lib/toolchain/ruby.dockerfile` is a
+two-line ENV fragment (ruby is PRE-BAKED, so nothing is installed) following the
+`go.dockerfile` ENV-redirect idiom, NOT the source `dockerfiles/base/ruby.Dockerfile`
+(which writes a HOME-relative `BUNDLE_PATH: ${HOME}/.local/share/gem` into
+`$HOME/.bundle/config` and sets NEITHER `GEM_HOME` NOR `BUNDLE_APP_CONFIG`). We
+diverge because (a) the fleet's writable scan-cache convention is `/data/cache`
+(chowned to the qodana user by `lib/base`), not the user's `$HOME`; (b) the go-pattern
+ENV redirect is the established fleet idiom. We set ALL THREE of `GEM_HOME`/
+`BUNDLE_PATH`/`BUNDLE_APP_CONFIG=/data/cache/gem` to cover both `gem install` (reads
+`GEM_HOME`) and `bundle install` (reads `BUNDLE_PATH`/`BUNDLE_APP_CONFIG`) — the base
+default `GEM_HOME=/usr/local/bundle` is root-owned and would break `gem install` as
+uid 1000 — and prepend `/data/cache/gem/bin` to PATH so project-installed gem
+executables (e.g. rubocop) run as uid 1000. `RubyToolchainTest` guards the redirect +
+the INCLUDE.
+
+**Privileged + dist wiring — NOVEL (ruby is the FIRST dist+privileged image).** The
+source `dockerfiles/ruby/internal.Dockerfile` defaults `PRIVILEGED="true"` (installs
+sudo + `qodana ALL=(ALL) NOPASSWD:ALL`) because ruby scans shell out to sudo to
+install project gems, so ruby INCLUDEs `lib/privileged.dockerfile`. `privileged` does
+`FROM ${PRIVILEGED_BASE_STAGE} AS privileged`; `base.dockerfile` defaults
+`PRIVILEGED_BASE_STAGE=clang-toolchain` (WRONG for ruby), and that default is a build
+ARG declared AFTER the INCLUDE_ARGS block, so it CLOBBERS any `.env` value — ruby must
+pass `PRIVILEGED_BASE_STAGE=base` as a **compose build arg** (the cdnet convention) so
+privileged FROMs `base` (carrying node+eslint+ruby in-place). The dist then layers onto
+privileged via `DIST_BASE_STAGE=privileged`, which is an **`.env` KEY** (the
+android/php convention): `base.dockerfile` does NOT declare `ARG DIST_BASE_STAGE`, so
+the INCLUDE_ARGS value survives uncloberred to `FROM ${DIST_BASE_STAGE:-base} AS dist`.
+Resolved chain: `base → node → eslint → ruby → privileged(FROM base) → dist(FROM
+privileged) → cli(FROM dist) → runtime`. Consequence (intended): the shipped runtime
+layers on top of `privileged`, so the final image carries sudo + `/etc/sudoers.d/qodana`
+NOPASSWD — matching the source `PRIVILEGED=true`. cdnet has privileged but NO dist
+(`CLI_BASE_STAGE=tools`); php/android/python have dist but NO privileged — this
+dist-on-privileged combination has no precedent, so its ONLY validation is the CI e2e
+`docker compose build`.
+
+### Three variants; 3.1 DROPPED
+
+Three ruby-runtime variants: `qodana-ruby` (RUBY 3.3, PRIMARY/default tag),
+`qodana-ruby-3.2`, `qodana-ruby-3.4`. `dhi.io/ruby:3.1-debian13-dev` returns
+`not found` (404, confirmed 2026-06-18 via `docker buildx imagetools inspect`), so 3.1
+is DROPPED. The bases (the tag the source pins, in the `-debian13-dev` flavour — `-dev`
+ships apt-get, which `lib/base` needs) resolved daemonless 2026-06-18 via
+`docker buildx imagetools inspect dhi.io/ruby:<ver>-debian13-dev`. `EnvContractTest`
+asserts each variant `.env`'s `QD_BASE_IMAGE` is byte-identical to its row here.
+
+QD_RUBY_BASE_IMAGE = dhi.io/ruby:3.3-debian13-dev@sha256:207bdd81b3fbec45e858f7255a0e4032cd6c6bfa4c1348532c2c50989e361a73
+QD_RUBY_32_BASE_IMAGE = dhi.io/ruby:3.2-debian13-dev@sha256:b5ccc40b29ec7d3c60239340857c984497fd87a76f5e6e98d3b8f1bab83146d9
+QD_RUBY_34_BASE_IMAGE = dhi.io/ruby:3.4-debian13-dev@sha256:3f86a864dbd00ad09e92268c0cac6604fe2e472604a16e06ea826d57cae45abd
+
+### Variant-modeling: 3 thin dockerfiles + 3 `.env` (Option A)
+
+`ComposeContractTest` asserts each service's `build.dockerfile` equals
+`images/$slug.dockerfile` EXACTLY, and `EnvContractTest` iterates ALL `authoredSlugs`
+reading `docker/images/$slug.env` — so every authored slug needs BOTH its own
+dockerfile AND its own `.env`. A single shared dockerfile (per-service `QD_BASE_IMAGE`
+compose override) cannot satisfy the per-slug `dockerfile`-path assertion without
+restructuring the contract tests, so Option A (3 thin files + 3 `.env`) is the
+zero-structural-change choice. The 3 thin dockerfiles are byte-identical except their
+`INCLUDE_ARGS images/<slug>.env` line; the 3 `.env` share an identical key set + the
+dist pins and differ ONLY in `QD_BASE_IMAGE`.
+
+### uid 1000 is FREE → qodana-ruby keeps the default uid 1000 (NO uid override)
+
+**DELIBERATE DIVERGENCE from the source's 1001:** the source
+`dockerfiles/ruby/internal.Dockerfile` does `useradd -u 1001 qodana`, but `lib/base`
+creates the qodana user at the FREE uid 1000. Verified EMPIRICALLY on the linux/amd64
+build target, 2026-06-18: all 3 pinned ruby bases' `/etc/passwd` list ONLY `root` (0),
+`nonroot` (65532), `_apt` (42), `nobody` (65534) — uid/gid 1000 AND 1001 all return
+free from `getent`. So `lib/base`'s `groupadd --gid 1000 qodana` succeeds, and all 3
+ruby variants keep `base.dockerfile`'s DEFAULT uid/gid 1000 (byte-identical to the
+debian/golang/php-base images). They set NO `QODANA_UID`/`QODANA_GID` — neither as an
+`.env` key NOR as a compose build arg. The ruby bases also lack a `root` NAME entry
+that some tools expect, but `lib/base` + `lib/privileged` already handle this
+(`grep -q '^root:' || echo ...`). `ComposeContractTest`'s uid-1000-conflict test
+already asserts every service except `qodana-js` omits the uid build args.
+
+## Rust dist (qodana-rust — RustRover, EAP)
+
+Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-rust.releases.json`. Top-level feed
+`Code` is `QDRST`. Like ruby, ALL feed releases are `Type=eap` — there are ZERO `release` entries — so
+this is the fleet's second eap image. `QD_RELEASE_TYPE=eap` is consumed ONLY by `BumpPinsCommand`
+(drift) to pick the newest EAP within the major (`resolveNewestBuild` filters `it.type ==
+QD_RELEASE_TYPE`); `provision-dist` selects the release + resolves the Link from the verbatim
+`QD_VERSION`/`QD_BUILD`. The newest 2026.1 EAP is `261.25885` (version `2026.1`, Date 2026-06-15). The
+feed is the PUBLIC feed (`/qodana/feed`, no token): the image's `.env` OMITS `QD_DISTRIBUTION_FEED` and
+relies on the public default. Keys are named to match `BumpPinsCommand.syncDecisions` (slug
+`qodana-rust` → `QODANA_RUST_BUILD`); `RustEnvContractTest` asserts byte-identity against the `.env`'s
+`QD_VERSION` (MajorVersion `2026.1`) and `QD_BUILD` (`261.25885`). The download Link embeds an extra
+build segment (`...-261.25885.149.tar.gz`); use it VERBATIM, do not reconstruct it from `Build`.
+
+QODANA_RUST_VERSION = 2026.1
+QODANA_RUST_BUILD = 261.25885
+
+Download link (verbatim from the feed):
+
+QODANA_RUST_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDRST-261.25885.149.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link are present (probed live 2026-06-18 via a single-byte range GET
+following CDN redirects): the `.sha256` checksum and the `.sha256.asc` detached GPG signature.
+
+QODANA_RUST_LINUX_SHA256_SIBLING = 206
+QODANA_RUST_LINUX_ASC_SIBLING = 206
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`RR` (RustRover). Verified EMPIRICALLY, not assumed: stream-extracting the dist tarball's metadata
+(`bsdtar -xO --include '*/product-info.json' --include '*/dist.flavour.txt'`, 2026-06-18) shows
+`productCode=RR`, `name="RustRover"`, version `2026.1`, buildNumber `261.25885`, and
+`vmOptionsFilePath=bin/rustrover64.vmoptions`. RustRover is Ultimate-only (no Community trap like the
+JVM `IC`/Python `PC` mismatch). `dist.flavour.txt=QDRST`. The `rustrover64.vmoptions` file confirms the
+generalized `bin/*.vmoptions` `idea.log.path` strip in `lib/dist.dockerfile` covers RustRover. The feed
+`Code` `QDRST` is the distinct feed artifact code, not the product-info code.
+
+QODANA_RUST_PRODUCT_INFO_CODE = RR
+QODANA_RUST_FEED_CODE = QDRST
+
+## Rust toolchain (qodana-rust — rustup-init install stage)
+
+`qodana-rust` builds on the SHARED trixie debian-base (the same `QD_TRIXIE_BASE_IMAGE` as
+jvm-community/python(-community)), which ships NO Rust. So — unlike go/php/ruby, whose DHI language
+bases bake their runtime in-place — rust LAYERS an install STAGE (`lib/toolchain/rust.dockerfile`,
+`FROM base AS rust-toolchain`, the conda/clang pattern): it fetches a sha-pinned `rustup-init`, runs
+`rustup-init -y --no-modify-path --default-toolchain ${RUST_VERSION}` then `rustup component add
+rust-src`, and apt-installs `build-essential` + `pkg-config` (real runtime deps for native crates, NOT
+purged). The dist FROMs that stage via `DIST_BASE_STAGE=rust-toolchain` (the conda/android convention,
+an `.env` KEY: `base.dockerfile` does not declare `ARG DIST_BASE_STAGE`, so the INCLUDE_ARGS value
+survives uncloberred). Chain: `base → rust-toolchain(FROM base) → dist(FROM rust-toolchain) → cli →
+runtime`.
+
+**NO node/eslint — DELIBERATE.** The source `dockerfiles/base/rust.Dockerfile` sets `ESLINT_VERSION`
+but NEVER uses it: there is no `node_base` FROM, no `COPY --from`, and no `npm install` (unlike
+`go.Dockerfile`/`php.Dockerfile`, which DO copy node + `npm install -g eslint`). RustRover bundles no
+JS/TS analysis, so the `ESLINT_VERSION` line is a dead copy-paste vestige. qodana-rust therefore omits
+the node toolchain and `NODE_MAJOR` entirely.
+
+**CARGO_HOME on the stable /usr/local (NOT /data/cache).** `CARGO_HOME=/usr/local/cargo` (the source's
+path) and `RUSTUP_HOME=/usr/local/rustup`. Critically, CARGO_HOME must NOT point under `/data/cache`:
+the runtime bind-mounts an empty host dir over `/data/cache` for the writable scan cache
+(`DockerRunPlanner` `-v <cache>:/data/cache`), which would SHADOW the cargo/rustc/rustup PROXIES
+rustup-init writes to `$CARGO_HOME/bin` — they would vanish off PATH at scan time. This is the same
+invariant conda (bin at `/opt/miniconda3`) and go (`go` at `/usr/local/go`) hold: the toolchain
+EXECUTABLES stay on a stable path, only the CACHE is redirected. cargo's registry/git cache also lives
+under `$CARGO_HOME` (the go GOMODCACHE analog) and is the writable scan-time target, so `/usr/local/cargo`
+is chowned to uid 1000 — the registry is rebuilt per container (ephemeral, not on the mount), acceptable
+for a scan. `RUSTUP_HOME` is made world-readable (uid 1000 only reads the toolchain). `RustToolchainTest`
+guards the stage shape, the stable-path placement, the chown, the PATH wiring, the rust-src component,
+and the rustup-init sha-pin.
+
+### rustup-init installer sha256 (build verify; version-INDEPENDENT)
+
+`lib/toolchain/rust.dockerfile` fetches `rustup-init` for `x86_64-unknown-linux-gnu` (amd64-only fleet,
+so the source's TARGETPLATFORM switch is dropped) and verifies it fail-closed via `ADD --checksum=` +
+a re-`sha256sum -c` (the conda/android installer-pin convention). The sha below was resolved
+EMPIRICALLY 2026-06-18 (`curl … | sha256sum`) and cross-checked byte-identical against the upstream
+`rustup-init.sha256` sidecar. `rustup-init` is a self-contained static installer — its sha is
+INDEPENDENT of `RUST_VERSION` (it installs whatever `--default-toolchain` names) — so unlike a tagged
+download there is no clean datasource; `RUSTUP_INIT_SHA256` is a MANUALLY-maintained pin (no Renovate
+manager), refreshed only when rustup ships a new installer. `RustEnvContractTest`'s `rust pins match
+phase-0-decisions` asserts both pins below equal `qodana-rust.env`'s `RUST_VERSION` / `RUSTUP_INIT_SHA256`.
+
+RUST_VERSION = 1.94.0
+RUSTUP_INIT_SHA256 = 4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10
+
+## .NET dist (qodana-dotnet — Ultimate Rider, RELEASE)
+
+Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-dotnet.releases.json`. Top-level feed
+`Code` is `QDNET`. Unlike ruby/rust (eap-only feeds), the QDNET feed HAS `release` entries, so this is a
+RELEASE image: `QD_RELEASE_TYPE=release` (consumed ONLY by `BumpPinsCommand` drift to pick the newest
+release within the major; `provision-dist` selects the release + resolves the Link from the verbatim
+`QD_VERSION`/`QD_BUILD`). The newest 2026.1 release is `261.24105` (MajorVersion `2026.1`, full Version
+`2026.1.2`, Date 2026-04-21). The feed is the PUBLIC feed (`/qodana/feed`, no token): the image's `.env`
+OMITS `QD_DISTRIBUTION_FEED` and relies on the public default. Keys are named to match
+`BumpPinsCommand.syncDecisions` (slug `qodana-dotnet` → `QODANA_DOTNET_BUILD`); `DotnetEnvContractTest`
+asserts byte-identity against the `.env`'s `QD_VERSION` (MajorVersion `2026.1`) and `QD_BUILD`
+(`261.24105`). The download Link embeds an extra build segment (`...-261.24105.117.tar.gz`); use it
+VERBATIM, do not reconstruct it from `Build`.
+
+QODANA_DOTNET_VERSION = 2026.1
+QODANA_DOTNET_BUILD = 261.24105
+
+Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+
+QODANA_DOTNET_FULL_VERSION = 2026.1.2
+
+Download link (verbatim from the feed):
+
+QODANA_DOTNET_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDNET-261.24105.117.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link are present (probed live 2026-06-18 via a single-byte range GET following
+CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the `.sha256.asc` detached GPG signature
+(`ChecksumLink + ".asc"`).
+
+QODANA_DOTNET_LINUX_SHA256_SIBLING = 206
+QODANA_DOTNET_LINUX_ASC_SIBLING = 206
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`RD` (Rider). Verified EMPIRICALLY, not assumed: stream-extracting the dist tarball's metadata (`bsdtar
+-xO --include '*/product-info.json' --include '*/dist.flavour.txt'`, 2026-06-18) shows `productCode=RD`,
+`name="JetBrains Rider"`, version `2026.1`, buildNumber `261.24105`, and
+`vmOptionsFilePath=bin/rider64.vmoptions`. Rider is Ultimate-only (no Community trap like the JVM `IC`/
+Python `PC` mismatch). `dist.flavour.txt=QDNET`. The `rider64.vmoptions` file confirms the generalized
+`bin/*.vmoptions` `idea.log.path` strip in `lib/dist.dockerfile` covers Rider. The feed `Code` `QDNET` is
+the distinct feed artifact code, not the product-info code.
+
+QODANA_DOTNET_PRODUCT_INFO_CODE = RD
+QODANA_DOTNET_FEED_CODE = QDNET
+
+## .NET toolchain libicu (qodana-dotnet — shared `dotnet-toolchain` fragment, parameterized)
+
+`qodana-dotnet` shares `lib/toolchain/dotnet.dockerfile` (`FROM base AS dotnet-toolchain`, .NET SDK
+8/9/10 via the pinned `dotnet-install.sh`) with `qodana-cdnet`. The fragment apt-installs the ICU shared
+lib, whose major tracks the base distro generation: cdnet's bookworm base ships `libicu72`, while
+qodana-dotnet's trixie base ships `libicu76` (CONFIRMED against the upstream trixie
+`dockerfiles/base/dotnet-community.Dockerfile`, which installs `libicu76`). The fragment is parameterized
+via the `.env`-keyed `LIBICU_PKG`: the apt line installs `${LIBICU_PKG:-libicu72}`, and the stage
+declares a BARE `ARG LIBICU_PKG` (no default — a same-name `ARG` default declared after dockerfile-x's
+INCLUDE_ARGS block would CLOBBER the `.env` value, the QODANA_UID trap). cdnet sets NO key (its `.env` is
+unchanged) → the `:-libicu72` fallback keeps it on libicu72; qodana-dotnet sets `LIBICU_PKG=libicu76`.
+`LIBICU_PKG` is a base-coupled Debian package name, NOT a JetBrains feed pin — it is NOT Renovate- or
+drift-tracked (it changes only when an image migrates to a new Debian generation). `DotnetEnvContractTest`
+asserts `qodana-dotnet.env`'s `LIBICU_PKG=libicu76`; `DotnetToolchainTest` guards the fragment shape +
+the cdnet-libicu72 fallback. The .NET SDK install (revision/sha/channels) is unchanged from cdnet.
+
+LIBICU_PKG = libicu76
+
+## C/C++ dist (qodana-cpp — CLion, RELEASE)
+
+Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-cpp.releases.json`. Top-level feed
+`Code` is `QDCPP`. Unlike ruby/rust (eap-only feeds), the QDCPP feed HAS `release` entries (cpp is no
+longer eap, Anna-confirmed), so this is a RELEASE image: `QD_RELEASE_TYPE=release` (consumed ONLY by
+`BumpPinsCommand` drift to pick the newest release within the major; `provision-dist` selects the release
+and resolves the Link from the verbatim `QD_VERSION`/`QD_BUILD`). The newest 2026.1 release is `261.25887`
+(MajorVersion `2026.1`, full Version `2026.1.4`, Date 2026-06-15). The feed is the PUBLIC feed
+(`/qodana/feed`, no token): the image's `.env` OMITS `QD_DISTRIBUTION_FEED`. Keys match
+`BumpPinsCommand.syncDecisions` (slug `qodana-cpp` → `QODANA_CPP_BUILD`); `CppEnvContractTest` asserts
+byte-identity against the `.env`'s `QD_VERSION` (`2026.1`) and `QD_BUILD` (`261.25887`). The download Link
+embeds an extra build segment (`...-261.25887.177.tar.gz`); use it VERBATIM, do not reconstruct it.
+
+QODANA_CPP_VERSION = 2026.1
+QODANA_CPP_BUILD = 261.25887
+
+Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+
+QODANA_CPP_FULL_VERSION = 2026.1.4
+
+Download link (verbatim from the feed):
+
+QODANA_CPP_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDCPP-261.25887.177.tar.gz
+
+### Checksum + signature siblings (DistVerifier depends on these)
+
+Both siblings of the linux Link are present (probed live 2026-06-18 via a single-byte range GET following
+CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the `.sha256.asc` detached GPG signature
+(`ChecksumLink + ".asc"`).
+
+QODANA_CPP_LINUX_SHA256_SIBLING = 206
+QODANA_CPP_LINUX_ASC_SIBLING = 206
+
+### product-info.json code (verify-dist-layout depends on this)
+
+`CL` (CLion). Verified EMPIRICALLY, not assumed (the Community-dist trap lesson): stream-extracting the
+dist tarball's metadata (`bsdtar -xO --include '*/product-info.json' --include '*/dist.flavour.txt'`,
+2026-06-18) shows `productCode=CL`, `name="CLion"`, version `2026.1.4`, buildNumber `261.25887`, and
+`vmOptionsFilePath=bin/clion64.vmoptions`. `dist.flavour.txt=QDCPP`. The `clion64.vmoptions` file confirms
+the generalized `bin/*.vmoptions` `idea.log.path` strip in `lib/dist.dockerfile` covers CLion. The feed
+`Code` `QDCPP` is the distinct feed artifact code, not the product-info code; the qodana-cli source maps
+`"CL" → QDCPP` (`product_info.go`, `product_test.go`), confirming `CL` is the product-info code.
+
+QODANA_CPP_PRODUCT_INFO_CODE = CL
+QODANA_CPP_FEED_CODE = QDCPP
+
+## C/C++ toolchain (qodana-cpp — REUSES clang + node + eslint; single clang cell; CXX/CC)
+
+`qodana-cpp` adds NO toolchain fragment: it REUSES `lib/toolchain/clang.dockerfile`
+(`FROM base AS clang-toolchain`, the LLVM apt repo pinned by `CLANG`/`CLANG_OS`) — the SAME fragment
+`qodana-clang` uses — then the in-place `node` + `eslint` fragments append onto `clang-toolchain` (CLion
+analyzes JS/TS). The privileged sudo layer then FROMs `clang-toolchain` via `base.dockerfile`'s GLOBAL
+`PRIVILEGED_BASE_STAGE=clang-toolchain` default, so cpp sets NO `PRIVILEGED_BASE_STAGE` override (the
+qodana-clang convention) — distinct from ruby/dotnet, whose node+eslint sit on `base`. The dist FROMs
+privileged via `DIST_BASE_STAGE=privileged` (an `.env` key). Resolved lineage:
+`base → clang-toolchain(+node+eslint) → privileged(FROM clang-toolchain) → dist(FROM privileged) → cli →
+runtime`.
+
+SINGLE clang build cell `CLANG=20`, `CLANG_OS=trixie` — NOT the source's bookworm-era 15-18 matrix (the
+source `cpp.Dockerfile` is already on `apt.llvm.org/trixie/` with `CLANG=20`, the only LLVM majors the
+trixie repo carries are 20/21). It matches the existing `clang-versions.txt` `20 trixie` row, so no
+`ClangVersionsTest` change. The multi-clang tag matrix is deferred to the same future effort that wires
+`qodana-clang`'s (also single-tag today).
+
+CXX/CC/CPLUS_INCLUDE_PATH: the source `cpp.Dockerfile` exports `CXX=/usr/lib/llvm-${CLANG}/bin/clang++`,
+`CC=/usr/lib/llvm-${CLANG}/bin/clang`, `CPLUS_INCLUDE_PATH=/usr/lib/clang/${CLANG}/include` so CLion's
+analysis resolves the compiler for `compile_commands.json` TUs. The repo's `clang.dockerfile` uses
+`update-alternatives` for `/usr/bin/clang` and does NOT set these, so `qodana-cpp.dockerfile` sets them
+CPP-LOCALLY (a trailing `ARG CLANG` + `ENV` on the `runtime` stage), keeping `qodana-clang` byte-unchanged.
+A faithful carry-over of source behavior; flagged for the CI control run.
+
+## Why `qdist` is not wired (deferred — QD-15062)
+
+The `QD_DISTRIBUTION_FEED` build arg selects which feed an image fetches its IDE
+dist from. It DEFAULTS to the public CDN (`download.jetbrains.com/qodana/feed`)
+and is intentionally NOT pointed at the internal `qdist` feed. qdist's `feed.json`
+`Link`s resolve to the VPN-only TeamCity build server
+(`buildserver.labs.intellij.net/.../.lastSuccessful/...`), which CI cannot reach;
+wiring it in would break the build on every CI runner. Released linters (jvm,
+jvm-community, python, python-community, …) ship from the public feed and OMIT
+`QD_DISTRIBUTION_FEED` entirely, so this is moot for them. Pointing the switch at
+qdist for unreleased/internal builds is tracked by followup QD-15062.

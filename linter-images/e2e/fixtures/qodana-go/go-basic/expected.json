@@ -1,0 +1,43 @@
+{
+  "case": "go-basic",
+  "image": "qodana-go",
+  "description": "Single-file Go module with two planted defects, hermetic run. First e2e for the Go image (DHI golang language base: Go pre-baked, plus the layered node toolchain + in-place global eslint pin for JS/TS support). Proves qodana-go builds (base + node + eslint + dist + cli + runtime), loads its Ultimate GoLand profile, and scans a real .go producing SARIF. Driver name + rule ids are NEEDS-PINNING starting guesses — pin from a CI control run and confirm both are enabled in THIS image's default GO (GoLand) profile.",
+  "run": {
+    "network": "none",
+    "extraArgs": ["--no-statistics"]
+  },
+  "expectExitCode": 0,
+  "sarif": {
+    "tool": {
+      "driverName": null,
+      "driverFullName": null
+    },
+    "schemaValid": false,
+    "qodanaSeverityRequired": true,
+    "expectations": [
+      {
+        "ruleId": "GoErrorStringFormat",
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "main.go",
+        "pin": "needs-pinning",
+        "guards": [],
+        "reason": "STARTING-GUESS id: the planted capitalized error string `errors.New(\"Failed to open the thing\")` must surface as a Go error-string-format inspection; pin the exact id from a CI control run and confirm it is in the Ultimate GoLand profile."
+      },
+      {
+        "ruleId": "GoUnusedFunction",
+        "presence": "present",
+        "count": ">=1",
+        "uriContains": "main.go",
+        "pin": "needs-pinning",
+        "guards": [],
+        "reason": "STARTING-GUESS id: the planted `unusedHelper` unexported function that is never called must surface as an unused-declaration inspection; pin the exact id from a CI control run and confirm it is in the Ultimate GoLand profile."
+      }
+    ]
+  },
+  "log": {
+    "mustNotContain": [
+      { "text": "Problems found loading plugins:", "guards": [] }
+    ]
+  }
+}

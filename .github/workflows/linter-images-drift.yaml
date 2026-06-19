@@ -28,6 +28,9 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
+      # verify-pin sends this whenever present; absent is harmless for public-feed pins and fails loudly
+      # only if a future private-feed pin actually needs it.
+      QD_FEED_TOKEN: ${{ secrets.QD_FEED_TOKEN }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
@@ -59,8 +62,8 @@ jobs:
             [ -n "$SLUG" ] || { echo "skip $(basename "$env"): no IDE dist"; continue; }
             VERSION="$(val QD_VERSION "$env")"
             BUILD="$(val QD_BUILD "$env")"
-            CHANNEL="$(val QD_CHANNEL "$env")"; CHANNEL="${CHANNEL:-public}"
-            KEYID="${SLUG}:${VERSION}:${BUILD}:${CHANNEL}"
+            FEED="$(val QD_DISTRIBUTION_FEED "$env")"; FEED="${FEED:-https://download.jetbrains.com/qodana/feed}"
+            KEYID="${SLUG}:${VERSION}:${BUILD}:${FEED}"
             [ -z "${SEEN[$KEYID]:-}" ] || { echo "skip $KEYID: already verified"; continue; }
             SEEN[$KEYID]=1
             echo "::group::verify-pin $KEYID"
@@ -68,7 +71,7 @@ jobs:
               --linter-slug "$SLUG" \
               --version "$VERSION" \
               --build "$BUILD" \
-              --channel "$CHANNEL" \
+              --distribution-feed "$FEED" \
               --gpg-key "$KEY" \
               --gpg-fingerprint "$FPR" \
               || FAILED=1
@@ -100,6 +103,9 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
+      # bump-pins re-resolves feeds too; send this whenever present. Absent is harmless for public-feed
+      # pins and fails loudly only if a future private-feed pin actually needs it.
+      QD_FEED_TOKEN: ${{ secrets.QD_FEED_TOKEN }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-java@v5
