@@ -162,6 +162,7 @@ class ScanUseCaseTest {
         licenseValidator: LicenseValidator? = buildLicenseValidator(),
         reportPublisher: ReportPublishUseCase? = buildReportPublishUseCase(),
         gitClient: GitClient? = null,
+        getenv: (String) -> String? = { null },
     ): ScanUseCase {
         val fs = StubFileSystem()
         val prepareHost = PrepareHost(fs, fakeTerminal)
@@ -176,6 +177,7 @@ class ScanUseCaseTest {
             bitBucketExporter = null,
             gitClient = gitClient,
             terminal = fakeTerminal,
+            getenv = getenv,
         )
     }
 
@@ -222,6 +224,19 @@ class ScanUseCaseTest {
 
             assertTrue(recordingContainerEngine.created, "containerScan should have invoked the container engine")
             assertFalse(recordingProcessRunner.started, "nativeScan should NOT have been invoked")
+        }
+
+    @Test
+    fun `container mode does not run host license setup for a paid linter without a token`() =
+        runTest {
+            val useCase = buildScanUseCase()
+
+            // Paid linter, no token, container mode: the host must NOT hard-fail — the inner CLI inside
+            // the container performs licensing. Regression guard for the profile gate.
+            useCase.run(buildContext(nativeMode = false, linter = "qodana-jvm"))
+
+            assertTrue(recordingContainerEngine.created, "containerScan should have run")
+            assertFalse(recordingLicenseHttp.getCalled, "host must not run license setup in container mode")
         }
 
     @Test
@@ -364,6 +379,25 @@ class ScanUseCaseTest {
                 recordingProcessRunner.lastSpec?.env?.get("QODANA_LICENSE"),
                 "an explicit --env license must win over the cloud key",
             )
+        }
+
+    @Test
+    fun `--env QODANA_LICENSE licenses a paid native scan with no cloud token`() =
+        runTest {
+            val useCase = buildScanUseCase()
+
+            val exit =
+                useCase.run(
+                    buildContext(
+                        nativeMode = true,
+                        linter = "qodana-js",
+                        envVars = mapOf("QODANA_LICENSE" to "USER-KEY"),
+                    ),
+                )
+
+            assertEquals(ExitCode.SUCCESS.code, exit, "a --env QODANA_LICENSE must license without a cloud token")
+            assertFalse(recordingLicenseHttp.getCalled, "an explicit license short-circuits the cloud exchange")
+            assertEquals("USER-KEY", recordingProcessRunner.lastSpec?.env?.get("QODANA_LICENSE"))
         }
 
     @Test

@@ -739,9 +739,9 @@ class ScanCommand(
 
     /**
      * Reads the sanctioned dist's `product-info.json` and maps its product code to the Qodana linter
-     * name. Null if the file is unreadable or the code is unknown — the scan still runs, but without a
-     * resolved linter (e.g. license setup is skipped). [validateDistOverride] already guarantees the
-     * file exists.
+     * name. Null if the file is unreadable or the code is unknown; the linter then falls back to the
+     * qodana.yaml `linter`/`image` (see EffectiveConfig.merge), or stays unresolved if neither is set.
+     * [validateDistOverride] already guarantees the file exists.
      */
     private fun resolveSanctionedLinterName(distPath: Path): String? =
         runCatching {
