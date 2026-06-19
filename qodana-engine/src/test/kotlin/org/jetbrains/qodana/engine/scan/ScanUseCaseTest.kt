@@ -162,6 +162,7 @@ class ScanUseCaseTest {
         licenseValidator: LicenseValidator? = buildLicenseValidator(),
         reportPublisher: ReportPublishUseCase? = buildReportPublishUseCase(),
         gitClient: GitClient? = null,
+        getenv: (String) -> String? = { null },
     ): ScanUseCase {
         val fs = StubFileSystem()
         val prepareHost = PrepareHost(fs, fakeTerminal)
@@ -176,6 +177,7 @@ class ScanUseCaseTest {
             bitBucketExporter = null,
             gitClient = gitClient,
             terminal = fakeTerminal,
+            getenv = getenv,
         )
     }
 
@@ -183,16 +185,19 @@ class ScanUseCaseTest {
         nativeMode: Boolean = true,
         token: String? = null,
         licenseOnlyToken: String? = null,
+        linter: String? = null,
+        envVars: Map<String, String> = emptyMap(),
     ): ScanContext =
         ScanContext(
             paths = scanPaths(),
+            linter = linter,
             auth =
                 AuthContext(
                     token = token,
                     endpoint = "https://qodana.cloud",
                     licenseOnlyToken = licenseOnlyToken,
                 ),
-            runtime = RuntimeContext(ideDir = if (nativeMode) tempDir.resolve("ide") else null),
+            runtime = RuntimeContext(ideDir = if (nativeMode) tempDir.resolve("ide") else null, envVars = envVars),
             ci = CiContext(),
             report = ReportOptions(saveReport = false),
             docker = DockerOptions(image = "jetbrains/qodana:latest"),
@@ -219,6 +224,19 @@ class ScanUseCaseTest {
 
             assertTrue(recordingContainerEngine.created, "containerScan should have invoked the container engine")
             assertFalse(recordingProcessRunner.started, "nativeScan should NOT have been invoked")
+        }
+
+    @Test
+    fun `container mode does not run host license setup for a paid linter without a token`() =
+        runTest {
+            val useCase = buildScanUseCase()
+
+            // Paid linter, no token, container mode: the host must NOT hard-fail — the inner CLI inside
+            // the container performs licensing. Regression guard for the profile gate.
+            useCase.run(buildContext(nativeMode = false, linter = "qodana-jvm"))
+
+            assertTrue(recordingContainerEngine.created, "containerScan should have run")
+            assertFalse(recordingLicenseHttp.getCalled, "host must not run license setup in container mode")
         }
 
     @Test
@@ -278,7 +296,7 @@ class ScanUseCaseTest {
         }"""
 
             val useCase = buildScanUseCase()
-            useCase.run(buildContext(nativeMode = true, token = "test-token-123"))
+            useCase.run(buildContext(nativeMode = true, linter = "qodana-js", token = "test-token-123"))
 
             assertTrue(recordingLicenseHttp.getCalled, "licenseValidator should have made an HTTP call to validate the license")
         }
@@ -296,12 +314,107 @@ class ScanUseCaseTest {
         }"""
 
             val useCase = buildScanUseCase()
-            useCase.run(buildContext(nativeMode = true, token = null, licenseOnlyToken = "license-only-token"))
+            useCase.run(
+                buildContext(
+                    nativeMode = true,
+                    linter = "qodana-js",
+                    token = null,
+                    licenseOnlyToken = "license-only-token",
+                ),
+            )
 
             assertTrue(
                 recordingLicenseHttp.getCalled,
                 "licenseValidator should have made an HTTP call when license-only token is present",
             )
+        }
+
+    @Test
+    fun `native scan receives QODANA_LICENSE from the validated license`() =
+        runTest {
+            recordingLicenseHttp.responseBody = """{
+                "licenseId": "test",
+                "licenseKey": "LIC-KEY-XYZ",
+                "expirationDate": "2099-01-01",
+                "projectIdHash": "phash",
+                "organisationIdHash": "ohash",
+                "licensePlan": "ULTIMATE_PLUS"
+            }"""
+
+            val useCase = buildScanUseCase()
+            useCase.run(buildContext(nativeMode = true, linter = "qodana-js", licenseOnlyToken = "license-only-token"))
+
+            val ideEnv = recordingProcessRunner.lastSpec?.env ?: emptyMap()
+            assertEquals(
+                "LIC-KEY-XYZ",
+                ideEnv["QODANA_LICENSE"],
+                "the analyzer must receive the cloud license key as QODANA_LICENSE",
+            )
+            assertEquals("phash", ideEnv["QODANA_PROJECT_ID_HASH"])
+            assertEquals("ohash", ideEnv["QODANA_ORGANISATION_ID_HASH"])
+        }
+
+    @Test
+    fun `pre-set QODANA_LICENSE in env is not overridden by the cloud key`() =
+        runTest {
+            recordingLicenseHttp.responseBody = """{
+                "licenseKey": "CLOUD-KEY",
+                "licensePlan": "ULTIMATE_PLUS",
+                "projectIdHash": "p",
+                "organisationIdHash": "o"
+            }"""
+
+            val useCase = buildScanUseCase()
+            useCase.run(
+                buildContext(
+                    nativeMode = true,
+                    linter = "qodana-js",
+                    licenseOnlyToken = "t",
+                    envVars = mapOf("QODANA_LICENSE" to "USER-KEY"),
+                ),
+            )
+
+            assertEquals(
+                "USER-KEY",
+                recordingProcessRunner.lastSpec?.env?.get("QODANA_LICENSE"),
+                "an explicit --env license must win over the cloud key",
+            )
+        }
+
+    @Test
+    fun `--env QODANA_LICENSE licenses a paid native scan with no cloud token`() =
+        runTest {
+            val useCase = buildScanUseCase()
+
+            val exit =
+                useCase.run(
+                    buildContext(
+                        nativeMode = true,
+                        linter = "qodana-js",
+                        envVars = mapOf("QODANA_LICENSE" to "USER-KEY"),
+                    ),
+                )
+
+            assertEquals(ExitCode.SUCCESS.code, exit, "a --env QODANA_LICENSE must license without a cloud token")
+            assertFalse(recordingLicenseHttp.getCalled, "an explicit license short-circuits the cloud exchange")
+            assertEquals("USER-KEY", recordingProcessRunner.lastSpec?.env?.get("QODANA_LICENSE"))
+        }
+
+    @Test
+    fun `community plan hard-fails a paid linter scan`() =
+        runTest {
+            recordingLicenseHttp.responseBody = """{
+                "licenseKey": "",
+                "licensePlan": "COMMUNITY",
+                "projectIdHash": "p",
+                "organisationIdHash": "o"
+            }"""
+
+            val useCase = buildScanUseCase()
+            val exit = useCase.run(buildContext(nativeMode = true, linter = "qodana-js", licenseOnlyToken = "t"))
+
+            assertEquals(1, exit, "a Community-plan token must hard-fail a paid-linter scan, not run unlicensed")
+            assertFalse(recordingProcessRunner.started, "the analyzer must not start when licensing failed")
         }
 
     @Test
@@ -359,7 +472,8 @@ class ScanUseCaseTest {
                             revision = "abc123",
                             jobUrl = "https://ci.example/job/42",
                         ),
-                    linter = "qodana-jvm",
+                    // Free linter so this enrichment-focused test needs no license token.
+                    linter = "qodana-jvm-community",
                 )
 
             val result = useCase.run(context)

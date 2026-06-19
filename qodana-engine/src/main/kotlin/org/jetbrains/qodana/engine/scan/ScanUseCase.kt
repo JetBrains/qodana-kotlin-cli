@@ -6,9 +6,12 @@ import org.jetbrains.qodana.core.env.QodanaEnv
 import org.jetbrains.qodana.core.model.ExitCode
 import org.jetbrains.qodana.core.port.Terminal
 import org.jetbrains.qodana.core.product.Linters
+import org.jetbrains.qodana.engine.cloud.LicenseSetup
+import org.jetbrains.qodana.engine.cloud.LicenseToken
 import org.jetbrains.qodana.engine.cloud.LicenseValidator
 import org.jetbrains.qodana.engine.config.EffectiveConfig
 import org.jetbrains.qodana.engine.fs.FileUtils
+import org.jetbrains.qodana.engine.model.NativeExecutionProfile
 import org.jetbrains.qodana.engine.model.ReportOptions
 import org.jetbrains.qodana.engine.model.RunScenario
 import org.jetbrains.qodana.engine.model.ScanContext
@@ -37,6 +40,8 @@ class ScanUseCase(
     private val bitBucketExporter: BitBucketExporter?,
     private val gitClient: GitClient?,
     private val terminal: Terminal,
+    // Injectable so license-setup tests are hermetic w.r.t. a QODANA_LICENSE exported on the dev/CI box.
+    private val getenv: (String) -> String? = System::getenv,
 ) {
     private val log = LoggerFactory.getLogger(ScanUseCase::class.java)
     private val pipelineFactory =
@@ -63,18 +68,51 @@ class ScanUseCase(
                 effectiveContext
             }
 
-        val validationToken =
-            effectiveContextWithIde.auth.token
-                ?.takeIf { it.isNotBlank() }
-                ?: effectiveContextWithIde.auth.licenseOnlyToken?.takeIf { it.isNotBlank() }
-        if (!validationToken.isNullOrBlank() && licenseValidator != null) {
-            val licenseResult = licenseValidator.validate(validationToken)
-            licenseResult.onSuccess { licenseData ->
-                System.setProperty(QodanaEnv.PROJECT_ID_HASH, licenseData.projectIdHash)
-                System.setProperty(QodanaEnv.ORGANISATION_ID_HASH, licenseData.organisationIdHash)
+        val licenseEnv = mutableMapOf<String, String>()
+        val linter = effectiveContextWithIde.linter?.let { Linters.findByName(it) }
+        // License setup runs only for native (in-image / direct-IDE) scans. Container/docker-launcher
+        // modes delegate licensing to the inner CLI inside the container (which receives the token via
+        // the container env), so the host must not hard-fail them here.
+        if (effectiveContextWithIde.executionProfile == NativeExecutionProfile &&
+            linter != null &&
+            licenseValidator != null
+        ) {
+            // A license can be pre-supplied via --env (runtime.envVars) or the process/container env; the
+            // analyzer inherits it either way, so honour it and never override it with a cloud-fetched key.
+            val existingLicense =
+                effectiveContextWithIde.runtime.envVars[QodanaEnv.LICENSE]?.takeIf { it.isNotBlank() }
+                    ?: getenv(QodanaEnv.LICENSE)?.takeIf { it.isNotBlank() }
+            val licenseResult =
+                LicenseSetup
+                    .setupLicenseAndProjectHash(
+                        linter = linter,
+                        licenseToken =
+                            LicenseToken.resolve(
+                                cloudToken = effectiveContextWithIde.auth.token,
+                                licenseOnlyToken = effectiveContextWithIde.auth.licenseOnlyToken,
+                            ),
+                        validator = licenseValidator,
+                        existingLicense = existingLicense,
+                    ).getOrElse { e ->
+                        // Fail fast with the clear cause (e.g. "Community plan does not support paid linters")
+                        // rather than booting the analyzer only for the dist to abort with a cryptic
+                        // "No valid license found" (exit 7). Matches the Go CLI's hard-fail.
+                        terminal.error("License setup failed: ${e.message}")
+                        return 1
+                    }
+            // The Qodana dist reads the license + project/org hashes ONLY from the analyzer's env vars;
+            // propagate them via the analysis env (NativeScan forwards runtime.envVars to the IDE).
+            // Previously the key was discarded and the hashes written via System.setProperty, which the
+            // dist never reads — so no paid linter ever licensed. Inject the cloud key only when no
+            // license was pre-supplied (above), so an explicit license always wins.
+            if (licenseResult.licenseKey.isNotBlank() && existingLicense == null) {
+                licenseEnv[QodanaEnv.LICENSE] = licenseResult.licenseKey
             }
-            licenseResult.onFailure { e ->
-                terminal.warn("License validation failed: ${e.message}")
+            if (licenseResult.projectIdHash.isNotBlank()) {
+                licenseEnv[QodanaEnv.PROJECT_ID_HASH] = licenseResult.projectIdHash
+            }
+            if (licenseResult.organisationIdHash.isNotBlank()) {
+                licenseEnv[QodanaEnv.ORGANISATION_ID_HASH] = licenseResult.organisationIdHash
             }
         }
 
@@ -83,7 +121,14 @@ class ScanUseCase(
             log.info("DotNet configuration: solution={}, project={}", dotnetConfig.solution, dotnetConfig.project)
         }
 
-        val contextForAnalysis = prepareScenarioContext(effectiveContextWithIde)
+        val contextForAnalysis =
+            prepareScenarioContext(effectiveContextWithIde).let { ctx ->
+                if (licenseEnv.isEmpty()) {
+                    ctx
+                } else {
+                    ctx.copy(runtime = ctx.runtime.copy(envVars = ctx.runtime.envVars + licenseEnv))
+                }
+            }
         val bootstrapExitCode = runBootstrapIfNeeded(contextForAnalysis, pipeline)
         if (bootstrapExitCode != 0) {
             return bootstrapExitCode

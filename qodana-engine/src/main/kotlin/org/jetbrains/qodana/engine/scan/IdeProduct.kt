@@ -7,6 +7,8 @@ import com.fasterxml.jackson.module.kotlin.kotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
 import org.jetbrains.qodana.core.port.FileSystem
 import org.jetbrains.qodana.core.product.IntellijLinterProperties
+import org.jetbrains.qodana.core.product.Linter
+import org.jetbrains.qodana.core.product.Linters
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
 
@@ -145,6 +147,17 @@ object IdeProductDiscovery {
         }
         return null
     }
+
+    /**
+     * Resolves the Qodana [Linter] from a dist's `product-info.json` text by mapping its IDE product
+     * code to the Qodana product code. Returns null if the JSON is unparseable or the code is unknown.
+     * Lighter than [guessProduct] (no IDE-binary discovery) — used to learn the linter of a sanctioned
+     * `QODANA_DIST` so licensing/SARIF/Ruby-env handling can key off it.
+     */
+    fun linterFromInfoJson(json: String): Linter? =
+        runCatching {
+            Linters.findByProductCode(toQodanaCode(mapper.readValue<IdeProductInfoJson>(json).productCode))
+        }.getOrNull()
 
     /** Maps IDE product code (from product-info.json) to Qodana product code. */
     private fun toQodanaCode(baseProduct: String): String =

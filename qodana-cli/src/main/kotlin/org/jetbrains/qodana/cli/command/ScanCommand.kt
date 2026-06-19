@@ -22,6 +22,7 @@ import org.jetbrains.qodana.core.terminal.MordantTerminal
 import org.jetbrains.qodana.engine.env.CiDetector
 import org.jetbrains.qodana.engine.env.RuntimeEnvironment
 import org.jetbrains.qodana.engine.model.*
+import org.jetbrains.qodana.engine.scan.IdeProductDiscovery
 import org.jetbrains.qodana.engine.scan.ReportPort
 import org.jetbrains.qodana.engine.startup.SanctionedImage
 import java.nio.file.Files
@@ -421,7 +422,10 @@ class ScanCommand(
             validateDistOverride(distPath) // fail-closed: throws UsageError if product-info.json is absent
             return AnalyzerResolution(
                 requestedTarget = RequestedExecutionTarget.NATIVE,
-                linterName = null,
+                // The dist's product-info.json identifies the linter; resolve it so downstream consumers
+                // (license setup, Ruby-env handling, SARIF product code) can key off context.linter. The
+                // sanctioned dist is authoritative, so this overrides any --linter.
+                linterName = resolveSanctionedLinterName(distPath),
                 image = null,
                 ideDir = distPath,
             )
@@ -732,6 +736,19 @@ class ScanCommand(
             throw UsageError("Env ${QodanaEnv.DIST} doesn't point to valid distribution: $distPath")
         }
     }
+
+    /**
+     * Reads the sanctioned dist's `product-info.json` and maps its product code to the Qodana linter
+     * name. Null if the file is unreadable or the code is unknown; the linter then falls back to the
+     * qodana.yaml `linter`/`image` (see EffectiveConfig.merge), or stays unresolved if neither is set.
+     * [validateDistOverride] already guarantees the file exists.
+     */
+    private fun resolveSanctionedLinterName(distPath: Path): String? =
+        runCatching {
+            val os = System.getProperty("os.name", "").lowercase()
+            val productInfoDir = if (os.contains("mac")) distPath.resolve("Resources") else distPath
+            IdeProductDiscovery.linterFromInfoJson(Files.readString(productInfoDir.resolve("product-info.json")))?.name
+        }.getOrNull()
 
     private fun readEnv(key: String): String? = envOverrides[key] ?: System.getenv(key)
 
