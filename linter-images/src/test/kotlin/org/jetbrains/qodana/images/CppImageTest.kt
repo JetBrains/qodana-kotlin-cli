@@ -47,6 +47,24 @@ class CppImageTest {
     }
 
     @Test
+    fun `qodana-cpp pins a self-owned clang++ for CLion's CMake and verifies it at build`() {
+        // CLion's bundled CMake reads CXX/CC to find the compiler and FATALs if the path's EXISTS check fails
+        // (→ "CMake configuration failed", scan hang/fail). The LLVM package's /usr/lib/llvm-N/bin/clang++
+        // symlink is unreliable on the dhi base after the gcc-pin --allow-downgrades fallback, so cpp must
+        // point CXX at a symlink THIS image pins to the real clang binary, and run clang++ --version at build
+        // so a missing/broken compiler fails the BUILD (loud) rather than the scan (a silent late hang).
+        assertTrue(
+            cpp.contains("/usr/local/bin/clang++"),
+            "qodana-cpp must point CXX at a self-pinned /usr/local/bin/clang++ (not the LLVM package's " +
+                "/usr/lib/llvm-N/bin/clang++, which is unreliable on the dhi base — QD-15107)",
+        )
+        assertTrue(
+            cpp.contains("clang++ --version") || cpp.contains("clang++\" --version"),
+            "qodana-cpp must run clang++ --version at build so a broken compiler fails the build, not the scan",
+        )
+    }
+
+    @Test
     fun `qodana-cpp final USER is the unprivileged qodana uid, not root`() {
         // The native-lib install needs root (apt), but the shipped image must scan as the unprivileged
         // qodana user — so the LAST USER directive in the cpp-local section must restore the uid.
