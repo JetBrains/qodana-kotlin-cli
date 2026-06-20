@@ -29,6 +29,18 @@ class GoToolchainTest {
     }
 
     @Test
+    fun `go toolchain repoints the qodana home to a writable data dir`() {
+        // The dhi golang base loses /home/qodana at runtime and the IDE reads user.home from /etc/passwd,
+        // so GoLand dies at startup creating its home-rooted dirs. usermod must move the home onto /data.
+        val go = lib.resolve("toolchain/go.dockerfile").readText()
+        assertTrue(
+            Regex("""usermod\s+--home\s+/data/\S+\s+qodana""").containsMatchIn(go),
+            "go toolchain must usermod the qodana home onto a writable /data dir (the dhi golang base " +
+                "leaves /home/qodana non-writable at scan time, and the IDE honors /etc/passwd not \$HOME)",
+        )
+    }
+
+    @Test
     fun `qodana-go thin image includes the go toolchain fragment`() {
         val thin = images.resolve("qodana-go.dockerfile").readText()
         assertTrue(
