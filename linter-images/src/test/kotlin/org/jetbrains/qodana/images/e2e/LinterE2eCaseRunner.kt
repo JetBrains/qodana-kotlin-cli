@@ -100,14 +100,18 @@ class LinterE2eCaseRunner(
         val ideaLogPath = resultsDir.resolve("log").resolve("idea.log")
         val ideaLog = if (ideaLogPath.isRegularFile()) ideaLogPath.readText() else null
 
-        // Preserve THIS container run's diagnostics (idea.log + SARIF) to a stable, CI-uploadable path.
-        // Done in the runner so the control re-run [LinterE2eTest.resolveVariantExpectations] is captured
-        // too; keyed by the unique work-dir name so runs never clobber each other. Best-effort: an
-        // archiver IO error must NOT mask the scan's real outcome (the @TempDir is otherwise unguessable).
+        // Preserve THIS container run's diagnostics (idea.log + SARIF + the raw container console) to a
+        // stable, CI-uploadable path. The console matters when an IDE bootstrap crash writes no idea.log
+        // (its cause lands only on stdout/stderr) — the assertion message shows just a tail, the artifact
+        // keeps it whole. Done in the runner so the control re-run [LinterE2eTest.resolveVariantExpectations]
+        // is captured too; keyed by the unique work-dir name so runs never clobber each other. Best-effort:
+        // an archiver IO error must NOT mask the scan's real outcome (the @TempDir is otherwise unguessable).
         runCatching {
             ArtifactArchiver.archive(
                 resultsDir,
                 Path.of("build", "linter-e2e-artifacts", manifest.image, work.fileName.toString()),
+                stdout = command.stdout,
+                stderr = command.stderr,
             )
         }.onFailure {
             System.err.println("WARN: failed to archive e2e artifacts for ${manifest.case}: ${it.message}")
