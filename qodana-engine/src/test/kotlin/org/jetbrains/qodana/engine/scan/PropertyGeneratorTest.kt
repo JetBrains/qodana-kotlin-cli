@@ -128,6 +128,22 @@ class PropertyGeneratorTest {
     }
 
     @Test
+    fun `vm options append extra options verbatim`() {
+        // The custom-plugin loaders (-Dplugin.path / -Ddisabled.plugins.file.path) are computed by
+        // NativeScan (needs the IDE home + filesystem) and threaded into the WIRED idea64.vmoptions.
+        val vm =
+            PropertyGenerator.generateVmOptions(
+                testContext(),
+                listOf(
+                    "-Dplugin.path=/opt/idea/custom-plugins/qodana",
+                    "-Ddisabled.plugins.file.path=/opt/idea/custom-plugins/disabled_plugins.txt",
+                ),
+            )
+        assertContains(vm, "-Dplugin.path=/opt/idea/custom-plugins/qodana")
+        assertContains(vm, "-Ddisabled.plugins.file.path=/opt/idea/custom-plugins/disabled_plugins.txt")
+    }
+
+    @Test
     fun `vm options include debug port when set`() {
         val vm = PropertyGenerator.generateVmOptions(testContext(jvmDebugPort = 5005))
         assertContains(vm, "address=*:5005")

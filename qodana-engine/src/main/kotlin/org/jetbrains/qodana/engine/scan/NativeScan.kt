@@ -179,11 +179,41 @@ class NativeScan(
         product: IdeProduct,
         configDir: Path,
     ): Map<String, String> {
-        PropertyGenerator.writeTo(context, configDir) { path, content ->
+        PropertyGenerator.writeTo(context, configDir, customPluginVmOptions(product)) { path, content ->
             fileSystem.write(path, content)
         }
         log.debug("Wrote IDE property files to {}", configDir)
         return buildVmOptionsEnv(context, product, configDir.resolve("idea64.vmoptions"))
+    }
+
+    /**
+     * Mirrors the Go CLI's `getCustomPluginPaths` + `DisabledPluginsFilePath`. IDEs that do NOT bundle
+     * `org.intellij.qodana` (PyCharm/RubyMine/CLion/GoLand) ship it — and a curated
+     * `disabled_plugins.txt` — in the dist's `custom-plugins/` dir. Load the plugin dirs via
+     * `-Dplugin.path` (else `QodanaApplicationStarter` is never registered → the IDE aborts with
+     * "Application cannot start in a headless mode"), and apply the disabled list via
+     * `-Ddisabled.plugins.file.path` (it disables HtmlTools so CLion's bundled Angular cascade-disables
+     * instead of fatally erroring on its missing dependency). Absent dir → empty (IDEs that bundle qodana).
+     */
+    private fun customPluginVmOptions(product: IdeProduct): List<String> {
+        val customPluginsDir = Path.of(product.home).resolve("custom-plugins")
+        if (!fileSystem.exists(customPluginsDir)) return emptyList()
+
+        val options = mutableListOf<String>()
+        val nestedDisabledPlugins = customPluginsDir.resolve("disabled_plugins.txt")
+        val pluginDirs =
+            fileSystem
+                .walk(customPluginsDir)
+                .filter { it.parent == customPluginsDir && it != nestedDisabledPlugins }
+                .toList()
+        if (pluginDirs.isNotEmpty()) {
+            options += "-Dplugin.path=${pluginDirs.joinToString(",")}"
+        }
+        // The disabled list ships at the dist root (the Go CLI's container path) or inside custom-plugins/.
+        listOf(Path.of(product.home).resolve("disabled_plugins.txt"), nestedDisabledPlugins)
+            .firstOrNull { fileSystem.exists(it) }
+            ?.let { options += "-Ddisabled.plugins.file.path=$it" }
+        return options
     }
 
     private fun buildVmOptionsEnv(

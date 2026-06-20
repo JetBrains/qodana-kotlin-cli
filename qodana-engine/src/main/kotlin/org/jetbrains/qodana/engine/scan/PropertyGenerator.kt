@@ -62,9 +62,15 @@ object PropertyGenerator {
         }
 
     /**
-     * Default JVM options for running the IDE in inspection mode.
+     * Default JVM options for running the IDE in inspection mode. [extraVmOptions] are appended
+     * verbatim — used to thread caller-computed `-D` flags (e.g. the custom-plugin loaders
+     * `-Dplugin.path`/`-Ddisabled.plugins.file.path`) into THIS wired file (the one the launcher reads
+     * via the product `*_VM_OPTIONS` env), rather than the never-wired `idea.properties`.
      */
-    fun generateVmOptions(context: ScanContext): String =
+    fun generateVmOptions(
+        context: ScanContext,
+        extraVmOptions: List<String> = emptyList(),
+    ): String =
         buildString {
             // Memory defaults for inspection mode
             appendLine("-Xmx2048m")
@@ -85,18 +91,24 @@ object PropertyGenerator {
                     appendLine(flag)
                 }
             }
+
+            for (option in extraVmOptions) {
+                if (option.isNotBlank()) appendLine(option)
+            }
         }
 
     /**
-     * Writes both `idea.properties` and `idea64.vmoptions` into [targetDir].
+     * Writes both `idea.properties` and `idea64.vmoptions` into [targetDir]. [extraVmOptions] are
+     * appended to the wired `idea64.vmoptions`.
      */
     fun writeTo(
         context: ScanContext,
         targetDir: Path,
+        extraVmOptions: List<String> = emptyList(),
         writeFile: (Path, String) -> Unit,
     ) {
         writeFile(targetDir.resolve(IDEA_PROPERTIES_FILE), generateIdeaProperties(context))
-        writeFile(targetDir.resolve(VMOPTIONS_FILE), generateVmOptions(context))
+        writeFile(targetDir.resolve(VMOPTIONS_FILE), generateVmOptions(context, extraVmOptions))
     }
 
     // ---- helpers ----
