@@ -1,7 +1,7 @@
 {
   "case": "cpp-cmd-default-checks",
   "image": "qodana-cpp",
-  "description": "Minimal CMake C++ project (CMakeLists.txt + src/main.cpp), default CLion C/C++ profile. CLion resolves the project model from the CMake config (a missing/invalid one makes the headless analyzer HANG instead of failing — QD-15107), then flags the planted use-after-move + dead-store. Guards: the analyzer finds the planted smells (QD-14974), the llvmlibc/fuchsia/altera noise families stay absent (QD-14272), and no 'unknown target triple' clang-diagnostic-error (QD-14974). qodana-cpp (CLion/QDCPP) is distinct from qodana-clang (QDCL, clang-tidy tool).",
+  "description": "Minimal CMake C++ project (CMakeLists.txt + src/main.cpp), default CLion C/C++ profile. CLion auto-detects CMake and resolves the model itself, then flags the planted use-after-move + dead-store. The image must carry the CLion dist's native deps (QD-15107): the .NET ReSharper backend's runtime libs (ICU/SSL/krb5) or it SIGABRTs at startup, and the JBR's libfreetype for the CMake console editor — either miss wedges the headless analyzer at 'Awaits CLion backend activities' (it HANGS instead of failing). No log gate on 'Problems found loading plugins:' — the CLion dist's bundled Angular/HtmlTools warning is benign and the source qodana-cli smoke test omits the same check. Guards: the analyzer finds the planted smells (QD-14974), the llvmlibc/fuchsia/altera noise families stay absent (QD-14272), and no 'unknown target triple' clang-diagnostic-error (QD-14974). qodana-cpp (CLion/QDCPP) is distinct from qodana-clang (QDCL, clang-tidy tool).",
   "run": {
     "passEnv": ["QODANA_LICENSE_ONLY_TOKEN"],
     "network": "bridge",
@@ -46,11 +46,6 @@
     ]
   },
   "log": {
-    "mustNotContain": [
-      {
-        "text": "Problems found loading plugins:",
-        "guards": []
-      }
-    ]
+    "mustNotContain": []
   }
 }
