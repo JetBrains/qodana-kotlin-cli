@@ -132,7 +132,7 @@ class NativeMetadataTest {
         val byName = entries.filter { it["name"] is String }.associateBy { it["name"] as String }
 
         val problems = mutableListOf<String>()
-        for (fqcn in requiredClangSarifModelClasses()) {
+        for (fqcn in requiredClangSarifModelClasses) {
             val entry = byName[fqcn]
             when {
                 entry == null -> problems.add("$fqcn: not registered")
@@ -186,21 +186,19 @@ private fun requiredClangReflectiveModelClasses(): List<String> =
     )
 
 // A no-arg ctor is invocable if allDeclaredConstructors is registered, or a methods entry declares
-// `<init>` with empty parameterTypes (qodana-cli's agent-captured shape).
-private fun registersNoArgConstructor(entry: Map<String, Any?>): Boolean {
-    if (entry["allDeclaredConstructors"] == true) return true
-    val methods = entry["methods"] as? List<*> ?: return false
-    return methods.filterIsInstance<Map<*, *>>().any {
-        it["name"] == "<init>" && (it["parameterTypes"] as? List<*>).isNullOrEmpty()
-    }
-}
+// `<init>` with an explicitly-empty parameterTypes list (qodana-cli's agent-captured shape).
+private fun registersNoArgConstructor(entry: Map<String, Any?>): Boolean =
+    entry["allDeclaredConstructors"] == true ||
+        (entry["methods"] as? List<*>).orEmpty().filterIsInstance<Map<*, *>>().any {
+            it["name"] == "<init>" && (it["parameterTypes"] as? List<*>)?.isEmpty() == true
+        }
 
 // The com.jetbrains.qodana.sarif.* Gson models reachable from the shared QodanaSarifService ->
 // SarifUtil read/write path (qodana-clang/Main.kt wires QodanaSarifService into ClangLinter).
 // Mirrored verbatim from qodana-cli's agent-captured reflect-config — the proven-complete set for
 // that path. Regenerate by re-extracting the com.jetbrains.qodana.sarif.* names from qodana-cli's
 // reflect-config.json.
-private fun requiredClangSarifModelClasses(): List<String> =
+private val requiredClangSarifModelClasses: List<String> =
     listOf(
         "com.jetbrains.qodana.sarif.model.Address",
         "com.jetbrains.qodana.sarif.model.Artifact",
