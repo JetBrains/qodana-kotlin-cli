@@ -128,6 +128,16 @@ class PropertyGeneratorTest {
     }
 
     @Test
+    fun `vm options wire idea log path into the read vmoptions`() {
+        // idea.properties is never wired (no IDEA_PROPERTIES env), so the idea.log.path it carries never
+        // applies and the IDE logs to its product default ($HOME/.cache/JetBrains/<Product><Ver>/log) —
+        // outside the results tree the report and e2e harness capture. The vmoptions ARE read (via the
+        // <PRODUCT>_VM_OPTIONS env), so idea.log.path must live here for idea.log to land in <results>/log.
+        val vm = PropertyGenerator.generateVmOptions(testContext())
+        assertContains(vm, "-Didea.log.path=${Path.of("/results").resolve("log")}")
+    }
+
+    @Test
     fun `vm options append extra options verbatim`() {
         // The custom-plugin loaders (-Dplugin.path / -Ddisabled.plugins.file.path) are computed by
         // NativeScan (needs the IDE home + filesystem) and threaded into the WIRED idea64.vmoptions.
