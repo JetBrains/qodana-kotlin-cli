@@ -201,15 +201,19 @@ class NativeScan(
 
         val options = mutableListOf<String>()
         val nestedDisabledPlugins = customPluginsDir.resolve("disabled_plugins.txt")
+        // walk() yields the whole subtree; keep only the direct child plugin dirs. Sorted so the emitted
+        // -Dplugin.path is deterministic (load order is irrelevant; stable output keeps it diffable).
         val pluginDirs =
             fileSystem
                 .walk(customPluginsDir)
                 .filter { it.parent == customPluginsDir && it != nestedDisabledPlugins }
+                .sorted()
                 .toList()
         if (pluginDirs.isNotEmpty()) {
             options += "-Dplugin.path=${pluginDirs.joinToString(",")}"
         }
-        // The disabled list ships at the dist root (the Go CLI's container path) or inside custom-plugins/.
+        // The disabled list ships inside custom-plugins/ in the feed tarball (our container layout); the
+        // Go CLI's darwin local-dev path copies it to the dist root, so accept that location too.
         listOf(Path.of(product.home).resolve("disabled_plugins.txt"), nestedDisabledPlugins)
             .firstOrNull { fileSystem.exists(it) }
             ?.let { options += "-Ddisabled.plugins.file.path=$it" }
