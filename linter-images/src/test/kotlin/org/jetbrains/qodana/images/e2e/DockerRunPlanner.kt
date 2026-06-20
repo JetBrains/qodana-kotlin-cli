@@ -6,8 +6,8 @@ import java.nio.file.Path
  * Pure builder of the `docker run` argv for one e2e case run. Mounts the case's
  * project/results/cache at the fixed container paths the image expects, applies
  * the [RunSpec] network/caps/securityOpt/env, then appends the uniform
- * `scan --results-dir /data/results` plus optional --fail-threshold and the
- * case's extraArgs. Unit-tested by asserting the exact list.
+ * `scan --results-dir /data/results --cache-dir /data/cache --report-dir /data/results/report`
+ * plus optional --fail-threshold and the case's extraArgs. Unit-tested by asserting the exact list.
  */
 object DockerRunPlanner {
     fun dockerArgs(
