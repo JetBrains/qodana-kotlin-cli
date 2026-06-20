@@ -187,13 +187,19 @@ class NativeScan(
     }
 
     /**
-     * Mirrors the Go CLI's `getCustomPluginPaths` + `DisabledPluginsFilePath`. IDEs that do NOT bundle
-     * `org.intellij.qodana` (PyCharm/RubyMine/CLion/GoLand) ship it — and a curated
+     * Counterpart to the Go CLI's `getCustomPluginPaths` + `DisabledPluginsFilePath`. IDEs that do NOT
+     * bundle `org.intellij.qodana` (PyCharm/RubyMine/CLion/GoLand) ship it — and a curated
      * `disabled_plugins.txt` — in the dist's `custom-plugins/` dir. Load the plugin dirs via
      * `-Dplugin.path` (else `QodanaApplicationStarter` is never registered → the IDE aborts with
      * "Application cannot start in a headless mode"), and apply the disabled list via
-     * `-Ddisabled.plugins.file.path` (it disables HtmlTools so CLion's bundled Angular cascade-disables
-     * instead of fatally erroring on its missing dependency). Absent dir → empty (IDEs that bundle qodana).
+     * `-Ddisabled.plugins.file.path`.
+     *
+     * Deliberate divergence from Go: Go's `getCustomPluginPaths` puts EVERY `custom-plugins/` entry —
+     * including the `disabled_plugins.txt` file — onto `-Dplugin.path`; we exclude that file (it is data,
+     * not a plugin dir) and keep only the actual plugin dirs. Note `disabled_plugins.txt` does not silence
+     * every load warning: a dist that ships Angular but no HtmlTools still logs "Problems found loading
+     * plugins" (benign for non-web linters; the cpp e2e relaxes that log gate accordingly). Absent dir →
+     * empty (IDEs that bundle qodana).
      */
     private fun customPluginVmOptions(product: IdeProduct): List<String> {
         val customPluginsDir = Path.of(product.home).resolve("custom-plugins")

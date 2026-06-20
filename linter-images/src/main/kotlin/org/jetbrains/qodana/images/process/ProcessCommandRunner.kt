@@ -30,12 +30,19 @@ class ProcessCommandRunner(
 
         val stdout = StringBuilder()
         val stderr = StringBuilder()
-        val stdoutThread = Thread { drain(process.inputStream.reader(), stdout) }
-        val stderrThread = Thread { drain(process.errorStream.reader(), stderr) }
+        // Daemon threads: a reader that somehow never reaches EOF must never keep the JVM alive at shutdown.
+        val stdoutThread = Thread { drain(process.inputStream.reader(), stdout) }.apply { isDaemon = true }
+        val stderrThread = Thread { drain(process.errorStream.reader(), stderr) }.apply { isDaemon = true }
         stdoutThread.start()
         stderrThread.start()
 
         if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+            // Kill the whole tree, not just the direct child: a surviving grandchild that inherited the
+            // stdout/stderr pipe would keep its write-end open, and the drain-thread joins below would block
+            // until that grandchild exits — re-introducing the unbounded wait this timeout exists to prevent.
+            // (For the real callers — `docker run`, `git` — the direct child is the sole pipe holder, so the
+            // descendants set is empty and this is belt-and-suspenders; the kill closes the pipe regardless.)
+            process.descendants().forEach { it.destroyForcibly() }
             process.destroyForcibly().waitFor()
             stdoutThread.join()
             stderrThread.join()
