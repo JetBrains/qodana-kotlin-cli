@@ -42,10 +42,20 @@ RUN <<-EOT
 		fontconfig libfreetype6 \
 		libc6 libgcc-s1 libgssapi-krb5-2 libicu76 libssl3 libstdc++6 zlib1g tzdata
 	rm -rf /var/lib/apt/lists/*
-	# Resolve the REAL clang driver (follow clang.dockerfile's update-alternatives chain, which bypasses the
-	# unreliable clang++ symlink) and pin both names to it; clang acts as the C++ driver via the `++` name.
-	clang_real="$(readlink -f "$(command -v "clang-${CLANG}")")"
-	test -x "${clang_real}"
+	# Pin a self-owned clang driver. The dhi base's clang-20 (installed by clang.dockerfile via the gcc-pin
+	# --allow-downgrades fallback) populates /usr/lib/llvm-${CLANG}/bin but does NOT create the /usr/bin
+	# wrappers or the bin/clang++ symlink, so resolve the REAL driver by probing known locations and pin both
+	# names to it (clang acts as the C++ driver via the `++` name). List the tree and fail loudly if clang is
+	# genuinely absent, so a missing compiler fails the BUILD with evidence — never a late scan-time hang.
+	clang_real=""
+	for cand in "/usr/lib/llvm-${CLANG}/bin/clang" "/usr/bin/clang-${CLANG}" "/usr/bin/clang"; do
+		if [ -x "${cand}" ]; then clang_real="$(readlink -f "${cand}")"; break; fi
+	done
+	if [ -z "${clang_real}" ]; then
+		echo "ERROR: no clang driver found for CLANG=${CLANG}" >&2
+		ls -la "/usr/lib/llvm-${CLANG}/bin" /usr/bin/clang* >&2 2>&1 || true
+		exit 1
+	fi
 	ln -sf "${clang_real}" /usr/local/bin/clang
 	ln -sf "${clang_real}" /usr/local/bin/clang++
 	/usr/local/bin/clang --version
