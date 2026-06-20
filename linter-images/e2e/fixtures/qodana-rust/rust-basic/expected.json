@@ -9,8 +9,8 @@
   "expectExitCode": 0,
   "sarif": {
     "tool": {
-      "driverName": null,
-      "driverFullName": null
+      "driverName": "QDRST",
+      "driverFullName": "Qodana for Rust"
     },
     "schemaValid": false,
     "qodanaSeverityRequired": true,
