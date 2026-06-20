@@ -25,7 +25,8 @@ class RustImageTest {
             assertTrue(
                 rust.contains(pkg),
                 "qodana-rust must apt-install $pkg: the JBR font manager dlopens libfreetype.so.6 when " +
-                    "RustRover renders the Cargo-sync build view; absent → UnsatisfiedLinkError → config timeout (QD-15111)",
+                    "RustRover renders the Cargo-sync build view; absent → UnsatisfiedLinkError → " +
+                    "config timeout (QD-15111)",
             )
         }
     }
