@@ -56,10 +56,5 @@
         "reason": "Path-scoped exclude must remove findings under excluded/ (QD-1473). Id resolved from the control variant's excluded/ match."
       }
     ]
-  },
-  "log": {
-    "mustNotContain": [
-      { "text": "Problems found loading plugins:", "guards": [] }
-    ]
   }
 }

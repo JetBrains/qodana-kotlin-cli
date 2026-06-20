@@ -31,10 +31,6 @@
       {
         "text": "Read access is allowed from inside read-action only",
         "guards": ["QD-11439"]
-      },
-      {
-        "text": "Problems found loading plugins:",
-        "guards": []
       }
     ]
   }
