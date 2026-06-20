@@ -270,6 +270,77 @@ class NativeScanTest {
             )
         }
 
+    // QD-15107: PyCharm/RubyMine/CLion/GoLand do NOT bundle org.intellij.qodana; it ships in the dist's
+    // custom-plugins/ dir. The scan must load it via -Dplugin.path (else QodanaApplicationStarter is
+    // never registered → "Application cannot start in a headless mode") and apply the curated
+    // custom-plugins/disabled_plugins.txt via -Ddisabled.plugins.file.path (which disables HtmlTools so
+    // CLion's bundled Angular cascade-disables instead of fatally erroring). Mirrors the Go CLI.
+    @Test
+    fun `scan loads the dist custom-plugins via -Dplugin path and disabled-plugins file`() =
+        runTest {
+            val fs = RecordingFileSystem()
+            setupIdeFiles(fs) // GO product at /opt/ide → product.home = /opt/ide
+            fs.existingFiles.add(Path.of("/opt/ide/custom-plugins"))
+            fs.existingFiles.add(Path.of("/opt/ide/custom-plugins/qodana"))
+            // a nested grandchild: -Dplugin.path must list the plugin DIR, never descend into its lib
+            fs.existingFiles.add(Path.of("/opt/ide/custom-plugins/qodana/lib/qodana.jar"))
+            fs.existingFiles.add(Path.of("/opt/ide/custom-plugins/disabled_plugins.txt"))
+            fs.fileContents[Path.of("/results/qodana.sarif.json")] = """{"exitCode": 0}"""
+            fs.existingFiles.add(Path.of("/results/qodana.sarif.json"))
+
+            val scan = NativeScan(FakeProcessRunner(exitCode = 0), fs)
+            scan.run(testContext(ideDir = Path.of("/opt/ide")))
+
+            val vm = fs.writtenFiles[Path.of("/cache/idea-config/idea64.vmoptions")]
+            assertTrue(vm != null, "scan idea64.vmoptions should be written")
+            assertTrue(
+                vm.contains("-Dplugin.path=/opt/ide/custom-plugins/qodana\n") ||
+                    vm.trimEnd().endsWith("-Dplugin.path=/opt/ide/custom-plugins/qodana"),
+                "must load the plugin DIR (not its jars) from custom-plugins via -Dplugin.path; was:\n$vm",
+            )
+            assertTrue(!vm.contains("qodana.jar"), "must not put nested jars on -Dplugin.path; was:\n$vm")
+            assertTrue(
+                vm.contains("-Ddisabled.plugins.file.path=/opt/ide/custom-plugins/disabled_plugins.txt"),
+                "must point -Ddisabled.plugins.file.path at the custom-plugins disabled list; was:\n$vm",
+            )
+        }
+
+    @Test
+    fun `scan emits disabled-plugins file but no plugin path when custom-plugins holds only the list`() =
+        runTest {
+            val fs = RecordingFileSystem()
+            setupIdeFiles(fs)
+            fs.existingFiles.add(Path.of("/opt/ide/custom-plugins"))
+            fs.existingFiles.add(Path.of("/opt/ide/custom-plugins/disabled_plugins.txt"))
+            fs.fileContents[Path.of("/results/qodana.sarif.json")] = """{"exitCode": 0}"""
+            fs.existingFiles.add(Path.of("/results/qodana.sarif.json"))
+
+            val scan = NativeScan(FakeProcessRunner(exitCode = 0), fs)
+            scan.run(testContext(ideDir = Path.of("/opt/ide")))
+
+            val vm = fs.writtenFiles[Path.of("/cache/idea-config/idea64.vmoptions")]
+            assertTrue(vm != null && !vm.contains("-Dplugin.path"), "no plugin dirs → no -Dplugin.path; was:\n$vm")
+            assertTrue(
+                vm.contains("-Ddisabled.plugins.file.path=/opt/ide/custom-plugins/disabled_plugins.txt"),
+                "disabled list is independent of plugin dirs; was:\n$vm",
+            )
+        }
+
+    @Test
+    fun `scan omits custom-plugin options when the dist bundles qodana (no custom-plugins dir)`() =
+        runTest {
+            val fs = RecordingFileSystem()
+            setupIdeFiles(fs)
+            fs.fileContents[Path.of("/results/qodana.sarif.json")] = """{"exitCode": 0}"""
+            fs.existingFiles.add(Path.of("/results/qodana.sarif.json"))
+
+            val scan = NativeScan(FakeProcessRunner(exitCode = 0), fs)
+            scan.run(testContext(ideDir = Path.of("/opt/ide")))
+
+            val vm = fs.writtenFiles[Path.of("/cache/idea-config/idea64.vmoptions")]
+            assertTrue(vm != null && !vm.contains("-Dplugin.path") && !vm.contains("disabled.plugins.file.path"))
+        }
+
     private fun testContext(
         ideDir: Path? = Path.of("/opt/ide"),
         yaml: QodanaYaml? = null,
@@ -394,7 +465,7 @@ private class RecordingFileSystem : FileSystem {
     override fun walk(
         root: Path,
         glob: String?,
-    ) = emptySequence<Path>()
+    ) = existingFiles.filter { it != root && it.startsWith(root) }.asSequence()
 
     override fun exists(path: Path) = path in existingFiles
 

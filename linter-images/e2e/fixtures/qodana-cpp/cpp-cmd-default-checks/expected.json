@@ -1,12 +1,13 @@
 {
   "case": "cpp-cmd-default-checks",
   "image": "qodana-cpp",
-  "description": "Flat C++ TU with a checked-in compile_commands.json, default CLion C/C++ profile. Guards: the analyzer finds the planted smells (QD-14974), the llvmlibc/fuchsia/altera noise families stay absent (QD-14272), and no 'unknown target triple' clang-diagnostic-error (QD-14974). qodana-cpp (CLion/QDCPP) is distinct from qodana-clang (QDCL, clang-tidy tool).",
+  "description": "Minimal CMake C++ project (CMakeLists.txt + src/main.cpp), default CLion C/C++ profile. CLion auto-detects CMake and resolves the model itself, then flags the planted use-after-move + dead-store. The image must carry the CLion dist's native deps (QD-15107): the .NET ReSharper backend's runtime libs (ICU/SSL/krb5) or it SIGABRTs at startup, and the JBR's libfreetype for the CMake console editor — either miss wedges the headless analyzer at 'Awaits CLion backend activities' (it HANGS instead of failing). No log gate on 'Problems found loading plugins:' — the CLion dist's bundled Angular/HtmlTools warning is benign and the source qodana-cli smoke test omits the same check. Guards (QD-14974): the analyzer flags the planted use-after-move (under CLion's clang-tidy umbrella id 'ClangTidy', not a per-check id) and no 'unknown target triple' diagnostic poisons the TU. The planted dead store is also present in main.cpp but is NOT asserted — CLion's own DFA ('CppDFAUnusedValue') reports it non-deterministically across runs, whereas the clang-tidy use-after-move is stable. qodana-cpp (CLion/QDCPP, umbrella 'ClangTidy' + 'Cpp*' inspection ids) is distinct from qodana-clang (QDCL, which emits per-check clang-tidy ids); the per-check FP guard (QD-14272) lives in the qodana-clang fixture, not here.",
   "run": {
-    "network": "none",
+    "passEnv": ["QODANA_LICENSE_ONLY_TOKEN"],
+    "network": "bridge",
     "capAdd": ["SYS_ADMIN"],
     "securityOpt": ["apparmor:unconfined"],
-    "extraArgs": ["--no-statistics", "--compile-commands", "/data/project/compile_commands.json"]
+    "extraArgs": ["--no-statistics"]
   },
   "expectExitCode": 0,
   "sarif": {
@@ -17,39 +18,26 @@
     "qodanaSeverityRequired": false,
     "expectations": [
       {
-        "ruleId": "bugprone-use-after-move",
+        "ruleId": "ClangTidy",
+        "messageContains": "used after it was moved",
         "presence": "present",
         "count": ">=1",
         "uriContains": "src/main.cpp",
-        "pin": "needs-pinning",
-        "guards": ["QD-14974"],
-        "reason": "GUESS — pin exact ruleId from the control-run SARIF (the CLion C/C++ profile may differ from qodana-clang's). The default profile must flag the planted use-after-move; a silent zero means the analyzer found nothing (QD-14974)."
-      },
-      {
-        "ruleIdPattern": "^(llvmlibc|fuchsia|altera)-",
-        "presence": "absent",
-        "count": "==0",
         "pin": "confirmed",
-        "guards": ["QD-14272"],
-        "reason": "The llvmlibc/fuchsia/altera check families are pure noise for ordinary C++ and must NOT appear under the default profile (QD-14272, the headline clang FP guard)."
+        "guards": ["QD-14974"],
+        "reason": "The planted use-after-move. CLion runs clang-tidy and reports EVERY clang-tidy finding under the single umbrella inspection id 'ClangTidy' (NOT per-check ids like qodana-clang's 'bugprone-use-after-move'), so pin by ruleId=ClangTidy + the message. A silent zero means the analyzer found nothing (QD-14974). CI-pinned from run 27879871440."
       },
       {
-        "ruleId": "clang-diagnostic-error",
         "messageContains": "unknown target triple",
         "presence": "absent",
         "count": "==0",
         "pin": "confirmed",
         "guards": ["QD-14974"],
-        "reason": "A baked-in wrong target triple surfaces as a clang-diagnostic-error 'unknown target triple', which poisons the whole TU (QD-14974). Must be absent."
+        "reason": "A baked-in wrong target triple surfaces as an 'unknown target triple' diagnostic that poisons the whole TU (QD-14974). Asserted by message across ANY rule id (CLion does not surface it under a stable 'clang-diagnostic-error' id), so the two positive findings above could not be produced if the TU were poisoned. Must be absent."
       }
     ]
   },
   "log": {
-    "mustNotContain": [
-      {
-        "text": "Problems found loading plugins:",
-        "guards": []
-      }
-    ]
+    "mustNotContain": []
   }
 }

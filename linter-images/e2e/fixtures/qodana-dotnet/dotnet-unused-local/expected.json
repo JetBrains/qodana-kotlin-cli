@@ -3,6 +3,7 @@
   "image": "qodana-dotnet",
   "description": "Minimal net9.0 console with an unused local (int x;). Proves the qodana-dotnet (Ultimate Rider) image scans .NET end-to-end via the bundled Rider dist (no ReSharper CLT mirror — InspectCode ships in the dist) and emits SARIF with a finding in Program.cs (QD-15042). First e2e for the dotnet image: base + node + eslint + dotnet-toolchain (SDK 8/9/10) + privileged + dist + cli + runtime. network: bridge — a .NET restore can reach NuGet even for a zero-dependency project; the Rider dist is baked, so no tool download.",
   "run": {
+    "passEnv": ["QODANA_LICENSE_ONLY_TOKEN"],
     "network": "bridge",
     "capAdd": ["SYS_ADMIN"],
     "securityOpt": ["apparmor:unconfined"],

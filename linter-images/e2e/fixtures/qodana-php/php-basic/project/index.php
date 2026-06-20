@@ -1,21 +1,12 @@
 <?php
-// PHP inspection planted defects for the qodana-php e2e.
+// qodana-php e2e planted defect: a genuine undefined-class reference. `UndefinedHelperService` is
+// never defined or imported, so PhpUndefinedClassInspection — enabled in this image's default Ultimate
+// PhpStorm profile — reports it. No scalar type hints (which a low default PHP language level would
+// itself flag as undefined classes), so this defect is the single, deterministic finding.
 
-// PhpUnusedLocalVariable: $unused is assigned and never read.
-function compute(int $value): int
+function make_service()
 {
-    $unused = $value * 2;
-    return $value + 1;
+    return new UndefinedHelperService();
 }
 
-// TypeUnsafeComparison: a non-strict `==` between a string and an int literal (use `===`).
-function describe(string $name): string
-{
-    if ($name == 0) {
-        return "zero-ish: " . $name;
-    }
-    return "ok: " . $name;
-}
-
-echo compute(41), PHP_EOL;
-echo describe("world"), PHP_EOL;
+make_service();

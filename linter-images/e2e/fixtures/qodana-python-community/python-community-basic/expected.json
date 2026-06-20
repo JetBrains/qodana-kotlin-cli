@@ -1,7 +1,7 @@
 {
   "case": "python-community-basic",
   "image": "qodana-python-community",
-  "description": "Single-file Python project with two planted defects, hermetic run. First e2e for the conda toolchain: proves the qodana-python-community image builds (base + conda + dist + cli + runtime), loads its Community profile, and scans a real .py producing SARIF. Driver name + rule ids are NEEDS-PINNING starting guesses — pin from a CI control run and confirm both are enabled in THIS image's default PC (PyCharm Community) profile.",
+  "description": "Single-file Python project with two planted defects, hermetic run (network: none, no token — Community is free). Proves qodana-python-community builds (base + conda + dist + cli + runtime), loads the Qodana plugin from the dist custom-plugins, and scans a real .py producing SARIF. The Community dist reports the Pro product code (driver QDPY). Driver name + rule ids pinned from CI run 27876312623.",
   "run": {
     "network": "none",
     "extraArgs": ["--no-statistics"]
@@ -9,29 +9,29 @@
   "expectExitCode": 0,
   "sarif": {
     "tool": {
-      "driverName": null,
-      "driverFullName": null
+      "driverName": "QDPY",
+      "driverFullName": "Qodana for Python"
     },
     "schemaValid": false,
     "qodanaSeverityRequired": true,
     "expectations": [
       {
-        "ruleId": "PyUnusedLocal",
+        "ruleId": "PyUnusedLocalInspection",
         "presence": "present",
         "count": ">=1",
         "uriContains": "main.py",
-        "pin": "needs-pinning",
+        "pin": "confirmed",
         "guards": [],
-        "reason": "STARTING-GUESS id: the planted `unused = 42` local that is never read must surface; pin the exact id from a CI control run and confirm it is in the Community profile."
+        "reason": "The planted `unused = 42` local that is never read surfaces as PyUnusedLocalInspection (pinned from CI run 27876312623; enabled in the Community profile)."
       },
       {
-        "ruleId": "PyMethodMayBeStatic",
+        "ruleId": "PyMethodMayBeStaticInspection",
         "presence": "present",
         "count": ">=1",
         "uriContains": "main.py",
-        "pin": "needs-pinning",
+        "pin": "confirmed",
         "guards": [],
-        "reason": "STARTING-GUESS id: `Greeter.shout` never uses `self`, so a may-be-static inspection must report; pin the exact id from a CI control run and confirm it is in the Community profile."
+        "reason": "`Greeter.shout` never uses `self`, so PyMethodMayBeStaticInspection reports (pinned from CI run 27876312623)."
       }
     ]
   },

@@ -9,12 +9,73 @@ INCLUDE lib/dist.dockerfile
 INCLUDE lib/cli.dockerfile
 INCLUDE lib/runtime.dockerfile
 
-# CLion's C/C++ analysis resolves the compiler for compile_commands.json TUs from CXX/CC, so the source
-# cpp.Dockerfile exports these pointing at the pinned LLVM install (clang.dockerfile installs it under
-# /usr/lib/llvm-${CLANG}). cpp-local (NOT in lib/toolchain/clang.dockerfile) so qodana-clang stays
-# byte-unchanged. Bare `ARG CLANG` inherits the INCLUDE_ARGS global value (a `=20` default here would
-# shadow it — the base.dockerfile QODANA_UID trap); these append onto the final `runtime` stage.
+# Everything CLion (cpp) needs at scan time that the hardened trixie base does not provide. cpp-local (NOT
+# in lib/toolchain/clang.dockerfile) so qodana-clang stays byte-unchanged. Bare ARGs inherit the
+# INCLUDE_ARGS / base.dockerfile globals (a `=20`/`=1000` default here would shadow them — the QODANA_UID
+# trap). The runtime stage has already dropped to the qodana user, so switch to root, then drop back so the
+# shipped image still scans unprivileged.
+#
+# (1) Native libs for two CLion subsystems:
+#   - CLion's analysis backend is a .NET "Rider host"/ReSharper process — without the .NET runtime libs
+#     (ICU/SSL/krb5/…) it aborts at startup with exit 134 (SIGABRT, the classic .NET "no valid ICU").
+#   - The bundled JBR's font manager dlopens libfreetype.so.6 the moment CLion creates the CMake
+#     output-console editor during project-model generation; absent → UnsatisfiedLinkError.
+#   Either failure wedges the headless analyzer at "Awaits CLion backend activities" — it HANGS instead of
+#   failing (QD-15107). The source qodana-cli cpp base pulls these in via `default-jre` (fonts) + its
+#   dotnet-community sibling (the .NET runtime libs). libicu major tracks the distro generation — cpp is
+#   trixie → libicu76 (matching lib/toolchain/dotnet.dockerfile). The gcc-runtime libs the .NET backend
+#   also needs (libstdc++6/libgcc-s1/libc6/zlib1g) are ALREADY present (clang + base), so they are NOT
+#   re-installed: pulling them explicitly drags in the +dhi gcc-14 runtime, which breaks clang-20's
+#   libobjc-14-dev `=`-pin to the stock revision and makes apt EVICT clang (see the gcc-stock pin below).
+# (2) A self-pinned C/C++ compiler. CLion's bundled CMake reads CXX/CC and FATALs if the path fails its
+#   EXISTS check (→ "CMake configuration failed", a late scan hang/fail). The LLVM package's
+#   /usr/lib/llvm-${CLANG}/bin/clang++ symlink is unreliable on the dhi base after clang.dockerfile's
+#   gcc-pin --allow-downgrades fallback, so pin our own /usr/local/bin/clang{,++} → the real clang driver
+#   (clang acts as the C++ driver when invoked via a `++` name) and run `clang++ --version` so a
+#   missing/broken compiler fails the BUILD (loud) rather than the scan.
 ARG CLANG
-ENV CXX="/usr/lib/llvm-${CLANG}/bin/clang++" \
-	CC="/usr/lib/llvm-${CLANG}/bin/clang" \
+ARG QODANA_UID
+ARG QODANA_GID
+USER 0
+RUN <<-EOT
+	set -eux
+	export DEBIAN_FRONTEND=noninteractive
+	# clang-20's libobjc-14-dev `=`-pins the gcc-14 runtime to the STOCK Debian revision (clang.dockerfile
+	# downgraded it there). Installing the libs below would otherwise pull the +dhi gcc-14 runtime back in,
+	# and apt would EVICT clang-20 to resolve the broken `=`-pin — taking /usr/lib/llvm-${CLANG} with it
+	# (QD-15107). Re-assert the stock pin for this layer (mirroring clang.dockerfile), then drop it so the
+	# shipped apt state stays vendor-clean.
+	cat > /etc/apt/preferences.d/gcc-stock <<-'PREF'
+		Package: gcc-*-base libgcc-* libstdc++* libgomp* libitm* libatomic* libasan* liblsan* libtsan* libubsan* libhwasan* libquadmath* libcc1-* libobjc*
+		Pin: release o=Debian
+		Pin-Priority: 1001
+	PREF
+	apt-get update
+	apt-get install -y --no-install-recommends \
+		fontconfig libfreetype6 \
+		libgssapi-krb5-2 libicu76 libssl3 tzdata
+	rm -f /etc/apt/preferences.d/gcc-stock
+	rm -rf /var/lib/apt/lists/*
+	# Pin a self-owned clang driver. The dhi base's clang-20 (installed by clang.dockerfile via the gcc-pin
+	# --allow-downgrades fallback) populates /usr/lib/llvm-${CLANG}/bin but does NOT create the /usr/bin
+	# wrappers or the bin/clang++ symlink, so resolve the REAL driver by probing known locations and pin both
+	# names to it (clang acts as the C++ driver via the `++` name). List the tree and fail loudly if clang is
+	# genuinely absent, so a missing compiler fails the BUILD with evidence — never a late scan-time hang.
+	clang_real=""
+	for cand in "/usr/lib/llvm-${CLANG}/bin/clang" "/usr/bin/clang-${CLANG}" "/usr/bin/clang"; do
+		if [ -x "${cand}" ]; then clang_real="$(readlink -f "${cand}")"; break; fi
+	done
+	if [ -z "${clang_real}" ]; then
+		echo "ERROR: no clang driver found for CLANG=${CLANG}" >&2
+		ls -la "/usr/lib/llvm-${CLANG}/bin" /usr/bin/clang* >&2 2>&1 || true
+		exit 1
+	fi
+	ln -sf "${clang_real}" /usr/local/bin/clang
+	ln -sf "${clang_real}" /usr/local/bin/clang++
+	/usr/local/bin/clang --version
+	/usr/local/bin/clang++ --version
+EOT
+ENV CXX="/usr/local/bin/clang++" \
+	CC="/usr/local/bin/clang" \
 	CPLUS_INCLUDE_PATH="/usr/lib/clang/${CLANG}/include"
+USER ${QODANA_UID}:${QODANA_GID}

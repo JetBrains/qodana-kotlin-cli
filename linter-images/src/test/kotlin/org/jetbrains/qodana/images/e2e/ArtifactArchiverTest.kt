@@ -39,4 +39,33 @@ class ArtifactArchiverTest {
         assertFalse(Files.exists(dest.resolve("qodana.sarif.json")))
         assertFalse(Files.exists(dest.resolve("log")))
     }
+
+    // A crash that never reaches idea.log (e.g. an IDE bootstrap failure before file logging is set up)
+    // leaves no sarif and no log/ — but the container console still holds the cause. Persist it to the
+    // host-owned dest so it survives even when the results dir is otherwise empty.
+    @Test
+    fun `writes the container console into dest when provided`(
+        @TempDir tmp: Path,
+    ) {
+        val results = Files.createDirectories(tmp.resolve("results"))
+        val dest = tmp.resolve("dest")
+
+        ArtifactArchiver.archive(results, dest, stdout = "OUT-HEAD", stderr = "ERR-HEAD")
+
+        assertEquals("OUT-HEAD", dest.resolve("container-stdout.txt").readText())
+        assertEquals("ERR-HEAD", dest.resolve("container-stderr.txt").readText())
+    }
+
+    @Test
+    fun `omits container console files when streams are null`(
+        @TempDir tmp: Path,
+    ) {
+        val results = Files.createDirectories(tmp.resolve("results"))
+        val dest = tmp.resolve("dest")
+
+        ArtifactArchiver.archive(results, dest)
+
+        assertFalse(Files.exists(dest.resolve("container-stdout.txt")))
+        assertFalse(Files.exists(dest.resolve("container-stderr.txt")))
+    }
 }

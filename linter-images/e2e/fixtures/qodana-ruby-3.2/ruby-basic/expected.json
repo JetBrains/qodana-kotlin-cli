@@ -3,7 +3,8 @@
   "image": "qodana-ruby-3.2",
   "description": "Single-file Ruby project with one planted defect, hermetic run. e2e for the Ruby 3.2 variant (DHI ruby 3.2 base; same shared RM dist as qodana-ruby, differing only in QD_BASE_IMAGE). Proves qodana-ruby-3.2 builds (base + node + eslint + ruby + privileged + dist + cli + runtime), loads its EAP RubyMine profile, and scans a real .rb producing SARIF. Driver name + rule id are NEEDS-PINNING starting guesses — pin from a CI control run and confirm the id is enabled in THIS image's default RM (RubyMine) profile.",
   "run": {
-    "network": "none",
+    "passEnv": ["QODANA_LICENSE_ONLY_TOKEN"],
+    "network": "bridge",
     "extraArgs": ["--no-statistics"]
   },
   "expectExitCode": 0,

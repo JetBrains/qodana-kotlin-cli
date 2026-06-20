@@ -1,37 +1,29 @@
 {
   "case": "php-basic",
   "image": "qodana-php",
-  "description": "Single-file PHP project with two planted defects, hermetic run. First e2e for the PHP image (DHI php language base: PHP pre-baked, plus the layered node toolchain + in-place global eslint pin for JS/TS support, plus the composer toolchain). Proves qodana-php builds (base + node + eslint + composer + dist + cli + runtime), loads its Ultimate PhpStorm profile, and scans a real .php producing SARIF. Driver name + rule ids are NEEDS-PINNING starting guesses — pin from a CI control run and confirm both are enabled in THIS image's default PS (PhpStorm) profile.",
+  "description": "Single-file PHP project with a planted undefined-class defect, licensed (bridge network + QODANA_LICENSE_ONLY_TOKEN via passEnv). First e2e for the PHP image (DHI php language base: PHP pre-baked, plus the layered node toolchain + in-place global eslint pin for JS/TS support, plus the composer toolchain). Proves qodana-php builds (base + node + eslint + composer + dist + cli + runtime), licenses as QDPHP, loads its Ultimate PhpStorm profile, and scans a real .php producing SARIF. Driver name + rule id are pinned from CI control run 27850910835 (observed driver QDPHP / Qodana for PHP; PhpUndefinedClassInspection fires in the default profile).",
   "run": {
-    "network": "none",
+    "passEnv": ["QODANA_LICENSE_ONLY_TOKEN"],
+    "network": "bridge",
     "extraArgs": ["--no-statistics"]
   },
   "expectExitCode": 0,
   "sarif": {
     "tool": {
-      "driverName": null,
-      "driverFullName": null
+      "driverName": "QDPHP",
+      "driverFullName": "Qodana for PHP"
     },
     "schemaValid": false,
     "qodanaSeverityRequired": true,
     "expectations": [
       {
-        "ruleId": "PhpUnusedLocalVariableInspection",
+        "ruleId": "PhpUndefinedClassInspection",
         "presence": "present",
         "count": ">=1",
         "uriContains": "index.php",
-        "pin": "needs-pinning",
+        "pin": "confirmed",
         "guards": [],
-        "reason": "STARTING-GUESS id: the planted `$unused = $value * 2;` local that is assigned and never read must surface as an unused-local-variable inspection; pin the exact id from a CI control run and confirm it is in the Ultimate PhpStorm profile."
-      },
-      {
-        "ruleId": "TypeUnsafeComparisonInspection",
-        "presence": "present",
-        "count": ">=1",
-        "uriContains": "index.php",
-        "pin": "needs-pinning",
-        "guards": [],
-        "reason": "STARTING-GUESS id: the planted non-strict comparison `if ($name == 0)` (string vs int literal) must surface as a type-unsafe-comparison inspection; pin the exact id from a CI control run and confirm it is in the Ultimate PhpStorm profile."
+        "reason": "The planted `new UndefinedHelperService()` references a class that is never defined or imported; PhpUndefinedClassInspection is enabled in the Ultimate PhpStorm profile and reports it. Pinned from CI control run 27850910835 (PhpUndefinedClassInspection observed firing under driver QDPHP)."
       }
     ]
   },

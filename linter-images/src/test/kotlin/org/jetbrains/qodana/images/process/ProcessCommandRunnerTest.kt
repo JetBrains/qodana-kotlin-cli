@@ -1,7 +1,10 @@
 package org.jetbrains.qodana.images.process
 
+import java.time.Duration
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ProcessCommandRunnerTest {
@@ -21,6 +24,17 @@ class ProcessCommandRunnerTest {
         assertEquals(3, result.exitCode)
         assertEquals("oops", result.stderr)
         assertEquals("", result.stdout)
+    }
+
+    @Test
+    fun `kills a child that exceeds the timeout and reports it as a failure`() {
+        // A linter can hang instead of failing; the runner must bound the wait and surface a failure.
+        // `exec` so the killed process itself owns the pipe (no orphaned grandchild keeps it open).
+        val bounded = ProcessCommandRunner(timeout = Duration.ofMillis(250))
+        val result = bounded.run(listOf("sh", "-c", "exec sleep 30"))
+        assertEquals(124, result.exitCode)
+        assertFalse(result.isSuccess)
+        assertContains(result.stderr, "timed out")
     }
 
     @Test
