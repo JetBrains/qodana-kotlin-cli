@@ -1,7 +1,0 @@
-[
-  {
-    "directory": "/data/project",
-    "command": "clang++ -std=c++17 -c /data/project/src/main.cpp -o /data/project/build/main.o",
-    "file": "/data/project/src/main.cpp"
-  }
-]

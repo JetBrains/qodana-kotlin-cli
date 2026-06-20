@@ -1,13 +1,13 @@
 {
   "case": "cpp-cmd-default-checks",
   "image": "qodana-cpp",
-  "description": "Flat C++ TU with a checked-in compile_commands.json, default CLion C/C++ profile. Guards: the analyzer finds the planted smells (QD-14974), the llvmlibc/fuchsia/altera noise families stay absent (QD-14272), and no 'unknown target triple' clang-diagnostic-error (QD-14974). qodana-cpp (CLion/QDCPP) is distinct from qodana-clang (QDCL, clang-tidy tool).",
+  "description": "Minimal CMake C++ project (CMakeLists.txt + src/main.cpp), default CLion C/C++ profile. CLion resolves the project model from the CMake config (a missing/invalid one makes the headless analyzer HANG instead of failing — QD-15107), then flags the planted use-after-move + dead-store. Guards: the analyzer finds the planted smells (QD-14974), the llvmlibc/fuchsia/altera noise families stay absent (QD-14272), and no 'unknown target triple' clang-diagnostic-error (QD-14974). qodana-cpp (CLion/QDCPP) is distinct from qodana-clang (QDCL, clang-tidy tool).",
   "run": {
     "passEnv": ["QODANA_LICENSE_ONLY_TOKEN"],
     "network": "bridge",
     "capAdd": ["SYS_ADMIN"],
     "securityOpt": ["apparmor:unconfined"],
-    "extraArgs": ["--no-statistics", "--compile-commands", "/data/project/compile_commands.json"]
+    "extraArgs": ["--no-statistics"]
   },
   "expectExitCode": 0,
   "sarif": {
