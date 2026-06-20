@@ -23,7 +23,10 @@ INCLUDE lib/runtime.dockerfile
 #   Either failure wedges the headless analyzer at "Awaits CLion backend activities" — it HANGS instead of
 #   failing (QD-15107). The source qodana-cli cpp base pulls these in via `default-jre` (fonts) + its
 #   dotnet-community sibling (the .NET runtime libs). libicu major tracks the distro generation — cpp is
-#   trixie → libicu76 (matching lib/toolchain/dotnet.dockerfile).
+#   trixie → libicu76 (matching lib/toolchain/dotnet.dockerfile). The gcc-runtime libs the .NET backend
+#   also needs (libstdc++6/libgcc-s1/libc6/zlib1g) are ALREADY present (clang + base), so they are NOT
+#   re-installed: pulling them explicitly drags in the +dhi gcc-14 runtime, which breaks clang-20's
+#   libobjc-14-dev `=`-pin to the stock revision and makes apt EVICT clang (see the gcc-stock pin below).
 # (2) A self-pinned C/C++ compiler. CLion's bundled CMake reads CXX/CC and FATALs if the path fails its
 #   EXISTS check (→ "CMake configuration failed", a late scan hang/fail). The LLVM package's
 #   /usr/lib/llvm-${CLANG}/bin/clang++ symlink is unreliable on the dhi base after clang.dockerfile's
@@ -37,10 +40,21 @@ USER 0
 RUN <<-EOT
 	set -eux
 	export DEBIAN_FRONTEND=noninteractive
+	# clang-20's libobjc-14-dev `=`-pins the gcc-14 runtime to the STOCK Debian revision (clang.dockerfile
+	# downgraded it there). Installing the libs below would otherwise pull the +dhi gcc-14 runtime back in,
+	# and apt would EVICT clang-20 to resolve the broken `=`-pin — taking /usr/lib/llvm-${CLANG} with it
+	# (QD-15107). Re-assert the stock pin for this layer (mirroring clang.dockerfile), then drop it so the
+	# shipped apt state stays vendor-clean.
+	cat > /etc/apt/preferences.d/gcc-stock <<-'PREF'
+		Package: gcc-*-base libgcc-* libstdc++* libgomp* libitm* libatomic* libasan* liblsan* libtsan* libubsan* libhwasan* libquadmath* libcc1-* libobjc*
+		Pin: release o=Debian
+		Pin-Priority: 1001
+	PREF
 	apt-get update
 	apt-get install -y --no-install-recommends \
 		fontconfig libfreetype6 \
-		libc6 libgcc-s1 libgssapi-krb5-2 libicu76 libssl3 libstdc++6 zlib1g tzdata
+		libgssapi-krb5-2 libicu76 libssl3 tzdata
+	rm -f /etc/apt/preferences.d/gcc-stock
 	rm -rf /var/lib/apt/lists/*
 	# Pin a self-owned clang driver. The dhi base's clang-20 (installed by clang.dockerfile via the gcc-pin
 	# --allow-downgrades fallback) populates /usr/lib/llvm-${CLANG}/bin but does NOT create the /usr/bin

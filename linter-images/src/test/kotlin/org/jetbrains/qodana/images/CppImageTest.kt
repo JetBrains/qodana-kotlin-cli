@@ -35,15 +35,36 @@ class CppImageTest {
 
     @Test
     fun `qodana-cpp installs the dotnet-backend runtime libs`() {
-        // Mirrors lib/toolchain/dotnet.dockerfile's runtime-lib set on trixie (libicu76); CLion's .NET
-        // analysis backend needs the same shared libs or it SIGABRTs at startup (exit 134).
-        for (pkg in listOf("libicu76", "libssl3", "libgssapi-krb5-2", "libstdc++6")) {
+        // The .NET-specific libs CLion's ReSharper backend needs that the base lacks (or it SIGABRTs at
+        // startup, exit 134). The gcc-runtime libs it also needs (libstdc++6/libgcc-s1/libc6/zlib1g) are
+        // already present and are deliberately NOT re-installed — pulling them evicts clang (see the
+        // gcc-stock pin in the dockerfile), so they must NOT appear in the install list.
+        for (pkg in listOf("libicu76", "libssl3", "libgssapi-krb5-2", "tzdata")) {
             assertTrue(
                 cpp.contains(pkg),
                 "qodana-cpp must apt-install $pkg (CLion's .NET ReSharper backend aborts at startup without " +
                     "the .NET runtime libs; mirrors qodana-dotnet's trixie set)",
             )
         }
+    }
+
+    @Test
+    fun `qodana-cpp does not re-install the gcc-runtime libs that would evict clang`() {
+        // clang-20's libobjc-14-dev `=`-pins the stock gcc-14 runtime; explicitly installing libstdc++6 etc.
+        // drags in the +dhi runtime and apt evicts clang-20 (and /usr/lib/llvm) to resolve. They're already
+        // present, so the install list must omit them and the layer must re-assert the gcc-stock apt pin.
+        val installList = cpp.substringAfter("apt-get install").substringBefore("rm -f /etc/apt/preferences")
+        for (pkg in listOf("libstdc++6", "libgcc-s1", "zlib1g")) {
+            assertTrue(
+                !installList.contains(pkg),
+                "qodana-cpp must NOT apt-install $pkg in the cpp-local layer — it is present already and " +
+                    "pulling it evicts clang-20 via the libobjc-14-dev pin (QD-15107)",
+            )
+        }
+        assertTrue(
+            cpp.contains("/etc/apt/preferences.d/gcc-stock"),
+            "qodana-cpp must re-assert the gcc-stock apt pin so its native-lib install cannot evict clang-20",
+        )
     }
 
     @Test
