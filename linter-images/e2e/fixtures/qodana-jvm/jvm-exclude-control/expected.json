@@ -3,7 +3,8 @@
   "image": "qodana-jvm",
   "description": "Exclude control-vs-treatment FP regression: two dirs trip the same rule; treatment excludes it by name (QD-1699) and path-scoped under excluded/ (QD-1473). Rule id resolved from the control run.",
   "run": {
-    "network": "none",
+    "network": "bridge",
+    "passEnv": ["QODANA_LICENSE_ONLY_TOKEN"],
     "extraArgs": ["--no-statistics"],
     "variants": [
       { "id": "control", "qodanaYaml": "qodana.control.yaml" },

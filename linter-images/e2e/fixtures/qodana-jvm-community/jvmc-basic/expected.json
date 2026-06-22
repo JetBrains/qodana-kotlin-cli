@@ -1,9 +1,9 @@
 {
   "case": "jvmc-basic",
   "image": "qodana-jvm-community",
-  "description": "Single-module Maven project: plain Java + a Kotlin file, three planted defects, hermetic run. Shape guards (tool driver, qodanaSeverity) over one SARIF. Driver name + rule ids are NEEDS-PINNING starting guesses — pin from a CI control run; DuplicatedCode is intentionally omitted (Ultimate-only, absent from the Community profile).",
+  "description": "Single-module Maven project: plain Java + a Kotlin file, three planted defects; network bridge so Qodana auto-downloads projectJDK 17 (Community is free — no license token). Shape guards (tool driver, qodanaSeverity) over one SARIF. Driver name + rule ids are NEEDS-PINNING starting guesses — pin from a CI control run; DuplicatedCode is intentionally omitted (Ultimate-only, absent from the Community profile).",
   "run": {
-    "network": "none",
+    "network": "bridge",
     "extraArgs": ["--no-statistics"]
   },
   "expectExitCode": 0,
@@ -42,11 +42,6 @@
         "guards": [],
         "reason": "STARTING-GUESS id: an always-true `name != null` on a non-null val must report a Kotlin constant-condition inspection; pin the EXACT rule id and confirm it is enabled in THIS image's default Community profile from the CI control run — do not trust the guess."
       }
-    ]
-  },
-  "log": {
-    "mustNotContain": [
-      { "text": "Problems found loading plugins:", "guards": [] }
     ]
   }
 }

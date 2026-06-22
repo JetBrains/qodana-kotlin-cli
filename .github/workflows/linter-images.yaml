@@ -53,7 +53,7 @@ jobs:
           - name: qodana-jvm
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
-            requires_license: "false"
+            requires_license: "true"
           - name: qodana-jvm-community
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"

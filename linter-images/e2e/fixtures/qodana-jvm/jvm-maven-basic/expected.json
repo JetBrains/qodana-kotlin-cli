@@ -1,9 +1,10 @@
 {
   "case": "jvm-maven-basic",
   "image": "qodana-jvm",
-  "description": "Single-module Maven project: plain Java + a Kotlin file, four planted defects, hermetic run. Shape guards (tool driver, qodanaSeverity, DuplicatedCode exact count) over one SARIF.",
+  "description": "Single-module Maven project: plain Java + a Kotlin file, four planted defects; network bridge so Qodana auto-downloads projectJDK 17. Shape guards (tool driver, qodanaSeverity, DuplicatedCode exact count) over one SARIF.",
   "run": {
-    "network": "none",
+    "network": "bridge",
+    "passEnv": ["QODANA_LICENSE_ONLY_TOKEN"],
     "extraArgs": ["--no-statistics"]
   },
   "expectExitCode": 0,

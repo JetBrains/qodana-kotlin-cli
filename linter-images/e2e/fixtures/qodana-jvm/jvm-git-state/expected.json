@@ -3,7 +3,8 @@
   "image": "qodana-jvm",
   "description": "Git-state matrix: the basic project scanned with no .git (none) and a git-init-no-commit repo (init-no-head). Both must exit 0, produce SARIF, and keep the log free of the converter/contributor NPE strings (QD-4597, QD-3755).",
   "run": {
-    "network": "none",
+    "network": "bridge",
+    "passEnv": ["QODANA_LICENSE_ONLY_TOKEN"],
     "extraArgs": ["--no-statistics"],
     "variants": [
       { "id": "none", "gitState": "none" },
