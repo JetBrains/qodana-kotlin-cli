@@ -1,6 +1,8 @@
 version: "1.0"
 projectJDK: "17"
-# DuplicatedCode is a global inspection that may be off in the default profile; force it on so the
-# two identical methods in Hello.java surface (the planted DuplicatedCode defect).
+# DuplicatedCode and KotlinConstantConditions are not in the default qodana.starter profile; force
+# them on so the planted defects (the two identical methods in Hello.java; the always-true null
+# check in Demo.kt) surface.
 include:
   - name: DuplicatedCode
+  - name: KotlinConstantConditions

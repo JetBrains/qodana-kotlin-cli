@@ -1,2 +1,6 @@
 version: "1.0"
 projectJDK: "17"
+# KotlinConstantConditions is not in the default qodana.starter profile; force it on so the planted
+# always-true null check in Demo.kt surfaces.
+include:
+  - name: KotlinConstantConditions

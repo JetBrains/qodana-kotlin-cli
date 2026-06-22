@@ -1,7 +1,7 @@
 {
   "case": "jvmc-basic",
   "image": "qodana-jvm-community",
-  "description": "Single-module Maven project: plain Java + a Kotlin file, three planted defects; network bridge so Qodana auto-downloads projectJDK 17 (Community is free — no license token). Shape guards (tool driver, qodanaSeverity) over one SARIF. Driver name + rule ids are NEEDS-PINNING starting guesses — pin from a CI control run; DuplicatedCode is intentionally omitted (Ultimate-only, absent from the Community profile).",
+  "description": "Single-module Maven project: plain Java + a Kotlin file, three planted defects; network bridge so Qodana auto-downloads projectJDK 17 (Community is free — no license token). Shape guards (tool driver, qodanaSeverity) over one SARIF. DuplicatedCode is intentionally omitted (Ultimate-only, absent from the Community profile).",
   "run": {
     "network": "bridge",
     "extraArgs": ["--no-statistics"]
@@ -20,18 +20,18 @@
         "presence": "present",
         "count": ">=1",
         "uriContains": "Hello.java",
-        "pin": "needs-pinning",
+        "pin": "confirmed",
         "guards": [],
-        "reason": "STARTING-GUESS id: planted `a == b` on String must surface; pin exact id from CI control run."
+        "reason": "Planted `a == b` on String surfaces as StringEquality (CI-confirmed id)."
       },
       {
-        "ruleId": "EmptyCatchBlock",
+        "ruleId": "CatchMayIgnoreException",
         "presence": "present",
         "count": ">=1",
         "uriContains": "Hello.java",
-        "pin": "needs-pinning",
+        "pin": "confirmed",
         "guards": [],
-        "reason": "STARTING-GUESS id: planted empty catch must surface; pin exact id from CI control run."
+        "reason": "Planted empty catch surfaces as CatchMayIgnoreException (CI-confirmed; the bare EmptyCatchBlock inspection is not in this profile)."
       },
       {
         "ruleId": "KotlinConstantConditions",
@@ -40,7 +40,7 @@
         "uriContains": "Demo.kt",
         "pin": "needs-pinning",
         "guards": [],
-        "reason": "STARTING-GUESS id: an always-true `name != null` on a non-null val must report a Kotlin constant-condition inspection; pin the EXACT rule id and confirm it is enabled in THIS image's default Community profile from the CI control run — do not trust the guess."
+        "reason": "An always-true `name != null` on a non-null val must report KotlinConstantConditions (force-enabled via qodana.yaml include + kotlin-maven-plugin registers src/main/kotlin); confirm the exact id from the CI run."
       }
     ]
   }
