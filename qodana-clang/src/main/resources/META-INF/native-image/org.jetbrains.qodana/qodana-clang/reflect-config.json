@@ -1,5 +1,721 @@
 [
   {
+    "name": "com.jetbrains.qodana.sarif.model.Address",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Artifact",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ArtifactChange",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ArtifactContent",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ArtifactLocation",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Attachment",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.CodeFlow",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ConfigurationOverride",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Content",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Conversion",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Edge",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.EdgeTraversal",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.EnvironmentVariables",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Exception",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ExternalProperties",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ExternalProperties$Version",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ExternalPropertyFileReference",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ExternalPropertyFileReferences",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.FinalState",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Fix",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.GlobalMessageStrings",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Graph",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.GraphTraversal",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Hashes",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Headers",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Headers__1",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ImmutableState",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ImmutableState__1",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.InitialState",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.InitialState__1",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Invocation",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Level",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Location",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.LocationRelationship",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.LogicalLocation",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Message",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.MessageStrings",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.MultiformatMessageString",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Node",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Notification",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Notification$Level",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.OriginalUriBaseIds",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Parameters",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.PhysicalLocation",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Rectangle",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Region",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Replacement",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ReportingConfiguration",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ReportingDescriptor",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ReportingDescriptorReference",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ReportingDescriptorRelationship",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Result",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Result$BaselineState",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Result$Kind",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ResultProvenance",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Role",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Run",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Run$ColumnKind",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.RunAutomationDetails",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.SarifReport",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.SarifReport$Version",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.SpecialLocations",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Stack",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.StackFrame",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.State",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Suppression",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Suppression$Kind",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Suppression$Status",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ThreadFlow",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ThreadFlowLocation",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ThreadFlowLocation$Importance",
+    "allDeclaredFields": true
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.Tool",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ToolComponent",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.ToolComponentReference",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.TranslationMetadata",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.VersionControlDetails",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.VersionedMap$VersionedMapTypeAdapter",
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.WebRequest",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
+    "name": "com.jetbrains.qodana.sarif.model.WebResponse",
+    "allDeclaredFields": true,
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": []
+      }
+    ]
+  },
+  {
     "name": "org.jetbrains.qodana.clang.CompileCommand",
     "allDeclaredFields": true,
     "allDeclaredConstructors": true,
