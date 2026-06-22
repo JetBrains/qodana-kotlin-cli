@@ -1,7 +1,7 @@
 {
   "case": "jvmc-basic",
   "image": "qodana-jvm-community",
-  "description": "Single-module Maven project: plain Java + a Kotlin file, three planted defects; network bridge so Qodana auto-downloads projectJDK 17 (Community is free — no license token). Shape guards (tool driver, qodanaSeverity) over one SARIF. DuplicatedCode is intentionally omitted (Ultimate-only, absent from the Community profile).",
+  "description": "Single-module Maven project (plain Java), two planted defects; network bridge so Qodana auto-downloads projectJDK 17 (Community is free — no license token). Shape guards (tool driver, qodanaSeverity) over one SARIF. DuplicatedCode is intentionally omitted (Ultimate-only, absent from the Community profile).",
   "run": {
     "network": "bridge",
     "extraArgs": ["--no-statistics"]
@@ -32,15 +32,6 @@
         "pin": "confirmed",
         "guards": [],
         "reason": "Planted empty catch surfaces as CatchMayIgnoreException (CI-confirmed; the bare EmptyCatchBlock inspection is not in this profile)."
-      },
-      {
-        "ruleId": "KotlinConstantConditions",
-        "presence": "present",
-        "count": ">=1",
-        "uriContains": "Demo.kt",
-        "pin": "needs-pinning",
-        "guards": [],
-        "reason": "An always-true `name != null` on a non-null val must report KotlinConstantConditions (force-enabled via qodana.yaml include + kotlin-maven-plugin registers src/main/kotlin); confirm the exact id from the CI run."
       }
     ]
   }

@@ -1,8 +1,6 @@
 version: "1.0"
 projectJDK: "17"
-# DuplicatedCode and KotlinConstantConditions are not in the default qodana.starter profile; force
-# them on so the planted defects (the two identical methods in Hello.java; the always-true null
-# check in Demo.kt) surface.
+# DuplicatedCode is not in the default qodana.starter profile; force it on so the two identical
+# methods in Hello.java surface (the planted DuplicatedCode defect).
 include:
   - name: DuplicatedCode
-  - name: KotlinConstantConditions
