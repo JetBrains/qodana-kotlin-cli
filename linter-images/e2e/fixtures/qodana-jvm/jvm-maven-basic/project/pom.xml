@@ -11,8 +11,6 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   <dependencies>
-    <!-- Makes Qodana's Maven import register src/main/kotlin as a Kotlin source root with a
-         Kotlin facet, so Demo.kt is analyzed (KotlinConstantConditions). -->
     <dependency>
       <groupId>org.jetbrains.kotlin</groupId>
       <artifactId>kotlin-stdlib</artifactId>
@@ -21,6 +19,7 @@
   </dependencies>
   <build>
     <plugins>
+      <!-- kotlin-maven-plugin gives the module a Kotlin facet so Demo.kt is analyzed as Kotlin. -->
       <plugin>
         <groupId>org.jetbrains.kotlin</groupId>
         <artifactId>kotlin-maven-plugin</artifactId>
@@ -32,11 +31,27 @@
             <goals>
               <goal>compile</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <!-- build-helper add-source registers src/main/kotlin as an actual project source root; Qodana's
+           Maven import honors this (the kotlin-maven-plugin alone indexed Demo.kt but did not put it
+           in an inspected source root). -->
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <id>add-kotlin-source</id>
+            <phase>generate-sources</phase>
+            <goals>
+              <goal>add-source</goal>
+            </goals>
             <configuration>
-              <sourceDirs>
-                <source>src/main/kotlin</source>
-                <source>src/main/java</source>
-              </sourceDirs>
+              <sources>
+                <source>${project.basedir}/src/main/kotlin</source>
+              </sources>
             </configuration>
           </execution>
         </executions>
