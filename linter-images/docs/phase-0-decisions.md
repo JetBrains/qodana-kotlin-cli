@@ -155,29 +155,30 @@ DOTNET_CHANNELS = 8.0 9.0 10.0
 
 ### qodana-jvm feed pin (shared by jvm + android)
 
-Resolved 2026-06-11 from `download.jetbrains.com/qodana/feed/qodana-jvm.releases.json`
-(max-by-Date among `MajorVersion==2025.3` AND `Type==release`). `Code` is `QDJVM`.
+Resolved 2026-06-22 from `download.jetbrains.com/qodana/feed/qodana-jvm.releases.json`
+(max-by-Date among `MajorVersion==2026.1` AND `Type==release`), aligning jvm/android with the
+rest of the repo's images. `Code` is `QDJVM`.
 The `EnvContractTest` `pins match phase-0-decisions` test asserts
-`QODANA_JVM_VERSION == qodana-jvm.env QD_VERSION` (the MajorVersion `2025.3`) and
-`QODANA_JVM_BUILD == qodana-jvm.env QD_BUILD` (the `Build` `253.31821`). The
-download Link embeds an extra build segment (`...-253.31821.234.tar.gz`); use the
+`QODANA_JVM_VERSION == qodana-jvm.env QD_VERSION` (the MajorVersion `2026.1`) and
+`QODANA_JVM_BUILD == qodana-jvm.env QD_BUILD` (the `Build` `261.25881`). The
+download Link embeds an extra build segment (`...-261.25881.415.tar.gz`); use the
 feed's Link VERBATIM — do not reconstruct it from `Build`.
 
-QODANA_JVM_VERSION = 2025.3
-QODANA_JVM_BUILD = 253.31821
+QODANA_JVM_VERSION = 2026.1
+QODANA_JVM_BUILD = 261.25881
 
 Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
 
-QODANA_JVM_FULL_VERSION = 2025.3.5
+QODANA_JVM_FULL_VERSION = 2026.1.4
 
 Download links (verbatim from the feed):
 
-QODANA_JVM_LINUX_LINK = https://download.jetbrains.com/qodana/2025.3/qodana-QDJVM-253.31821.234.tar.gz
-QODANA_JVM_LINUX_ARM64_LINK = https://download.jetbrains.com/qodana/2025.3/qodana-QDJVM-253.31821.234-aarch64.tar.gz
+QODANA_JVM_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDJVM-261.25881.415.tar.gz
+QODANA_JVM_LINUX_ARM64_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDJVM-261.25881.415-aarch64.tar.gz
 
 ### Checksum + signature siblings (DistVerifier depends on these)
 
-Both siblings of the linux Link return HTTP 200 (probed live 2026-06-11,
+Both siblings of the linux Link return HTTP 200 (probed live 2026-06-22,
 following CDN redirects): the `.sha256` checksum and the `.sha256.asc` detached
 GPG signature `ChecksumLink + ".asc"`.
 
@@ -238,34 +239,34 @@ JETBRAINS_PUB_KEY_FINGERPRINT = B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501
 
 ## Community JVM dist (shared by jvm-community + android-community)
 
-Resolved 2026-06-17 from `download.jetbrains.com/qodana/feed/qodana-jvm-community.releases.json`
-(max-by-Date among `MajorVersion==2025.3` AND `Type==release` — same engine major as
+Resolved 2026-06-22 from `download.jetbrains.com/qodana/feed/qodana-jvm-community.releases.json`
+(max-by-Date among `MajorVersion==2026.1` AND `Type==release` — same engine major as
 the `qodana-jvm` pin above, so community + ultimate JVM track one engine major).
 Top-level feed `Code` is `QDJVMC`. The feed is the PUBLIC feed
 (`/qodana/feed`, no token): jvm-community is a released linter, so the image's
 `.env` OMITS `QD_DISTRIBUTION_FEED` and relies on the public default. Keys are
 named to match `BumpPinsCommand.syncDecisions` (slug `qodana-jvm-community` →
 `QODANA_JVM_COMMUNITY_BUILD`); `EnvContractTest` asserts byte-identity against the
-Phase-4 `.env`'s `QD_VERSION` (MajorVersion `2025.3`) and `QD_BUILD` (`253.31821`).
-The download Link embeds an extra build segment (`...-253.31821.152.tar.gz`); use
-the feed's Link VERBATIM — its `.152` differs from `qodana-jvm`'s `.234`, so do
+Phase-4 `.env`'s `QD_VERSION` (MajorVersion `2026.1`) and `QD_BUILD` (`261.25881`).
+The download Link embeds an extra build segment (`...-261.25881.145.tar.gz`); use
+the feed's Link VERBATIM — its `.145` differs from `qodana-jvm`'s `.415`, so do
 not reconstruct it from `Build`.
 
-QODANA_JVM_COMMUNITY_VERSION = 2025.3
-QODANA_JVM_COMMUNITY_BUILD = 253.31821
+QODANA_JVM_COMMUNITY_VERSION = 2026.1
+QODANA_JVM_COMMUNITY_BUILD = 261.25881
 
 Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
 
-QODANA_JVM_COMMUNITY_FULL_VERSION = 2025.3.4
+QODANA_JVM_COMMUNITY_FULL_VERSION = 2026.1.4
 
 Download links (verbatim from the feed):
 
-QODANA_JVM_COMMUNITY_LINUX_LINK = https://download.jetbrains.com/qodana/2025.3/qodana-QDJVMC-253.31821.152.tar.gz
-QODANA_JVM_COMMUNITY_LINUX_ARM64_LINK = https://download.jetbrains.com/qodana/2025.3/qodana-QDJVMC-253.31821.152-aarch64.tar.gz
+QODANA_JVM_COMMUNITY_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDJVMC-261.25881.145.tar.gz
+QODANA_JVM_COMMUNITY_LINUX_ARM64_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDJVMC-261.25881.145-aarch64.tar.gz
 
 ### Checksum + signature siblings (DistVerifier depends on these)
 
-Both siblings of the linux Link return HTTP 200 (probed live 2026-06-17,
+Both siblings of the linux Link return HTTP 200 (probed live 2026-06-22,
 following CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the
 `.sha256.asc` detached GPG signature (`ChecksumLink + ".asc"`).
 
