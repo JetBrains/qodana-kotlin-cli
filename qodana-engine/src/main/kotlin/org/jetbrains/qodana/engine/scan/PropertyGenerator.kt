@@ -81,6 +81,12 @@ object PropertyGenerator {
             // Headless AWT – required for Linux/macOS servers without a display
             appendLine("-Djava.awt.headless=true")
 
+            // idea.log.path belongs in the WIRED vmoptions: idea.properties (which also carries it) has no
+            // IDEA_PROPERTIES env pointing the IDE at it, so it is never read. Without this the IDE logs to
+            // its product default ($HOME/.cache/JetBrains/<Product><Ver>/log), outside the results tree the
+            // report and e2e log gate capture (QD-15111).
+            appendLine("-Didea.log.path=${context.paths.resultsDir.resolve("log")}")
+
             // Debug port when requested
             context.runtime.jvmDebugPort?.let { port ->
                 appendLine("-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:$port")

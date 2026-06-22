@@ -9,8 +9,8 @@
   "expectExitCode": 0,
   "sarif": {
     "tool": {
-      "driverName": null,
-      "driverFullName": null
+      "driverName": "QDRST",
+      "driverFullName": "Qodana for Rust"
     },
     "schemaValid": false,
     "qodanaSeverityRequired": true,
@@ -20,18 +20,18 @@
         "presence": "present",
         "count": ">=1",
         "uriContains": "main.rs",
-        "pin": "needs-pinning",
+        "pin": "confirmed",
         "guards": [],
-        "reason": "STARTING-GUESS id: the planted `use std::fmt::Write;` that is never used must surface as an unused-import inspection; pin the exact id from a CI control run and confirm it is in the Ultimate RustRover profile."
+        "reason": "The planted `use std::fmt::Write;` is never used and surfaces as RsUnusedImport (qodanaSeverity High); confirmed from the QD-15111 CI control SARIF."
       },
       {
         "ruleId": "RsVariableNaming",
         "presence": "present",
         "count": ">=1",
         "uriContains": "main.rs",
-        "pin": "needs-pinning",
+        "pin": "confirmed",
         "guards": [],
-        "reason": "STARTING-GUESS id: the planted non-snake-case binding `let MyValue = 42` must surface as a naming-convention inspection; pin the exact id from a CI control run and confirm it is in the Ultimate RustRover profile."
+        "reason": "The planted non-snake-case binding `let MyValue = 42` surfaces as RsVariableNaming (qodanaSeverity High); confirmed from the QD-15111 CI control SARIF."
       }
     ]
   },

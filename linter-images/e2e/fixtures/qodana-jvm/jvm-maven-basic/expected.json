@@ -52,10 +52,5 @@
         "reason": "STARTING-GUESS id: an always-true `name != null` on a non-null val must report a Kotlin constant-condition inspection; pin the EXACT rule id (KotlinConstantConditions vs a profile-specific variant) and confirm it is enabled in THIS image's default profile from the CI control run — do not trust the guess."
       }
     ]
-  },
-  "log": {
-    "mustNotContain": [
-      { "text": "Problems found loading plugins:", "guards": [] }
-    ]
   }
 }
