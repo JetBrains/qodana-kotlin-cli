@@ -1,2 +1,6 @@
 version: "1.0"
 projectJDK: "17"
+# DuplicatedCode is a global inspection that may be off in the default profile; force it on so the
+# two identical methods in Hello.java surface (the planted DuplicatedCode defect).
+include:
+  - name: DuplicatedCode

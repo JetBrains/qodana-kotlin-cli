@@ -29,7 +29,7 @@
   "log": {
     "mustNotContain": [
       { "text": "Couldn't find repositoryUri", "guards": ["QD-4597"] },
-      { "text": "GitReportContributor", "guards": ["QD-3755"] }
+      { "text": "GitReportContributor.contribute", "guards": ["QD-3755"] }
     ]
   }
 }

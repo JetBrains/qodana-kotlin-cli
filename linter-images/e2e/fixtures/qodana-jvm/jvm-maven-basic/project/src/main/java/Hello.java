@@ -4,12 +4,12 @@ public class Hello {
         return a == b;
     }
 
-    // EmptyCatchBlock: catch block with nothing in it.
+    // EmptyCatchBlock: a TRULY empty catch block. A comment inside counts as
+    // content and suppresses the inspection, so the block is left bare.
     public void swallowExceptions() {
         try {
             doStuff();
         } catch (Exception e) {
-            // intentionally empty
         }
     }
 
@@ -17,26 +17,38 @@ public class Hello {
         throw new RuntimeException();
     }
 
-    // DuplicatedCode pair #1: long enough to clear the duplicate-detector
-    // token threshold. Kept byte-for-byte identical to sumWidgetsB below.
+    // DuplicatedCode pair #1: a long, byte-for-byte identical body to
+    // sumWidgetsB, sized well past the duplicate-detector threshold.
     int sumWidgetsA(int[] xs) {
         int total = 0;
+        int min = Integer.MAX_VALUE;
+        int max = Integer.MIN_VALUE;
         for (int x : xs) {
             int weighted = x * 3 + 7;
             int clamped = weighted > 100 ? 100 : weighted;
-            total += clamped;
+            int adjusted = clamped < 0 ? 0 : clamped;
+            total += adjusted;
+            if (adjusted < min) min = adjusted;
+            if (adjusted > max) max = adjusted;
         }
-        return total;
+        int span = max - min;
+        return total + span;
     }
 
     // DuplicatedCode pair #2: identical body to sumWidgetsA.
     int sumWidgetsB(int[] xs) {
         int total = 0;
+        int min = Integer.MAX_VALUE;
+        int max = Integer.MIN_VALUE;
         for (int x : xs) {
             int weighted = x * 3 + 7;
             int clamped = weighted > 100 ? 100 : weighted;
-            total += clamped;
+            int adjusted = clamped < 0 ? 0 : clamped;
+            total += adjusted;
+            if (adjusted < min) min = adjusted;
+            if (adjusted > max) max = adjusted;
         }
-        return total;
+        int span = max - min;
+        return total + span;
     }
 }
