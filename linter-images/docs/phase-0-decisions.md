@@ -276,9 +276,9 @@ QODANA_JVM_COMMUNITY_LINUX_ASC_SIBLING = 200
 ### product-info.json code (verify-dist-layout depends on this)
 
 `IU`, the same code `qodana-jvm` uses. The QDJVMC Community dist embeds the IU
-IDEA platform: downloading `qodana-QDJVMC-253.31821.152.tar.gz` shows its root
+IDEA platform: downloading `qodana-QDJVMC-261.25881.145.tar.gz` shows its root
 `product-info.json` carries `productCode=IU` and `name` "IntelliJ IDEA" (the
-product-info `version` field reads 2025.3.3). The Community identity is NOT in
+product-info `version` field reads a 2026.1.x build). The Community identity is NOT in
 `product-info.json` — it is carried by `dist.flavour.txt=QDJVMC` at the dist root,
 which qodana-cli reads first (`ReadDistFlavour`) to resolve the Community linter.
 So `verify-dist-layout`, which checks the `product-info.json` `productCode`, must
@@ -293,7 +293,7 @@ QODANA_JVM_COMMUNITY_FEED_CODE = QDJVMC
 
 Resolved 2026-06-17 from `download.jetbrains.com/qodana/feed/qodana-python.releases.json`
 (max-by-Date among `Type==release`). Unlike the JVM pins (forced to engine major
-`2025.3`), each Python image tracks ITS OWN newest release, mirroring the existing
+`2026.1`), each Python image tracks ITS OWN newest release, mirroring the existing
 per-image fleet: the current newest `release` is the 2026.1 line (`261.25883`).
 Top-level feed `Code` is `QDPY`. The feed is the PUBLIC feed (`/qodana/feed`, no
 token): qodana-python is a released linter, so the image's `.env` OMITS
