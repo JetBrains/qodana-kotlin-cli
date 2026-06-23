@@ -20,11 +20,12 @@ import kotlin.io.path.name
  * byte-identical to phase-0-decisions.md, and the major does not move within a within-major bump).
  *
  * The selected build is resolved ONCE per distinct `(slug, feed, major, releaseType)` and reused
- * across the `.env` files that share that exact pin (jvm + android), so the two never diverge from a
- * mid-run feed change. After the `.env` rewrites, the matching `QODANA_<SLUG>_BUILD` row in
- * [decisionsFile] (asserted present) is synced so the produced drift PR keeps EnvContractTest green.
- * Cross-major builds are never selected (this is the ONLY place a newer build is chosen by date;
- * `ReleaseSelector` stays an exact pin).
+ * across the `.env` files that share that exact dist pin (jvm + android), so they agree on the new
+ * build. After the `.env` rewrites, each image's OWN `QODANA_<IMAGE>_BUILD` row in [decisionsFile] is
+ * synced — keyed on the `.env` FILE NAME (see [pinName]), NOT the dist slug, since android reuses the
+ * jvm dist yet pins its own row — so the produced drift PR keeps EnvContractTest green. Cross-major
+ * builds are never selected (this is the ONLY place a newer build is chosen by date; `ReleaseSelector`
+ * stays an exact pin).
  */
 class BumpPinsCommand(
     private val feedClient: FeedClient,

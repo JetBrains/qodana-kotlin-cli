@@ -53,7 +53,8 @@ jobs:
           KEY=linter-images/docker/lib/jetbrains.pub
           FAILED=0
           # Read each key per-file with grep (NOT `source`, which would leak a prior file's value into a
-          # file that omits the key). jvm and android share the qodana-jvm pin → dedup the verify work.
+          # file that omits the key). jvm and android bake the SAME dist (QD_LINTER_SLUG=qodana-jvm), so
+          # the SLUG:VERSION:BUILD:FEED dedup collapses their identical re-verification into one.
           declare -A SEEN
           val() { grep -E "^$1=" "$2" | head -1 | cut -d= -f2- || true; }
           for env in linter-images/docker/images/*.env; do

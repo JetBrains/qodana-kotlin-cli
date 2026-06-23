@@ -14,10 +14,11 @@ import org.jetbrains.qodana.images.dist.ReleaseSelector
 import java.nio.file.Files
 
 /**
- * Re-resolve the currently-pinned feed Link + .sha256 + .sha256.asc (EXACT major+build pin) and
- * RE-VERIFY GPG+sha256. Fail-closed: a 404 or any verification failure throws/exits non-zero so the
- * scheduled canary opens an issue. No `|| true` anywhere. Reuses the canonical dist-package types —
- * including the SINGLE download path [DistVerifier.download] (no local curl loop).
+ * Re-resolve the currently-pinned feed Link + .sha256 (+ .sha256.asc in gpg mode) at the EXACT
+ * major+build pin and RE-VERIFY: GPG+sha256 for a signed public dist, or sha256-only when
+ * `--verify-mode sha256` (the unsigned internal nightly feed). Fail-closed: a 404 or any verification
+ * failure throws/exits non-zero so the scheduled canary opens an issue. No `|| true` anywhere. Reuses
+ * the canonical dist-package types — including the SINGLE download path [DistVerifier.download].
  */
 class VerifyPinCommand(
     private val feedClient: FeedClient,

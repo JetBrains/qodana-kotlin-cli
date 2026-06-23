@@ -611,6 +611,9 @@ class EnvContractTest {
         val android = parseEnv("qodana-android")
         assertEquals(pin("QODANA_ANDROID_VERSION"), android["QD_VERSION"], "android major must match phase-0-decisions")
         assertEquals(pin("QODANA_ANDROID_BUILD"), android["QD_BUILD"], "android build pin must match phase-0-decisions")
+        // The decouple dropped the jvm↔android byte-identity assert; re-anchor android's base to the
+        // shared phase-0 pin (the bookworm digest jvm also asserts) so a drifted digest still fails CI.
+        assertEquals(pin("QD_BASE_IMAGE"), android["QD_BASE_IMAGE"], "android base digest must match phase-0-decisions")
     }
 
     @Test

@@ -15,18 +15,20 @@ data class DownloadedDist(
 
 /**
  * Fail-closed GPG + sha256 verification of an existing UPSTREAM JetBrains signature, plus the ONE
- * download path that fetches the dist triple. [download] curls `resolved.link` + its `.sha256` +
- * `.sha256.asc` siblings through [runner] (bearer header IFF [token] != null). [verify] then
- * GPG-signer-matches FIRST (import into an EPHEMERAL homedir+keyring, then match the pinned
- * fingerprint) and only then sha256. Every gpg/sha256/curl call goes through [runner].
+ * download path that fetches the dist. [download] curls `resolved.link` + its `.sha256` (and, unless
+ * `skipAsc`, the `.sha256.asc` signature) through [runner] (bearer header IFF [token] != null).
+ * [verify] then GPG-signer-matches FIRST (import into an EPHEMERAL homedir+keyring, then match the
+ * pinned fingerprint) and only then sha256 — OR, for an unsigned dist (`asc` null), sha256 only. Every
+ * gpg/sha256/curl call goes through [runner].
  */
 class DistVerifier(
     private val runner: CommandRunner,
 ) {
     /**
-     * Downloads the archive + `.sha256` + `.sha256.asc` for [resolved] into [workDir]. The detached
-     * signature link is derived as `checksumLink + ".asc"`. Fail-closed: any non-zero curl throws.
-     * This is the SINGLE download path shared by provision-dist and verify-pin.
+     * Downloads the archive + `.sha256` for [resolved] into [workDir], plus the `.sha256.asc` signature
+     * unless [skipAsc] (internal nightly: unsigned, so [asc][DownloadedDist.asc] is null). The detached
+     * signature link is derived as `checksumLink + ".asc"`. Fail-closed: any non-zero curl throws. This
+     * is the SINGLE download path shared by provision-dist and verify-pin.
      */
     fun download(
         resolved: ResolvedDist,
