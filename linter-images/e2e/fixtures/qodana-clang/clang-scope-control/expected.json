@@ -11,7 +11,7 @@
   "expectExitCode": 0,
   "sarif": {
     "tool": {
-      "driverName": "QDCL",
+      "driverName": "QDCLC",
       "driverFullName": "Qodana Community for C/C++"
     },
     "qodanaSeverityRequired": false,

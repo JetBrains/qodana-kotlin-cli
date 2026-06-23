@@ -21,6 +21,7 @@ class ClangRunner(
         context: ThirdPartyScanContext,
         files: List<FileWithHeaders>,
         checks: String,
+        configFile: String?,
         clangPath: Path,
     ) {
         val tmpResultsDir = context.paths.resultsDir.resolve("tmp")
@@ -50,6 +51,7 @@ class ClangRunner(
                             counter = counter,
                             input = fileWithHeaders,
                             checks = checks,
+                            configFile = configFile,
                             context = context,
                             clangPath = clangPath,
                             tmpResultsDir = tmpResultsDir,
@@ -69,6 +71,7 @@ class ClangRunner(
         counter: Int,
         input: FileWithHeaders,
         checks: String,
+        configFile: String?,
         context: ThirdPartyScanContext,
         clangPath: Path,
         tmpResultsDir: Path,
@@ -78,20 +81,7 @@ class ClangRunner(
         val sarifOutput = tmpResultsDir.resolve("$counter.sarif.json")
         val compileCommands = context.compileCommands ?: return
 
-        val args =
-            buildList {
-                add(checks)
-                add("-p")
-                add(compileCommands)
-                add("--export-sarif")
-                add(sarifOutput.toString())
-                addAll(input.headers)
-                add(input.file)
-                add("--quiet")
-                if (context.clangArgs.isNotBlank()) {
-                    addAll(context.clangArgs.split(" ").filter { it.isNotBlank() })
-                }
-            }
+        val args = buildClangTidyArgs(checks, configFile, compileCommands, input, sarifOutput, context.clangArgs)
 
         val result =
             processRunner.run(
@@ -119,3 +109,30 @@ class ClangRunner(
         Files.writeString(path, content, StandardOpenOption.CREATE, StandardOpenOption.APPEND)
     }
 }
+
+/**
+ * Assembles clang-tidy's argument list. [checks] is omitted when blank so a "defer to config" empty
+ * value is never passed as an empty arg. [configFile] (a `_clang-tidy`) is forwarded as
+ * `--config-file=` before `-p`, matching qodana-cli `clang/clang.go:154-170`. [clangArgs] is split
+ * on spaces and appended verbatim (pre-existing behavior; no shlex/`--` handling).
+ */
+internal fun buildClangTidyArgs(
+    checks: String,
+    configFile: String?,
+    compileCommands: String,
+    input: FileWithHeaders,
+    sarifOutput: Path,
+    clangArgs: String,
+): List<String> =
+    buildList {
+        if (checks.isNotBlank()) add(checks)
+        if (!configFile.isNullOrBlank()) add("--config-file=$configFile")
+        add("-p")
+        add(compileCommands)
+        add("--export-sarif")
+        add(sarifOutput.toString())
+        addAll(input.headers)
+        add(input.file)
+        add("--quiet")
+        if (clangArgs.isNotBlank()) addAll(clangArgs.split(" ").filter { it.isNotBlank() })
+    }
