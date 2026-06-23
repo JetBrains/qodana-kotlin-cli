@@ -4,12 +4,12 @@ public class Hello {
         return a == b;
     }
 
-    // EmptyCatchBlock: catch block with nothing in it.
+    // EmptyCatchBlock: a TRULY empty catch block. A comment inside counts as
+    // content and suppresses the inspection, so the block is left bare.
     public void swallowExceptions() {
         try {
             doStuff();
         } catch (Exception e) {
-            // intentionally empty
         }
     }
 

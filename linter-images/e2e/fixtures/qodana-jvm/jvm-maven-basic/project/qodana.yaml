@@ -1,1 +1,6 @@
 version: "1.0"
+projectJDK: "17"
+# DuplicatedCode is not in the default qodana.starter profile; force it on so the two identical
+# methods in Hello.java surface (the planted DuplicatedCode defect).
+include:
+  - name: DuplicatedCode

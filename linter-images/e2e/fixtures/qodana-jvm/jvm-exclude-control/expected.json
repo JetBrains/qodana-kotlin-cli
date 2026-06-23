@@ -1,9 +1,10 @@
 {
   "case": "jvm-exclude-control",
   "image": "qodana-jvm",
-  "description": "Exclude control-vs-treatment FP regression: two dirs trip the same rule; treatment excludes it by name (QD-1699) and path-scoped under excluded/ (QD-1473). Rule id resolved from the control run.",
+  "description": "Exclude control-vs-treatment FP regression: two dirs trip StringEquality; treatment excludes it by name (QD-1699) and path-scoped under excluded/ (QD-1473). network bridge: Qodana auto-downloads projectJDK 17.",
   "run": {
-    "network": "none",
+    "network": "bridge",
+    "passEnv": ["QODANA_LICENSE_ONLY_TOKEN"],
     "extraArgs": ["--no-statistics"],
     "variants": [
       { "id": "control", "qodanaYaml": "qodana.control.yaml" },
@@ -21,9 +22,9 @@
         "presence": "present",
         "count": ">=1",
         "uriContains": "planted/Planted.java",
-        "pin": "needs-pinning",
+        "pin": "confirmed",
         "guards": [],
-        "reason": "STARTING-GUESS id: control run must find the planted rule under planted/; this match supplies the id reused by the treatment absent-checks."
+        "reason": "Control run finds the planted StringEquality under planted/ (CI-confirmed id); the treatment then excludes it."
       },
       {
         "ruleId": "StringEquality",
@@ -31,9 +32,9 @@
         "presence": "present",
         "count": ">=1",
         "uriContains": "excluded/Sub.java",
-        "pin": "needs-pinning",
+        "pin": "confirmed",
         "guards": [],
-        "reason": "STARTING-GUESS id: control run must also find the SAME rule under excluded/, proving the path-scoped exclude (not the absence of a defect) is what removes it in treatment."
+        "reason": "Control run also finds the SAME StringEquality under excluded/, proving the path-scoped exclude (not the absence of a defect) is what removes it in treatment."
       },
       {
         "ruleId": "StringEquality",
@@ -41,9 +42,9 @@
         "presence": "absent",
         "count": "==0",
         "uriContains": "planted/Planted.java",
-        "pin": "needs-pinning",
+        "pin": "confirmed",
         "guards": ["QD-1699"],
-        "reason": "Exclude-by-name must remove the rule project-wide, including under planted/ (QD-1699). Id resolved from the control variant's planted/ match."
+        "reason": "Exclude-by-name (qodana.treatment.yaml `exclude: - name: StringEquality`) must remove the rule project-wide, including under planted/ (QD-1699)."
       },
       {
         "ruleId": "StringEquality",
@@ -51,9 +52,9 @@
         "presence": "absent",
         "count": "==0",
         "uriContains": "excluded/Sub.java",
-        "pin": "needs-pinning",
+        "pin": "confirmed",
         "guards": ["QD-1473"],
-        "reason": "Path-scoped exclude must remove findings under excluded/ (QD-1473). Id resolved from the control variant's excluded/ match."
+        "reason": "Path-scoped exclude (qodana.treatment.yaml `exclude: - name: All, paths: [excluded]`) must remove findings under excluded/ (QD-1473)."
       }
     ]
   }
