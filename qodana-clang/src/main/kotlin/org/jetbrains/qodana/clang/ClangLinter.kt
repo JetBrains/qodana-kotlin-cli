@@ -23,7 +23,7 @@ class ClangLinter(
 
     override suspend fun runAnalysis(context: ThirdPartyScanContext) {
         logger.info("Starting clang-tidy analysis for {}", context.paths.projectDir)
-        val checks = ClangConfig.buildChecksArg(context.yaml)
+        val checks = ClangConfig.processConfig(context.yaml, context.paths.projectDir).checks
 
         val compileCommandsPath =
             Path.of(
