@@ -6,11 +6,11 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
 
-/** The downloaded dist triple: the archive and its detached sha256 + GPG signature. */
+/** The downloaded dist: the archive, its detached sha256, and (GPG mode only) the `.asc` signature. */
 data class DownloadedDist(
     val archive: Path,
     val sha256: Path,
-    val asc: Path,
+    val asc: Path?,
 )
 
 /**
@@ -32,14 +32,23 @@ class DistVerifier(
         resolved: ResolvedDist,
         token: String?,
         workDir: Path,
+        skipAsc: Boolean = false,
     ): DownloadedDist {
         Files.createDirectories(workDir)
         val archive = workDir.resolve(resolved.link.substringAfterLast('/'))
         val sha256 = workDir.resolve(resolved.checksumLink.substringAfterLast('/'))
-        val asc = workDir.resolve(resolved.checksumLink.substringAfterLast('/') + ".asc")
         curl(resolved.link, archive, token)
         curl(resolved.checksumLink, sha256, token)
-        curl(resolved.checksumLink + ".asc", asc, token)
+        // sha256-only (internal nightly): the dist is unsigned, so there is NO `.sha256.asc` to fetch
+        // -- curling it would 404 and fail-close before verification. Skip it; verify() skips GPG.
+        val asc =
+            if (skipAsc) {
+                null
+            } else {
+                workDir
+                    .resolve(resolved.checksumLink.substringAfterLast('/') + ".asc")
+                    .also { curl(resolved.checksumLink + ".asc", it, token) }
+            }
         return DownloadedDist(archive, sha256, asc)
     }
 
@@ -60,11 +69,11 @@ class DistVerifier(
     fun verify(
         archive: Path,
         sha256: Path,
-        asc: Path,
+        asc: Path?,
         gpgKey: Path,
         fingerprint: String,
     ) {
-        verifyGpg(gpgKey, fingerprint, asc, sha256, archive.parent)
+        verifyGpg(gpgKey, fingerprint, requireNotNull(asc), sha256, archive.parent)
         verifySha256(archive, sha256)
     }
 

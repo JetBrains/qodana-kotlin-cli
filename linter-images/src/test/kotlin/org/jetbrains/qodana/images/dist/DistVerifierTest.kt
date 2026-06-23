@@ -128,4 +128,49 @@ class DistVerifierTest {
         assertTrue(ex.message!!.contains("verification failed"), ex.message)
         assertTrue(runner.invocations.none { call -> call.any { it == "sha256sum" } })
     }
+
+    @Test
+    fun `download with skipAsc fetches archive plus sha256 only and leaves asc null`(
+        @TempDir tmp: Path,
+    ) {
+        val runner = FakeCommandRunner()
+        runner.on({ it.contains("curl") }) { argv ->
+            val out = Path.of(argv[argv.indexOf("-o") + 1])
+            Files.createDirectories(out.parent)
+            Files.writeString(out, "body")
+            CommandResult(0, "", "")
+        }
+        val resolved =
+            ResolvedDist(
+                link = "https://feed.example/qodana-QDJVM-263.1.2.tar.gz",
+                checksumLink = "https://feed.example/qodana-QDJVM-263.1.2.tar.gz.sha256",
+            )
+        val dl = DistVerifier(runner).download(resolved, token = null, workDir = tmp, skipAsc = true)
+        assertEquals(null, dl.asc, "sha256-only download must not curl a .asc")
+        val curlUrls = runner.invocations.filter { it.contains("curl") }.map { it.last() }
+        assertEquals(2, curlUrls.size, curlUrls.toString())
+        assertTrue(curlUrls.none { it.endsWith(".asc") }, "no .asc curl in sha256-only mode: $curlUrls")
+    }
+
+    @Test
+    fun `download without skipAsc still fetches the asc sibling`(
+        @TempDir tmp: Path,
+    ) {
+        val runner = FakeCommandRunner()
+        runner.on({ it.contains("curl") }) { argv ->
+            val out = Path.of(argv[argv.indexOf("-o") + 1])
+            Files.createDirectories(out.parent)
+            Files.writeString(out, "body")
+            CommandResult(0, "", "")
+        }
+        val resolved =
+            ResolvedDist(
+                link = "https://feed.example/qodana-QDJVM-263.1.2.tar.gz",
+                checksumLink = "https://feed.example/qodana-QDJVM-263.1.2.tar.gz.sha256",
+            )
+        val dl = DistVerifier(runner).download(resolved, token = null, workDir = tmp)
+        assertTrue(dl.asc != null, "public GPG mode must download the .asc")
+        val curlUrls = runner.invocations.filter { it.contains("curl") }.map { it.last() }
+        assertTrue(curlUrls.any { it.endsWith(".asc") }, "expected a .asc curl: $curlUrls")
+    }
 }
