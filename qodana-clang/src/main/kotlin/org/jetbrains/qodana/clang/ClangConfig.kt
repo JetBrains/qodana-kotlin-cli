@@ -79,6 +79,8 @@ object ClangConfig {
         if (yaml == null) return ""
         val includeRules = mutableListOf<String>()
         for (include in yaml.include) {
+            // qodana-cli trims only for the clion- check and appends the raw name; we trim once so a
+            // whitespace-padded name yields a clean check token instead of a malformed `  name  `.
             val name = include.name.trim()
             when {
                 name.startsWith("clion-") -> Unit

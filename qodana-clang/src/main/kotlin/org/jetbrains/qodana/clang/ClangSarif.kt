@@ -3,7 +3,6 @@ package org.jetbrains.qodana.clang
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ObjectNode
-import com.fasterxml.jackson.module.kotlin.kotlinModule
 import org.jetbrains.qodana.core.product.Linters
 import org.slf4j.LoggerFactory
 import java.nio.file.Path
@@ -18,7 +17,7 @@ import java.nio.file.Path
  */
 object ClangSarif {
     private val logger = LoggerFactory.getLogger(ClangSarif::class.java)
-    private val mapper = ObjectMapper().registerModule(kotlinModule())
+    private val mapper = ObjectMapper()
 
     fun postProcess(sarifPath: Path) {
         logger.info("Post-processing clang SARIF report: {}", sarifPath)

@@ -61,6 +61,17 @@ class ClangTidyConfigTest {
     }
 
     @Test
+    fun `nearer underscore clang-tidy in start beats dot-clang-tidy in parent`(
+        @TempDir root: Path,
+    ) {
+        // Nearness wins over name precedence: the start dir's config is returned before ascending.
+        writeConfig(root, ".clang-tidy")
+        val start = Files.createDirectories(root.resolve("project"))
+        writeConfig(start, "_clang-tidy")
+        assertEquals("_clang-tidy", ClangTidyConfig.find(start, searchRoot = root)?.fileName?.toString())
+    }
+
+    @Test
     fun `returns null when no config anywhere`(
         @TempDir root: Path,
     ) {

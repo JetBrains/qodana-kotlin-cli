@@ -130,4 +130,13 @@ class ClangSarifTest {
         ClangSarif.postProcess(sarif)
         assertEquals("QDCLC", driver(sarif).path("name").asText())
     }
+
+    @Test
+    fun `sarif without runs is a no-op`(
+        @TempDir dir: Path,
+    ) {
+        val sarif = writeSarif(dir, """{"version":"2.1.0"}""")
+        ClangSarif.postProcess(sarif) // must not throw when the runs array is absent
+        assertEquals("2.1.0", mapper.readTree(sarif.toFile()).path("version").asText())
+    }
 }

@@ -171,6 +171,15 @@ class ClangConfigTest {
         )
     }
 
+    @Test
+    fun `whitespace-padded includes are trimmed - clion dropped, others appended clean`(
+        @TempDir root: Path,
+    ) {
+        // The clion- prefix is detected after trimming; a kept name is appended trimmed (no malformed token).
+        val r = process(projectUnder(root), root, QodanaYaml(include = inc("  clion-x  ", "  bugprone-*  ")))
+        assertEquals("--checks=$defaults,bugprone-*", r.checks)
+    }
+
     // .clang-tidy present: the config is the base; defaults are dropped.
 
     @Test
