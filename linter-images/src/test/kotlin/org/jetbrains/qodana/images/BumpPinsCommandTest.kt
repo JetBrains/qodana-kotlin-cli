@@ -421,6 +421,7 @@ class BumpPinsCommandTest {
                 ]}""",
             )
         BumpPinsCommand(FeedClient(runner)).rewrite(dir.toPath(), decisions.toPath())
-        assertTrue(decisions.readText().contains("QODANA_RUBY_BUILD = 261.2000"), "shared ruby row synced: ${decisions.readText()}")
+        val text = decisions.readText()
+        assertTrue(text.contains("QODANA_RUBY_BUILD = 261.2000"), "shared ruby row synced: $text")
     }
 }

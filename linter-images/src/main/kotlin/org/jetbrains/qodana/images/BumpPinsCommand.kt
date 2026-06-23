@@ -92,8 +92,7 @@ class BumpPinsCommand(
      * slug-keyed sync would leave android's row stale and redden the drift PR. Runtime variants (a
      * trailing `-X.Y`, e.g. qodana-ruby-3.2) collapse to their base linter's single shared row.
      */
-    private fun pinName(env: Path): String =
-        env.name.removeSuffix(".env").replace(Regex("""-\d+\.\d+$"""), "")
+    private fun pinName(env: Path): String = env.name.removeSuffix(".env").replace(Regex("""-\d+\.\d+$"""), "")
 
     private fun resolveNewestBuild(
         feedUrl: String,
