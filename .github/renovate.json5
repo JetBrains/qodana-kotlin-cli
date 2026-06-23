@@ -19,13 +19,13 @@
     {
       "matchHost": "packages.jetbrains.team",
       "authType": "Bearer",
-      "token": "{{ secrets.QODANA_CLI_DEPS_TOKEN }}"
+      "token": "{{ secrets.QODANA_READ_SPACE_PACKAGES_TOKEN }}"
     }
   ],
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Track CLANG_TIDY_VERSION (qodana-cli-deps clang-tidy package tag) in the clang .env (QD-14960). The token-gated versions.json datasource is custom.qodana-cli-deps; the bot supplies QODANA_CLI_DEPS_TOKEN via the hostRules secret above.",
+      "description": "Track CLANG_TIDY_VERSION (qodana-cli-deps clang-tidy package tag) in the clang .env (QD-14960). The token-gated versions.json datasource is custom.qodana-cli-deps; the bot supplies QODANA_READ_SPACE_PACKAGES_TOKEN via the hostRules secret above.",
       "managerFilePatterns": ["linter-images/docker/images/qodana-clang.env"],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+CLANG_TIDY_VERSION=(?<currentValue>\\S+)"
@@ -117,8 +117,8 @@
       "matchDatasources": ["custom.qodana-cli-deps"],
       "automerge": false,
       "prBodyNotes": [
-        "clang-tidy: refresh CLANG_TIDY_SHA256 (the `ARG` default in `lib/tools.dockerfile`) — download `clang-tidy-linux-amd64.tar.gz` from the qodana-cli-deps mirror at the new tag (with QODANA_CLI_DEPS_TOKEN) and update the sha256 the clang image build verifies.",
-        "resharper-clt: refresh CLT_SHA256 (the `ARG` default in `lib/resharper-clt.dockerfile`) — download `clt.zip` from the qodana-cli-deps mirror at the new tag (with QODANA_CLI_DEPS_TOKEN) and update the sha256 the cdnet image build verifies."
+        "clang-tidy: refresh CLANG_TIDY_SHA256 (the `ARG` default in `lib/tools.dockerfile`) — download `clang-tidy-linux-amd64.tar.gz` from the qodana-cli-deps mirror at the new tag (with QODANA_READ_SPACE_PACKAGES_TOKEN) and update the sha256 the clang image build verifies.",
+        "resharper-clt: refresh CLT_SHA256 (the `ARG` default in `lib/resharper-clt.dockerfile`) — download `clt.zip` from the qodana-cli-deps mirror at the new tag (with QODANA_READ_SPACE_PACKAGES_TOKEN) and update the sha256 the cdnet image build verifies."
       ]
     }
   ]

@@ -6,10 +6,10 @@
 # scan works under `network: none` and is independent of the writable /data/cache scratch mount.
 #
 # The mirror is PRIVATE (packages.jetbrains.team). `ADD` cannot carry credentials, so this fetches
-# with `curl` from a build secret (id=qodana_cli_deps_token) using `Authorization: Bearer` — the form
+# with `curl` from a build secret (id=space_packages_token) using `Authorization: Bearer` — the form
 # the canonical qodana-cli `download-clang-tidy.go` uses for this exact Space mirror (a JB Space
 # bearer token). The secret id MUST stay consistent across the `--mount` here, compose.private.yaml,
-# and CI (Phase 5 wires QODANA_CLI_DEPS_TOKEN into the build). The mirror path prepends `v` to the
+# and CI (Phase 5 wires QODANA_READ_SPACE_PACKAGES_TOKEN into the build). The mirror path prepends `v` to the
 # package tag: `${CLANG_TIDY_MIRROR}/v${CLANG_TIDY_VERSION}/clang-tidy-linux-${CLI_ARCH}.tar.gz`.
 # sha256 is verified fail-closed against CLANG_TIDY_SHA256 (defaulted below to the amd64 archive for
 # the pinned CLANG_TIDY_VERSION; Renovate's packageRule PR note prompts a refresh on bump). The token
@@ -32,13 +32,13 @@ ARG CLI_ARCH
 ARG CLANG_TIDY_TOOLS_DIR
 
 # hadolint ignore=DL4006
-RUN --mount=type=secret,id=qodana_cli_deps_token,required=true <<-EOT
+RUN --mount=type=secret,id=space_packages_token,required=true <<-EOT
 	set -eu
 	: "${CLANG_TIDY_SHA256:?CLANG_TIDY_SHA256 must be set to verify the clang-tidy archive}"
 	# Read the token + run the authenticated curl with xtrace OFF so the Bearer header (and thus the
 	# token) never reaches the build log. Re-enable xtrace immediately after for the rest of the step.
 	set +x
-	TOKEN="$(cat /run/secrets/qodana_cli_deps_token)"
+	TOKEN="$(cat /run/secrets/space_packages_token)"
 	curl -fsSL -H "Authorization: Bearer ${TOKEN}" \
 		-o /tmp/clang-tidy.tar.gz \
 		"${CLANG_TIDY_MIRROR}/v${CLANG_TIDY_VERSION}/clang-tidy-linux-${CLI_ARCH}.tar.gz"

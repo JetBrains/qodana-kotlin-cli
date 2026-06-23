@@ -62,9 +62,9 @@ class ComposeContractTest {
                 build["additional_contexts"]["cli"] == null,
                 "$slug compose.yaml must not define a cli context (release path)",
             )
-            // ...and must NOT define/reference a feed_token secret — a bare public build runs with
-            // QD_FEED_TOKEN unset (dist.dockerfile mounts it required=false).
-            assertTrue(svc["secrets"] == null, "$slug must not reference a feed_token secret in compose.yaml")
+            // ...and must NOT define/reference a secret — a bare public build runs with
+            // QODANA_READ_SPACE_PACKAGES_TOKEN unset (dist.dockerfile mounts it required=false).
+            assertTrue(svc["secrets"] == null, "$slug must not reference a build secret in compose.yaml")
         }
         assertTrue(root["secrets"] == null, "compose.yaml must not declare any secrets (private overlay does)")
     }
@@ -253,39 +253,34 @@ class ComposeContractTest {
             }
 
     @Test
-    fun `private overlay scopes each token to the services that consume it`() {
-        // jvm/android consume the private IDE feed (feed_token); clang consumes ONLY the clang-tidy
-        // mirror token (qodana_cli_deps_token) — it has no dist stage so it must NOT pull feed_token.
+    fun `private overlay gives every image the single Space-packages read token`() {
+        // ONE token (QODANA_READ_SPACE_PACKAGES_TOKEN) reads every private JetBrains Space package: the
+        // internal IDE feed (dist images mount space_packages_token in dist.dockerfile, required=false)
+        // AND the qodana-cli-deps mirror (clang/cdnet mount it in tools/resharper-clt.dockerfile,
+        // required=true). One secret id, one env source.
         val root = load("compose.private.yaml")
         val services = root["services"]
         assertEquals(slugs.toSet(), services.fieldNames().asSequence().toSet())
 
-        fun secretsOf(slug: String): Set<String> {
-            val secrets = services[slug]["build"]["secrets"]
-            return secrets.asSequence().map { it.asText() }.toSet()
-        }
+        fun secretsOf(slug: String) = services[slug]["build"]["secrets"].asSequence().map { it.asText() }.toSet()
 
-        // Every dist-stage image (jvm/android/python/js/go/php/ruby + their variants) pulls ONLY
-        // feed_token; the no-dist images (clang/cdnet) pull ONLY the qodana-cli-deps mirror token.
-        for (slug in slugs.filter { it != "qodana-clang" && it != "qodana-cdnet" }) {
-            assertEquals(setOf("feed_token"), secretsOf(slug), "$slug has a dist stage, so it uses only the feed token")
-        }
-        for (slug in listOf("qodana-clang", "qodana-cdnet")) {
+        for (slug in slugs) {
             assertEquals(
-                setOf("qodana_cli_deps_token"),
+                setOf("space_packages_token"),
                 secretsOf(slug),
-                "$slug has no dist stage, so it must reference only the qodana-cli-deps mirror token",
+                "$slug must reference the single space_packages_token secret",
             )
         }
-        // Both tokens are declared at the top level, sourced from their env vars.
         val declared = root["secrets"]
         assertEquals(
-            setOf("feed_token", "qodana_cli_deps_token"),
+            setOf("space_packages_token"),
             declared.fieldNames().asSequence().toSet(),
-            "the overlay declares both build secrets",
+            "the overlay declares exactly one Space-packages read secret",
         )
-        assertEquals("QD_FEED_TOKEN", declared["feed_token"]["environment"].asText())
-        assertEquals("QODANA_CLI_DEPS_TOKEN", declared["qodana_cli_deps_token"]["environment"].asText())
+        assertEquals(
+            "QODANA_READ_SPACE_PACKAGES_TOKEN",
+            declared["space_packages_token"]["environment"].asText(),
+        )
     }
 
     @Test

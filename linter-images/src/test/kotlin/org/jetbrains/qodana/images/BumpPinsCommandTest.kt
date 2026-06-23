@@ -218,7 +218,7 @@ class BumpPinsCommandTest {
     }
 
     @Test
-    fun `forwards the QD_FEED_TOKEN bearer to the feed fetch when set`(
+    fun `forwards the QODANA_READ_SPACE_PACKAGES_TOKEN bearer to the feed fetch when set`(
         @TempDir dir: File,
     ) {
         File(dir, "qodana-jvm.env").writeText(
@@ -235,8 +235,10 @@ class BumpPinsCommandTest {
                   {"Date":"2025-10-01","Type":"release","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
                 ]}""",
             )
-        BumpPinsCommand(FeedClient(runner), getEnv = { name -> if (name == "QD_FEED_TOKEN") "tok-123" else null })
-            .rewrite(dir.toPath())
+        BumpPinsCommand(
+            FeedClient(runner),
+            getEnv = { if (it == QODANA_READ_SPACE_PACKAGES_TOKEN) "tok-123" else null },
+        ).rewrite(dir.toPath())
         val feedCurl = runner.invocations.first { it.contains("curl") && it.any { a -> a.endsWith(".releases.json") } }
         assertTrue(feedCurl.any { it.contains("tok-123") }, "expected bearer token in curl args: $feedCurl")
     }
@@ -336,15 +338,20 @@ class BumpPinsCommandTest {
                   {"Date":"2026-06-20","Type":"release","Version":"2026.3","MajorVersion":"2026.3","Build":"263.9999.99","Downloads":{}}
                 ]}""",
             )
-        BumpPinsCommand(FeedClient(runner), getEnv = { if (it == "QD_FEED_TOKEN") "tok-123" else null })
-            .rewrite(dir.toPath())
+        BumpPinsCommand(
+            FeedClient(runner),
+            getEnv = { if (it == QODANA_READ_SPACE_PACKAGES_TOKEN) "tok-123" else null },
+        ).rewrite(dir.toPath())
         val text = File(dir, "qodana-jvm.env").readText()
         assertTrue(text.contains("QD_BUILD=263.3000.30"), "newest eap nightly must win: $text")
         assertTrue(!text.contains("263.9999.99"), "a newer release entry must be ignored for eap: $text")
         assertTrue(!text.contains("QD_VERSION=2026.3.0"), "QD_VERSION stays the major: $text")
         assertTrue(text.contains("QD_VERIFY_MODE=sha256"), "bump-pins must leave QD_VERIFY_MODE untouched: $text")
         val feedCurl = runner.invocations.first { it.contains("curl") && it.last().contains("releases.json") }
-        assertTrue(feedCurl.any { it.contains("tok-123") }, "QD_FEED_TOKEN must be forwarded: $feedCurl")
+        assertTrue(
+            feedCurl.any { it.contains("tok-123") },
+            "$QODANA_READ_SPACE_PACKAGES_TOKEN must be forwarded: $feedCurl",
+        )
     }
 
     @Test
