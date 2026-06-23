@@ -222,4 +222,93 @@ class ProvisionDistCommandTest {
         // Canonical: --target IS the IDE root (flattened), NOT target/idea.
         assertEquals(target, extractor.targetDir)
     }
+
+    private fun sha256Args(
+        feedUrl: String,
+        target: Path,
+    ) = listOf(
+        "--distribution-feed",
+        feedUrl,
+        "--linter-slug",
+        "qodana-jvm",
+        "--version",
+        "2025.3",
+        "--build",
+        build,
+        "--verify-mode",
+        "sha256",
+        "--target",
+        target.toString(),
+    )
+
+    @Test
+    fun `sha256 mode provisions with a token, no gpg, and never curls the asc`(
+        @TempDir tmp: Path,
+    ) {
+        val target = Files.createDirectories(tmp.resolve("staging"))
+        val runner = runner()
+        val extractor = RecordingExtractor()
+        val command =
+            ProvisionDistCommand(
+                feedClient = FeedClient(runner),
+                verifier = DistVerifier(runner),
+                extractor = extractor,
+                getEnv = { if (it == QD_FEED_TOKEN) "read-tok" else null },
+            )
+        val result =
+            command.test(
+                sha256Args("https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed", target),
+            )
+        assertEquals(0, result.statusCode, result.output)
+        assertEquals(archiveName, extractor.archive?.fileName?.toString())
+        assertTrue(
+            runner.invocations.none { c -> c.contains("curl") && c.last().endsWith(".asc") },
+            "sha256 mode must not curl the .asc",
+        )
+        assertTrue(runner.invocations.none { it.firstOrNull() == "gpg" }, "sha256 mode must not run gpg")
+    }
+
+    @Test
+    fun `sha256 mode hard-fails when QD_FEED_TOKEN is absent`(
+        @TempDir tmp: Path,
+    ) {
+        val target = Files.createDirectories(tmp.resolve("staging"))
+        val command =
+            ProvisionDistCommand(
+                feedClient = FeedClient(runner()),
+                verifier = DistVerifier(runner()),
+                extractor = RecordingExtractor(),
+                getEnv = { null }, // no token
+            )
+        val result =
+            command.test(
+                sha256Args("https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed", target),
+            )
+        assertTrue(result.statusCode != 0, "missing token must hard-fail: ${result.output}")
+        assertTrue(result.output.contains("QD_FEED_TOKEN"), result.output)
+    }
+
+    @Test
+    fun `gpg mode without a key fails at the verify-mode check`(
+        @TempDir tmp: Path,
+    ) {
+        val target = Files.createDirectories(tmp.resolve("staging"))
+        val command =
+            ProvisionDistCommand(
+                feedClient = FeedClient(runner()),
+                verifier = DistVerifier(runner()),
+                extractor = RecordingExtractor(),
+                getEnv = { null },
+            )
+        val result =
+            command.test(
+                listOf(
+                    "--distribution-feed", "https://download.jetbrains.com/qodana/feed",
+                    "--linter-slug", "qodana-jvm", "--version", "2025.3", "--build", build,
+                    "--target", target.toString(),
+                ),
+            )
+        assertTrue(result.statusCode != 0, "gpg mode without a key must fail: ${result.output}")
+        assertTrue(result.output.contains("gpg verify mode"), result.output)
+    }
 }
