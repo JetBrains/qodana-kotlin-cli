@@ -129,6 +129,22 @@ jobs:
       QODANA_CLI_DEPS_TOKEN: ${{ secrets.QODANA_CLI_DEPS_TOKEN }}
       QODANA_LICENSE_ONLY_TOKEN: ${{ secrets.QODANA_LICENSE_ONLY_TOKEN }}
     steps:
+      # Each cell builds a multi-GB image AND runs a full IDE scan on one ~14 GB-free ubuntu-latest;
+      # the dotnet/android toolchains exhaust the disk (QD-15127, intermittent ENOSPC / index-flush).
+      # Reclaim the preinstalled runner toolchains this job never uses — each linter image provisions
+      # its own SDK/runtime inside the container, so the host copies are dead weight here. Keep the
+      # swap file (swap-storage: false): reclaiming it trades ~4 GB of disk for zero swap headroom on
+      # a memory-heavy scan, and the ~25 GB freed from toolchains is ample without it.
+      - name: Free runner disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: false
+          tool-cache: false
       - uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -167,7 +183,11 @@ jobs:
       - name: Build ${{ matrix.image.name }}
         if: ${{ matrix.image.token_gated != 'true' }}
         # No token: jvm/android fetch the IDE dist from the public mirror (GPG+sha256 verified).
-        run: docker compose ${{ matrix.image.compose_files }} build ${{ matrix.image.name }}
+        run: |
+          docker compose ${{ matrix.image.compose_files }} build ${{ matrix.image.name }}
+          # Reclaim the BuildKit cache (a near-duplicate of the image layers) before the scan; the
+          # built <image>:dev survives — the e2e step runs it, never rebuilds (QD-15127).
+          docker builder prune -af
       - name: e2e ${{ matrix.image.name }} (free)
         if: ${{ matrix.image.token_gated != 'true' && matrix.image.requires_license != 'true' }}
         # Builds the @Tag("linter-e2e") harness, discovers fixtures under
@@ -209,7 +229,11 @@ jobs:
         # token (lib/tools.dockerfile mounts the secret required=true). On a fork PR the secret is
         # empty → skip rather than hard-fail; same-repo PRs and pushes build + scan it.
         if: ${{ matrix.image.token_gated == 'true' && env.QODANA_CLI_DEPS_TOKEN != '' }}
-        run: docker compose ${{ matrix.image.compose_files }} build ${{ matrix.image.name }}
+        run: |
+          docker compose ${{ matrix.image.compose_files }} build ${{ matrix.image.name }}
+          # Reclaim the BuildKit cache (a near-duplicate of the image layers) before the scan; the
+          # built <image>:dev survives — the e2e step runs it, never rebuilds (QD-15127).
+          docker builder prune -af
       - name: e2e ${{ matrix.image.name }} (token-gated)
         if: ${{ matrix.image.token_gated == 'true' && env.QODANA_CLI_DEPS_TOKEN != '' }}
         run: ./gradlew :linter-images:linterE2eTest -Dlinter.e2e.image=${{ matrix.image.name }}
