@@ -76,22 +76,48 @@ class DistDockerfileContractTest {
     }
 
     /**
-     * The dockerfile re-declares `ARG QD_DISTRIBUTION_FEED=<default>` twice (pre-FROM and in
-     * dist-builder). Both defaults must stay byte-identical to [DEFAULT_DISTRIBUTION_FEED]: the flag-name
-     * guards above don't check the default VALUE, so a future edit to the Kotlin const would silently
-     * diverge from the dockerfile's hard-coded default.
+     * The shadowing fix (QD-15032): neither QD_DISTRIBUTION_FEED nor QD_VERIFY_MODE may carry a
+     * `=default` ARG. dockerfile-x emits each INCLUDE_ARGS .env key as a GLOBAL `ARG NAME="val"` at the
+     * top; a later `ARG NAME=default` (global OR in dist-builder) CLOBBERS that override back to the
+     * default (verified: qodana-js.env's QODANA_UID note). So the dist-builder re-declares both as BARE
+     * ARGs (which inherit the INCLUDE_ARGS override when a slug's .env sets it) and the provision-dist
+     * RUN supplies the public default via `${NAME:-default}` shell expansion below.
      */
     @Test
-    fun `dist dockerfile QD_DISTRIBUTION_FEED defaults equal the const`() {
-        val defaults =
-            Regex("""(?m)^ARG QD_DISTRIBUTION_FEED=(.+)$""")
-                .findAll(dockerfile)
-                .map { it.groupValues[1] }
-                .toList()
-        assertEquals(2, defaults.size, "expected two ARG QD_DISTRIBUTION_FEED=<default> lines in dist.dockerfile")
-        for (value in defaults) {
-            assertEquals(DEFAULT_DISTRIBUTION_FEED, value)
-        }
+    fun `dist-builder re-declares feed and verify-mode as bare ARGs so an env override survives`() {
+        assertTrue(
+            Regex("""(?m)^\s*ARG QD_DISTRIBUTION_FEED\s*$""").containsMatchIn(dockerfile),
+            "QD_DISTRIBUTION_FEED must be a BARE ARG (no =default), else an INCLUDE_ARGS .env override is clobbered",
+        )
+        assertTrue(
+            Regex("""(?m)^\s*ARG QD_VERIFY_MODE\s*$""").containsMatchIn(dockerfile),
+            "QD_VERIFY_MODE must be a BARE ARG (no =default), else an INCLUDE_ARGS .env override is clobbered",
+        )
+        assertFalse(
+            Regex("""(?m)^\s*ARG QD_DISTRIBUTION_FEED=""").containsMatchIn(dockerfile),
+            "no defaulted QD_DISTRIBUTION_FEED ARG (it would shadow the .env override)",
+        )
+        assertFalse(
+            Regex("""(?m)^\s*ARG QD_VERIFY_MODE=""").containsMatchIn(dockerfile),
+            "no defaulted QD_VERIFY_MODE ARG (it would shadow the .env override)",
+        )
+    }
+
+    /**
+     * Public images omit both keys, so the provision-dist RUN must supply the defaults via set-u-safe
+     * `${NAME:-default}` shell expansion: the public feed (byte-identical to [DEFAULT_DISTRIBUTION_FEED])
+     * and gpg verification. A slug's .env override (INCLUDE_ARGS -> bare ARG) wins over the `:-` fallback.
+     */
+    @Test
+    fun `provision-dist RUN supplies public feed and gpg defaults via set-u-safe expansion`() {
+        assertTrue(
+            dockerfile.contains("--distribution-feed \"\${QD_DISTRIBUTION_FEED:-$DEFAULT_DISTRIBUTION_FEED}\""),
+            "provision-dist must default to the public feed via \${QD_DISTRIBUTION_FEED:-...}:\n$dockerfile",
+        )
+        assertTrue(
+            dockerfile.contains("--verify-mode \"\${QD_VERIFY_MODE:-gpg}\""),
+            "provision-dist must default to gpg via \${QD_VERIFY_MODE:-gpg}:\n$dockerfile",
+        )
     }
 
     @Test
