@@ -592,32 +592,38 @@ class EnvContractTest {
     }
 
     @Test
-    fun `android reuses the qodana-jvm dist slug and shares pins`() {
-        val jvm = parseEnv("qodana-jvm")
+    fun `android reuses the qodana-jvm dist slug but carries its own pin`() {
         val android = parseEnv("qodana-android")
+        // android bakes the qodana-jvm dist (same slug) -- this coupling stays. VERSION/BUILD are its
+        // OWN now (decoupled so jvm's later internal-nightly repoint cannot drag android along), and
+        // are asserted against QODANA_ANDROID_* in `android pins match phase-0-decisions`.
         assertEquals("qodana-jvm", android["QD_LINTER_SLUG"], "android reuses the qodana-jvm dist")
-        assertEquals(jvm["QD_VERSION"], android["QD_VERSION"])
-        assertEquals(jvm["QD_BUILD"], android["QD_BUILD"])
-        assertEquals(jvm["QD_PRODUCT_INFO_CODE"], android["QD_PRODUCT_INFO_CODE"])
-        assertEquals(jvm["QD_BASE_IMAGE"], android["QD_BASE_IMAGE"])
         assertEquals("IU", android["QD_PRODUCT_INFO_CODE"])
     }
 
     @Test
-    fun `android-community reuses the qodana-jvm-community dist slug and shares pins`() {
-        // Community twin of `android reuses the qodana-jvm dist`: android-community shares the
-        // jvm-community Community dist exactly as android shares the jvm Ultimate dist.
-        val community = parseEnv("qodana-jvm-community")
+    fun `android pins match phase-0-decisions`() {
+        val d = decisions.readText()
+
+        fun pin(k: String) =
+            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
+                ?: error("$k not recorded in $decisions")
+        val android = parseEnv("qodana-android")
+        assertEquals(pin("QODANA_ANDROID_VERSION"), android["QD_VERSION"], "android major must match phase-0-decisions")
+        assertEquals(pin("QODANA_ANDROID_BUILD"), android["QD_BUILD"], "android build pin must match phase-0-decisions")
+    }
+
+    @Test
+    fun `android-community reuses the qodana-jvm-community dist slug but carries its own pin`() {
+        // Community twin of `android reuses the qodana-jvm dist`: android-community bakes the
+        // jvm-community dist (same slug) but carries its OWN VERSION/BUILD pin (decoupled, forward-safe
+        // for a future jvm-community repoint). VERSION/BUILD asserted against QODANA_ANDROID_COMMUNITY_*.
         val android = parseEnv("qodana-android-community")
         assertEquals(
             "qodana-jvm-community",
             android["QD_LINTER_SLUG"],
             "android-community reuses the qodana-jvm-community dist",
         )
-        assertEquals(community["QD_VERSION"], android["QD_VERSION"])
-        assertEquals(community["QD_BUILD"], android["QD_BUILD"])
-        assertEquals(community["QD_PRODUCT_INFO_CODE"], android["QD_PRODUCT_INFO_CODE"])
-        assertEquals(community["QD_BASE_IMAGE"], android["QD_BASE_IMAGE"])
         assertEquals("IU", android["QD_PRODUCT_INFO_CODE"])
     }
 
@@ -635,14 +641,14 @@ class EnvContractTest {
             "android-community base digest must match the shared trixie pin in phase-0-decisions",
         )
         assertEquals(
-            pin("QODANA_JVM_COMMUNITY_VERSION"),
+            pin("QODANA_ANDROID_COMMUNITY_VERSION"),
             android["QD_VERSION"],
-            "android-community major must match the Community JVM dist pin in phase-0-decisions",
+            "android-community major must match its own pin in phase-0-decisions",
         )
         assertEquals(
-            pin("QODANA_JVM_COMMUNITY_BUILD"),
+            pin("QODANA_ANDROID_COMMUNITY_BUILD"),
             android["QD_BUILD"],
-            "android-community build pin must match the Community JVM dist pin in phase-0-decisions",
+            "android-community build pin must match its own pin in phase-0-decisions",
         )
         assertEquals(
             pin("QODANA_JVM_COMMUNITY_PRODUCT_INFO_CODE"),

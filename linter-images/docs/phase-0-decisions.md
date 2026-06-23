@@ -153,7 +153,7 @@ DOTNET_CHANNELS = 8.0 9.0 10.0
 
 ## Spike C — live feed pin, dhi.io base digest, JetBrains key
 
-### qodana-jvm feed pin (shared by jvm + android)
+### qodana-jvm feed pin (jvm — android carries its own pin below)
 
 Resolved 2026-06-22 from `download.jetbrains.com/qodana/feed/qodana-jvm.releases.json`
 (max-by-Date among `MajorVersion==2026.1` AND `Type==release`), aligning jvm/android with the
@@ -184,6 +184,15 @@ GPG signature `ChecksumLink + ".asc"`.
 
 QODANA_JVM_LINUX_SHA256_SIBLING = 200
 QODANA_JVM_LINUX_ASC_SIBLING = 200
+
+### qodana-android feed pin (own pin; bakes the qodana-jvm dist)
+
+android bakes the `qodana-jvm` dist (`QD_LINTER_SLUG=qodana-jvm`) but pins independently so jvm's
+internal-nightly repoint (QD-15032) cannot drag it. Initial values equal the jvm pin above
+(value-neutral decouple); `EnvContractTest` asserts them against `qodana-android.env`.
+
+QODANA_ANDROID_VERSION = 2026.1
+QODANA_ANDROID_BUILD = 261.25881
 
 ### dhi.io hardened base digest
 
@@ -237,7 +246,7 @@ JETBRAINS_PUB_KEY = docker/lib/jetbrains.pub
 JETBRAINS_PUB_KEY_FPR_FILE = docker/lib/jetbrains.pub.fpr
 JETBRAINS_PUB_KEY_FINGERPRINT = B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501
 
-## Community JVM dist (shared by jvm-community + android-community)
+## Community JVM dist (jvm-community — android-community carries its own pin below)
 
 Resolved 2026-06-22 from `download.jetbrains.com/qodana/feed/qodana-jvm-community.releases.json`
 (max-by-Date among `MajorVersion==2026.1` AND `Type==release` — same engine major as
@@ -288,6 +297,15 @@ The feed `Code` / `Linter.ProductCode` `QDJVMC` is the distinct feed artifact co
 
 QODANA_JVM_COMMUNITY_PRODUCT_INFO_CODE = IU
 QODANA_JVM_COMMUNITY_FEED_CODE = QDJVMC
+
+### qodana-android-community feed pin (own pin; bakes the qodana-jvm-community dist)
+
+android-community bakes the `qodana-jvm-community` dist but pins independently (forward-safe for a
+future jvm-community repoint). Initial values equal the Community JVM pin above; `EnvContractTest`
+asserts them against `qodana-android-community.env`.
+
+QODANA_ANDROID_COMMUNITY_VERSION = 2026.1
+QODANA_ANDROID_COMMUNITY_BUILD = 261.25881
 
 ## Python dist (qodana-python — Ultimate)
 
