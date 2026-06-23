@@ -14,9 +14,14 @@ import kotlin.test.assertTrue
 class EnvPlaceholderGuardTest {
     private val placeholder = Regex("""<[^>\s]+>""")
 
+    // Only real `KEY = value` pin rows (KEY an UPPER_SNAKE identifier) are inspected — both .env and the
+    // doc use that shape. Prose lines (which may legitimately contain `<ide>`-style angle text after an
+    // `=`) are skipped, so the guard cannot false-trip on documentation.
+    private val pinRow = Regex("""^\s*[A-Z][A-Z0-9_]*\s*=(.*)$""")
+
     private fun assertNoPlaceholderInValues(file: Path) {
         file.readText().lineSequence().forEach { line ->
-            val value = line.substringAfter('=', "") // KEY = value rows in both .env and the doc
+            val value = pinRow.find(line)?.groupValues?.get(1) ?: return@forEach
             assertTrue(
                 !placeholder.containsMatchIn(value),
                 "unresolved placeholder in ${file.fileName}: $line",
