@@ -66,14 +66,23 @@ class DistVerifier(
         }
     }
 
+    /**
+     * Fail-closed verification. With [asc] present (and [gpgKey]/[fingerprint], public feed), GPG
+     * signer-matches FIRST then sha256. With [asc] null (internal nightly -- unsigned), the GPG leg
+     * is skipped and ONLY sha256 runs; sha256 still fails closed on any mismatch.
+     */
     fun verify(
         archive: Path,
         sha256: Path,
         asc: Path?,
-        gpgKey: Path,
-        fingerprint: String,
+        gpgKey: Path?,
+        fingerprint: String?,
     ) {
-        verifyGpg(gpgKey, fingerprint, requireNotNull(asc), sha256, archive.parent)
+        if (asc != null) {
+            requireNotNull(gpgKey) { "gpgKey is required when an .asc signature is present" }
+            requireNotNull(fingerprint) { "fingerprint is required when an .asc signature is present" }
+            verifyGpg(gpgKey, fingerprint, asc, sha256, archive.parent)
+        }
         verifySha256(archive, sha256)
     }
 

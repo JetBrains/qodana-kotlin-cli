@@ -173,4 +173,30 @@ class DistVerifierTest {
         val curlUrls = runner.invocations.filter { it.contains("curl") }.map { it.last() }
         assertTrue(curlUrls.any { it.endsWith(".asc") }, "expected a .asc curl: $curlUrls")
     }
+
+    @Test
+    fun `verify with null asc skips gpg and runs sha256 only`(
+        @TempDir tmp: Path,
+    ) {
+        val (archive, sha256, _) = stage(tmp, shaLine(goodSha))
+        val runner = FakeCommandRunner()
+        runner.on({ it.contains("sha256sum") }, CommandResult(0, shaLine(goodSha), ""))
+        DistVerifier(runner).verify(archive, sha256, asc = null, gpgKey = null, fingerprint = null)
+        assertTrue(runner.invocations.none { it.firstOrNull() == "gpg" }, "no gpg in sha256-only verify")
+        assertTrue(runner.invocations.any { call -> call.any { it == "sha256sum" } }, "sha256sum must run")
+    }
+
+    @Test
+    fun `verify with null asc still fails closed on a sha256 mismatch`(
+        @TempDir tmp: Path,
+    ) {
+        val (archive, sha256, _) = stage(tmp, shaLine(goodSha))
+        val runner = FakeCommandRunner()
+        runner.on({ it.contains("sha256sum") }, CommandResult(0, shaLine("b".repeat(64)), ""))
+        val ex =
+            assertFailsWith<VerificationException> {
+                DistVerifier(runner).verify(archive, sha256, asc = null, gpgKey = null, fingerprint = null)
+            }
+        assertTrue(ex.message!!.contains("sha256"), ex.message)
+    }
 }
