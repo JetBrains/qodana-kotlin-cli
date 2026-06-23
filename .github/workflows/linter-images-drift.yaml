@@ -63,6 +63,10 @@ jobs:
             VERSION="$(val QD_VERSION "$env")"
             BUILD="$(val QD_BUILD "$env")"
             FEED="$(val QD_DISTRIBUTION_FEED "$env")"; FEED="${FEED:-https://download.jetbrains.com/qodana/feed}"
+            # An internal-feed pin is sha256-only (unsigned nightly); default gpg for the public pins. In
+            # sha256 mode verify-pin ignores the --gpg-* flags (it skips the GPG leg), so passing them is
+            # harmless. The feed determines the mode, so it stays part of the dedup KEYID below.
+            VERIFY_MODE="$(val QD_VERIFY_MODE "$env")"; VERIFY_MODE="${VERIFY_MODE:-gpg}"
             KEYID="${SLUG}:${VERSION}:${BUILD}:${FEED}"
             [ -z "${SEEN[$KEYID]:-}" ] || { echo "skip $KEYID: already verified"; continue; }
             SEEN[$KEYID]=1
@@ -72,6 +76,7 @@ jobs:
               --version "$VERSION" \
               --build "$BUILD" \
               --distribution-feed "$FEED" \
+              --verify-mode "$VERIFY_MODE" \
               --gpg-key "$KEY" \
               --gpg-fingerprint "$FPR" \
               || FAILED=1
