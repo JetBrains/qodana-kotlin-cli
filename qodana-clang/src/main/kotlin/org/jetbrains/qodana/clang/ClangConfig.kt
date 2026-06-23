@@ -51,36 +51,12 @@ object ClangConfig {
         projectDir: Path,
         searchRoot: Path? = ClangTidyConfig.envSearchRoot(),
     ): ClangChecksConfig {
-        val includeRules = mutableListOf<String>()
-        val excludeRules = mutableListOf<String>()
-        // qodana-cli gates this parse behind a non-empty version/includes/excludes check; iterating
-        // unconditionally is equivalent (empty lists yield empty overrides) and avoids a dead gate.
-        if (yaml != null) {
-            for (include in yaml.include) {
-                val name = include.name.trim()
-                if (name.startsWith("clion-")) continue
-                if (name.contains("\"")) {
-                    logger.warn("Skipping include rule with invalid characters: {}", name)
-                    continue
-                }
-                includeRules.add(name)
-            }
-            for (exclude in yaml.exclude) {
-                val name = exclude.name
-                if (name.contains("\"")) {
-                    logger.warn("Skipping exclude rule with invalid characters: {}", name)
-                    continue
-                }
-                excludeRules.add("-$name")
-            }
-        }
+        val overrides = collectOverrides(yaml)
 
         val configPath = ClangTidyConfig.find(projectDir, searchRoot)
         val hasConfig = configPath != null
         // clang-tidy's native walk only recognizes ".clang-tidy"; "_clang-tidy" must be forwarded.
         val configFile = configPath?.takeIf { it.fileName.toString() != ".clang-tidy" }?.toString()
-
-        val overrides = (includeRules + excludeRules).joinToString(",")
 
         val checks =
             when {
@@ -90,5 +66,35 @@ object ClangConfig {
                 else -> "--checks=$defaultChecks"
             }
         return ClangChecksConfig(checks, configFile)
+    }
+
+    /**
+     * Joins qodana.yaml includes/excludes into a comma-separated `--checks` override fragment.
+     * `clion-` includes (CLion-only inspections) and any name containing a quote are dropped.
+     *
+     * qodana-cli gates this parse behind a non-empty version/includes/excludes check; iterating
+     * unconditionally is equivalent (empty lists yield empty overrides) and avoids a dead gate.
+     */
+    private fun collectOverrides(yaml: QodanaYaml?): String {
+        if (yaml == null) return ""
+        val includeRules = mutableListOf<String>()
+        for (include in yaml.include) {
+            val name = include.name.trim()
+            when {
+                name.startsWith("clion-") -> Unit
+                name.contains("\"") -> logger.warn("Skipping include rule with invalid characters: {}", name)
+                else -> includeRules.add(name)
+            }
+        }
+        val excludeRules = mutableListOf<String>()
+        for (exclude in yaml.exclude) {
+            val name = exclude.name
+            if (name.contains("\"")) {
+                logger.warn("Skipping exclude rule with invalid characters: {}", name)
+            } else {
+                excludeRules.add("-$name")
+            }
+        }
+        return (includeRules + excludeRules).joinToString(",")
     }
 }

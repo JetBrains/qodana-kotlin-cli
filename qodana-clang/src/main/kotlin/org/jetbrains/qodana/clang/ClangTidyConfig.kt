@@ -40,15 +40,18 @@ object ClangTidyConfig {
             require(start.startsWith(root)) { "$SEARCH_ROOT_ENV=$root is not an ancestor of start dir $start" }
         }
 
-        var dir = start
-        while (true) {
+        // Walk parents until a config is found (return candidate) or we pass the search root /
+        // filesystem root (loop exits, return null) — two returns keeps detekt's ReturnCount happy.
+        var dir: Path? = start
+        while (dir != null) {
+            val current = dir
             for (name in configNames) {
-                val candidate = dir.resolve(name)
+                val candidate = current.resolve(name)
                 if (Files.exists(candidate)) return candidate
             }
-            if (root != null && dir == root) return null
-            dir = dir.parent ?: return null
+            dir = if (root != null && current == root) null else current.parent
         }
+        return null
     }
 
     internal fun envSearchRoot(getenv: (String) -> String? = System::getenv): Path? =
@@ -58,7 +61,7 @@ object ClangTidyConfig {
     internal fun resolvePath(p: Path): Path =
         try {
             p.toRealPath()
-        } catch (e: IOException) {
+        } catch (ignored: IOException) {
             p.toAbsolutePath().normalize()
         }
 }

@@ -13,7 +13,7 @@ import kotlin.test.assertTrue
 class ClangConfigTest {
     private val defaults = ClangConfig.defaultChecks
 
-    private fun projectUnder(root: Path): Path = Files.createDirectories(root.resolve("g").resolve("p").resolve("project"))
+    private fun projectUnder(root: Path): Path = Files.createDirectories(root.resolve("g/p/project"))
 
     private fun inc(vararg names: String) = names.map { InspectScope(name = it) }
 
@@ -76,7 +76,11 @@ class ClangConfigTest {
     ) {
         assertEquals(
             "--checks=$defaults,-clang-analyzer-cplusplus.NewDeleteLeaks",
-            process(projectUnder(root), root, QodanaYaml(exclude = inc("clang-analyzer-cplusplus.NewDeleteLeaks"))).checks,
+            process(
+                projectUnder(root),
+                root,
+                QodanaYaml(exclude = inc("clang-analyzer-cplusplus.NewDeleteLeaks")),
+            ).checks,
         )
     }
 
@@ -88,7 +92,9 @@ class ClangConfigTest {
             process(
                 projectUnder(root),
                 root,
-                QodanaYaml(exclude = inc("clang-analyzer-cplusplus.NewDeleteLeaks", "clang-analyzer-core.NullDereference")),
+                QodanaYaml(
+                    exclude = inc("clang-analyzer-cplusplus.NewDeleteLeaks", "clang-analyzer-core.NullDereference"),
+                ),
             )
         assertEquals(
             "--checks=$defaults,-clang-analyzer-cplusplus.NewDeleteLeaks,-clang-analyzer-core.NullDereference",
@@ -129,7 +135,10 @@ class ClangConfigTest {
             process(
                 projectUnder(root),
                 root,
-                QodanaYaml(include = inc("clion-misra-cpp2008-0-1-1"), exclude = inc("clang-analyzer-cplusplus.NewDeleteLeaks")),
+                QodanaYaml(
+                    include = inc("clion-misra-cpp2008-0-1-1"),
+                    exclude = inc("clang-analyzer-cplusplus.NewDeleteLeaks"),
+                ),
             )
         assertEquals("--checks=$defaults,-clang-analyzer-cplusplus.NewDeleteLeaks", r.checks)
     }

@@ -25,8 +25,10 @@ class ClangRunnerTest {
         assertEquals(
             listOf(
                 "--config-file=/p/_clang-tidy",
-                "-p", "/p/compile_commands.json",
-                "--export-sarif", out.toString(),
+                "-p",
+                "/p/compile_commands.json",
+                "--export-sarif",
+                out.toString(),
                 "--extra-arg=-isystem/usr/include",
                 "src/main.cpp",
                 "--quiet",

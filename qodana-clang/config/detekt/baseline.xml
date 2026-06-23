@@ -2,11 +2,9 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>CyclomaticComplexMethod:ClangConfig.kt:ClangConfig$fun buildChecksArg: String</ID>
     <ID>EmptyFunctionBlock:ClangLinterTest.kt:ClangLinterTest.&lt;no name provided>${}</ID>
     <ID>EmptyFunctionBlock:ClangLinterTest.kt:ClangLinterTest.&lt;no name provided>.&lt;no name provided>${}</ID>
     <ID>EmptyFunctionBlock:MainTest.kt:RecordingTerminal${}</ID>
-    <ID>LoopWithTooManyJumpStatements:ClangConfig.kt:ClangConfig$for</ID>
     <ID>MaxLineLength:ClangLinter.kt:ClangLinter$"Ensure the clang-tidy archive is available for ${System.getProperty("os.name")}/${System.getProperty("os.arch")}"</ID>
     <ID>MaxLineLength:ClangLinterTest.kt:ClangLinterTest.&lt;no name provided>$override suspend fun run: ProcessResult</ID>
     <ID>ReturnCount:Main.kt:internal fun resolveThirdPartyEapExitCode: Int?</ID>

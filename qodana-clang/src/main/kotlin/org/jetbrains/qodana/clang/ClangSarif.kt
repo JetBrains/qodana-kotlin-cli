@@ -43,14 +43,19 @@ object ClangSarif {
         val taxa = run.path("tool").path("driver").path("taxa")
         if (!taxa.isArray || taxa.isEmpty) return
         val firstId = taxa[0].path("id").asText().takeIf { it.isNotEmpty() } ?: return
-        for (taxon in taxa) {
-            val relationships = taxon.path("relationships")
-            if (!relationships.isArray || relationships.size() != 1) continue
-            val target = relationships[0].path("target") as? ObjectNode ?: continue
-            val taxonId = taxon.path("id").asText().takeIf { it.isNotEmpty() } ?: continue
-            if (target.path("id").asText() == taxonId) {
-                target.put("id", firstId)
-            }
+        for (taxon in taxa) redirectSelfReference(taxon, firstId)
+    }
+
+    private fun redirectSelfReference(
+        taxon: JsonNode,
+        firstId: String,
+    ) {
+        val relationships = taxon.path("relationships")
+        if (!relationships.isArray || relationships.size() != 1) return
+        val target = relationships[0].path("target")
+        val taxonId = taxon.path("id").asText()
+        if (target is ObjectNode && taxonId.isNotEmpty() && target.path("id").asText() == taxonId) {
+            target.put("id", firstId)
         }
     }
 }

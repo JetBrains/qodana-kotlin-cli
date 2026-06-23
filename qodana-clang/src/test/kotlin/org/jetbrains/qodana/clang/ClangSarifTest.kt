@@ -15,7 +15,12 @@ class ClangSarifTest {
         json: String,
     ): Path = dir.resolve("qodana.sarif.json").also { Files.writeString(it, json) }
 
-    private fun driver(sarif: Path) = mapper.readTree(sarif.toFile()).path("runs")[0].path("tool").path("driver")
+    private fun driver(sarif: Path) =
+        mapper
+            .readTree(sarif.toFile())
+            .path("runs")[0]
+            .path("tool")
+            .path("driver")
 
     @Test
     fun `brands driver name fullName and version`(
@@ -42,8 +47,22 @@ class ClangSarifTest {
             )
         ClangSarif.postProcess(sarif)
         val runs = mapper.readTree(sarif.toFile()).path("runs")
-        assertEquals("QDCLC", runs[0].path("tool").path("driver").path("name").asText())
-        assertEquals("QDCLC", runs[1].path("tool").path("driver").path("name").asText())
+        assertEquals(
+            "QDCLC",
+            runs[0]
+                .path("tool")
+                .path("driver")
+                .path("name")
+                .asText(),
+        )
+        assertEquals(
+            "QDCLC",
+            runs[1]
+                .path("tool")
+                .path("driver")
+                .path("name")
+                .asText(),
+        )
     }
 
     @Test
@@ -61,8 +80,22 @@ class ClangSarifTest {
             )
         ClangSarif.postProcess(sarif)
         val taxa = driver(sarif).path("taxa")
-        assertEquals("first", taxa[1].path("relationships")[0].path("target").path("id").asText())
-        assertEquals("first", taxa[2].path("relationships")[0].path("target").path("id").asText())
+        assertEquals(
+            "first",
+            taxa[1]
+                .path("relationships")[0]
+                .path("target")
+                .path("id")
+                .asText(),
+        )
+        assertEquals(
+            "first",
+            taxa[2]
+                .path("relationships")[0]
+                .path("target")
+                .path("id")
+                .asText(),
+        )
     }
 
     @Test
@@ -78,7 +111,15 @@ class ClangSarifTest {
                 ]}}}]}""",
             )
         ClangSarif.postProcess(sarif)
-        assertEquals("first", driver(sarif).path("taxa")[1].path("relationships")[0].path("target").path("id").asText())
+        assertEquals(
+            "first",
+            driver(sarif)
+                .path("taxa")[1]
+                .path("relationships")[0]
+                .path("target")
+                .path("id")
+                .asText(),
+        )
     }
 
     @Test
