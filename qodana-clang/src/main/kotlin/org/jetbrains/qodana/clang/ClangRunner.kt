@@ -21,6 +21,7 @@ class ClangRunner(
         context: ThirdPartyScanContext,
         files: List<FileWithHeaders>,
         checks: String,
+        configFile: String?,
         clangPath: Path,
     ) {
         val tmpResultsDir = context.paths.resultsDir.resolve("tmp")
@@ -50,6 +51,7 @@ class ClangRunner(
                             counter = counter,
                             input = fileWithHeaders,
                             checks = checks,
+                            configFile = configFile,
                             context = context,
                             clangPath = clangPath,
                             tmpResultsDir = tmpResultsDir,
@@ -69,6 +71,7 @@ class ClangRunner(
         counter: Int,
         input: FileWithHeaders,
         checks: String,
+        configFile: String?,
         context: ThirdPartyScanContext,
         clangPath: Path,
         tmpResultsDir: Path,
@@ -78,7 +81,7 @@ class ClangRunner(
         val sarifOutput = tmpResultsDir.resolve("$counter.sarif.json")
         val compileCommands = context.compileCommands ?: return
 
-        val args = buildClangTidyArgs(checks, configFile = null, compileCommands, input, sarifOutput, context.clangArgs)
+        val args = buildClangTidyArgs(checks, configFile, compileCommands, input, sarifOutput, context.clangArgs)
 
         val result =
             processRunner.run(

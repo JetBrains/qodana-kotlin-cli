@@ -23,7 +23,7 @@ class ClangLinter(
 
     override suspend fun runAnalysis(context: ThirdPartyScanContext) {
         logger.info("Starting clang-tidy analysis for {}", context.paths.projectDir)
-        val checks = ClangConfig.processConfig(context.yaml, context.paths.projectDir).checks
+        val config = ClangConfig.processConfig(context.yaml, context.paths.projectDir)
 
         val compileCommandsPath =
             Path.of(
@@ -35,10 +35,10 @@ class ClangLinter(
             context.customTools["clang-tidy"]
                 ?: throw IllegalStateException("clang-tidy binary not found in mounted tools")
 
-        runner.runParallel(context, filesAndCompilers, checks, clangPath)
+        runner.runParallel(context, filesAndCompilers, config.checks, config.configFile, clangPath)
 
         mergeSarifReports(context)
-        fixupTaxa(context)
+        postProcessSarif(context)
     }
 
     private fun mergeSarifReports(context: ThirdPartyScanContext) {
@@ -59,16 +59,10 @@ class ClangLinter(
         sarifService.merge(sarifFiles, outputPath)
     }
 
-    private fun fixupTaxa(context: ThirdPartyScanContext) {
+    private fun postProcessSarif(context: ThirdPartyScanContext) {
         val sarifPath = context.paths.resultsDir.resolve("qodana.sarif.json")
         if (!Files.exists(sarifPath)) return
-
-        // Taxa fixup: if a taxa's relationship targets itself, redirect to first taxa
-        // This is a clang-tidy SARIF quirk
-        val report = sarifService.read(sarifPath)
-        // The SarifService.read returns Any (the library's SarifReport type)
-        // Taxa fixup requires direct SARIF manipulation - delegate to service
-        sarifService.write(sarifPath, report)
+        ClangSarif.postProcess(sarifPath)
     }
 
     override fun mountTools(targetPath: Path): Map<String, Path> = mountTools(targetPath, System.getenv("PATH"))
