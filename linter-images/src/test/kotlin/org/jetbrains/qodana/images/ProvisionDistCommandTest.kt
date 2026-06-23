@@ -303,9 +303,16 @@ class ProvisionDistCommandTest {
         val result =
             command.test(
                 listOf(
-                    "--distribution-feed", "https://download.jetbrains.com/qodana/feed",
-                    "--linter-slug", "qodana-jvm", "--version", "2025.3", "--build", build,
-                    "--target", target.toString(),
+                    "--distribution-feed",
+                    "https://download.jetbrains.com/qodana/feed",
+                    "--linter-slug",
+                    "qodana-jvm",
+                    "--version",
+                    "2025.3",
+                    "--build",
+                    build,
+                    "--target",
+                    target.toString(),
                 ),
             )
         assertTrue(result.statusCode != 0, "gpg mode without a key must fail: ${result.output}")

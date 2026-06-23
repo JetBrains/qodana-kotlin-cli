@@ -31,7 +31,8 @@ class VerifyPinCommand(
     private val gpgKey by option("--gpg-key").path(mustExist = true)
     private val gpgFingerprint by option("--gpg-fingerprint")
     private val verifyMode by option("--verify-mode", envvar = QD_VERIFY_MODE)
-        .choice("gpg", "sha256").default("gpg")
+        .choice("gpg", "sha256")
+        .default("gpg")
 
     override fun run() {
         // A private feed needs a bearer token; a public one fetches anonymously. The loud failure for a

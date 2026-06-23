@@ -1,7 +1,6 @@
 package org.jetbrains.qodana.images
 
 import com.github.ajalt.clikt.testing.test
-import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
