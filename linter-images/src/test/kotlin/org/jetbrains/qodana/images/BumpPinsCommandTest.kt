@@ -346,4 +346,81 @@ class BumpPinsCommandTest {
         val feedCurl = runner.invocations.first { it.contains("curl") && it.last().contains("releases.json") }
         assertTrue(feedCurl.any { it.contains("tok-123") }, "QD_FEED_TOKEN must be forwarded: $feedCurl")
     }
+
+    @Test
+    fun `syncs each image to its OWN decision row when android shares jvm's dist slug`(
+        @TempDir dir: File,
+    ) {
+        // android reuses the jvm dist (QD_LINTER_SLUG=qodana-jvm) but EnvContractTest binds its QD_BUILD
+        // to QODANA_ANDROID_BUILD, not QODANA_JVM_BUILD. A drift bump rewrites BOTH .env files (shared
+        // pin) and MUST sync each image's own decision row, else the auto-generated drift PR goes red.
+        File(dir, "qodana-jvm.env").writeText(
+            """
+            QD_LINTER_SLUG=qodana-jvm
+            QD_VERSION=2026.1
+            QD_BUILD=261.1000
+            QD_RELEASE_TYPE=release
+            """.trimIndent(),
+        )
+        File(dir, "qodana-android.env").writeText(
+            """
+            QD_LINTER_SLUG=qodana-jvm
+            QD_VERSION=2026.1
+            QD_BUILD=261.1000
+            QD_RELEASE_TYPE=release
+            """.trimIndent(),
+        )
+        val decisions =
+            File(dir, "decisions.md").apply {
+                writeText(
+                    """
+                    QODANA_JVM_VERSION = 2026.1
+                    QODANA_JVM_BUILD = 261.1000
+                    QODANA_ANDROID_VERSION = 2026.1
+                    QODANA_ANDROID_BUILD = 261.1000
+                    """.trimIndent(),
+                )
+            }
+        val runner =
+            feedRunner(
+                """{"Code":"QDJVM","Releases":[
+                  {"Date":"2026-07-01","Type":"release","Version":"2026.1.5","MajorVersion":"2026.1","Build":"261.2000","Downloads":{}}
+                ]}""",
+            )
+        BumpPinsCommand(FeedClient(runner)).rewrite(dir.toPath(), decisions.toPath())
+        assertTrue(File(dir, "qodana-jvm.env").readText().contains("QD_BUILD=261.2000"), "jvm .env bumped")
+        assertTrue(File(dir, "qodana-android.env").readText().contains("QD_BUILD=261.2000"), "android .env bumped")
+        val text = decisions.readText()
+        assertTrue(text.contains("QODANA_JVM_BUILD = 261.2000"), "jvm's decision row synced: $text")
+        assertTrue(text.contains("QODANA_ANDROID_BUILD = 261.2000"), "android's OWN decision row synced: $text")
+    }
+
+    @Test
+    fun `bumps a ruby runtime-variant env to the shared QODANA_RUBY_BUILD row`(
+        @TempDir dir: File,
+    ) {
+        // qodana-ruby-3.2 is a runtime variant of the qodana-ruby linter: the trailing -X.Y suffix is
+        // stripped so it syncs the SHARED QODANA_RUBY_BUILD row (there is exactly one), not an invented
+        // QODANA_RUBY_3_2_BUILD row that would fail the loud single-row check.
+        File(dir, "qodana-ruby-3.2.env").writeText(
+            """
+            QD_LINTER_SLUG=qodana-ruby
+            QD_VERSION=2026.1
+            QD_BUILD=261.1000
+            QD_RELEASE_TYPE=release
+            """.trimIndent(),
+        )
+        val decisions =
+            File(dir, "decisions.md").apply {
+                writeText("QODANA_RUBY_BUILD = 261.1000")
+            }
+        val runner =
+            feedRunner(
+                """{"Code":"QDRUBY","Releases":[
+                  {"Date":"2026-07-01","Type":"release","Version":"2026.1.5","MajorVersion":"2026.1","Build":"261.2000","Downloads":{}}
+                ]}""",
+            )
+        BumpPinsCommand(FeedClient(runner)).rewrite(dir.toPath(), decisions.toPath())
+        assertTrue(decisions.readText().contains("QODANA_RUBY_BUILD = 261.2000"), "shared ruby row synced: ${decisions.readText()}")
+    }
 }

@@ -82,9 +82,18 @@ class BumpPinsCommand(
         // Rewrite only when the feed offers a different within-major build; otherwise leave the file as-is.
         if (newBuild.isNotEmpty() && newBuild != kv["QD_BUILD"]) {
             rewriteLine(env, "QD_BUILD", newBuild)
-            decisions?.takeIf { it.exists() }?.let { syncDecisions(it, slug, newBuild) }
+            decisions?.takeIf { it.exists() }?.let { syncDecisions(it, pinName(env), newBuild) }
         }
     }
+
+    /**
+     * The decision-row identity for an image `.env` is its FILE NAME, not its [QD_LINTER_SLUG]: android
+     * reuses the qodana-jvm dist (slug `qodana-jvm`) yet pins its own `QODANA_ANDROID_BUILD` row, so a
+     * slug-keyed sync would leave android's row stale and redden the drift PR. Runtime variants (a
+     * trailing `-X.Y`, e.g. qodana-ruby-3.2) collapse to their base linter's single shared row.
+     */
+    private fun pinName(env: Path): String =
+        env.name.removeSuffix(".env").replace(Regex("""-\d+\.\d+$"""), "")
 
     private fun resolveNewestBuild(
         feedUrl: String,
@@ -123,17 +132,17 @@ class BumpPinsCommand(
     }
 
     /**
-     * Syncs `QODANA_<SLUG>_BUILD = <value>` in the decisions doc — the slug is uppercased and its
-     * hyphens become underscores (e.g. qodana-jvm → QODANA_JVM_BUILD, qodana-jvm-community →
-     * QODANA_JVM_COMMUNITY_BUILD). Fails loudly if no such row exists — a silent no-op would produce
-     * a drift PR that breaks EnvContractTest's byte-identity guard.
+     * Syncs `QODANA_<IMAGE>_BUILD = <value>` in the decisions doc — [pinName] (the image identity, see
+     * [pinName]) is uppercased and its hyphens become underscores (e.g. qodana-android →
+     * QODANA_ANDROID_BUILD, qodana-jvm-community → QODANA_JVM_COMMUNITY_BUILD). Fails loudly if no such
+     * row exists — a silent no-op would produce a drift PR that breaks EnvContractTest's pin guard.
      */
     private fun syncDecisions(
         decisions: Path,
-        slug: String,
+        pinName: String,
         build: String,
     ) {
-        val key = "QODANA_${slug.removePrefix("qodana-").uppercase().replace('-', '_')}_BUILD"
+        val key = "QODANA_${pinName.removePrefix("qodana-").uppercase().replace('-', '_')}_BUILD"
         val row = Regex("""^(\s*$key\s*=\s*)\S+""")
         var matched = 0
         val rewritten =

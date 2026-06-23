@@ -733,7 +733,7 @@ the release + resolves `Downloads.linux.Link` from the verbatim `QD_VERSION`/`QD
 The newest 2026.1 EAP is `261.25886` (full version `2026.1.4`, Date 2026-06-15). The
 feed is the PUBLIC feed (`/qodana/feed`, no token): the image's `.env` OMITS
 `QD_DISTRIBUTION_FEED` and relies on the public default. Keys are named to match
-`BumpPinsCommand.syncDecisions` (slug `qodana-ruby` → `QODANA_RUBY_BUILD`);
+`BumpPinsCommand.syncDecisions` (image `qodana-ruby`, runtime-variant suffix stripped → `QODANA_RUBY_BUILD`);
 `EnvContractTest` asserts byte-identity against the `.env`'s `QD_VERSION`
 (MajorVersion `2026.1`) and `QD_BUILD` (`261.25886`). The verbatim linux Link lives
 under the entry's `Downloads.linux.Link` and embeds an extra build segment
