@@ -51,73 +51,90 @@ jobs:
           # skip it instead of hard-failing at planning time. Flip to "true" in the commit that adds the
           # image's passEnv fixture.
           - name: qodana-jvm
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
+            feed_required: "false"
           - name: qodana-jvm-community
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "false"
+            feed_required: "false"
           - name: qodana-android
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "false"
+            feed_required: "false"
           - name: qodana-android-community
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "false"
+            feed_required: "false"
           - name: qodana-python-community
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "false"
+            feed_required: "false"
           - name: qodana-python
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
+            feed_required: "false"
           - name: qodana-js
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
+            feed_required: "false"
           - name: qodana-go
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
+            feed_required: "false"
           - name: qodana-php
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
+            feed_required: "false"
           - name: qodana-rust
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "false"
+            feed_required: "false"
           - name: qodana-ruby
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
+            feed_required: "false"
           - name: qodana-ruby-3.2
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
+            feed_required: "false"
           - name: qodana-ruby-3.4
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
+            feed_required: "false"
           - name: qodana-dotnet
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
+            feed_required: "false"
           - name: qodana-cpp
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
+            feed_required: "false"
           - name: qodana-clang
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "true"
             requires_license: "false"
+            feed_required: "false"
           - name: qodana-cdnet
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "true"
             requires_license: "false"
+            feed_required: "false"
     env:
       # QODANA_CLI_DEPS_TOKEN is surfaced as `env.*` so the clang/cdnet gating `if:` can reference it
       # (`secrets.*` is not addressable in a step-level `if:`). QODANA_LICENSE_ONLY_TOKEN licenses the
@@ -128,6 +145,9 @@ jobs:
       DOCKER_READ_PUBLIC_REGISTRY_USER: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_USER }}
       QODANA_CLI_DEPS_TOKEN: ${{ secrets.QODANA_CLI_DEPS_TOKEN }}
       QODANA_LICENSE_ONLY_TOKEN: ${{ secrets.QODANA_LICENSE_ONLY_TOKEN }}
+      # QD_FEED_TOKEN authenticates the internal nightly dist feed; surfaced as `env.*` for the
+      # feed_required hard-fail `if:` below. Empty on the public path (the dist mount is required=false).
+      QD_FEED_TOKEN: ${{ secrets.QD_FEED_TOKEN }}
     steps:
       # Each cell builds a multi-GB image AND runs a full IDE scan on one ~14 GB-free ubuntu-latest;
       # the dotnet/android toolchains exhaust the disk (QD-15127, intermittent ENOSPC / index-flush).
@@ -167,6 +187,16 @@ jobs:
           username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
           password: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
 
+      - name: Require feed token for internal-feed images
+        # Distinct from the clang/cdnet soft-skip: an internal-feed image (feed_required=="true") with an
+        # empty QD_FEED_TOKEN fails RED, never no-ops. On a fork PR an empty token means the run was not
+        # maintainer-approved (the internal-feed environment supplies it). Off for every cell until the
+        # jvm repoint flips feed_required to "true".
+        if: ${{ matrix.image.feed_required == 'true' && env.QD_FEED_TOKEN == '' }}
+        run: |
+          echo "::error::QD_FEED_TOKEN is required for ${{ matrix.image.name }} (internal nightly feed) but is empty."
+          echo "On a fork PR this means the run was not approved by a maintainer (see the internal-feed environment)."
+          exit 1
       # --- Non-token-gated images (jvm, android): stage contexts, build, run the harness. --------------
       - name: Stage from-tree contexts (cli + image-tool)
         if: ${{ matrix.image.token_gated != 'true' }}

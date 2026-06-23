@@ -20,11 +20,12 @@ import kotlin.io.path.name
  * byte-identical to phase-0-decisions.md, and the major does not move within a within-major bump).
  *
  * The selected build is resolved ONCE per distinct `(slug, feed, major, releaseType)` and reused
- * across the `.env` files that share that exact pin (jvm + android), so the two never diverge from a
- * mid-run feed change. After the `.env` rewrites, the matching `QODANA_<SLUG>_BUILD` row in
- * [decisionsFile] (asserted present) is synced so the produced drift PR keeps EnvContractTest green.
- * Cross-major builds are never selected (this is the ONLY place a newer build is chosen by date;
- * `ReleaseSelector` stays an exact pin).
+ * across the `.env` files that share that exact dist pin (jvm + android), so they agree on the new
+ * build. After the `.env` rewrites, each image's OWN `QODANA_<IMAGE>_BUILD` row in [decisionsFile] is
+ * synced — keyed on the `.env` FILE NAME (see [pinName]), NOT the dist slug, since android reuses the
+ * jvm dist yet pins its own row — so the produced drift PR keeps EnvContractTest green. Cross-major
+ * builds are never selected (this is the ONLY place a newer build is chosen by date; `ReleaseSelector`
+ * stays an exact pin).
  */
 class BumpPinsCommand(
     private val feedClient: FeedClient,
@@ -82,9 +83,17 @@ class BumpPinsCommand(
         // Rewrite only when the feed offers a different within-major build; otherwise leave the file as-is.
         if (newBuild.isNotEmpty() && newBuild != kv["QD_BUILD"]) {
             rewriteLine(env, "QD_BUILD", newBuild)
-            decisions?.takeIf { it.exists() }?.let { syncDecisions(it, slug, newBuild) }
+            decisions?.takeIf { it.exists() }?.let { syncDecisions(it, pinName(env), newBuild) }
         }
     }
+
+    /**
+     * The decision-row identity for an image `.env` is its FILE NAME, not its [QD_LINTER_SLUG]: android
+     * reuses the qodana-jvm dist (slug `qodana-jvm`) yet pins its own `QODANA_ANDROID_BUILD` row, so a
+     * slug-keyed sync would leave android's row stale and redden the drift PR. Runtime variants (a
+     * trailing `-X.Y`, e.g. qodana-ruby-3.2) collapse to their base linter's single shared row.
+     */
+    private fun pinName(env: Path): String = env.name.removeSuffix(".env").replace(Regex("""-\d+\.\d+$"""), "")
 
     private fun resolveNewestBuild(
         feedUrl: String,
@@ -123,17 +132,17 @@ class BumpPinsCommand(
     }
 
     /**
-     * Syncs `QODANA_<SLUG>_BUILD = <value>` in the decisions doc — the slug is uppercased and its
-     * hyphens become underscores (e.g. qodana-jvm → QODANA_JVM_BUILD, qodana-jvm-community →
-     * QODANA_JVM_COMMUNITY_BUILD). Fails loudly if no such row exists — a silent no-op would produce
-     * a drift PR that breaks EnvContractTest's byte-identity guard.
+     * Syncs `QODANA_<IMAGE>_BUILD = <value>` in the decisions doc — [pinName] (the image identity, see
+     * [pinName]) is uppercased and its hyphens become underscores (e.g. qodana-android →
+     * QODANA_ANDROID_BUILD, qodana-jvm-community → QODANA_JVM_COMMUNITY_BUILD). Fails loudly if no such
+     * row exists — a silent no-op would produce a drift PR that breaks EnvContractTest's pin guard.
      */
     private fun syncDecisions(
         decisions: Path,
-        slug: String,
+        pinName: String,
         build: String,
     ) {
-        val key = "QODANA_${slug.removePrefix("qodana-").uppercase().replace('-', '_')}_BUILD"
+        val key = "QODANA_${pinName.removePrefix("qodana-").uppercase().replace('-', '_')}_BUILD"
         val row = Regex("""^(\s*$key\s*=\s*)\S+""")
         var matched = 0
         val rewritten =

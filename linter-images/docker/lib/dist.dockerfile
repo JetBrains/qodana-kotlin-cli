@@ -3,25 +3,30 @@
 # then verify-dist-layout: product-info code + bundled JBR runtime — NOT a complete JDK, the JBR
 # ships no jar/jdk.jartool by design). The final stage COPYs only the verified tree. android reuses
 # jvm's dist (QD_LINTER_SLUG=qodana-jvm for both).
-# Consumes: QD_LINTER_SLUG QD_VERSION QD_BUILD QD_DISTRIBUTION_FEED
+# Consumes: QD_LINTER_SLUG QD_VERSION QD_BUILD QD_DISTRIBUTION_FEED QD_VERIFY_MODE
 #           QD_PRODUCT_INFO_CODE QD_DIST JDK_BUILDER_IMAGE
 ARG QD_LINTER_SLUG
 ARG QD_VERSION
 ARG QD_BUILD
-ARG QD_DISTRIBUTION_FEED=https://download.jetbrains.com/qodana/feed
+ARG QD_DISTRIBUTION_FEED
+ARG QD_VERIFY_MODE
 ARG QD_PRODUCT_INFO_CODE
 ARG QD_DIST=/opt/idea
 # JDK_BUILDER_IMAGE default + global scope live in lib/base.dockerfile (FROM-ARGs must be declared
 # before the first FROM); this FROM consumes that global value.
 FROM ${JDK_BUILDER_IMAGE} AS dist-builder
-# QD_LINTER_SLUG/QD_VERSION/QD_BUILD/QD_PRODUCT_INFO_CODE are global .env ARGs, so the bare
-# re-declarations inherit them. QD_DISTRIBUTION_FEED/QD_DIST are NOT .env keys — their defaults live on
-# the pre-FROM lines above, which are inter-stage (not global), so they must be re-defaulted HERE or the
-# `set -u` RUN below fails with "parameter not set".
+# QD_LINTER_SLUG/QD_VERSION/QD_BUILD/QD_PRODUCT_INFO_CODE are global .env ARGs (every image sets them),
+# so the bare re-declarations inherit them. QD_DISTRIBUTION_FEED/QD_VERIFY_MODE are OPTIONAL per-slug
+# .env keys: public images omit them; an internal-feed slug sets them. They MUST be BARE here — a
+# `=default` re-declaration would CLOBBER the INCLUDE_ARGS override (dockerfile-x emits each .env key as
+# a global `ARG NAME="val"` at the TOP, which a later defaulted ARG overrides — see qodana-js.env's
+# QODANA_UID note). The public default is supplied set-u-safe in the RUN via `${NAME:-default}`. QD_DIST
+# is NOT an .env key, so it is re-defaulted here for `set -u`.
 ARG QD_LINTER_SLUG
 ARG QD_VERSION
 ARG QD_BUILD
-ARG QD_DISTRIBUTION_FEED=https://download.jetbrains.com/qodana/feed
+ARG QD_DISTRIBUTION_FEED
+ARG QD_VERIFY_MODE
 ARG QD_PRODUCT_INFO_CODE
 ARG QD_DIST=/opt/idea
 # gnupg + curl for image-tool's signature verification and downloads.
@@ -49,10 +54,11 @@ RUN --mount=type=bind,from=tooling,target=/tooling \
 		set -x
 	fi
 	/tooling/bin/image-tool provision-dist \
-		--distribution-feed "${QD_DISTRIBUTION_FEED}" \
+		--distribution-feed "${QD_DISTRIBUTION_FEED:-https://download.jetbrains.com/qodana/feed}" \
 		--linter-slug "${QD_LINTER_SLUG}" \
 		--version "${QD_VERSION}" \
 		--build "${QD_BUILD}" \
+		--verify-mode "${QD_VERIFY_MODE:-gpg}" \
 		--gpg-key /build/lib/jetbrains.pub \
 		--gpg-fingerprint "$(cat /build/lib/jetbrains.pub.fpr)" \
 		--target "${QD_DIST}"

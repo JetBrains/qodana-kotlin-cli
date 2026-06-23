@@ -6,40 +6,51 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
 
-/** The downloaded dist triple: the archive and its detached sha256 + GPG signature. */
+/** The downloaded dist: the archive, its detached sha256, and (GPG mode only) the `.asc` signature. */
 data class DownloadedDist(
     val archive: Path,
     val sha256: Path,
-    val asc: Path,
+    val asc: Path?,
 )
 
 /**
  * Fail-closed GPG + sha256 verification of an existing UPSTREAM JetBrains signature, plus the ONE
- * download path that fetches the dist triple. [download] curls `resolved.link` + its `.sha256` +
- * `.sha256.asc` siblings through [runner] (bearer header IFF [token] != null). [verify] then
- * GPG-signer-matches FIRST (import into an EPHEMERAL homedir+keyring, then match the pinned
- * fingerprint) and only then sha256. Every gpg/sha256/curl call goes through [runner].
+ * download path that fetches the dist. [download] curls `resolved.link` + its `.sha256` (and, unless
+ * `skipAsc`, the `.sha256.asc` signature) through [runner] (bearer header IFF [token] != null).
+ * [verify] then GPG-signer-matches FIRST (import into an EPHEMERAL homedir+keyring, then match the
+ * pinned fingerprint) and only then sha256 — OR, for an unsigned dist (`asc` null), sha256 only. Every
+ * gpg/sha256/curl call goes through [runner].
  */
 class DistVerifier(
     private val runner: CommandRunner,
 ) {
     /**
-     * Downloads the archive + `.sha256` + `.sha256.asc` for [resolved] into [workDir]. The detached
-     * signature link is derived as `checksumLink + ".asc"`. Fail-closed: any non-zero curl throws.
-     * This is the SINGLE download path shared by provision-dist and verify-pin.
+     * Downloads the archive + `.sha256` for [resolved] into [workDir], plus the `.sha256.asc` signature
+     * unless [skipAsc] (internal nightly: unsigned, so [asc][DownloadedDist.asc] is null). The detached
+     * signature link is derived as `checksumLink + ".asc"`. Fail-closed: any non-zero curl throws. This
+     * is the SINGLE download path shared by provision-dist and verify-pin.
      */
     fun download(
         resolved: ResolvedDist,
         token: String?,
         workDir: Path,
+        skipAsc: Boolean = false,
     ): DownloadedDist {
         Files.createDirectories(workDir)
         val archive = workDir.resolve(resolved.link.substringAfterLast('/'))
         val sha256 = workDir.resolve(resolved.checksumLink.substringAfterLast('/'))
-        val asc = workDir.resolve(resolved.checksumLink.substringAfterLast('/') + ".asc")
         curl(resolved.link, archive, token)
         curl(resolved.checksumLink, sha256, token)
-        curl(resolved.checksumLink + ".asc", asc, token)
+        // sha256-only (internal nightly): the dist is unsigned, so there is NO `.sha256.asc` to fetch
+        // -- curling it would 404 and fail-close before verification. Skip it; verify() skips GPG.
+        val asc =
+            if (skipAsc) {
+                null
+            } else {
+                workDir
+                    .resolve(resolved.checksumLink.substringAfterLast('/') + ".asc")
+                    .also { curl(resolved.checksumLink + ".asc", it, token) }
+            }
         return DownloadedDist(archive, sha256, asc)
     }
 
@@ -57,14 +68,23 @@ class DistVerifier(
         }
     }
 
+    /**
+     * Fail-closed verification. With [asc] present (and [gpgKey]/[fingerprint], public feed), GPG
+     * signer-matches FIRST then sha256. With [asc] null (internal nightly -- unsigned), the GPG leg
+     * is skipped and ONLY sha256 runs; sha256 still fails closed on any mismatch.
+     */
     fun verify(
         archive: Path,
         sha256: Path,
-        asc: Path,
-        gpgKey: Path,
-        fingerprint: String,
+        asc: Path?,
+        gpgKey: Path?,
+        fingerprint: String?,
     ) {
-        verifyGpg(gpgKey, fingerprint, asc, sha256, archive.parent)
+        if (asc != null) {
+            requireNotNull(gpgKey) { "gpgKey is required when an .asc signature is present" }
+            requireNotNull(fingerprint) { "fingerprint is required when an .asc signature is present" }
+            verifyGpg(gpgKey, fingerprint, asc, sha256, archive.parent)
+        }
         verifySha256(archive, sha256)
     }
 

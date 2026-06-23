@@ -5,3 +5,28 @@ const val DEFAULT_DISTRIBUTION_FEED = "https://download.jetbrains.com/qodana/fee
 
 /** Env var carrying the bearer token for a private feed. Shared by every feed-touching command. */
 const val QD_FEED_TOKEN = "QD_FEED_TOKEN"
+
+/** Env var carrying the per-`.env` integrity-verification mode (`gpg` public / `sha256` internal nightly). */
+const val QD_VERIFY_MODE = "QD_VERIFY_MODE"
+
+/**
+ * Dist integrity verification mode. [GPG] is the public-feed default (JetBrains signature + sha256).
+ * [SHA256] is the internal-nightly feed: unsigned `.tar.gz`+`.sha256`, no `.asc`, so the GPG leg (and
+ * the `.asc` download) is skipped. Selected per-`.env` via [QD_VERIFY_MODE].
+ */
+enum class VerifyMode {
+    GPG,
+    SHA256,
+    ;
+
+    companion object {
+        fun fromArg(s: String): VerifyMode =
+            when (s.lowercase()) {
+                "gpg" -> GPG
+                "sha256" -> SHA256
+                else -> throw IllegalArgumentException(
+                    "unknown QD_VERIFY_MODE '$s' (expected: gpg, sha256)",
+                )
+            }
+    }
+}

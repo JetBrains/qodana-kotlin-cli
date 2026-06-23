@@ -128,4 +128,75 @@ class DistVerifierTest {
         assertTrue(ex.message!!.contains("verification failed"), ex.message)
         assertTrue(runner.invocations.none { call -> call.any { it == "sha256sum" } })
     }
+
+    @Test
+    fun `download with skipAsc fetches archive plus sha256 only and leaves asc null`(
+        @TempDir tmp: Path,
+    ) {
+        val runner = FakeCommandRunner()
+        runner.on({ it.contains("curl") }) { argv ->
+            val out = Path.of(argv[argv.indexOf("-o") + 1])
+            Files.createDirectories(out.parent)
+            Files.writeString(out, "body")
+            CommandResult(0, "", "")
+        }
+        val resolved =
+            ResolvedDist(
+                link = "https://feed.example/qodana-QDJVM-263.1.2.tar.gz",
+                checksumLink = "https://feed.example/qodana-QDJVM-263.1.2.tar.gz.sha256",
+            )
+        val dl = DistVerifier(runner).download(resolved, token = null, workDir = tmp, skipAsc = true)
+        assertEquals(null, dl.asc, "sha256-only download must not curl a .asc")
+        val curlUrls = runner.invocations.filter { it.contains("curl") }.map { it.last() }
+        assertEquals(2, curlUrls.size, curlUrls.toString())
+        assertTrue(curlUrls.none { it.endsWith(".asc") }, "no .asc curl in sha256-only mode: $curlUrls")
+    }
+
+    @Test
+    fun `download without skipAsc still fetches the asc sibling`(
+        @TempDir tmp: Path,
+    ) {
+        val runner = FakeCommandRunner()
+        runner.on({ it.contains("curl") }) { argv ->
+            val out = Path.of(argv[argv.indexOf("-o") + 1])
+            Files.createDirectories(out.parent)
+            Files.writeString(out, "body")
+            CommandResult(0, "", "")
+        }
+        val resolved =
+            ResolvedDist(
+                link = "https://feed.example/qodana-QDJVM-263.1.2.tar.gz",
+                checksumLink = "https://feed.example/qodana-QDJVM-263.1.2.tar.gz.sha256",
+            )
+        val dl = DistVerifier(runner).download(resolved, token = null, workDir = tmp)
+        assertTrue(dl.asc != null, "public GPG mode must download the .asc")
+        val curlUrls = runner.invocations.filter { it.contains("curl") }.map { it.last() }
+        assertTrue(curlUrls.any { it.endsWith(".asc") }, "expected a .asc curl: $curlUrls")
+    }
+
+    @Test
+    fun `verify with null asc skips gpg and runs sha256 only`(
+        @TempDir tmp: Path,
+    ) {
+        val (archive, sha256, _) = stage(tmp, shaLine(goodSha))
+        val runner = FakeCommandRunner()
+        runner.on({ it.contains("sha256sum") }, CommandResult(0, shaLine(goodSha), ""))
+        DistVerifier(runner).verify(archive, sha256, asc = null, gpgKey = null, fingerprint = null)
+        assertTrue(runner.invocations.none { it.firstOrNull() == "gpg" }, "no gpg in sha256-only verify")
+        assertTrue(runner.invocations.any { call -> call.any { it == "sha256sum" } }, "sha256sum must run")
+    }
+
+    @Test
+    fun `verify with null asc still fails closed on a sha256 mismatch`(
+        @TempDir tmp: Path,
+    ) {
+        val (archive, sha256, _) = stage(tmp, shaLine(goodSha))
+        val runner = FakeCommandRunner()
+        runner.on({ it.contains("sha256sum") }, CommandResult(0, shaLine("b".repeat(64)), ""))
+        val ex =
+            assertFailsWith<VerificationException> {
+                DistVerifier(runner).verify(archive, sha256, asc = null, gpgKey = null, fingerprint = null)
+            }
+        assertTrue(ex.message!!.contains("sha256"), ex.message)
+    }
 }

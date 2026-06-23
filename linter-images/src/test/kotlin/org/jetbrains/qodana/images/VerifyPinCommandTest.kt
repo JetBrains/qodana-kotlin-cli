@@ -143,4 +143,45 @@ class VerifyPinCommandTest {
             cmd.test(baseArgs("https://packages.jetbrains.team/files/p/qd/private-feed", key))
         }
     }
+
+    private fun sha256Args(feedUrl: String) =
+        "--distribution-feed $feedUrl --linter-slug qodana-jvm --version 2025.3 --build $build --verify-mode sha256"
+
+    @Test
+    fun `sha256 mode re-verifies with a token, no gpg, never curls the asc`() {
+        val runner = runner()
+        val cmd =
+            VerifyPinCommand(FeedClient(runner), DistVerifier(runner)) {
+                if (it == "QD_FEED_TOKEN") "read-tok" else null
+            }
+        val result =
+            cmd.test(sha256Args("https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed"))
+        assertEquals(0, result.statusCode, result.output)
+        assertTrue(
+            runner.invocations.none { c -> c.contains("curl") && c.last().endsWith(".asc") },
+            "sha256 canary must not curl the .asc",
+        )
+        assertTrue(runner.invocations.none { it.firstOrNull() == "gpg" }, "sha256 canary must not run gpg")
+    }
+
+    @Test
+    fun `sha256 mode hard-fails without a token`() {
+        val cmd = VerifyPinCommand(FeedClient(runner()), DistVerifier(runner())) { null }
+        val result =
+            cmd.test(sha256Args("https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed"))
+        assertTrue(result.statusCode != 0, "missing token must hard-fail: ${result.output}")
+        assertTrue(result.output.contains("QD_FEED_TOKEN"), result.output)
+    }
+
+    @Test
+    fun `gpg mode without a key fails`() {
+        val cmd = VerifyPinCommand(FeedClient(runner()), DistVerifier(runner())) { null }
+        val result =
+            cmd.test(
+                "--distribution-feed https://download.jetbrains.com/qodana/feed " +
+                    "--linter-slug qodana-jvm --version 2025.3 --build $build",
+            )
+        assertTrue(result.statusCode != 0, "gpg mode without a key must fail: ${result.output}")
+        assertTrue(result.output.contains("gpg verify mode"), result.output)
+    }
 }
