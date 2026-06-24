@@ -5,7 +5,7 @@
 # in a `FROM` must be declared HERE, before the first FROM — Docker only resolves FROM-ARGs from the
 # global pre-FROM scope (a default declared inside a later stage yields a blank base name). These are
 # build ARGs, NOT .env keys; override per build (e.g. compose CLI_BASE_STAGE=tools for clang).
-ARG JDK_BUILDER_IMAGE=eclipse-temurin:25-jdk@sha256:dfc0093e3dbf43dae57827111c6e374f5b44fac19a9451584b2b336b81474d64
+ARG JDK_BUILDER_IMAGE=eclipse-temurin:25.0.2_10-jdk@sha256:1bda4d9e668f44f399abed30636c34e0befb727408fba27b1e6aaefcf9df346b
 ARG CLI_BASE_STAGE=dist
 ARG PRIVILEGED_BASE_STAGE=clang-toolchain
 ARG QD_BASE_IMAGE
