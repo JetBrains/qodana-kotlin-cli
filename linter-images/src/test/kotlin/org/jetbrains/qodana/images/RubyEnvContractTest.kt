@@ -51,7 +51,6 @@ class RubyEnvContractTest {
             env["QD_RELEASE_TYPE"],
             "ruby is the fleet's first eap image (the QDRUBY feed has no release entries)",
         )
-        assertEquals("amd64", env["CLI_ARCH"], "qodana-ruby is amd64-only")
         assertEquals(
             parseEnv("qodana-jvm")["NODE_MAJOR"],
             env["NODE_MAJOR"],

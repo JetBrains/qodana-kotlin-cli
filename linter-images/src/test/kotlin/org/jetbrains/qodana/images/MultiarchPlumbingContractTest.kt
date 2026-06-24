@@ -52,7 +52,8 @@ class MultiarchPlumbingContractTest {
         // Parse each `FROM scratch AS tini-<arch>` chunk and capture its ADD --checksum digest — asserting
         // the exact arch->digest PAIRING (catches a swapped or mistyped digest), not mere presence.
         val pairing =
-            d.split(Regex("""(?=^FROM )""", RegexOption.MULTILINE))
+            d
+                .split(Regex("""(?=^FROM )""", RegexOption.MULTILINE))
                 .mapNotNull { chunk ->
                     val arch = Regex("""^FROM scratch AS tini-(\w+)""").find(chunk.trim())?.groupValues?.get(1)
                     val sha = Regex("""ADD --checksum=sha256:([0-9a-f]{64})""").find(chunk)?.groupValues?.get(1)

@@ -50,6 +50,15 @@ class EnvContractTest {
         )
 
     @Test
+    fun `no env declares arch or tini keys (derived from TARGETARCH)`() {
+        val forbidden = setOf("CLI_ARCH", "TINI_VERSION", "TINI_ARCH", "TINI_SHA256")
+        for (slug in authoredSlugs) {
+            val present = parseEnv(slug).keys.intersect(forbidden)
+            assertTrue(present.isEmpty(), "$slug.env must not declare $forbidden (derived from TARGETARCH): $present")
+        }
+    }
+
+    @Test
     fun `qodana-jvm env has exactly the jvm key set`() {
         // Canonical .env CONTRACT. jvm is the ONE internal-nightly-feed image (QD-15032 Task 11): on top
         // of the public dist + node keys it carries the internalFeed profile (QD_DISTRIBUTION_FEED +
@@ -90,7 +99,6 @@ class EnvContractTest {
             "jvm-community/android-community product-info code is IU (the QDJVMC Community dist embeds the IU IDEA " +
                 "platform; Community-ness comes from dist.flavour.txt)",
         )
-        assertEquals("amd64", community["CLI_ARCH"], "jvm-community is amd64-only")
     }
 
     @Test
@@ -135,7 +143,6 @@ class EnvContractTest {
                 )
         assertEquals(expected, env.keys)
         assertTrue("NODE_MAJOR" !in env, "android must not set NODE_MAJOR (no node toolchain)")
-        assertEquals("amd64", env["CLI_ARCH"], "android is amd64-only")
         assertEquals("android-toolchain", env["DIST_BASE_STAGE"], "android dist layers onto the SDK stage")
     }
 
@@ -156,7 +163,6 @@ class EnvContractTest {
             "QD_DISTRIBUTION_FEED" !in community,
             "android-community uses the public feed (dockerfile default), so it must omit QD_DISTRIBUTION_FEED",
         )
-        assertEquals("amd64", community["CLI_ARCH"], "android-community is amd64-only")
         assertEquals(
             "android-toolchain",
             community["DIST_BASE_STAGE"],
@@ -181,21 +187,16 @@ class EnvContractTest {
                 "CLI_BINARY",
                 "CLI_VERSION",
                 "CLI_OS",
-                "CLI_ARCH",
                 "CLANG",
                 "CLANG_OS",
                 "CLANG_TIDY_VERSION",
                 "CLANG_TIDY_MIRROR",
-                "TINI_VERSION",
-                "TINI_ARCH",
-                "TINI_SHA256",
             )
         assertEquals(expected, env.keys)
         for (distKey in listOf("QD_LINTER_SLUG", "QD_VERSION", "QD_BUILD", "QD_PRODUCT_INFO_CODE")) {
             assertTrue(distKey !in env, "clang has no IDE dist, must not set $distKey")
         }
         assertEquals("qodana-clang", env["CLI_BINARY"], "clang's inner CLI is qodana-clang")
-        assertEquals("amd64", env["CLI_ARCH"], "clang is amd64-only")
     }
 
     @Test
@@ -210,19 +211,14 @@ class EnvContractTest {
                 "CLI_BINARY",
                 "CLI_VERSION",
                 "CLI_OS",
-                "CLI_ARCH",
                 "CLT_VERSION",
                 "CLT_MIRROR",
-                "TINI_VERSION",
-                "TINI_ARCH",
-                "TINI_SHA256",
             )
         assertEquals(expected, env.keys)
         for (distKey in listOf("QD_LINTER_SLUG", "QD_VERSION", "QD_BUILD", "QD_PRODUCT_INFO_CODE")) {
             assertTrue(distKey !in env, "cdnet has no IDE dist, must not set $distKey")
         }
         assertEquals("qodana-cdnet", env["CLI_BINARY"], "cdnet's inner CLI is qodana-cdnet")
-        assertEquals("amd64", env["CLI_ARCH"], "cdnet is amd64-only")
     }
 
     @Test
@@ -254,7 +250,6 @@ class EnvContractTest {
             "python-community product-info code is PY (the QDPYC Community dist embeds the PyCharm Professional " +
                 "platform; Community-ness comes from dist.flavour.txt)",
         )
-        assertEquals("amd64", env["CLI_ARCH"], "python-community is amd64-only")
         assertEquals("conda-toolchain", env["DIST_BASE_STAGE"], "python-community dist layers onto the conda stage")
     }
 
@@ -292,7 +287,6 @@ class EnvContractTest {
         assertEquals(expected, env.keys, "python must be python-community's key set plus NODE_MAJOR")
         assertEquals("qodana-python", env["QD_LINTER_SLUG"], "python has its own Ultimate dist slug")
         assertEquals("PY", env["QD_PRODUCT_INFO_CODE"], "python product-info code is PY (PyCharm Professional)")
-        assertEquals("amd64", env["CLI_ARCH"], "python is amd64-only")
         assertEquals("conda-toolchain", env["DIST_BASE_STAGE"], "python dist layers onto the conda(+node) stage")
         assertTrue("QD_CHANNEL" !in env, "QD_CHANNEL was removed by the foundation refactor")
         assertTrue(
@@ -350,7 +344,6 @@ class EnvContractTest {
         )
         assertEquals("qodana-js", env["QD_LINTER_SLUG"], "qodana-js has its own dist slug")
         assertEquals("WS", env["QD_PRODUCT_INFO_CODE"], "qodana-js product-info code is WS (WebStorm)")
-        assertEquals("amd64", env["CLI_ARCH"], "qodana-js is amd64-only")
     }
 
     @Test
@@ -395,7 +388,6 @@ class EnvContractTest {
         )
         assertEquals("qodana-go", env["QD_LINTER_SLUG"], "qodana-go has its own dist slug")
         assertEquals("GO", env["QD_PRODUCT_INFO_CODE"], "qodana-go product-info code is GO (GoLand)")
-        assertEquals("amd64", env["CLI_ARCH"], "qodana-go is amd64-only")
         assertEquals(
             parseEnv("qodana-jvm")["NODE_MAJOR"],
             env["NODE_MAJOR"],
@@ -456,7 +448,6 @@ class EnvContractTest {
         )
         assertEquals("qodana-php", env["QD_LINTER_SLUG"], "qodana-php has its own dist slug")
         assertEquals("PS", env["QD_PRODUCT_INFO_CODE"], "qodana-php product-info code is PS (PhpStorm)")
-        assertEquals("amd64", env["CLI_ARCH"], "qodana-php is amd64-only")
         assertEquals(
             parseEnv("qodana-jvm")["NODE_MAJOR"],
             env["NODE_MAJOR"],

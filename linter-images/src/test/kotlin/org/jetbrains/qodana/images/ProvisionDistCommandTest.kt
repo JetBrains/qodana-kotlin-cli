@@ -323,6 +323,7 @@ class ProvisionDistCommandTest {
     fun `--arch arm64 provisions the linuxARM64 download`(
         @TempDir tmp: Path,
     ) {
+        val feed = "https://download.jetbrains.com/qodana/feed"
         val arm64Archive = "qodana-QDJVM-$build-aarch64.tar.gz"
         val arm64Link = "https://download.jetbrains.com/qodana/2025.3/$arm64Archive"
         val dualFeed =
@@ -363,8 +364,8 @@ class ProvisionDistCommandTest {
                 extractor = extractor,
                 getEnv = { null },
             )
-        val result =
-            command.test(baseArgs("https://download.jetbrains.com/qodana/feed", target, gpgKey(tmp)) + listOf("--arch", "arm64"))
+        val args = baseArgs(feed, target, gpgKey(tmp)) + listOf("--arch", "arm64")
+        val result = command.test(args)
         assertEquals(0, result.statusCode, result.output)
         assertEquals(arm64Archive, extractor.archive?.fileName?.toString())
     }
