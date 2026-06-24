@@ -77,13 +77,13 @@ class LinterImagesWorkflowContractTest {
     }
 
     @Test
-    fun `qodana-jvm has exactly one amd64 cell and one arm64 cell`() {
-        val jvm = cells.filter { it["name"].asText() == "qodana-jvm" }
-        assertEquals(setOf("amd64", "arm64"), jvm.map { it["arch"].asText() }.toSet(), "jvm cells: amd64 + arm64")
-        assertEquals(2, jvm.size, "exactly two qodana-jvm cells")
-        val arm = jvm.single { it["arch"].asText() == "arm64" }
-        assertEquals("ubuntu-24.04-arm", arm["runner"].asText(), "arm64 jvm cell runs on an arm64 runner")
-        // INVARIANT guard: arm64 cells run only on arm64 runners (-PtargetArch is a label, not cross-compile).
+    fun `exactly the arch-capable images have an amd64 and arm64 cell`() {
+        val arm64Images = cells.filter { it["arch"]?.asText() == "arm64" }.map { it["name"].asText() }.toSet()
+        assertEquals(ArchContract.archCapable, arm64Images, "exactly the arch-capable images may have an arm64 cell")
+        for (img in ArchContract.archCapable) {
+            val arches = cells.filter { it["name"].asText() == img }.map { it["arch"].asText() }
+            assertEquals(listOf("amd64", "arm64").sorted(), arches.sorted(), "$img needs one amd64 + one arm64 cell")
+        }
         cells.filter { it["arch"]?.asText() == "arm64" }.forEach {
             val n = it["name"].asText()
             assertTrue(it["runner"].asText().endsWith("-arm"), "$n: arm64 cell must use an -arm runner")
@@ -95,5 +95,24 @@ class LinterImagesWorkflowContractTest {
         val name = workflow["jobs"]["e2e"]["name"].asText()
         assertTrue(name.contains("linux/\${{ matrix.image.arch }}"), "check name must carry linux/<arch>, got: $name")
         assertFalse(name.contains("ubuntu"), "check name must not embed the runner id: $name")
+    }
+
+    @Test
+    fun `drift canary ARM64_SLUGS equals the arch-capable images' dist slugs`() {
+        // The drift canary's ARM64_SLUGS is a 4th copy of the arch-capable set (keyed by dist slug, so
+        // ruby-3.2/-3.4 collapse to qodana-ruby). Tie it to the single source so a forgotten update reddens
+        // here, not silently dropping an image's arm64 .sha256 re-verification.
+        val drift = Path.of("../.github/workflows/linter-images-drift.yaml").readText()
+        val declared =
+            Regex("""ARM64_SLUGS=\(([^)]*)\)""")
+                .find(drift)
+                ?.groupValues
+                ?.get(1)
+                ?.trim()
+                ?.split(Regex("\\s+"))
+                ?.toSet()
+                ?: error("ARM64_SLUGS=(...) not found in linter-images-drift.yaml")
+        val expected = ArchContract.archCapable.map { EnvContract.parseEnv(it).getValue("QD_LINTER_SLUG") }.toSet()
+        assertEquals(expected, declared, "drift ARM64_SLUGS must equal arch-capable images' dist slugs")
     }
 }

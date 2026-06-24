@@ -74,18 +74,12 @@ class ComposeContractTest {
     @Test
     fun `only arch-capable images drop the linux-amd64 platform pin`() {
         val services = load("compose.yaml")["services"]
-        // qodana-jvm is arch-ified (host-arch follows TARGETARCH) → NO platform pin.
-        assertTrue(services["qodana-jvm"]["platform"] == null, "qodana-jvm must not pin platform (multiarch)")
-        // Every other service stays amd64-only until QD-15171 → MUST keep the pin.
+        val noPin = mutableSetOf<String>()
         services.fieldNames().forEachRemaining { svc ->
-            if (svc != "qodana-jvm") {
-                assertEquals(
-                    "linux/amd64",
-                    services[svc]["platform"]?.asText(),
-                    "$svc is still amd64-only and must keep platform: linux/amd64 until its toolchain is arch-capable",
-                )
-            }
+            val p = services[svc]["platform"]?.asText()
+            if (p == null) noPin += svc else assertEquals("linux/amd64", p, "$svc pin must be linux/amd64, got $p")
         }
+        assertEquals(ArchContract.archCapable, noPin, "exactly the arch-capable images may drop the platform pin")
     }
 
     @Test
