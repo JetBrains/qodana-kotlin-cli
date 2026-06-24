@@ -2,36 +2,38 @@
 # Consumes: CLI_BINARY. tini (version + per-arch sha) is pinned HERE, identical across all images.
 ARG CLI_BINARY=qodana
 ARG TINI_VERSION=v0.19.0
-
-# Per-arch tini, declaratively sha-verified by BuildKit (ADD --checksum, fail-closed; DL3020 ADD-url
-# stays waived in .hadolint.yaml). COPY --from=tini-${TARGETARCH} below selects one; BuildKit builds
-# ONLY the referenced stage. tini-amd64 keeps the historical amd64 sha (byte-identical to the old fetch).
-FROM scratch AS tini-amd64
-ARG TINI_VERSION
-ADD --checksum=sha256:93dcc18adc78c65a028a84799ecf8ad40c936fdfc5f2a57b1acda5a8117fa82c \
-	https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-amd64 /tini
-FROM scratch AS tini-arm64
-ARG TINI_VERSION
-ADD --checksum=sha256:07952557df20bfd2a95f9bef198b445e006171969499a1d361bd9e6f8e5e0e81 \
-	https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-arm64 /tini
+ARG TINI_SHA256_AMD64=93dcc18adc78c65a028a84799ecf8ad40c936fdfc5f2a57b1acda5a8117fa82c
+ARG TINI_SHA256_ARM64=07952557df20bfd2a95f9bef198b445e006171969499a1d361bd9e6f8e5e0e81
 
 FROM cli-installed AS runtime
 ARG CLI_BINARY
 ARG TARGETARCH
+ARG TINI_VERSION
+ARG TINI_SHA256_AMD64
+ARG TINI_SHA256_ARM64
 # Bare (no default): inherit the global QODANA_UID/GID declared in base.dockerfile (the language-base
 # override). A `=1000` default here would SHADOW the INCLUDE_ARGS override (cli.dockerfile trap).
 ARG QODANA_UID
 ARG QODANA_GID
 
-# Select the arch-matching tini (BuildKit builds only the referenced tini-* stage). DL3022: hadolint
-# can't resolve the ${TARGETARCH} stage variable, but the tini-amd64/tini-arm64 aliases ARE defined above.
-# hadolint ignore=DL3022
-COPY --from=tini-${TARGETARCH} /tini /usr/local/bin/tini
-# chmod tini + bake CLI_BINARY into a stable launcher path so the exec-form ENTRYPOINT names a
-# concrete binary (JSON arrays do not interpolate ARGs). The launcher IS /usr/local/bin/${CLI_BINARY}
-# (qodana for jvm/android, qodana-clang for clang) symlinked to a fixed name.
+# tini PID 1, per-arch. A declarative `COPY --from=tini-${TARGETARCH}` is NOT viable here — the
+# dockerfile-x frontend does not expand the ${TARGETARCH} stage variable (parses it as a literal image
+# ref). So fetch in a RUN that selects tini-$TARGETARCH + its sha and verifies FAIL-CLOSED: a sha
+# mismatch makes `sha256sum -c` exit non-zero and `set -e` aborts the build. curl + sha256sum are present
+# (base installs curl; coreutils ships sha256sum); runs as root (base set USER 0; the drop to the qodana
+# user is below). Then bake CLI_BINARY into a stable launcher path so the exec-form ENTRYPOINT names a
+# concrete binary (JSON arrays do not interpolate ARGs).
+# hadolint ignore=DL4006
 RUN <<-EOT
 	set -eux
+	case "${TARGETARCH}" in
+		amd64) tini_sha="${TINI_SHA256_AMD64}" ;;
+		arm64) tini_sha="${TINI_SHA256_ARM64}" ;;
+		*) echo "unsupported TARGETARCH=${TARGETARCH}" >&2; exit 1 ;;
+	esac
+	curl -fsSL -o /usr/local/bin/tini \
+		"https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini-${TARGETARCH}"
+	echo "${tini_sha}  /usr/local/bin/tini" | sha256sum -c -
 	chmod 0755 /usr/local/bin/tini
 	ln -sf "/usr/local/bin/${CLI_BINARY}" /usr/local/bin/qodana-entrypoint
 EOT

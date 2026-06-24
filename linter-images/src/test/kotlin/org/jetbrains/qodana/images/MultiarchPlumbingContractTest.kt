@@ -1,6 +1,5 @@
 package org.jetbrains.qodana.images
 
-import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -46,21 +45,21 @@ class MultiarchPlumbingContractTest {
     }
 
     @Test
-    fun `runtime dockerfile fetches tini per-arch via declarative checksum stages selected by TARGETARCH`() {
+    fun `runtime dockerfile selects tini per-TARGETARCH and verifies its pinned sha fail-closed`() {
+        // `COPY --from=tini-${TARGETARCH}` is NOT viable (dockerfile-x doesn't expand the stage variable),
+        // so tini is fetched in a RUN that selects tini-$TARGETARCH + its sha by `case "$TARGETARCH"`.
         val d = lib("runtime.dockerfile")
-        // The per-arch tini stage set must EQUAL the supported arch set (no missing arch, no rogue extra).
-        // Parse each `FROM scratch AS tini-<arch>` chunk and capture its ADD --checksum digest — asserting
-        // the exact arch->digest PAIRING (catches a swapped or mistyped digest), not mere presence.
-        val pairing =
-            d
-                .split(Regex("""(?=^FROM )""", RegexOption.MULTILINE))
-                .mapNotNull { chunk ->
-                    val arch = Regex("""^FROM scratch AS tini-(\w+)""").find(chunk.trim())?.groupValues?.get(1)
-                    val sha = Regex("""ADD --checksum=sha256:([0-9a-f]{64})""").find(chunk)?.groupValues?.get(1)
-                    if (arch != null) arch to sha else null
-                }.toMap()
-        assertEquals(tiniArchToSha, pairing, "each tini-<arch> stage must pin exactly its upstream digest")
-        assertTrue(d.contains("COPY --from=tini-\${TARGETARCH}"), "runtime must COPY --from=tini-\${TARGETARCH}")
+        // Exact upstream digests pinned as ARG defaults (catches a typo; a RUN curl has no BuildKit
+        // ADD --checksum pre-verify, so this is the earliest, host-free guard on the pin's correctness).
+        assertTrue(d.contains("ARG TINI_SHA256_AMD64=${tiniArchToSha["amd64"]}"), "amd64 tini sha pinned to upstream")
+        assertTrue(d.contains("ARG TINI_SHA256_ARM64=${tiniArchToSha["arm64"]}"), "arm64 tini sha pinned to upstream")
+        // Selection correctness: each arch case-arm maps to ITS sha var (catches a swap).
+        assertTrue(d.contains("amd64) tini_sha=\"\${TINI_SHA256_AMD64}\""), "amd64 case must select TINI_SHA256_AMD64")
+        assertTrue(d.contains("arm64) tini_sha=\"\${TINI_SHA256_ARM64}\""), "arm64 case must select TINI_SHA256_ARM64")
+        // Fetch the arch-matching binary and verify fail-closed.
+        assertTrue(d.contains("tini-\${TARGETARCH}"), "must fetch tini-\${TARGETARCH}")
+        assertTrue(d.contains("curl -fsSL"), "tini fetch must use curl -fsSL (fail on http error)")
+        assertTrue(d.contains("sha256sum -c"), "tini must be verified fail-closed via sha256sum -c")
         assertFalse(d.contains("\${TINI_ARCH}"), "runtime.dockerfile must not reference TINI_ARCH")
     }
 }
