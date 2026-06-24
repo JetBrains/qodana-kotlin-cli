@@ -3,6 +3,7 @@ package org.jetbrains.qodana.images
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
@@ -64,5 +65,35 @@ class LinterImagesWorkflowContractTest {
         val gate = stepsMatching(feedRequired, emptyToken)
         assertEquals(1, gate.size, "expected exactly one feed_required empty-token gate")
         assertTrue(gate.single().runScript().contains("exit 1"))
+    }
+
+    @Test
+    fun `every e2e cell declares arch and runner`() {
+        cells.forEach { c ->
+            val n = c["name"].asText()
+            assertTrue(c["arch"]?.asText() in setOf("amd64", "arm64"), "$n: arch must be amd64|arm64")
+            assertTrue(!c["runner"]?.asText().isNullOrBlank(), "$n: runner must be set")
+        }
+    }
+
+    @Test
+    fun `qodana-jvm has exactly one amd64 cell and one arm64 cell`() {
+        val jvm = cells.filter { it["name"].asText() == "qodana-jvm" }
+        assertEquals(setOf("amd64", "arm64"), jvm.map { it["arch"].asText() }.toSet(), "jvm cells: amd64 + arm64")
+        assertEquals(2, jvm.size, "exactly two qodana-jvm cells")
+        val arm = jvm.single { it["arch"].asText() == "arm64" }
+        assertEquals("ubuntu-24.04-arm", arm["runner"].asText(), "arm64 jvm cell runs on an arm64 runner")
+        // INVARIANT guard: arm64 cells run only on arm64 runners (-PtargetArch is a label, not cross-compile).
+        cells.filter { it["arch"]?.asText() == "arm64" }.forEach {
+            val n = it["name"].asText()
+            assertTrue(it["runner"].asText().endsWith("-arm"), "$n: arm64 cell must use an -arm runner")
+        }
+    }
+
+    @Test
+    fun `e2e job name is platform-tagged and runner-independent`() {
+        val name = workflow["jobs"]["e2e"]["name"].asText()
+        assertTrue(name.contains("linux/\${{ matrix.image.arch }}"), "check name must carry linux/<arch>, got: $name")
+        assertFalse(name.contains("ubuntu"), "check name must not embed the runner id: $name")
     }
 }
