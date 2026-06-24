@@ -41,11 +41,16 @@ class RubyEnvContractTest {
         return env
     }
 
+    // jvm's PUBLIC dist key set: jvm is the sole internal-nightly-feed image, carrying QD_DISTRIBUTION_FEED
+    // + QD_VERIFY_MODE that public dist images (ruby included) omit. Interim baseline — replaced by named
+    // capability profiles in QD-15167.
+    private fun jvmPublicKeys(): Set<String> = parseEnv("qodana-jvm").keys - "QD_DISTRIBUTION_FEED" - "QD_VERIFY_MODE"
+
     @Test
     fun `qodana-ruby env has exactly the jvm key set plus DIST_BASE_STAGE`() {
         val env = parseEnv("qodana-ruby")
-        val expected = parseEnv("qodana-jvm").keys + "DIST_BASE_STAGE"
-        assertEquals(expected, env.keys, "ruby must be jvm's key set (dist + node toolchain) plus DIST_BASE_STAGE")
+        val expected = jvmPublicKeys() + "DIST_BASE_STAGE"
+        assertEquals(expected, env.keys, "ruby must be jvm's PUBLIC key set plus DIST_BASE_STAGE")
         assertEquals(
             "privileged",
             env["DIST_BASE_STAGE"],

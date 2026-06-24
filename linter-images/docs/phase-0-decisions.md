@@ -155,35 +155,35 @@ DOTNET_CHANNELS = 8.0 9.0 10.0
 
 ### qodana-jvm feed pin (jvm — android carries its own pin below)
 
-Resolved 2026-06-22 from `download.jetbrains.com/qodana/feed/qodana-jvm.releases.json`
-(max-by-Date among `MajorVersion==2026.1` AND `Type==release`), aligning jvm/android with the
-rest of the repo's images. `Code` is `QDJVM`.
-The `EnvContractTest` `pins match phase-0-decisions` test asserts
-`QODANA_JVM_VERSION == qodana-jvm.env QD_VERSION` (the MajorVersion `2026.1`) and
-`QODANA_JVM_BUILD == qodana-jvm.env QD_BUILD` (the `Build` `261.25881`). The
-download Link embeds an extra build segment (`...-261.25881.415.tar.gz`); use the
-feed's Link VERBATIM — do not reconstruct it from `Build`.
+Repointed onto the INTERNAL nightly dist feed (QD-15032 Task 11). Resolved 2026-06-24 from
+`packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed/qodana-jvm.releases.json` (max-by-Date
+among `MajorVersion==2026.3` AND `Type==eap` — the predicate `BumpPinsCommand` uses; the feed is
+eap-only). `Code` is `QDJVM`. The feed reads with the `QODANA_READ_SPACE_PACKAGES_TOKEN` bearer token;
+`qodana-jvm.env` sets `QD_DISTRIBUTION_FEED` to this feed and `QD_VERIFY_MODE=sha256` (the nightly is
+unsigned — sha256-only, no GPG `.asc`). The `EnvContractTest` `pins match phase-0-decisions` test
+asserts `QODANA_JVM_VERSION == qodana-jvm.env QD_VERSION` (the MajorVersion `2026.3`) and
+`QODANA_JVM_BUILD == qodana-jvm.env QD_BUILD` (the `Build` `263.484.2575`). Use the feed's Link VERBATIM.
 
-QODANA_JVM_VERSION = 2026.1
-QODANA_JVM_BUILD = 261.25881
+QODANA_JVM_VERSION = 2026.3
+QODANA_JVM_BUILD = 263.484.2575
 
-Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+Full release version — the nightly's feed `Version`, which for this eap train equals the major (no
+patch segment yet); for reference, NOT the `QD_VERSION`/`QD_BUILD` pin:
 
-QODANA_JVM_FULL_VERSION = 2026.1.4
+QODANA_JVM_FULL_VERSION = 2026.3
 
-Download links (verbatim from the feed):
+Download links (verbatim from the internal feed):
 
-QODANA_JVM_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDJVM-261.25881.415.tar.gz
-QODANA_JVM_LINUX_ARM64_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDJVM-261.25881.415-aarch64.tar.gz
+QODANA_JVM_LINUX_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-jvm/qodana-QDJVM-263.484.2575.tar.gz
+QODANA_JVM_LINUX_ARM64_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-jvm/qodana-QDJVM-263.484.2575-aarch64.tar.gz
 
-### Checksum + signature siblings (DistVerifier depends on these)
+### Checksum sibling (DistVerifier depends on this)
 
-Both siblings of the linux Link return HTTP 200 (probed live 2026-06-22,
-following CDN redirects): the `.sha256` checksum and the `.sha256.asc` detached
-GPG signature `ChecksumLink + ".asc"`.
+The `.sha256` checksum sibling of the linux Link returns HTTP 200 (probed live 2026-06-24 with the
+token). There is NO `.sha256.asc`: the internal nightly is unsigned, so `QD_VERIFY_MODE=sha256` skips
+the GPG leg and the `.asc` download (probed live: `.sha256.asc` → HTTP 404).
 
 QODANA_JVM_LINUX_SHA256_SIBLING = 200
-QODANA_JVM_LINUX_ASC_SIBLING = 200
 
 ### qodana-android feed pin (own pin; bakes the qodana-jvm dist)
 

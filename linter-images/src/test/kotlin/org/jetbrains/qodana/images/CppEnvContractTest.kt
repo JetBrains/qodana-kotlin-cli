@@ -49,10 +49,15 @@ class CppEnvContractTest {
         return env
     }
 
+    // jvm's PUBLIC dist key set: jvm is the sole internal-nightly-feed image, carrying QD_DISTRIBUTION_FEED
+    // + QD_VERIFY_MODE that public dist images (cpp included) omit. Interim baseline — replaced by named
+    // capability profiles in QD-15167.
+    private fun jvmPublicKeys(): Set<String> = parseEnv("qodana-jvm").keys - "QD_DISTRIBUTION_FEED" - "QD_VERIFY_MODE"
+
     @Test
     fun `qodana-cpp env has exactly the jvm key set plus DIST_BASE_STAGE and CLANG keys`() {
         val env = parseEnv("qodana-cpp")
-        val expected = parseEnv("qodana-jvm").keys + "DIST_BASE_STAGE" + "CLANG" + "CLANG_OS"
+        val expected = jvmPublicKeys() + "DIST_BASE_STAGE" + "CLANG" + "CLANG_OS"
         assertEquals(
             expected,
             env.keys,

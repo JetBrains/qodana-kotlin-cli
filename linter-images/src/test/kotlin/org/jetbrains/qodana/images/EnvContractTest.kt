@@ -67,9 +67,19 @@ class EnvContractTest {
         return env
     }
 
+    /**
+     * jvm's PUBLIC dist key set. jvm itself is the sole internal-nightly-feed image, so it carries
+     * QD_DISTRIBUTION_FEED + QD_VERIFY_MODE on top of the keys every public IDE-dist image shares;
+     * derived public images (jvm-community, go, php, …) assert against THIS. Interim baseline — the
+     * jvm-as-schema coupling is replaced by named capability profiles in QD-15167.
+     */
+    private fun jvmPublicKeys(): Set<String> = parseEnv("qodana-jvm").keys - "QD_DISTRIBUTION_FEED" - "QD_VERIFY_MODE"
+
     @Test
     fun `qodana-jvm env has exactly the jvm key set`() {
-        // Canonical .env CONTRACT: exact major+build pin, public source channel, arch-parameterized tini.
+        // Canonical .env CONTRACT. jvm is the ONE internal-nightly-feed image (QD-15032 Task 11): on top
+        // of the public dist+node keys it carries QD_DISTRIBUTION_FEED + QD_VERIFY_MODE and pins the eap
+        // channel, so every PUBLIC dist image derives from jvmPublicKeys() (jvm minus those two keys).
         val expected =
             setOf(
                 "QD_LINTER_SLUG",
@@ -77,6 +87,8 @@ class EnvContractTest {
                 "QD_BUILD",
                 "QD_RELEASE_TYPE",
                 "QD_PRODUCT_INFO_CODE",
+                "QD_DISTRIBUTION_FEED",
+                "QD_VERIFY_MODE",
                 "QD_BASE_IMAGE",
                 "CLI_BINARY",
                 "CLI_VERSION",
@@ -87,7 +99,19 @@ class EnvContractTest {
                 "TINI_ARCH",
                 "TINI_SHA256",
             )
-        assertEquals(expected, parseEnv("qodana-jvm").keys)
+        val jvm = parseEnv("qodana-jvm")
+        assertEquals(expected, jvm.keys)
+        assertEquals("eap", jvm["QD_RELEASE_TYPE"], "jvm pulls the eap internal nightly, not a public release")
+        assertEquals(
+            "https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed",
+            jvm["QD_DISTRIBUTION_FEED"],
+            "jvm fetches the internal nightly dist feed (QD-15032 Task 11)",
+        )
+        assertEquals(
+            "sha256",
+            jvm["QD_VERIFY_MODE"],
+            "the internal nightly dist is unsigned (sha256-only, no GPG .asc)",
+        )
     }
 
     @Test
@@ -97,7 +121,7 @@ class EnvContractTest {
         // slug/version/build/product-info/base values. Asserting an identical key set keeps the two
         // images' contracts in lockstep.
         val community = parseEnv("qodana-jvm-community")
-        assertEquals(parseEnv("qodana-jvm").keys, community.keys, "jvm-community must share jvm's exact key set")
+        assertEquals(jvmPublicKeys(), community.keys, "jvm-community must share jvm's PUBLIC key set")
         assertTrue("QD_CHANNEL" !in community, "QD_CHANNEL was removed by the foundation refactor")
         assertTrue(
             "QD_DISTRIBUTION_FEED" !in community,
@@ -474,7 +498,7 @@ class EnvContractTest {
         // default uid 1000 and sets NO uid keys/build args. The eslint pin lives in
         // lib/toolchain/eslint/package.json (renovate-tracked), NOT in the .env.
         val env = parseEnv("qodana-go")
-        assertEquals(parseEnv("qodana-jvm").keys, env.keys, "go must share jvm's exact key set (dist + node toolchain)")
+        assertEquals(jvmPublicKeys(), env.keys, "go must share jvm's PUBLIC key set (dist + node toolchain)")
         assertTrue(
             "DIST_BASE_STAGE" !in env,
             "qodana-go dist layers onto base (node+eslint are in-place), no DIST_BASE_STAGE",
@@ -534,7 +558,7 @@ class EnvContractTest {
         // keeps the default uid 1000 and sets NO uid keys/build args. The eslint pin lives in
         // lib/toolchain/eslint/package.json (renovate-tracked), NOT in the .env.
         val env = parseEnv("qodana-php")
-        val expected = parseEnv("qodana-jvm").keys + "DIST_BASE_STAGE" + "COMPOSER_IMAGE"
+        val expected = jvmPublicKeys() + "DIST_BASE_STAGE" + "COMPOSER_IMAGE"
         assertEquals(
             expected,
             env.keys,
