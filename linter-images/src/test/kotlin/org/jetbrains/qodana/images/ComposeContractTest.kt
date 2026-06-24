@@ -72,6 +72,23 @@ class ComposeContractTest {
     }
 
     @Test
+    fun `only arch-capable images drop the linux-amd64 platform pin`() {
+        val services = load("compose.yaml")["services"]
+        // qodana-jvm is arch-ified (host-arch follows TARGETARCH) → NO platform pin.
+        assertTrue(services["qodana-jvm"]["platform"] == null, "qodana-jvm must not pin platform (multiarch)")
+        // Every other service stays amd64-only until QD-15171 → MUST keep the pin.
+        services.fieldNames().forEachRemaining { svc ->
+            if (svc != "qodana-jvm") {
+                assertEquals(
+                    "linux/amd64",
+                    services[svc]["platform"]?.asText(),
+                    "$svc is still amd64-only and must keep platform: linux/amd64 until its toolchain is arch-capable",
+                )
+            }
+        }
+    }
+
+    @Test
     fun `release path provides a non-empty CLI_RELEASE_BASE_URL so the inner CLI download cannot 404 silently`() {
         // Strengthening beyond the plan's verbatim test: install-cli forms the asset URL as
         // ${CLI_RELEASE_BASE_URL}/qodana_<os>_<arch>.tar.gz, so a missing/blank base URL is a

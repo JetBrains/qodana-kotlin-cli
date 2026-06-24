@@ -20,7 +20,6 @@ This table lists the `.env` keys `EnvContractTest` asserts. (Build ARGs with inc
 | `CLI_BINARY`           | `lib/cli.dockerfile` (install-cli)                      | per-linter               | `qodana` (jvm/android) or `qodana-clang` (clang)                                     |
 | `CLI_VERSION`          | `lib/cli.dockerfile` (install-cli)                      | gradle.properties        | `2026.2`, independent of engine                                                      |
 | `CLI_OS`               | `lib/cli.dockerfile` (install-cli)                      | constant                 | `linux`                                                                              |
-| `CLI_ARCH`             | `lib/cli.dockerfile` (install-cli)                      | per-linter               | `amd64` (android amd64-only) or `arm64`                                              |
 | `NODE_MAJOR`           | `lib/toolchain/node.dockerfile`                         | per-linter               | jvm only                                                                             |
 | `ANDROID_SDK_VERSION`  | `lib/toolchain/android.dockerfile`                      | phase-0                  | android only                                                                         |
 | `ANDROID_SDK_SHA256`   | `lib/toolchain/android.dockerfile`                      | phase-0                  | android only                                                                         |
@@ -33,6 +32,5 @@ This table lists the `.env` keys `EnvContractTest` asserts. (Build ARGs with inc
 | `CLANG_TIDY_MIRROR`    | `lib/tools.dockerfile`                                  | phase-0-decisions.md     | qodana-cli-deps Space mirror base URL (clang only)                                   |
 | `CLT_VERSION`          | `lib/resharper-clt.dockerfile`                          | phase-0-decisions.md     | ReSharper CLT (InspectCode) pin (cdnet only)                                         |
 | `CLT_MIRROR`           | `lib/resharper-clt.dockerfile`                          | phase-0-decisions.md     | qodana-cli-deps Space mirror base URL (cdnet only)                                   |
-| `TINI_VERSION`         | `lib/runtime.dockerfile`                                | phase-0-decisions.md     | PID-1 init                                                                           |
-| `TINI_ARCH`            | `lib/runtime.dockerfile`                                | per-linter               | `amd64` \| `arm64` (matches `CLI_ARCH`); fetch is `tini-${TINI_ARCH}`                |
-| `TINI_SHA256`          | `lib/runtime.dockerfile`                                | phase-0-decisions.md     | `ADD --checksum` guard for `tini-${TINI_ARCH}`                                       |
+
+Arch is NOT an `.env` key (QD-15172). `lib/cli.dockerfile`/`lib/dist.dockerfile` derive it from BuildKit's `TARGETARCH` (`install-cli`/`provision-dist` `--arch "${TARGETARCH}"`), and `lib/runtime.dockerfile` pins tini (version + both per-arch shas) in the dockerfile itself, selecting `COPY --from=tini-${TARGETARCH}`. So `CLI_ARCH`/`TINI_VERSION`/`TINI_ARCH`/`TINI_SHA256` no longer exist; `EnvContractTest` asserts they are absent. (clang/cdnet's clang-tidy mirror arch comes from `tools.dockerfile`'s own `ARG CLI_ARCH=amd64` default, not from an `.env` key.)

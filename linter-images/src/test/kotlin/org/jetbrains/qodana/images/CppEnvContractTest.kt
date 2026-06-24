@@ -65,7 +65,6 @@ class CppEnvContractTest {
             env["QD_RELEASE_TYPE"],
             "qodana-cpp is a RELEASE linter (the QDCPP feed has release entries, unlike ruby/rust)",
         )
-        assertEquals("amd64", env["CLI_ARCH"], "qodana-cpp is amd64-only")
         assertEquals("qodana", env["CLI_BINARY"], "qodana-cpp's inner CLI is the generic qodana (Cli kind)")
         assertEquals(
             parseEnv("qodana-jvm")["NODE_MAJOR"],
