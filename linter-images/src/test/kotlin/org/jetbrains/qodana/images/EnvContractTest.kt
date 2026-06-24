@@ -1,10 +1,13 @@
 package org.jetbrains.qodana.images
 
+import org.jetbrains.qodana.images.EnvContract.internalFeed
+import org.jetbrains.qodana.images.EnvContract.node
+import org.jetbrains.qodana.images.EnvContract.parseEnv
+import org.jetbrains.qodana.images.EnvContract.pin
+import org.jetbrains.qodana.images.EnvContract.publicDist
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import java.nio.file.Path
-import kotlin.io.path.readText
 
 /**
  * Per-slug `.env` contract guard (plan Phase 4.4).
@@ -15,16 +18,15 @@ import kotlin.io.path.readText
  * jvm's key set (dist + node toolchain), product-info GO, default uid 1000 (the golang base does not
  * occupy 1000), GOMODCACHE redirect in lib/toolchain/go.dockerfile (see GoToolchainTest).
  *
+ * Each dist image's expected key set is composed from the neutral [EnvContract] capability profiles
+ * ([publicDist]/[node]/[internalFeed]); shared `parseEnv`/`pin` come from [EnvContract] too.
+ *
  * Android carries DIST_BASE_STAGE (beyond the plan's verbatim key set): the dist orphan-fix
  * parameterizes `FROM ${DIST_BASE_STAGE:-base} AS dist`, and android sets it to android-toolchain so
  * the dist inherits the SDK/Corretto. jvm omits the key and falls back to base. CLI_BASE_STAGE
  * (clang's `tools`) is a build ARG, NOT an `.env` key — the clang compose service passes it.
  */
 class EnvContractTest {
-    // Test working dir is the module root (pinned once in Phase 1) — resolve relative to it directly.
-    private val imagesDir: Path = Path.of("docker/images")
-    private val decisions: Path = Path.of("docs/phase-0-decisions.md")
-
     /** Slugs whose `.env` are authored. */
     private val authoredSlugs =
         listOf(
@@ -47,60 +49,14 @@ class EnvContractTest {
             "qodana-cpp",
         )
 
-    private fun parseEnv(slug: String): Map<String, String> {
-        // Build the map by hand so a duplicate key fails LOUDLY: `associate` would silently keep the
-        // last occurrence, and the exact-key-set assertions would not notice a copy-paste duplicate.
-        val env = linkedMapOf<String, String>()
-        imagesDir
-            .resolve("$slug.env")
-            .readText()
-            .lineSequence()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() && !it.startsWith("#") }
-            .forEach { line ->
-                val i = line.indexOf('=')
-                assertTrue(i > 0, "malformed env line in $slug.env: '$line'")
-                val key = line.substring(0, i)
-                assertTrue(key !in env, "duplicate key '$key' in $slug.env")
-                env[key] = line.substring(i + 1)
-            }
-        return env
-    }
-
-    /**
-     * jvm's PUBLIC dist key set. jvm itself is the sole internal-nightly-feed image, so it carries
-     * QD_DISTRIBUTION_FEED + QD_VERIFY_MODE on top of the keys every public IDE-dist image shares;
-     * derived public images (jvm-community, go, php, …) assert against THIS. Interim baseline — the
-     * jvm-as-schema coupling is replaced by named capability profiles in QD-15167.
-     */
-    private fun jvmPublicKeys(): Set<String> = parseEnv("qodana-jvm").keys - "QD_DISTRIBUTION_FEED" - "QD_VERIFY_MODE"
-
     @Test
     fun `qodana-jvm env has exactly the jvm key set`() {
         // Canonical .env CONTRACT. jvm is the ONE internal-nightly-feed image (QD-15032 Task 11): on top
-        // of the public dist+node keys it carries QD_DISTRIBUTION_FEED + QD_VERIFY_MODE and pins the eap
-        // channel, so every PUBLIC dist image derives from jvmPublicKeys() (jvm minus those two keys).
-        val expected =
-            setOf(
-                "QD_LINTER_SLUG",
-                "QD_VERSION",
-                "QD_BUILD",
-                "QD_RELEASE_TYPE",
-                "QD_PRODUCT_INFO_CODE",
-                "QD_DISTRIBUTION_FEED",
-                "QD_VERIFY_MODE",
-                "QD_BASE_IMAGE",
-                "CLI_BINARY",
-                "CLI_VERSION",
-                "CLI_OS",
-                "CLI_ARCH",
-                "NODE_MAJOR",
-                "TINI_VERSION",
-                "TINI_ARCH",
-                "TINI_SHA256",
-            )
+        // of the public dist + node keys it carries the internalFeed profile (QD_DISTRIBUTION_FEED +
+        // QD_VERIFY_MODE) and pins the eap channel. Public dist images compose from publicDist (+ node)
+        // WITHOUT internalFeed.
         val jvm = parseEnv("qodana-jvm")
-        assertEquals(expected, jvm.keys)
+        assertEquals(publicDist + node + internalFeed, jvm.keys)
         assertEquals("eap", jvm["QD_RELEASE_TYPE"], "jvm pulls the eap internal nightly, not a public release")
         assertEquals(
             "https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed",
@@ -116,12 +72,12 @@ class EnvContractTest {
 
     @Test
     fun `qodana-jvm-community env has exactly the jvm key set`() {
-        // Community JVM is a normal IDE-dist image like jvm: SAME key set (no QD_CHANNEL, no
-        // QD_DISTRIBUTION_FEED — it uses the PUBLIC feed via the dockerfile default), differing only in
-        // slug/version/build/product-info/base values. Asserting an identical key set keeps the two
-        // images' contracts in lockstep.
+        // Community JVM is a normal IDE-dist image like jvm: the public dist + node profile (no QD_CHANNEL,
+        // no QD_DISTRIBUTION_FEED — it uses the PUBLIC feed via the dockerfile default), differing only in
+        // slug/version/build/product-info/base values. The publicDist+node assert also pins the publicDist
+        // profile literal to a real `.env`.
         val community = parseEnv("qodana-jvm-community")
-        assertEquals(jvmPublicKeys(), community.keys, "jvm-community must share jvm's PUBLIC key set")
+        assertEquals(publicDist + node, community.keys, "jvm-community must share jvm's PUBLIC key set")
         assertTrue("QD_CHANNEL" !in community, "QD_CHANNEL was removed by the foundation refactor")
         assertTrue(
             "QD_DISTRIBUTION_FEED" !in community,
@@ -139,11 +95,6 @@ class EnvContractTest {
 
     @Test
     fun `jvm-community pins match phase-0-decisions`() {
-        val d = decisions.readText()
-
-        fun pin(k: String) =
-            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
-                ?: error("$k not recorded in $decisions")
         val community = parseEnv("qodana-jvm-community")
         assertEquals(
             pin("QD_TRIXIE_BASE_IMAGE"),
@@ -169,31 +120,19 @@ class EnvContractTest {
 
     @Test
     fun `qodana-android env has exactly the android key set and no node`() {
-        // Same dist/cli/runtime keys as jvm, minus NODE_MAJOR, plus the SDK/Corretto toolchain keys and
-        // DIST_BASE_STAGE (the orphan-fix selector that layers the dist onto android-toolchain).
+        // publicDist (no node) plus the SDK/Corretto toolchain keys and DIST_BASE_STAGE (the orphan-fix
+        // selector that layers the dist onto android-toolchain).
         val env = parseEnv("qodana-android")
         val expected =
-            setOf(
-                "QD_LINTER_SLUG",
-                "QD_VERSION",
-                "QD_BUILD",
-                "QD_RELEASE_TYPE",
-                "QD_PRODUCT_INFO_CODE",
-                "QD_BASE_IMAGE",
-                "DIST_BASE_STAGE",
-                "CLI_BINARY",
-                "CLI_VERSION",
-                "CLI_OS",
-                "CLI_ARCH",
-                "ANDROID_SDK_VERSION",
-                "ANDROID_SDK_SHA256",
-                "CORRETTO11_IMAGE",
-                "CORRETTO17_IMAGE",
-                "DEVICEID",
-                "TINI_VERSION",
-                "TINI_ARCH",
-                "TINI_SHA256",
-            )
+            publicDist +
+                setOf(
+                    "DIST_BASE_STAGE",
+                    "ANDROID_SDK_VERSION",
+                    "ANDROID_SDK_SHA256",
+                    "CORRETTO11_IMAGE",
+                    "CORRETTO17_IMAGE",
+                    "DEVICEID",
+                )
         assertEquals(expected, env.keys)
         assertTrue("NODE_MAJOR" !in env, "android must not set NODE_MAJOR (no node toolchain)")
         assertEquals("amd64", env["CLI_ARCH"], "android is amd64-only")
@@ -202,10 +141,9 @@ class EnvContractTest {
 
     @Test
     fun `qodana-android-community env has exactly the android key set and no node`() {
-        // Community twin of qodana-android: SAME key set as android (DIST_BASE_STAGE + SDK/Corretto
-        // toolchain, no NODE_MAJOR), differing only in slug/product-info/base values. Asserting an
-        // identical key set keeps the two android images' contracts in lockstep, exactly as
-        // jvm-community mirrors jvm.
+        // Community twin of qodana-android: SAME key set as android (a known delta of its sibling), so it
+        // is asserted directly against android's keys, keeping the two android images' contracts in
+        // lockstep — exactly as jvm-community mirrors jvm.
         val community = parseEnv("qodana-android-community")
         assertEquals(
             parseEnv("qodana-android").keys,
@@ -289,11 +227,6 @@ class EnvContractTest {
 
     @Test
     fun `cdnet pins match phase-0-decisions`() {
-        val d = decisions.readText()
-
-        fun pin(k: String) =
-            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
-                ?: error("$k not recorded in $decisions")
         val cdnet = parseEnv("qodana-cdnet")
         assertEquals(pin("QD_BASE_IMAGE"), cdnet["QD_BASE_IMAGE"], "cdnet base digest must match phase-0-decisions")
         assertEquals(pin("CLT_VERSION"), cdnet["CLT_VERSION"], "CLT pin must match phase-0-decisions")
@@ -302,30 +235,11 @@ class EnvContractTest {
 
     @Test
     fun `qodana-python-community env has exactly the python key set and no node`() {
-        // First NEW toolchain image: a normal IDE-dist image (like jvm-community) that layers the conda
-        // toolchain instead of node. SAME dist/cli/runtime keys, NO NODE_MAJOR, plus the conda keys
-        // (MINICONDA_VERSION/MINICONDA_SHA256) and DIST_BASE_STAGE=conda-toolchain (the dist layers onto
-        // the conda stage, mirroring android's DIST_BASE_STAGE=android-toolchain).
+        // A normal IDE-dist image (like jvm-community) that layers the conda toolchain instead of node:
+        // publicDist (no node) plus the conda keys (MINICONDA_VERSION/MINICONDA_SHA256) and
+        // DIST_BASE_STAGE=conda-toolchain (the dist layers onto the conda stage, as android does onto its).
         val env = parseEnv("qodana-python-community")
-        val expected =
-            setOf(
-                "QD_LINTER_SLUG",
-                "QD_VERSION",
-                "QD_BUILD",
-                "QD_RELEASE_TYPE",
-                "QD_PRODUCT_INFO_CODE",
-                "QD_BASE_IMAGE",
-                "DIST_BASE_STAGE",
-                "CLI_BINARY",
-                "CLI_VERSION",
-                "CLI_OS",
-                "CLI_ARCH",
-                "MINICONDA_VERSION",
-                "MINICONDA_SHA256",
-                "TINI_VERSION",
-                "TINI_ARCH",
-                "TINI_SHA256",
-            )
+        val expected = publicDist + setOf("DIST_BASE_STAGE", "MINICONDA_VERSION", "MINICONDA_SHA256")
         assertEquals(expected, env.keys)
         assertTrue("NODE_MAJOR" !in env, "python-community must not set NODE_MAJOR (conda toolchain, not node)")
         assertTrue("QD_CHANNEL" !in env, "QD_CHANNEL was removed by the foundation refactor")
@@ -346,11 +260,6 @@ class EnvContractTest {
 
     @Test
     fun `python-community pins match phase-0-decisions`() {
-        val d = decisions.readText()
-
-        fun pin(k: String) =
-            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
-                ?: error("$k not recorded in $decisions")
         val python = parseEnv("qodana-python-community")
         assertEquals(
             pin("QD_TRIXIE_BASE_IMAGE"),
@@ -376,9 +285,8 @@ class EnvContractTest {
 
     @Test
     fun `qodana-python env has exactly the python-community key set plus node`() {
-        // Ultimate Python = Community Python + node, exactly as Ultimate jvm = community-JVM-lineage +
-        // node. SAME key set as python-community (conda toolchain, DIST_BASE_STAGE=conda-toolchain), PLUS
-        // NODE_MAJOR for the appended node stage; product-info is PY (PyCharm Professional), not PC.
+        // Ultimate Python = Community Python + node — a known delta of its sibling, so asserted directly
+        // against python-community's keys + NODE_MAJOR (not re-composed from profiles). product-info is PY.
         val env = parseEnv("qodana-python")
         val expected = parseEnv("qodana-python-community").keys + "NODE_MAJOR"
         assertEquals(expected, env.keys, "python must be python-community's key set plus NODE_MAJOR")
@@ -400,11 +308,6 @@ class EnvContractTest {
 
     @Test
     fun `python pins match phase-0-decisions`() {
-        val d = decisions.readText()
-
-        fun pin(k: String) =
-            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
-                ?: error("$k not recorded in $decisions")
         val python = parseEnv("qodana-python")
         assertEquals(
             pin("QD_TRIXIE_BASE_IMAGE"),
@@ -423,30 +326,14 @@ class EnvContractTest {
     @Test
     fun `qodana-js env has exactly the js key set and no node and no uid keys`() {
         // FIRST DHI-language-base image: node + Yarn come from the dhi.io/node base, so NO NODE_MAJOR and
-        // NO node toolchain. SAME dist/cli/runtime keys as a normal IDE-dist image (like jvm), NO
-        // DIST_BASE_STAGE (eslint is in-place on base, the dist FROMs base). The qodana uid shifts to 1001
-        // (the node base's `node` user occupies 1000), but QODANA_UID/QODANA_GID are COMPOSE BUILD ARGS
-        // (asserted by ComposeContractTest), NOT `.env` keys — dockerfile-x's INCLUDE_ARGS emit order would
-        // clobber an `.env` value back to the base default. The eslint pin lives in
-        // lib/toolchain/eslint/package.json (renovate-tracked), NOT in the .env.
+        // NO node toolchain — exactly the bare publicDist profile, NO DIST_BASE_STAGE (eslint is in-place on
+        // base, the dist FROMs base). This `== publicDist` assert pins the publicDist profile literal to a
+        // real `.env`. The qodana uid shifts to 1001 (the node base's `node` user occupies 1000), but
+        // QODANA_UID/QODANA_GID are COMPOSE BUILD ARGS (asserted by ComposeContractTest), NOT `.env` keys —
+        // dockerfile-x's INCLUDE_ARGS emit order would clobber an `.env` value back to the base default. The
+        // eslint pin lives in lib/toolchain/eslint/package.json (renovate-tracked), NOT in the .env.
         val env = parseEnv("qodana-js")
-        val expected =
-            setOf(
-                "QD_LINTER_SLUG",
-                "QD_VERSION",
-                "QD_BUILD",
-                "QD_RELEASE_TYPE",
-                "QD_PRODUCT_INFO_CODE",
-                "QD_BASE_IMAGE",
-                "CLI_BINARY",
-                "CLI_VERSION",
-                "CLI_OS",
-                "CLI_ARCH",
-                "TINI_VERSION",
-                "TINI_ARCH",
-                "TINI_SHA256",
-            )
-        assertEquals(expected, env.keys)
+        assertEquals(publicDist, env.keys)
         assertTrue("NODE_MAJOR" !in env, "qodana-js must not set NODE_MAJOR (node is in the DHI node base)")
         assertTrue(
             "DIST_BASE_STAGE" !in env,
@@ -468,11 +355,6 @@ class EnvContractTest {
 
     @Test
     fun `js pins match phase-0-decisions`() {
-        val d = decisions.readText()
-
-        fun pin(k: String) =
-            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
-                ?: error("$k not recorded in $decisions")
         val js = parseEnv("qodana-js")
         assertEquals(
             pin("QD_NODE_BASE_IMAGE"),
@@ -491,14 +373,13 @@ class EnvContractTest {
     @Test
     fun `qodana-go env has exactly the go key set and node`() {
         // GoLand-on-DHI-golang-base: the golang base ships Go pre-baked but NO node, so go layers the
-        // node toolchain (NODE_MAJOR) + the in-place eslint pin for its JS/TS support — exactly jvm's key
-        // set. SAME dist/cli/runtime keys + NODE_MAJOR. NO DIST_BASE_STAGE (node+eslint are in-place on
-        // base, the dist FROMs base). The golang base does NOT occupy uid 1000 (empirically: /etc/passwd
-        // has only root/nonroot/_apt/nobody), so — unlike qodana-js's dhi.io/node base — go keeps the
-        // default uid 1000 and sets NO uid keys/build args. The eslint pin lives in
-        // lib/toolchain/eslint/package.json (renovate-tracked), NOT in the .env.
+        // node toolchain (NODE_MAJOR) + the in-place eslint pin for its JS/TS support — publicDist + node.
+        // NO DIST_BASE_STAGE (node+eslint are in-place on base, the dist FROMs base). The golang base does
+        // NOT occupy uid 1000 (empirically: /etc/passwd has only root/nonroot/_apt/nobody), so — unlike
+        // qodana-js's dhi.io/node base — go keeps the default uid 1000 and sets NO uid keys/build args. The
+        // eslint pin lives in lib/toolchain/eslint/package.json (renovate-tracked), NOT in the .env.
         val env = parseEnv("qodana-go")
-        assertEquals(jvmPublicKeys(), env.keys, "go must share jvm's PUBLIC key set (dist + node toolchain)")
+        assertEquals(publicDist + node, env.keys, "go must share jvm's PUBLIC key set (dist + node toolchain)")
         assertTrue(
             "DIST_BASE_STAGE" !in env,
             "qodana-go dist layers onto base (node+eslint are in-place), no DIST_BASE_STAGE",
@@ -524,11 +405,6 @@ class EnvContractTest {
 
     @Test
     fun `go pins match phase-0-decisions`() {
-        val d = decisions.readText()
-
-        fun pin(k: String) =
-            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
-                ?: error("$k not recorded in $decisions")
         val go = parseEnv("qodana-go")
         assertEquals(
             pin("QD_GOLANG_BASE_IMAGE"),
@@ -547,22 +423,22 @@ class EnvContractTest {
     @Test
     fun `qodana-php env has exactly the jvm key set plus the composer toolchain keys`() {
         // PhpStorm-on-DHI-php-base: the php base ships PHP pre-baked but NO node and NO composer, so php
-        // layers the node toolchain (NODE_MAJOR) + the in-place eslint pin for its JS/TS support — jvm's
-        // key set — PLUS the composer toolchain. Composer is a cross-image COPY (the source php.Dockerfile
-        // copies it from the upstream composer image), so unlike the in-place node/eslint fragments it
-        // needs its own stage: lib/toolchain/composer.dockerfile opens `php-toolchain` (FROM base, so it
-        // inherits node+eslint) and COPYs composer from the digest-pinned COMPOSER_IMAGE (like android's
-        // CORRETTO*_IMAGE). The dist FROMs that stage, so php carries DIST_BASE_STAGE=php-toolchain (the
-        // conda/android pattern) + COMPOSER_IMAGE. The php base does NOT occupy uid 1000 (empirically:
+        // layers the node toolchain (NODE_MAJOR) + the in-place eslint pin for its JS/TS support —
+        // publicDist + node — PLUS the composer toolchain. Composer is a cross-image COPY (the source
+        // php.Dockerfile copies it from the upstream composer image), so unlike the in-place node/eslint
+        // fragments it needs its own stage: lib/toolchain/composer.dockerfile opens `php-toolchain` (FROM
+        // base, so it inherits node+eslint) and COPYs composer from the digest-pinned COMPOSER_IMAGE (like
+        // android's CORRETTO*_IMAGE). The dist FROMs that stage, so php carries DIST_BASE_STAGE=php-toolchain
+        // (the conda/android pattern) + COMPOSER_IMAGE. The php base does NOT occupy uid 1000 (empirically:
         // /etc/passwd has only root/nonroot/_apt/nobody, like the golang base), so — unlike qodana-js — php
         // keeps the default uid 1000 and sets NO uid keys/build args. The eslint pin lives in
         // lib/toolchain/eslint/package.json (renovate-tracked), NOT in the .env.
         val env = parseEnv("qodana-php")
-        val expected = jvmPublicKeys() + "DIST_BASE_STAGE" + "COMPOSER_IMAGE"
+        val expected = publicDist + node + setOf("DIST_BASE_STAGE", "COMPOSER_IMAGE")
         assertEquals(
             expected,
             env.keys,
-            "php must be jvm's key set (dist + node toolchain) plus DIST_BASE_STAGE + COMPOSER_IMAGE",
+            "php must be publicDist + node plus DIST_BASE_STAGE + COMPOSER_IMAGE",
         )
         assertEquals(
             "php-toolchain",
@@ -590,11 +466,6 @@ class EnvContractTest {
 
     @Test
     fun `php pins match phase-0-decisions`() {
-        val d = decisions.readText()
-
-        fun pin(k: String) =
-            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
-                ?: error("$k not recorded in $decisions")
         val php = parseEnv("qodana-php")
         assertEquals(
             pin("QD_PHP_BASE_IMAGE"),
@@ -627,11 +498,6 @@ class EnvContractTest {
 
     @Test
     fun `android pins match phase-0-decisions`() {
-        val d = decisions.readText()
-
-        fun pin(k: String) =
-            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
-                ?: error("$k not recorded in $decisions")
         val android = parseEnv("qodana-android")
         assertEquals(pin("QODANA_ANDROID_VERSION"), android["QD_VERSION"], "android major must match phase-0-decisions")
         assertEquals(pin("QODANA_ANDROID_BUILD"), android["QD_BUILD"], "android build pin must match phase-0-decisions")
@@ -656,11 +522,6 @@ class EnvContractTest {
 
     @Test
     fun `android-community pins match phase-0-decisions`() {
-        val d = decisions.readText()
-
-        fun pin(k: String) =
-            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
-                ?: error("$k not recorded in $decisions")
         val android = parseEnv("qodana-android-community")
         assertEquals(
             pin("QD_TRIXIE_BASE_IMAGE"),
@@ -695,13 +556,6 @@ class EnvContractTest {
 
     @Test
     fun `jvm pins match phase-0-decisions`() {
-        val d = decisions.readText()
-
-        // Anchor the key to line start (MULTILINE) so a key cannot match as a substring of a longer
-        // key or mid-line text — only a real `KEY = value` row is read.
-        fun pin(k: String) =
-            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
-                ?: error("$k not recorded in $decisions")
         val jvm = parseEnv("qodana-jvm")
         val clang = parseEnv("qodana-clang")
         assertEquals(pin("QD_BASE_IMAGE"), jvm["QD_BASE_IMAGE"], "base digest must match phase-0-decisions")

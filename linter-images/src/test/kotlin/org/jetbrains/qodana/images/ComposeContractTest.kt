@@ -2,6 +2,8 @@ package org.jetbrains.qodana.images
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
+import org.jetbrains.qodana.images.EnvContract.parseEnv
+import org.jetbrains.qodana.images.EnvContract.pin
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -194,11 +196,6 @@ class ComposeContractTest {
         val gid = args["QODANA_GID"]
         assertTrue(uid != null && gid != null, "qodana-js must pass QODANA_UID/QODANA_GID build args")
 
-        val d = Path.of("docs/phase-0-decisions.md").readText()
-
-        fun pin(k: String) =
-            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
-                ?: error("$k not recorded in phase-0-decisions.md")
         assertEquals(pin("QODANA_JS_UID"), uid.asText(), "qodana-js QODANA_UID must match phase-0-decisions")
         assertEquals(pin("QODANA_JS_GID"), gid.asText(), "qodana-js QODANA_GID must match phase-0-decisions")
         // No other service overrides the uid (they keep base.dockerfile's default 1000).
@@ -225,7 +222,7 @@ class ComposeContractTest {
             val tagVersion = tag.removePrefix("v")
 
             val cliVersion =
-                imagesEnv(slug)["CLI_VERSION"]
+                parseEnv(slug)["CLI_VERSION"]
                     ?: error("$slug.env must set CLI_VERSION")
             assertEquals(
                 tagVersion,
@@ -234,23 +231,6 @@ class ComposeContractTest {
             )
         }
     }
-
-    /**
-     * Parse a per-slug `.env` into a key→value map. Loose by design (no shape/duplicate checks) —
-     * EnvContractTest is the strict validator of the same files and runs in this suite, so a malformed
-     * or duplicate-keyed `.env` fails there; this helper only needs to read one already-validated value.
-     */
-    private fun imagesEnv(slug: String): Map<String, String> =
-        Path
-            .of("docker/images/$slug.env")
-            .readText()
-            .lineSequence()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() && !it.startsWith("#") }
-            .associate { line ->
-                val i = line.indexOf('=')
-                line.substring(0, i) to line.substring(i + 1)
-            }
 
     @Test
     fun `private overlay gives every image the single Space-packages read token`() {

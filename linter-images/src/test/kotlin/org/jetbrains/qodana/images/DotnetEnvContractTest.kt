@@ -1,10 +1,12 @@
 package org.jetbrains.qodana.images
 
+import org.jetbrains.qodana.images.EnvContract.node
+import org.jetbrains.qodana.images.EnvContract.parseEnv
+import org.jetbrains.qodana.images.EnvContract.pin
+import org.jetbrains.qodana.images.EnvContract.publicDist
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import java.nio.file.Path
-import kotlin.io.path.readText
 
 /**
  * Per-slug `.env` contract guard for qodana-dotnet (QD-15042), split out of EnvContractTest to keep each
@@ -26,41 +28,14 @@ import kotlin.io.path.readText
  * the shared trixie base + LIBICU_PKG.
  */
 class DotnetEnvContractTest {
-    private val imagesDir: Path = Path.of("docker/images")
-    private val decisions: Path = Path.of("docs/phase-0-decisions.md")
-
-    private fun parseEnv(slug: String): Map<String, String> {
-        // Build the map by hand so a duplicate key fails LOUDLY (matches EnvContractTest.parseEnv).
-        val env = linkedMapOf<String, String>()
-        imagesDir
-            .resolve("$slug.env")
-            .readText()
-            .lineSequence()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() && !it.startsWith("#") }
-            .forEach { line ->
-                val i = line.indexOf('=')
-                assertTrue(i > 0, "malformed env line in $slug.env: '$line'")
-                val key = line.substring(0, i)
-                assertTrue(key !in env, "duplicate key '$key' in $slug.env")
-                env[key] = line.substring(i + 1)
-            }
-        return env
-    }
-
-    // jvm's PUBLIC dist key set: jvm is the sole internal-nightly-feed image, carrying QD_DISTRIBUTION_FEED
-    // + QD_VERIFY_MODE that public dist images (dotnet included) omit. Interim baseline — replaced by named
-    // capability profiles in QD-15167.
-    private fun jvmPublicKeys(): Set<String> = parseEnv("qodana-jvm").keys - "QD_DISTRIBUTION_FEED" - "QD_VERIFY_MODE"
-
     @Test
     fun `qodana-dotnet env has exactly the jvm key set plus DIST_BASE_STAGE and LIBICU_PKG`() {
         val env = parseEnv("qodana-dotnet")
-        val expected = jvmPublicKeys() + "DIST_BASE_STAGE" + "LIBICU_PKG"
+        val expected = publicDist + node + setOf("DIST_BASE_STAGE", "LIBICU_PKG")
         assertEquals(
             expected,
             env.keys,
-            "dotnet must be jvm's key set (dist + node toolchain) plus DIST_BASE_STAGE + LIBICU_PKG",
+            "dotnet must be publicDist + node plus DIST_BASE_STAGE + LIBICU_PKG",
         )
         assertEquals(
             "privileged",
@@ -103,11 +78,6 @@ class DotnetEnvContractTest {
 
     @Test
     fun `dotnet pins match phase-0-decisions`() {
-        val d = decisions.readText()
-
-        fun pin(k: String) =
-            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
-                ?: error("$k not recorded in $decisions")
         val dotnet = parseEnv("qodana-dotnet")
         assertEquals(
             pin("QD_TRIXIE_BASE_IMAGE"),
