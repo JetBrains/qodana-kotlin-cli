@@ -1226,5 +1226,18 @@ arm64 dist `.sha256` sibling — HTTP 200:
 
 QODANA_RUST_LINUX_ARM64_SHA256_SIBLING = 200
 
-The arm64 dist Link ends in the `-aarch64` sibling of qodana-rust's linux Link:
-`QDRST-261.25885.149-aarch64`.
+## Multi-arch verification (QD-15184)
+
+`qodana-php` enabled for `linux/arm64`. NO dockerfile/.env change — php is arch-neutral:
+`lib/toolchain/composer.dockerfile` is `FROM ${COMPOSER_IMAGE} AS composer-base` +
+`COPY --from=composer-base` (literal stage), and BOTH the php base and the composer
+image are multi-arch OCI indices carrying linux/arm64 (so the arm64 composer resolves
+for free); node/eslint are arch-neutral. Probed 2026-06-24 via `docker buildx imagetools
+inspect` (bases) + `curl -I -L` (dist `.sha256` sibling):
+
+- `QD_BASE_IMAGE` `dhi.io/php:8.4-dev@sha256:6640324…` → index, carries linux/arm64.
+- `COMPOSER_IMAGE` `composer:2.10.0@sha256:1b73755…` → index, carries linux/arm64.
+
+arm64 dist `.sha256` sibling — HTTP 200:
+
+QODANA_PHP_LINUX_ARM64_SHA256_SIBLING = 200
