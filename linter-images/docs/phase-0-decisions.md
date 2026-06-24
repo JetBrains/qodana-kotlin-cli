@@ -962,7 +962,7 @@ download there is no clean datasource; `RUSTUP_INIT_SHA256` is a MANUALLY-mainta
 manager), refreshed only when rustup ships a new installer. `RustEnvContractTest`'s `rust pins match
 phase-0-decisions` asserts both pins below equal `qodana-rust.env`'s `RUST_VERSION` / `RUSTUP_INIT_SHA256`.
 
-RUST_VERSION = 1.94.0
+RUST_VERSION = 1.95.0
 RUSTUP_INIT_SHA256 = 4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10
 
 ## .NET dist (qodana-dotnet — Ultimate Rider, RELEASE)
@@ -1187,3 +1187,27 @@ in the `-aarch64` sibling of each image's linux Link recorded above:
 `qodana-QDJS-261.25882.140-aarch64.tar.gz`,
 `qodana-QDGO-261.25884.406-aarch64.tar.gz`,
 `qodana-QDRUBY-261.25886.142-aarch64.tar.gz` (shared by ruby-3.2/-3.4).
+
+## Multi-arch verification (QD-15178)
+
+`qodana-python` + `qodana-python-community` enabled for `linux/arm64`. The shared
+trixie base is already recorded above (QD-15177); the only arch-fragile piece is
+`lib/toolchain/conda.dockerfile`, now a per-`TARGETARCH` fetch of the Miniconda
+installer (`x86_64`/`aarch64`) — both installers HTTP 200 + sha256-verified
+(`sha256sum -c`, fail-closed). Probed 2026-06-24 against `repo.anaconda.com`
+(installers) and `curl -I -L` (dist `.sha256` siblings).
+
+Miniconda `py312_24.5.0-0` installer digests (the `.env`
+MINICONDA_SHA256_X86_64/\_AARCH64, asserted upstream-equal by EnvContractTest):
+
+MINICONDA_SHA256_X86_64 = 4b3b3b1b99215e85fd73fb2c2d7ebf318ac942a457072de62d885056556eb83e
+MINICONDA_SHA256_AARCH64 = 70afe954cc8ee91f605f9aa48985bfe01ecfc10751339e8245eac7262b01298d
+
+arm64 dist `.sha256` siblings — HTTP 200 (each image bakes its own dist):
+
+QODANA_PYTHON_LINUX_ARM64_SHA256_SIBLING = 200
+QODANA_PYTHON_COMMUNITY_LINUX_ARM64_SHA256_SIBLING = 200
+
+The arm64 dist Links end in the `-aarch64` sibling of each image's linux Link
+recorded above: `qodana-QDPY-261.25883.162-aarch64.tar.gz`,
+`qodana-QDPYC-261.25883.161-aarch64.tar.gz`.

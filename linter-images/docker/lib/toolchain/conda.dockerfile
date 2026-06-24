@@ -1,24 +1,23 @@
 # toolchain/conda — Miniconda3 (sha-pinned installer) + poetry + pipenv (pip, version-pinned). python-only.
 # First NEW toolchain; the reusable template for the upcoming rust/dotnet stages: a clean orthogonal
 # `FROM base AS <name>-toolchain` that the dist layers onto via DIST_BASE_STAGE (mirrors android).
-# Consumes: MINICONDA_VERSION MINICONDA_SHA256.  Layers onto `base`.
+# Consumes: MINICONDA_VERSION MINICONDA_SHA256_X86_64 MINICONDA_SHA256_AARCH64.  Layers onto `base`.
 #
 # Paths are LITERAL (/opt/miniconda3, /data/cache, /home/qodana): base sets neither $HOME nor
 # $QODANA_DATA, and a build-time RUN runs as root ($HOME=/root) — so the source image's $HOME/
 # $QODANA_DATA interpolation would write to the wrong tree. The runtime drops to UID 1000 (home
 # /home/qodana), so every scan-time write target is chowned 1000 or ENV-redirected under /data/cache.
 ARG MINICONDA_VERSION
-ARG MINICONDA_SHA256
+ARG MINICONDA_SHA256_X86_64
+ARG MINICONDA_SHA256_AARCH64
 
 FROM base AS conda-toolchain
 ARG MINICONDA_VERSION
-ARG MINICONDA_SHA256
-
-# Miniconda installer: sha-verified declarative fetch (DL3020 waived in .hadolint.yaml). x86_64 only —
-# the fleet is amd64-only (CLI_ARCH=amd64), matching tini/android-sdk.
-ADD --checksum=sha256:${MINICONDA_SHA256} \
-	https://repo.anaconda.com/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-x86_64.sh \
-	/tmp/miniconda.sh
+ARG MINICONDA_SHA256_X86_64
+ARG MINICONDA_SHA256_AARCH64
+# BuildKit resets ARG scope at each FROM, so TARGETARCH must be re-declared in-stage (a pre-FROM-only
+# decl expands EMPTY in the RUN, aborting BOTH arches via the `*)` arm) — mirrors runtime.dockerfile.
+ARG TARGETARCH
 
 # The version-pinned poetry/pipenv requirements travel with the context (lib/toolchain/); the build
 # context root is `docker/` (compose `context: docker`), so the COPY path is lib-rooted like dist's
@@ -30,10 +29,21 @@ COPY lib/toolchain/conda-requirements.txt /tmp/conda-requirements.txt
 # "update-rc.d: command not found". bzip2 (the installer needs it) + the native shared libs
 # conda-shipped wheels link against at scan time (libglib2.0-0/libsm6/libxext6/libxrender1) — runtime
 # deps, so NOT purged (unlike node/clang's transient gnupg). conda + the pinned poetry/pipenv install
-# at BUILD time; the runtime needs no net.
+# at BUILD time; the runtime needs no net. The Miniconda installer is fetched per-TARGETARCH (the tini
+# pattern: dockerfile-x can't branch ADD --checksum) and sha-verified FAIL-CLOSED — `curl -fsSL` aborts
+# on an HTTP error and `sha256sum -c` aborts on a digest mismatch (both under the heredoc's `set -e`).
+# hadolint ignore=DL4006
 RUN <<-EOT
 	set -eux
 	export DEBIAN_FRONTEND=noninteractive
+	case "${TARGETARCH}" in
+		amd64) mc_arch=x86_64; mc_sha="${MINICONDA_SHA256_X86_64}" ;;
+		arm64) mc_arch=aarch64; mc_sha="${MINICONDA_SHA256_AARCH64}" ;;
+		*) echo "unsupported TARGETARCH=${TARGETARCH}" >&2; exit 1 ;;
+	esac
+	curl -fsSL -o /tmp/miniconda.sh \
+		"https://repo.anaconda.com/miniconda/Miniconda3-${MINICONDA_VERSION}-Linux-${mc_arch}.sh"
+	echo "${mc_sha}  /tmp/miniconda.sh" | sha256sum -c -
 	apt-get update
 	apt-get install -y --no-install-recommends \
 		init-system-helpers \
