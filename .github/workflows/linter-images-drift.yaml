@@ -114,7 +114,7 @@ jobs:
             base="$(basename "$env" .env | sed -E 's/-[0-9]+\.[0-9]+$//')"
             key="QODANA_$(printf '%s' "${base#qodana-}" | tr 'a-z-' 'A-Z_')_RELEASE"
             VERSION="$(decval "${key}_VERSION")"; BUILD="$(decval "${key}_BUILD")"
-            [ -n "$VERSION" ] && [ -n "$BUILD" ] || { echo "::error::no ${key}_* row in $DEC"; FAILED=1; continue; }
+            if [ -z "$VERSION" ] || [ -z "$BUILD" ]; then echo "::error::no ${key}_* row in $DEC"; FAILED=1; continue; fi
             KEYID="${SLUG}:${VERSION}:${BUILD}:${PUBLIC}"
             [ -z "${SEEN[$KEYID]:-}" ] || { echo "skip release $KEYID: already verified"; continue; }
             SEEN[$KEYID]=1
