@@ -294,7 +294,7 @@ QODANA_JVM_COMMUNITY_LINUX_ARM64_SHA256_SIBLING = 200
 ### product-info.json code (verify-dist-layout depends on this)
 
 `IU`, the same code `qodana-jvm` uses. The QDJVMC Community dist embeds the IU
-IDEA platform: downloading `qodana-QDJVMC-261.25881.145.tar.gz` shows its root
+IDEA platform: downloading `qodana-QDJVMC-263.484.2162.tar.gz` shows its root
 `product-info.json` carries `productCode=IU` and `name` "IntelliJ IDEA" (the
 product-info `version` field reads a 2026.1.x build). The Community identity is NOT in
 `product-info.json` — it is carried by `dist.flavour.txt=QDJVMC` at the dist root,
@@ -318,39 +318,30 @@ QODANA_ANDROID_COMMUNITY_BUILD = 263.484.2162
 
 ## Python dist (qodana-python — Ultimate)
 
-Resolved 2026-06-17 from `download.jetbrains.com/qodana/feed/qodana-python.releases.json`
-(max-by-Date among `Type==release`). Unlike the JVM pins (forced to engine major
-`2026.1`), each Python image tracks ITS OWN newest release, mirroring the existing
-per-image fleet: the current newest `release` is the 2026.1 line (`261.25883`).
-Top-level feed `Code` is `QDPY`. The feed is the PUBLIC feed (`/qodana/feed`, no
-token): qodana-python is a released linter, so the image's `.env` OMITS
-`QD_DISTRIBUTION_FEED` and relies on the public default. Keys are named to match
-`BumpPinsCommand.syncDecisions` (slug `qodana-python` → `QODANA_PYTHON_BUILD`);
-`EnvContractTest` asserts byte-identity against the Phase-4 `.env`'s `QD_VERSION`
-(MajorVersion `2026.1`) and `QD_BUILD` (`261.25883`). The download Link embeds an
-extra build segment (`...-261.25883.162.tar.gz`); use the feed's Link VERBATIM —
-do not reconstruct it from `Build`.
+Repointed onto the INTERNAL nightly dist feed (QD-15183). Resolved 2026-06-24 from
+`packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed/qodana-python.releases.json`
+(max-by-Date among `MajorVersion==2026.3` AND `Type==eap` — the feed is eap-only, read with the
+`QODANA_READ_SPACE_PACKAGES_TOKEN` bearer). `.env` sets `QD_DISTRIBUTION_FEED` to this feed and
+`QD_VERIFY_MODE=sha256` (the nightly is unsigned — sha256-only, no `.asc`). `EnvContractTest` asserts
+byte-identity against the `.env`'s `QD_VERSION` (`2026.3`) and `QD_BUILD` (`261.15683.2195`). Frozen
+public-release pin (token-free reproduction, compose.release.yaml): `QODANA_PYTHON_RELEASE_*`.
 
-QODANA_PYTHON_VERSION = 2026.1
-QODANA_PYTHON_BUILD = 261.25883
+QODANA_PYTHON_VERSION = 2026.3
+QODANA_PYTHON_BUILD = 261.15683.2195
 
-Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+Download links (verbatim from the internal feed):
 
-QODANA_PYTHON_FULL_VERSION = 2026.1.4
+QODANA_PYTHON_LINUX_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-python/qodana-QDPY-261.15683.2195.tar.gz
+QODANA_PYTHON_LINUX_ARM64_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-python/qodana-QDPY-261.15683.2195-aarch64.tar.gz
 
-Download links (verbatim from the feed):
+### Checksum sibling (DistVerifier depends on this)
 
-QODANA_PYTHON_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDPY-261.25883.162.tar.gz
-QODANA_PYTHON_LINUX_ARM64_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDPY-261.25883.162-aarch64.tar.gz
-
-### Checksum + signature siblings (DistVerifier depends on these)
-
-Both siblings of the linux Link return HTTP 200 (probed live 2026-06-17,
-following CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the
-`.sha256.asc` detached GPG signature (`ChecksumLink + ".asc"`).
+The `.sha256` sibling of each Link returns HTTP 200 (probed live 2026-06-24 with the token, amd64 +
+arm64). There is NO `.sha256.asc`: the internal nightly is unsigned, so `QD_VERIFY_MODE=sha256` skips the
+GPG leg.
 
 QODANA_PYTHON_LINUX_SHA256_SIBLING = 200
-QODANA_PYTHON_LINUX_ASC_SIBLING = 200
+QODANA_PYTHON_LINUX_ARM64_SHA256_SIBLING = 200
 
 ### product-info.json code (verify-dist-layout depends on this)
 
@@ -366,45 +357,35 @@ QODANA_PYTHON_FEED_CODE = QDPY
 
 ## Python dist (qodana-python-community — Community)
 
-Resolved 2026-06-17 from `download.jetbrains.com/qodana/feed/qodana-python-community.releases.json`
-(max-by-Date among `Type==release`). Tracks its own newest release: the current
-newest `release` is the 2026.1 line (`261.25883`) — same engine line as Ultimate
-Python this cycle, but pinned independently, not force-matched. Top-level feed
-`Code` is `QDPYC`. The feed is the PUBLIC feed (`/qodana/feed`, no token):
-qodana-python-community is a released linter, so the image's `.env` OMITS
-`QD_DISTRIBUTION_FEED` and relies on the public default. Keys are named to match
-`BumpPinsCommand.syncDecisions` (slug `qodana-python-community` →
-`QODANA_PYTHON_COMMUNITY_BUILD`); `EnvContractTest` asserts byte-identity against
-the Phase-4 `.env`'s `QD_VERSION` (MajorVersion `2026.1`) and `QD_BUILD`
-(`261.25883`). The download Link embeds an extra build segment
-(`...-261.25883.161.tar.gz`); use the feed's Link VERBATIM — its `.161` differs
-from Ultimate Python's `.162`, so do not reconstruct it from `Build`.
+Repointed onto the INTERNAL nightly dist feed (QD-15183). Resolved 2026-06-24 from
+`packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed/qodana-python-community.releases.json`
+(max-by-Date among `MajorVersion==2026.3` AND `Type==eap` — the feed is eap-only, read with the
+`QODANA_READ_SPACE_PACKAGES_TOKEN` bearer). `.env` sets `QD_DISTRIBUTION_FEED` to this feed and
+`QD_VERIFY_MODE=sha256` (the nightly is unsigned — sha256-only, no `.asc`). `EnvContractTest` asserts
+byte-identity against the `.env`'s `QD_VERSION` (`2026.3`) and `QD_BUILD` (`261.15683.1610`). Frozen
+public-release pin (token-free reproduction, compose.release.yaml): `QODANA_PYTHON_COMMUNITY_RELEASE_*`.
 
-QODANA_PYTHON_COMMUNITY_VERSION = 2026.1
-QODANA_PYTHON_COMMUNITY_BUILD = 261.25883
+QODANA_PYTHON_COMMUNITY_VERSION = 2026.3
+QODANA_PYTHON_COMMUNITY_BUILD = 261.15683.1610
 
-Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+Download links (verbatim from the internal feed):
 
-QODANA_PYTHON_COMMUNITY_FULL_VERSION = 2026.1.4
+QODANA_PYTHON_COMMUNITY_LINUX_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-python-community/qodana-QDPYC-261.15683.1610.tar.gz
+QODANA_PYTHON_COMMUNITY_LINUX_ARM64_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-python-community/qodana-QDPYC-261.15683.1610-aarch64.tar.gz
 
-Download links (verbatim from the feed):
+### Checksum sibling (DistVerifier depends on this)
 
-QODANA_PYTHON_COMMUNITY_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDPYC-261.25883.161.tar.gz
-QODANA_PYTHON_COMMUNITY_LINUX_ARM64_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDPYC-261.25883.161-aarch64.tar.gz
-
-### Checksum + signature siblings (DistVerifier depends on these)
-
-Both siblings of the linux Link return HTTP 200 (probed live 2026-06-17,
-following CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the
-`.sha256.asc` detached GPG signature (`ChecksumLink + ".asc"`).
+The `.sha256` sibling of each Link returns HTTP 200 (probed live 2026-06-24 with the token, amd64 +
+arm64). There is NO `.sha256.asc`: the internal nightly is unsigned, so `QD_VERIFY_MODE=sha256` skips the
+GPG leg.
 
 QODANA_PYTHON_COMMUNITY_LINUX_SHA256_SIBLING = 200
-QODANA_PYTHON_COMMUNITY_LINUX_ASC_SIBLING = 200
+QODANA_PYTHON_COMMUNITY_LINUX_ARM64_SHA256_SIBLING = 200
 
 ### product-info.json code (verify-dist-layout depends on this)
 
 `PY` (PyCharm Professional platform), same as `qodana-python`. The QDPYC dist
-embeds the PyCharm Professional platform: downloading `qodana-QDPYC-261.25883.161.tar.gz`
+embeds the PyCharm Professional platform: downloading `qodana-QDPYC-261.15683.1610.tar.gz`
 and inspecting its `product-info.json` shows `productCode=PY`, `name="PyCharm"`.
 The **Community identity is carried by `dist.flavour.txt=QDPYC`**, which qodana-cli
 reads first (`ReadDistFlavour`) — that is the authoritative signal for community
@@ -419,33 +400,30 @@ QODANA_PYTHON_COMMUNITY_FEED_CODE = QDPYC
 
 ## JS dist (qodana-js — Ultimate WebStorm)
 
-Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-js.releases.json`
-(max-by-Date among `Type==release`). Like the Python images, each JS image tracks
-ITS OWN newest release; the current newest `release` is the 2026.1 line
-(`261.25882`, Date 2026-06-15). Top-level feed `Code` is `QDJS`. The feed is the
-PUBLIC feed (`/qodana/feed`, no token): qodana-js is a released linter, so the
-image's `.env` OMITS `QD_DISTRIBUTION_FEED` and relies on the public default. Keys
-are named to match `BumpPinsCommand.syncDecisions` (slug `qodana-js` →
-`QODANA_JS_BUILD`); `EnvContractTest` asserts byte-identity against the `.env`'s
-`QD_VERSION` (MajorVersion `2026.1`) and `QD_BUILD` (`261.25882`). The download
-Link embeds an extra build segment (`...-261.25882.140.tar.gz`); use the feed's
-Link VERBATIM — do not reconstruct it from `Build`.
+Repointed onto the INTERNAL nightly dist feed (QD-15183). Resolved 2026-06-24 from
+`packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed/qodana-js.releases.json`
+(max-by-Date among `MajorVersion==2026.3` AND `Type==eap` — the feed is eap-only, read with the
+`QODANA_READ_SPACE_PACKAGES_TOKEN` bearer). `.env` sets `QD_DISTRIBUTION_FEED` to this feed and
+`QD_VERIFY_MODE=sha256` (the nightly is unsigned — sha256-only, no `.asc`). `EnvContractTest` asserts
+byte-identity against the `.env`'s `QD_VERSION` (`2026.3`) and `QD_BUILD` (`263.146.1908`). Frozen
+public-release pin (token-free reproduction, compose.release.yaml): `QODANA_JS_RELEASE_*`.
 
-QODANA_JS_VERSION = 2026.1
-QODANA_JS_BUILD = 261.25882
+QODANA_JS_VERSION = 2026.3
+QODANA_JS_BUILD = 263.146.1908
 
-Download link (verbatim from the feed):
+Download links (verbatim from the internal feed):
 
-QODANA_JS_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDJS-261.25882.140.tar.gz
+QODANA_JS_LINUX_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-js/qodana-QDJS-263.146.1908.tar.gz
+QODANA_JS_LINUX_ARM64_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-js/qodana-QDJS-263.146.1908-aarch64.tar.gz
 
-### Checksum + signature siblings (DistVerifier depends on these)
+### Checksum sibling (DistVerifier depends on this)
 
-Both siblings of the linux Link return HTTP 200/206 (probed live 2026-06-18,
-following CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the
-`.sha256.asc` detached GPG signature (`ChecksumLink + ".asc"`).
+The `.sha256` sibling of each Link returns HTTP 200 (probed live 2026-06-24 with the token, amd64 +
+arm64). There is NO `.sha256.asc`: the internal nightly is unsigned, so `QD_VERIFY_MODE=sha256` skips the
+GPG leg.
 
 QODANA_JS_LINUX_SHA256_SIBLING = 200
-QODANA_JS_LINUX_ASC_SIBLING = 200
+QODANA_JS_LINUX_ARM64_SHA256_SIBLING = 200
 
 ### product-info.json code (verify-dist-layout depends on this)
 
@@ -508,40 +486,30 @@ QODANA_JS_GID = 1001
 
 ## Go dist (qodana-go — GoLand)
 
-Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-go.releases.json`
-(max-by-Date among `Type==release`). Like the JS/Python images, each Go image
-tracks ITS OWN newest release; the current newest `release` is the 2026.1 line
-(`261.25884`, Date 2026-06-15) — the same engine major as the JS (261.25882) and
-Python (261.25883) images this cycle, but pinned independently. Top-level feed
-`Code` is `QDGO`. The feed is the PUBLIC feed (`/qodana/feed`, no token):
-qodana-go is a released linter, so the image's `.env` OMITS `QD_DISTRIBUTION_FEED`
-and relies on the public default. Keys are named to match
-`BumpPinsCommand.syncDecisions` (slug `qodana-go` → `QODANA_GO_BUILD`);
-`EnvContractTest` asserts byte-identity against the `.env`'s `QD_VERSION`
-(MajorVersion `2026.1`) and `QD_BUILD` (`261.25884`). The download Link embeds an
-extra build segment (`...-261.25884.406.tar.gz`); use the feed's Link VERBATIM —
-do not reconstruct it from `Build`.
+Repointed onto the INTERNAL nightly dist feed (QD-15183). Resolved 2026-06-24 from
+`packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed/qodana-go.releases.json`
+(max-by-Date among `MajorVersion==2026.3` AND `Type==eap` — the feed is eap-only, read with the
+`QODANA_READ_SPACE_PACKAGES_TOKEN` bearer). `.env` sets `QD_DISTRIBUTION_FEED` to this feed and
+`QD_VERIFY_MODE=sha256` (the nightly is unsigned — sha256-only, no `.asc`). `EnvContractTest` asserts
+byte-identity against the `.env`'s `QD_VERSION` (`2026.3`) and `QD_BUILD` (`262.5912.2297`). Frozen
+public-release pin (token-free reproduction, compose.release.yaml): `QODANA_GO_RELEASE_*`.
 
-QODANA_GO_VERSION = 2026.1
-QODANA_GO_BUILD = 261.25884
+QODANA_GO_VERSION = 2026.3
+QODANA_GO_BUILD = 262.5912.2297
 
-Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+Download links (verbatim from the internal feed):
 
-QODANA_GO_FULL_VERSION = 2026.1.4
+QODANA_GO_LINUX_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-go/qodana-QDGO-262.5912.2297.tar.gz
+QODANA_GO_LINUX_ARM64_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-go/qodana-QDGO-262.5912.2297-aarch64.tar.gz
 
-Download link (verbatim from the feed):
+### Checksum sibling (DistVerifier depends on this)
 
-QODANA_GO_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDGO-261.25884.406.tar.gz
+The `.sha256` sibling of each Link returns HTTP 200 (probed live 2026-06-24 with the token, amd64 +
+arm64). There is NO `.sha256.asc`: the internal nightly is unsigned, so `QD_VERIFY_MODE=sha256` skips the
+GPG leg.
 
-### Checksum + signature siblings (DistVerifier depends on these)
-
-Both siblings of the linux Link return HTTP 206 (probed live 2026-06-18 via a
-single-byte range GET, following CDN redirects): the `.sha256` checksum
-(`ChecksumLink`) and the `.sha256.asc` detached GPG signature
-(`ChecksumLink + ".asc"`).
-
-QODANA_GO_LINUX_SHA256_SIBLING = 206
-QODANA_GO_LINUX_ASC_SIBLING = 206
+QODANA_GO_LINUX_SHA256_SIBLING = 200
+QODANA_GO_LINUX_ARM64_SHA256_SIBLING = 200
 
 ### product-info.json code (verify-dist-layout depends on this)
 
@@ -616,40 +584,27 @@ test already asserts every service except `qodana-js` omits the uid build args.
 
 ## PHP dist (qodana-php — PhpStorm)
 
-Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-php.releases.json`
-(max-by-Date among `Type==release`). The current newest `release` is the 2026.1
-line (`261.25880`, Date 2026-06-15) — the same engine major as the JS (261.25882),
-Python (261.25883), and Go (261.25884) images this cycle, pinned independently.
-Top-level feed `Code` is `QDPHP`. The feed is the PUBLIC feed (`/qodana/feed`, no
-token): qodana-php is a released linter, so the image's `.env` OMITS
-`QD_DISTRIBUTION_FEED` and relies on the public default. Keys are named to match
-`BumpPinsCommand.syncDecisions` (slug `qodana-php` → `QODANA_PHP_BUILD`);
-`EnvContractTest` asserts byte-identity against the `.env`'s `QD_VERSION`
-(MajorVersion `2026.1`) and `QD_BUILD` (`261.25880`). The release-feed top-level
-`Link`/`ChecksumLink` are null; the verbatim linux Link lives under the entry's
-`Downloads.linux.Link` and embeds an extra build segment
-(`...-261.25880.138.tar.gz`) — use it VERBATIM, do not reconstruct it from `Build`.
+Repointed onto the INTERNAL nightly dist feed (QD-15183). Resolved 2026-06-24 from
+`packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed/qodana-php.releases.json`
+(max-by-Date among `MajorVersion==2026.3` AND `Type==eap` — the feed is eap-only, read with the
+`QODANA_READ_SPACE_PACKAGES_TOKEN` bearer). `.env` sets `QD_DISTRIBUTION_FEED` to this feed and
+`QD_VERIFY_MODE=sha256` (the nightly is unsigned — sha256-only, no `.asc`). `EnvContractTest` asserts
+byte-identity against the `.env`'s `QD_VERSION` (`2026.3`) and `QD_BUILD` (`262.7881.2010`). Frozen
+public-release pin (token-free reproduction, compose.release.yaml): `QODANA_PHP_RELEASE_*`.
 
-QODANA_PHP_VERSION = 2026.1
-QODANA_PHP_BUILD = 261.25880
+QODANA_PHP_VERSION = 2026.3
+QODANA_PHP_BUILD = 262.7881.2010
 
-Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+Download link (verbatim from the internal feed; qodana-php is amd64-only):
 
-QODANA_PHP_FULL_VERSION = 2026.1.5
+QODANA_PHP_LINUX_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-php/qodana-QDPHP-262.7881.2010.tar.gz
 
-Download link (verbatim from the feed's `Downloads.linux.Link`):
+### Checksum sibling (DistVerifier depends on this)
 
-QODANA_PHP_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDPHP-261.25880.138.tar.gz
+The `.sha256` sibling of the linux Link returns HTTP 200 (probed live 2026-06-24 with the token). There
+is NO `.sha256.asc`: the internal nightly is unsigned, so `QD_VERIFY_MODE=sha256` skips the GPG leg.
 
-### Checksum + signature siblings (DistVerifier depends on these)
-
-Both siblings of the linux Link return HTTP 206 (probed live 2026-06-18 via a
-single-byte range GET, following CDN redirects): the `.sha256` checksum
-(`ChecksumLink`) and the `.sha256.asc` detached GPG signature
-(`ChecksumLink + ".asc"`).
-
-QODANA_PHP_LINUX_SHA256_SIBLING = 206
-QODANA_PHP_LINUX_ASC_SIBLING = 206
+QODANA_PHP_LINUX_SHA256_SIBLING = 200
 
 ### product-info.json code (verify-dist-layout depends on this)
 
@@ -733,20 +688,13 @@ uid build args.
 
 ## Ruby dist (qodana-ruby — RubyMine, 3 variants, EAP)
 
-Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-ruby.releases.json`.
-Top-level feed `Code` is `QDRUBY`. ALL 10 feed releases are `Type=eap` — there are
-ZERO `release` entries — so this is the fleet's FIRST eap image. `QD_RELEASE_TYPE=eap`
-is consumed ONLY by `BumpPinsCommand` (drift) to pick the newest EAP within the major
-(`resolveNewestBuild` filters `it.type == QD_RELEASE_TYPE`); `provision-dist` selects
-the release + resolves `Downloads.linux.Link` from the verbatim `QD_VERSION`/`QD_BUILD`.
-The newest 2026.1 EAP is `261.25886` (full version `2026.1.4`, Date 2026-06-15). The
-feed is the PUBLIC feed (`/qodana/feed`, no token): the image's `.env` OMITS
-`QD_DISTRIBUTION_FEED` and relies on the public default. Keys are named to match
-`BumpPinsCommand.syncDecisions` (image `qodana-ruby`, runtime-variant suffix stripped → `QODANA_RUBY_BUILD`);
-`EnvContractTest` asserts byte-identity against the `.env`'s `QD_VERSION`
-(MajorVersion `2026.1`) and `QD_BUILD` (`261.25886`). The verbatim linux Link lives
-under the entry's `Downloads.linux.Link` and embeds an extra build segment
-(`...-261.25886.142.tar.gz`) — use it VERBATIM, do not reconstruct it from `Build`.
+Repointed onto the INTERNAL nightly dist feed (QD-15183). Resolved 2026-06-24 from
+`packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed/qodana-ruby.releases.json`
+(max-by-Date among `MajorVersion==2026.3` AND `Type==eap` — the feed is eap-only, read with the
+`QODANA_READ_SPACE_PACKAGES_TOKEN` bearer). `.env` sets `QD_DISTRIBUTION_FEED` to this feed and
+`QD_VERIFY_MODE=sha256` (the nightly is unsigned — sha256-only, no `.asc`). `EnvContractTest` asserts
+byte-identity against the `.env`'s `QD_VERSION` (`2026.3`) and `QD_BUILD` (`263.148.1874`). Frozen
+public-release pin (token-free reproduction, compose.release.yaml): `QODANA_RUBY_RELEASE_*`.
 
 All 3 ruby variants (3.2, 3.3-primary, 3.4) share this SINGLE RM dist (the IDE dist is
 ruby-runtime-agnostic — the android precedent, where android reuses the jvm dist), so
@@ -754,25 +702,22 @@ all 3 `.env` carry `QD_LINTER_SLUG=qodana-ruby` and exactly ONE `QODANA_RUBY_BUI
 suffices (the 3 bump passes idempotently rewrite the same row — the jvm+android
 precedent).
 
-QODANA_RUBY_VERSION = 2026.1
-QODANA_RUBY_BUILD = 261.25886
+QODANA_RUBY_VERSION = 2026.3
+QODANA_RUBY_BUILD = 263.148.1874
 
-Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+Download links (verbatim from the internal feed):
 
-QODANA_RUBY_FULL_VERSION = 2026.1.4
+QODANA_RUBY_LINUX_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-ruby/qodana-QDRUBY-263.148.1874.tar.gz
+QODANA_RUBY_LINUX_ARM64_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-ruby/qodana-QDRUBY-263.148.1874-aarch64.tar.gz
 
-Download link (verbatim from the feed's `Downloads.linux.Link`):
+### Checksum sibling (DistVerifier depends on this)
 
-QODANA_RUBY_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDRUBY-261.25886.142.tar.gz
+The `.sha256` sibling of each Link returns HTTP 200 (probed live 2026-06-24 with the token, amd64 +
+arm64). There is NO `.sha256.asc`: the internal nightly is unsigned, so `QD_VERIFY_MODE=sha256` skips the
+GPG leg.
 
-### Checksum + signature siblings (DistVerifier depends on these)
-
-Both siblings of the linux Link are present (probed live 2026-06-18 via a single-byte
-range GET following CDN redirects): the `.sha256` checksum and the `.sha256.asc`
-detached GPG signature.
-
-QODANA_RUBY_LINUX_SHA256_SIBLING = 206
-QODANA_RUBY_LINUX_ASC_SIBLING = 206
+QODANA_RUBY_LINUX_SHA256_SIBLING = 200
+QODANA_RUBY_LINUX_ARM64_SHA256_SIBLING = 200
 
 ### product-info.json code (verify-dist-layout depends on this)
 
@@ -878,32 +823,27 @@ already asserts every service except `qodana-js` omits the uid build args.
 
 ## Rust dist (qodana-rust — RustRover, EAP)
 
-Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-rust.releases.json`. Top-level feed
-`Code` is `QDRST`. Like ruby, ALL feed releases are `Type=eap` — there are ZERO `release` entries — so
-this is the fleet's second eap image. `QD_RELEASE_TYPE=eap` is consumed ONLY by `BumpPinsCommand`
-(drift) to pick the newest EAP within the major (`resolveNewestBuild` filters `it.type ==
-QD_RELEASE_TYPE`); `provision-dist` selects the release + resolves the Link from the verbatim
-`QD_VERSION`/`QD_BUILD`. The newest 2026.1 EAP is `261.25885` (version `2026.1`, Date 2026-06-15). The
-feed is the PUBLIC feed (`/qodana/feed`, no token): the image's `.env` OMITS `QD_DISTRIBUTION_FEED` and
-relies on the public default. Keys are named to match `BumpPinsCommand.syncDecisions` (slug
-`qodana-rust` → `QODANA_RUST_BUILD`); `RustEnvContractTest` asserts byte-identity against the `.env`'s
-`QD_VERSION` (MajorVersion `2026.1`) and `QD_BUILD` (`261.25885`). The download Link embeds an extra
-build segment (`...-261.25885.149.tar.gz`); use it VERBATIM, do not reconstruct it from `Build`.
+Repointed onto the INTERNAL nightly dist feed (QD-15183). Resolved 2026-06-24 from
+`packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed/qodana-rust.releases.json` (max-by-Date
+among `MajorVersion==2026.3` AND `Type==eap` — the feed is eap-only, read with the
+`QODANA_READ_SPACE_PACKAGES_TOKEN` bearer). `.env` sets `QD_DISTRIBUTION_FEED` to this feed and
+`QD_VERIFY_MODE=sha256` (the nightly is unsigned — sha256-only, no `.asc`). `RustEnvContractTest` asserts
+byte-identity against the `.env`'s `QD_VERSION` (`2026.3`) and `QD_BUILD` (`262.7982.2437`). Frozen
+public-release pin (token-free reproduction, compose.release.yaml): `QODANA_RUST_RELEASE_*`.
 
-QODANA_RUST_VERSION = 2026.1
-QODANA_RUST_BUILD = 261.25885
+QODANA_RUST_VERSION = 2026.3
+QODANA_RUST_BUILD = 262.7982.2437
 
-Download link (verbatim from the feed):
+Download link (verbatim from the internal feed; qodana-rust is amd64-only):
 
-QODANA_RUST_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDRST-261.25885.149.tar.gz
+QODANA_RUST_LINUX_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-rust/qodana-QDRST-262.7982.2437.tar.gz
 
-### Checksum + signature siblings (DistVerifier depends on these)
+### Checksum sibling (DistVerifier depends on this)
 
-Both siblings of the linux Link are present (probed live 2026-06-18 via a single-byte range GET
-following CDN redirects): the `.sha256` checksum and the `.sha256.asc` detached GPG signature.
+The `.sha256` sibling of the linux Link returns HTTP 200 (probed live 2026-06-24 with the token). There
+is NO `.sha256.asc`: the internal nightly is unsigned, so `QD_VERIFY_MODE=sha256` skips the GPG leg.
 
-QODANA_RUST_LINUX_SHA256_SIBLING = 206
-QODANA_RUST_LINUX_ASC_SIBLING = 206
+QODANA_RUST_LINUX_SHA256_SIBLING = 200
 
 ### product-info.json code (verify-dist-layout depends on this)
 
@@ -967,37 +907,27 @@ RUSTUP_INIT_SHA256 = 4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb
 
 ## .NET dist (qodana-dotnet — Ultimate Rider, RELEASE)
 
-Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-dotnet.releases.json`. Top-level feed
-`Code` is `QDNET`. Unlike ruby/rust (eap-only feeds), the QDNET feed HAS `release` entries, so this is a
-RELEASE image: `QD_RELEASE_TYPE=release` (consumed ONLY by `BumpPinsCommand` drift to pick the newest
-release within the major; `provision-dist` selects the release + resolves the Link from the verbatim
-`QD_VERSION`/`QD_BUILD`). The newest 2026.1 release is `261.24105` (MajorVersion `2026.1`, full Version
-`2026.1.2`, Date 2026-04-21). The feed is the PUBLIC feed (`/qodana/feed`, no token): the image's `.env`
-OMITS `QD_DISTRIBUTION_FEED` and relies on the public default. Keys are named to match
-`BumpPinsCommand.syncDecisions` (slug `qodana-dotnet` → `QODANA_DOTNET_BUILD`); `DotnetEnvContractTest`
-asserts byte-identity against the `.env`'s `QD_VERSION` (MajorVersion `2026.1`) and `QD_BUILD`
-(`261.24105`). The download Link embeds an extra build segment (`...-261.24105.117.tar.gz`); use it
-VERBATIM, do not reconstruct it from `Build`.
+Repointed onto the INTERNAL nightly dist feed (QD-15183). Resolved 2026-06-24 from
+`packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed/qodana-dotnet.releases.json` (max-by-Date
+among `MajorVersion==2026.3` AND `Type==eap` — the feed is eap-only, read with the
+`QODANA_READ_SPACE_PACKAGES_TOKEN` bearer). `.env` sets `QD_DISTRIBUTION_FEED` to this feed and
+`QD_VERIFY_MODE=sha256` (the nightly is unsigned — sha256-only, no `.asc`). `DotnetEnvContractTest`
+asserts byte-identity against the `.env`'s `QD_VERSION` (`2026.3`) and `QD_BUILD` (`263.136.1738`). Frozen
+public-release pin (token-free reproduction, compose.release.yaml): `QODANA_DOTNET_RELEASE_*`.
 
-QODANA_DOTNET_VERSION = 2026.1
-QODANA_DOTNET_BUILD = 261.24105
+QODANA_DOTNET_VERSION = 2026.3
+QODANA_DOTNET_BUILD = 263.136.1738
 
-Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+Download link (verbatim from the internal feed; qodana-dotnet is amd64-only):
 
-QODANA_DOTNET_FULL_VERSION = 2026.1.2
+QODANA_DOTNET_LINUX_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-dotnet/qodana-QDNET-263.136.1738.tar.gz
 
-Download link (verbatim from the feed):
+### Checksum sibling (DistVerifier depends on this)
 
-QODANA_DOTNET_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDNET-261.24105.117.tar.gz
+The `.sha256` sibling of the linux Link returns HTTP 200 (probed live 2026-06-24 with the token). There
+is NO `.sha256.asc`: the internal nightly is unsigned, so `QD_VERIFY_MODE=sha256` skips the GPG leg.
 
-### Checksum + signature siblings (DistVerifier depends on these)
-
-Both siblings of the linux Link are present (probed live 2026-06-18 via a single-byte range GET following
-CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the `.sha256.asc` detached GPG signature
-(`ChecksumLink + ".asc"`).
-
-QODANA_DOTNET_LINUX_SHA256_SIBLING = 206
-QODANA_DOTNET_LINUX_ASC_SIBLING = 206
+QODANA_DOTNET_LINUX_SHA256_SIBLING = 200
 
 ### product-info.json code (verify-dist-layout depends on this)
 
@@ -1032,36 +962,27 @@ LIBICU_PKG = libicu76
 
 ## C/C++ dist (qodana-cpp — CLion, RELEASE)
 
-Resolved 2026-06-18 from `download.jetbrains.com/qodana/feed/qodana-cpp.releases.json`. Top-level feed
-`Code` is `QDCPP`. Unlike ruby/rust (eap-only feeds), the QDCPP feed HAS `release` entries (cpp is no
-longer eap, Anna-confirmed), so this is a RELEASE image: `QD_RELEASE_TYPE=release` (consumed ONLY by
-`BumpPinsCommand` drift to pick the newest release within the major; `provision-dist` selects the release
-and resolves the Link from the verbatim `QD_VERSION`/`QD_BUILD`). The newest 2026.1 release is `261.25887`
-(MajorVersion `2026.1`, full Version `2026.1.4`, Date 2026-06-15). The feed is the PUBLIC feed
-(`/qodana/feed`, no token): the image's `.env` OMITS `QD_DISTRIBUTION_FEED`. Keys match
-`BumpPinsCommand.syncDecisions` (slug `qodana-cpp` → `QODANA_CPP_BUILD`); `CppEnvContractTest` asserts
-byte-identity against the `.env`'s `QD_VERSION` (`2026.1`) and `QD_BUILD` (`261.25887`). The download Link
-embeds an extra build segment (`...-261.25887.177.tar.gz`); use it VERBATIM, do not reconstruct it.
+Repointed onto the INTERNAL nightly dist feed (QD-15183). Resolved 2026-06-24 from
+`packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed/qodana-cpp.releases.json` (max-by-Date
+among `MajorVersion==2026.3` AND `Type==eap` — the feed is eap-only, read with the
+`QODANA_READ_SPACE_PACKAGES_TOKEN` bearer). `.env` sets `QD_DISTRIBUTION_FEED` to this feed and
+`QD_VERIFY_MODE=sha256` (the nightly is unsigned — sha256-only, no `.asc`). `CppEnvContractTest` asserts
+byte-identity against the `.env`'s `QD_VERSION` (`2026.3`) and `QD_BUILD` (`263.130.1007`). Frozen
+public-release pin (token-free reproduction, compose.release.yaml): `QODANA_CPP_RELEASE_*`.
 
-QODANA_CPP_VERSION = 2026.1
-QODANA_CPP_BUILD = 261.25887
+QODANA_CPP_VERSION = 2026.3
+QODANA_CPP_BUILD = 263.130.1007
 
-Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+Download link (verbatim from the internal feed; qodana-cpp is amd64-only):
 
-QODANA_CPP_FULL_VERSION = 2026.1.4
+QODANA_CPP_LINUX_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-cpp/qodana-QDCPP-263.130.1007.tar.gz
 
-Download link (verbatim from the feed):
+### Checksum sibling (DistVerifier depends on this)
 
-QODANA_CPP_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDCPP-261.25887.177.tar.gz
+The `.sha256` sibling of the linux Link returns HTTP 200 (probed live 2026-06-24 with the token). There
+is NO `.sha256.asc`: the internal nightly is unsigned, so `QD_VERIFY_MODE=sha256` skips the GPG leg.
 
-### Checksum + signature siblings (DistVerifier depends on these)
-
-Both siblings of the linux Link are present (probed live 2026-06-18 via a single-byte range GET following
-CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the `.sha256.asc` detached GPG signature
-(`ChecksumLink + ".asc"`).
-
-QODANA_CPP_LINUX_SHA256_SIBLING = 206
-QODANA_CPP_LINUX_ASC_SIBLING = 206
+QODANA_CPP_LINUX_SHA256_SIBLING = 200
 
 ### product-info.json code (verify-dist-layout depends on this)
 
@@ -1150,10 +1071,10 @@ dist from. It DEFAULTS to the public CDN (`download.jetbrains.com/qodana/feed`)
 and is intentionally NOT pointed at the internal `qdist` feed. qdist's `feed.json`
 `Link`s resolve to the VPN-only TeamCity build server
 (`buildserver.labs.intellij.net/.../.lastSuccessful/...`), which CI cannot reach;
-wiring it in would break the build on every CI runner. Released linters (jvm,
-jvm-community, python, python-community, …) ship from the public feed and OMIT
-`QD_DISTRIBUTION_FEED` entirely, so this is moot for them. Pointing the switch at
-qdist for unreleased/internal builds is tracked by followup QD-15062.
+wiring it in would break the build on every CI runner. The dist images now point
+`QD_DISTRIBUTION_FEED` at the `qodana-dist-internal` NIGHTLY feed (QD-15173), NOT at
+qdist; qdist's VPN-only links stay unwired. Pointing the switch at qdist for
+unreleased/internal builds is tracked by followup QD-15062.
 
 ## Multi-arch verification (QD-15177)
 
@@ -1183,10 +1104,10 @@ QODANA_RUBY_LINUX_ARM64_SHA256_SIBLING = 200
 
 The arm64 dist Links (the `linuxARM64.Link` whose `.sha256` is probed above) end
 in the `-aarch64` sibling of each image's linux Link recorded above:
-`qodana-QDJVMC-261.25881.145-aarch64.tar.gz`,
-`qodana-QDJS-261.25882.140-aarch64.tar.gz`,
-`qodana-QDGO-261.25884.406-aarch64.tar.gz`,
-`qodana-QDRUBY-261.25886.142-aarch64.tar.gz` (shared by ruby-3.2/-3.4).
+`qodana-QDJVMC-263.484.2162-aarch64.tar.gz`,
+`qodana-QDJS-263.146.1908-aarch64.tar.gz`,
+`qodana-QDGO-262.5912.2297-aarch64.tar.gz`,
+`qodana-QDRUBY-263.148.1874-aarch64.tar.gz` (shared by ruby-3.2/-3.4).
 
 ## Multi-arch verification (QD-15178)
 
@@ -1209,5 +1130,5 @@ QODANA_PYTHON_LINUX_ARM64_SHA256_SIBLING = 200
 QODANA_PYTHON_COMMUNITY_LINUX_ARM64_SHA256_SIBLING = 200
 
 The arm64 dist Links end in the `-aarch64` sibling of each image's linux Link
-recorded above: `qodana-QDPY-261.25883.162-aarch64.tar.gz`,
-`qodana-QDPYC-261.25883.161-aarch64.tar.gz`.
+recorded above: `qodana-QDPY-261.15683.2195-aarch64.tar.gz`,
+`qodana-QDPYC-261.15683.1610-aarch64.tar.gz`.

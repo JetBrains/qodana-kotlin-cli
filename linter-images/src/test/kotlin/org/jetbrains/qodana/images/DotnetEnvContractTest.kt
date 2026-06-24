@@ -1,5 +1,6 @@
 package org.jetbrains.qodana.images
 
+import org.jetbrains.qodana.images.EnvContract.internalFeed
 import org.jetbrains.qodana.images.EnvContract.node
 import org.jetbrains.qodana.images.EnvContract.parseEnv
 import org.jetbrains.qodana.images.EnvContract.pin
@@ -31,11 +32,11 @@ class DotnetEnvContractTest {
     @Test
     fun `qodana-dotnet env has exactly the jvm key set plus DIST_BASE_STAGE and LIBICU_PKG`() {
         val env = parseEnv("qodana-dotnet")
-        val expected = publicDist + node + setOf("DIST_BASE_STAGE", "LIBICU_PKG")
+        val expected = publicDist + node + internalFeed + setOf("DIST_BASE_STAGE", "LIBICU_PKG")
         assertEquals(
             expected,
             env.keys,
-            "dotnet must be publicDist + node plus DIST_BASE_STAGE + LIBICU_PKG",
+            "dotnet must be publicDist + node + internalFeed plus DIST_BASE_STAGE + LIBICU_PKG",
         )
         assertEquals(
             "privileged",
@@ -56,16 +57,13 @@ class DotnetEnvContractTest {
             "qodana-dotnet keeps the default uid 1000 (trixie base does not occupy 1000), no uid keys",
         )
         assertTrue("QD_CHANNEL" !in env, "QD_CHANNEL was removed by the foundation refactor")
-        assertTrue(
-            "QD_DISTRIBUTION_FEED" !in env,
-            "qodana-dotnet uses the public feed (dockerfile default), so it must omit QD_DISTRIBUTION_FEED",
-        )
+        EnvContract.assertInternalNightlyFeed(env, "qodana-dotnet")
         assertEquals("qodana-dotnet", env["QD_LINTER_SLUG"], "qodana-dotnet has its own dist slug")
         assertEquals("RD", env["QD_PRODUCT_INFO_CODE"], "qodana-dotnet product-info code is RD (Rider)")
         assertEquals(
-            "release",
+            "eap",
             env["QD_RELEASE_TYPE"],
-            "qodana-dotnet is a RELEASE linter (the QDNET feed has release entries, unlike ruby/rust)",
+            "qodana-dotnet pulls the eap internal nightly (the QDNET nightly feed is eap-only)",
         )
         assertEquals("qodana", env["CLI_BINARY"], "qodana-dotnet's inner CLI is the generic qodana (Cli kind)")
         assertEquals(

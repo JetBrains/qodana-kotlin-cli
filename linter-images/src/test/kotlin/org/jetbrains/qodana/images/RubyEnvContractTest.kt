@@ -1,5 +1,6 @@
 package org.jetbrains.qodana.images
 
+import org.jetbrains.qodana.images.EnvContract.internalFeed
 import org.jetbrains.qodana.images.EnvContract.node
 import org.jetbrains.qodana.images.EnvContract.parseEnv
 import org.jetbrains.qodana.images.EnvContract.pin
@@ -24,8 +25,8 @@ class RubyEnvContractTest {
     @Test
     fun `qodana-ruby env has exactly the jvm key set plus DIST_BASE_STAGE`() {
         val env = parseEnv("qodana-ruby")
-        val expected = publicDist + node + setOf("DIST_BASE_STAGE")
-        assertEquals(expected, env.keys, "ruby must be publicDist + node plus DIST_BASE_STAGE")
+        val expected = publicDist + node + internalFeed + setOf("DIST_BASE_STAGE")
+        assertEquals(expected, env.keys, "ruby must be publicDist + node + internalFeed plus DIST_BASE_STAGE")
         assertEquals(
             "privileged",
             env["DIST_BASE_STAGE"],
@@ -40,10 +41,7 @@ class RubyEnvContractTest {
             "qodana-ruby keeps the default uid 1000 (ruby base does not occupy 1000), no uid keys",
         )
         assertTrue("QD_CHANNEL" !in env, "QD_CHANNEL was removed by the foundation refactor")
-        assertTrue(
-            "QD_DISTRIBUTION_FEED" !in env,
-            "qodana-ruby uses the public feed (dockerfile default), so it must omit QD_DISTRIBUTION_FEED",
-        )
+        EnvContract.assertInternalNightlyFeed(env, "qodana-ruby")
         assertEquals("qodana-ruby", env["QD_LINTER_SLUG"], "qodana-ruby's shared dist slug")
         assertEquals("RM", env["QD_PRODUCT_INFO_CODE"], "qodana-ruby product-info code is RM (RubyMine)")
         assertEquals(
@@ -67,6 +65,8 @@ class RubyEnvContractTest {
                 "QD_VERSION",
                 "QD_BUILD",
                 "QD_RELEASE_TYPE",
+                "QD_DISTRIBUTION_FEED",
+                "QD_VERIFY_MODE",
                 "QD_PRODUCT_INFO_CODE",
                 "DIST_BASE_STAGE",
                 "NODE_MAJOR",

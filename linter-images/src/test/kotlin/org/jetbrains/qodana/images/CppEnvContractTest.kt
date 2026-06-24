@@ -1,5 +1,6 @@
 package org.jetbrains.qodana.images
 
+import org.jetbrains.qodana.images.EnvContract.internalFeed
 import org.jetbrains.qodana.images.EnvContract.node
 import org.jetbrains.qodana.images.EnvContract.parseEnv
 import org.jetbrains.qodana.images.EnvContract.pin
@@ -32,11 +33,11 @@ class CppEnvContractTest {
     @Test
     fun `qodana-cpp env has exactly the jvm key set plus DIST_BASE_STAGE and CLANG keys`() {
         val env = parseEnv("qodana-cpp")
-        val expected = publicDist + node + setOf("DIST_BASE_STAGE", "CLANG", "CLANG_OS")
+        val expected = publicDist + node + internalFeed + setOf("DIST_BASE_STAGE", "CLANG", "CLANG_OS")
         assertEquals(
             expected,
             env.keys,
-            "cpp must be publicDist + node plus DIST_BASE_STAGE + CLANG + CLANG_OS",
+            "cpp must be publicDist + node + internalFeed plus DIST_BASE_STAGE + CLANG + CLANG_OS",
         )
         assertEquals(
             "privileged",
@@ -54,16 +55,13 @@ class CppEnvContractTest {
             "qodana-cpp keeps the default uid 1000 (trixie base does not occupy 1000), no uid keys",
         )
         assertTrue("QD_CHANNEL" !in env, "QD_CHANNEL was removed by the foundation refactor")
-        assertTrue(
-            "QD_DISTRIBUTION_FEED" !in env,
-            "qodana-cpp uses the public feed (dockerfile default), so it must omit QD_DISTRIBUTION_FEED",
-        )
+        EnvContract.assertInternalNightlyFeed(env, "qodana-cpp")
         assertEquals("qodana-cpp", env["QD_LINTER_SLUG"], "qodana-cpp has its own dist slug")
         assertEquals("CL", env["QD_PRODUCT_INFO_CODE"], "qodana-cpp product-info code is CL (CLion)")
         assertEquals(
-            "release",
+            "eap",
             env["QD_RELEASE_TYPE"],
-            "qodana-cpp is a RELEASE linter (the QDCPP feed has release entries, unlike ruby/rust)",
+            "qodana-cpp pulls the eap internal nightly (the QDCPP nightly feed is eap-only)",
         )
         assertEquals("qodana", env["CLI_BINARY"], "qodana-cpp's inner CLI is the generic qodana (Cli kind)")
         assertEquals(

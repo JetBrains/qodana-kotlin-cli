@@ -1,5 +1,6 @@
 package org.jetbrains.qodana.images
 
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import java.nio.file.Path
 import kotlin.io.path.readText
@@ -54,4 +55,17 @@ object EnvContract {
         )
     val node = setOf("NODE_MAJOR")
     val internalFeed = setOf("QD_DISTRIBUTION_FEED", "QD_VERIFY_MODE")
+
+    /** Asserts the internalFeed profile's VALUES: the internal nightly feed URL + sha256 (unsigned). */
+    fun assertInternalNightlyFeed(
+        env: Map<String, String>,
+        slug: String,
+    ) {
+        assertEquals(
+            "https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed",
+            env["QD_DISTRIBUTION_FEED"],
+            "$slug fetches the internal nightly dist feed",
+        )
+        assertEquals("sha256", env["QD_VERIFY_MODE"], "$slug nightly dist is unsigned (sha256-only, no GPG .asc)")
+    }
 }

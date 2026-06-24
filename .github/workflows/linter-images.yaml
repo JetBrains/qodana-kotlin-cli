@@ -93,129 +93,129 @@ jobs:
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-python-community
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "false"
-            feed_required: "false"
+            feed_required: "true"
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-python-community
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "false"
-            feed_required: "false"
+            feed_required: "true"
             arch: arm64
             runner: ubuntu-24.04-arm
           - name: qodana-python
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
+            feed_required: "true"
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-python
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
+            feed_required: "true"
             arch: arm64
             runner: ubuntu-24.04-arm
           - name: qodana-js
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
+            feed_required: "true"
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-js
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
+            feed_required: "true"
             arch: arm64
             runner: ubuntu-24.04-arm
           - name: qodana-go
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
+            feed_required: "true"
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-go
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
+            feed_required: "true"
             arch: arm64
             runner: ubuntu-24.04-arm
           - name: qodana-php
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
+            feed_required: "true"
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-rust
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "false"
-            feed_required: "false"
+            feed_required: "true"
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-ruby
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
+            feed_required: "true"
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-ruby
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
+            feed_required: "true"
             arch: arm64
             runner: ubuntu-24.04-arm
           - name: qodana-ruby-3.2
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
+            feed_required: "true"
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-ruby-3.2
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
+            feed_required: "true"
             arch: arm64
             runner: ubuntu-24.04-arm
           - name: qodana-ruby-3.4
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
+            feed_required: "true"
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-ruby-3.4
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
+            feed_required: "true"
             arch: arm64
             runner: ubuntu-24.04-arm
           - name: qodana-dotnet
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
+            feed_required: "true"
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-cpp
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
+            feed_required: "true"
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-clang
