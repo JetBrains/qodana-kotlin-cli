@@ -268,7 +268,7 @@ jobs:
       - name: Docker Hub login (raise anonymous pull-rate ceiling)
         # An authenticated docker.io pull raises the anonymous rate ceiling for the public images the
         # build fetches (dockerfile-x frontend, amazoncorretto).
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
           password: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
@@ -276,7 +276,7 @@ jobs:
         # QD_BASE_IMAGE is a dhi.io OS or language base (debian-base for jvm/android/python/clang,
         # node for js); this login authenticates the whole dhi.io registry with the same credentials. No
         # if-gate: the base is mandatory, so a missing credential must fail loudly here, not skip.
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: dhi.io
           username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
@@ -437,13 +437,13 @@ jobs:
         if: ${{ github.event.pull_request.head.repo.fork != true }}
       - name: Docker Hub login (raise anonymous pull-rate ceiling)
         if: ${{ github.event.pull_request.head.repo.fork != true }}
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
           password: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
       - name: dhi.io login (Docker Hardened Images base)
         if: ${{ github.event.pull_request.head.repo.fork != true }}
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: dhi.io
           username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
