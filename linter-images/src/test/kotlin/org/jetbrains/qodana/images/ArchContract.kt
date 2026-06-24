@@ -8,6 +8,7 @@ object ArchContract {
             "qodana-jvm-community",
             "qodana-js",
             "qodana-go",
+            "qodana-php",
             "qodana-python",
             "qodana-python-community",
             "qodana-ruby",
