@@ -62,4 +62,17 @@ class MultiarchPlumbingContractTest {
         assertTrue(d.contains("sha256sum -c"), "tini must be verified fail-closed via sha256sum -c")
         assertFalse(d.contains("\${TINI_ARCH}"), "runtime.dockerfile must not reference TINI_ARCH")
     }
+
+    @Test
+    fun `conda toolchain selects the Miniconda installer per-TARGETARCH fail-closed`() {
+        val d = Path.of("docker/lib/toolchain/conda.dockerfile").readText()
+        // Each arm maps to ITS sha var (swap-proof), the URL selects via the resolved ${mc_arch}, and the
+        // installer is sha256sum -c verified with a fail-closed `*)` default — the runtime.dockerfile tini shape.
+        assertTrue(d.contains("amd64) mc_arch=x86_64; mc_sha=\"\${MINICONDA_SHA256_X86_64}\""), "amd64 sha arm")
+        assertTrue(d.contains("arm64) mc_arch=aarch64; mc_sha=\"\${MINICONDA_SHA256_AARCH64}\""), "arm64 sha arm")
+        assertTrue(d.contains("Miniconda3-\${MINICONDA_VERSION}-Linux-\${mc_arch}.sh"), "URL must use mc_arch")
+        assertTrue(Regex("""\*\)\s*echo "unsupported TARGETARCH""").containsMatchIn(d), "fail-closed default case arm")
+        assertTrue(d.contains("sha256sum -c"), "Miniconda must be verified fail-closed")
+        assertFalse(d.contains("Linux-x86_64.sh"), "no hardcoded x86_64 installer URL")
+    }
 }

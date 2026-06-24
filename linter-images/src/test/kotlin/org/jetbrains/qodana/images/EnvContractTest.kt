@@ -232,11 +232,11 @@ class EnvContractTest {
     @Test
     fun `qodana-python-community env has exactly the python key set and no node`() {
         // A normal IDE-dist image (like jvm-community) that layers the conda toolchain instead of node:
-        // publicDist (no node) plus the conda keys (MINICONDA_VERSION/MINICONDA_SHA256) and
+        // publicDist (no node) plus the conda keys (MINICONDA_VERSION + the per-arch installer shas) and
         // DIST_BASE_STAGE=conda-toolchain (the dist layers onto the conda stage, as android does onto its).
         val env = parseEnv("qodana-python-community")
-        val expected = publicDist + setOf("DIST_BASE_STAGE", "MINICONDA_VERSION", "MINICONDA_SHA256")
-        assertEquals(expected, env.keys)
+        val conda = setOf("DIST_BASE_STAGE", "MINICONDA_VERSION", "MINICONDA_SHA256_X86_64", "MINICONDA_SHA256_AARCH64")
+        assertEquals(publicDist + conda, env.keys)
         assertTrue("NODE_MAJOR" !in env, "python-community must not set NODE_MAJOR (conda toolchain, not node)")
         assertTrue("QD_CHANNEL" !in env, "QD_CHANNEL was removed by the foundation refactor")
         assertTrue(
@@ -315,6 +315,20 @@ class EnvContractTest {
             python["QD_PRODUCT_INFO_CODE"],
             "python product-info code must match phase-0-decisions",
         )
+    }
+
+    @Test
+    fun `python conda Miniconda shas are the upstream digests`() {
+        // Upstream Anaconda digests for Miniconda py312_24.5.0-0 (verified against repo.anaconda.com 2026-06-24).
+        val upstream =
+            mapOf(
+                "MINICONDA_SHA256_X86_64" to "4b3b3b1b99215e85fd73fb2c2d7ebf318ac942a457072de62d885056556eb83e",
+                "MINICONDA_SHA256_AARCH64" to "70afe954cc8ee91f605f9aa48985bfe01ecfc10751339e8245eac7262b01298d",
+            )
+        for (slug in listOf("qodana-python", "qodana-python-community")) {
+            val env = parseEnv(slug)
+            upstream.forEach { (k, v) -> assertEquals(v, env[k], "$slug $k must be the upstream Miniconda digest") }
+        }
     }
 
     @Test
