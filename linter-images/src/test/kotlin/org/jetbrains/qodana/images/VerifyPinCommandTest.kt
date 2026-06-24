@@ -101,7 +101,7 @@ class VerifyPinCommandTest {
         val runnerWithToken = runner()
         val cmdWithToken =
             VerifyPinCommand(FeedClient(runnerWithToken), DistVerifier(runnerWithToken)) { name ->
-                if (name == "QD_FEED_TOKEN") "tok-123" else null
+                if (name == "QODANA_READ_SPACE_PACKAGES_TOKEN") "tok-123" else null
             }
         val resultWithToken = cmdWithToken.test(baseArgs(feedUrl, key))
         assertEquals(0, resultWithToken.statusCode, resultWithToken.output)
@@ -152,7 +152,7 @@ class VerifyPinCommandTest {
         val runner = runner()
         val cmd =
             VerifyPinCommand(FeedClient(runner), DistVerifier(runner)) {
-                if (it == "QD_FEED_TOKEN") "read-tok" else null
+                if (it == "QODANA_READ_SPACE_PACKAGES_TOKEN") "read-tok" else null
             }
         val result =
             cmd.test(sha256Args("https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed"))
@@ -170,7 +170,7 @@ class VerifyPinCommandTest {
         val result =
             cmd.test(sha256Args("https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed"))
         assertTrue(result.statusCode != 0, "missing token must hard-fail: ${result.output}")
-        assertTrue(result.output.contains("QD_FEED_TOKEN"), result.output)
+        assertTrue(result.output.contains("QODANA_READ_SPACE_PACKAGES_TOKEN"), result.output)
     }
 
     @Test

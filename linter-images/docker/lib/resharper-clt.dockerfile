@@ -1,9 +1,9 @@
 # resharper-clt — install the ReSharper Command Line Tools (CLT/InspectCode) to /opt/qodana-cdnet,
 # on PATH. The cdnet aux tool (analogous to clang-tidy for clang). Fetched from the PRIVATE
-# qodana-cli-deps mirror (token-gated; CI supplies QODANA_CLI_DEPS_TOKEN), sha256-verified
+# qodana-cli-deps mirror (token-gated; CI supplies QODANA_READ_SPACE_PACKAGES_TOKEN), sha256-verified
 # fail-closed. Installed under /opt (NOT /data/cache, which is a runtime cache): the qodana-cdnet CLI
 # discovers `inspectcode` by name on PATH. The mirror path is ${CLT_MIRROR}/v${CLT_VERSION}/clt.zip;
-# the archive is architecture-independent (managed .NET). The secret id (qodana_cli_deps_token) is
+# the archive is architecture-independent (managed .NET). The secret id (space_packages_token) is
 # shared with clang and wired in compose.private.yaml + CI.
 # Consumes: CLT_MIRROR CLT_VERSION CLT_SHA256
 ARG CLT_MIRROR
@@ -21,7 +21,7 @@ ARG CLT_SHA256
 ARG CLT_HOME
 
 # hadolint ignore=DL4006
-RUN --mount=type=secret,id=qodana_cli_deps_token,required=true <<-EOT
+RUN --mount=type=secret,id=space_packages_token,required=true <<-EOT
 	set -eu
 	: "${CLT_SHA256:?CLT_SHA256 must be set to verify clt.zip}"
 	export DEBIAN_FRONTEND=noninteractive
@@ -30,7 +30,7 @@ RUN --mount=type=secret,id=qodana_cli_deps_token,required=true <<-EOT
 	# Read the token + run the authenticated curl with xtrace OFF so the Bearer header never reaches
 	# the build log. The BuildKit secret mount keeps it out of any image layer.
 	set +x
-	TOKEN="$(cat /run/secrets/qodana_cli_deps_token)"
+	TOKEN="$(cat /run/secrets/space_packages_token)"
 	curl -fsSL -H "Authorization: Bearer ${TOKEN}" \
 		-o /tmp/clt.zip \
 		"${CLT_MIRROR}/v${CLT_VERSION}/clt.zip"

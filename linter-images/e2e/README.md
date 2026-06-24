@@ -31,7 +31,7 @@ linter-images/e2e/
 - **CI (the real run, amd64):** the `e2e` matrix job builds `<image>:dev` then runs
   `./gradlew :linter-images:linterE2eTest -Dlinter.e2e.image=<image>`. The harness discovers
   `fixtures/<image>/*/expected.json`, emits one test per `(case, variant)`, shells `docker run … scan`,
-  and asserts. clang is token-gated (`QODANA_CLI_DEPS_TOKEN`) and cleanly no-ops on fork PRs.
+  and asserts. clang is token-gated (`QODANA_READ_SPACE_PACKAGES_TOKEN`) and cleanly no-ops on fork PRs.
 - **Locally:** the images are amd64-only, so the `@Tag("linter-e2e")` tests are **CI-only**. What runs
   locally is the unit layer — `./gradlew :linter-images:test` (manifest model + schema, the SARIF
   evaluator, the docker-arg planner, and `FixtureManifestsTest`, which loads every `expected.json`).

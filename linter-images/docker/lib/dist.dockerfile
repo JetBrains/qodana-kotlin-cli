@@ -42,15 +42,15 @@ EOT
 COPY lib/jetbrains.pub /build/lib/jetbrains.pub
 COPY lib/jetbrains.pub.fpr /build/lib/jetbrains.pub.fpr
 # image-tool is bind-mounted from the `tooling` named context (NOT copied into a layer).
-# feed_token is optional; image-tool sends it unconditionally whenever it is present (the public feed
+# space_packages_token is optional; image-tool sends it unconditionally whenever it is present (the public feed
 # ignores it), so we export it whenever the secret is mounted.
 RUN --mount=type=bind,from=tooling,target=/tooling \
-	--mount=type=secret,id=feed_token,required=false <<-EOT
+	--mount=type=secret,id=space_packages_token,required=false <<-EOT
 	set -eux
-	if [ -f /run/secrets/feed_token ]; then
+	if [ -f /run/secrets/space_packages_token ]; then
 		set +x  # never echo the secret under xtrace; token flows via env, not argv
-		QD_FEED_TOKEN="$(cat /run/secrets/feed_token)"
-		export QD_FEED_TOKEN
+		QODANA_READ_SPACE_PACKAGES_TOKEN="$(cat /run/secrets/space_packages_token)"
+		export QODANA_READ_SPACE_PACKAGES_TOKEN
 		set -x
 	fi
 	/tooling/bin/image-tool provision-dist \

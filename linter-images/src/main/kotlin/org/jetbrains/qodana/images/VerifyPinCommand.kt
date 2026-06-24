@@ -42,9 +42,9 @@ class VerifyPinCommand(
         if (mode == VerifyMode.GPG && (gpgKey == null || gpgFingerprint == null)) {
             throw UsageError("--gpg-key and --gpg-fingerprint are required in gpg verify mode")
         }
-        val token = getEnv(QD_FEED_TOKEN)?.takeIf { it.isNotBlank() }
+        val token = getEnv(QODANA_READ_SPACE_PACKAGES_TOKEN)?.takeIf { it.isNotBlank() }
         if (mode == VerifyMode.SHA256 && token == null) {
-            throw UsageError("$QD_FEED_TOKEN must be set for the internal (sha256) feed")
+            throw UsageError("$QODANA_READ_SPACE_PACKAGES_TOKEN must be set for the internal (sha256) feed")
         }
         val feed = feedClient.fetch(distributionFeed, linterSlug, token)
         val release = ReleaseSelector.select(feed, majorVersion = version, build = build)

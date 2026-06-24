@@ -3,8 +3,12 @@ package org.jetbrains.qodana.images
 /** Public JetBrains distribution feed. A1/A2/A3/A4 reference this; do not inline it per-command. */
 const val DEFAULT_DISTRIBUTION_FEED = "https://download.jetbrains.com/qodana/feed"
 
-/** Env var carrying the bearer token for a private feed. Shared by every feed-touching command. */
-const val QD_FEED_TOKEN = "QD_FEED_TOKEN"
+/**
+ * Env var carrying the bearer token that reads the private JetBrains Space packages — here the internal
+ * nightly dist feed; the same token also reads the qodana-cli-deps mirror that clang/cdnet pull (a CI
+ * concern, not the CLI's). Shared by every feed-touching command.
+ */
+const val QODANA_READ_SPACE_PACKAGES_TOKEN = "QODANA_READ_SPACE_PACKAGES_TOKEN"
 
 /** Env var carrying the per-`.env` integrity-verification mode (`gpg` public / `sha256` internal nightly). */
 const val QD_VERIFY_MODE = "QD_VERIFY_MODE"

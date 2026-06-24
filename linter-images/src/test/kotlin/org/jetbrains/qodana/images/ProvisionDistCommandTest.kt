@@ -134,7 +134,7 @@ class ProvisionDistCommandTest {
                 feedClient = FeedClient(runnerWithToken),
                 verifier = DistVerifier(runnerWithToken),
                 extractor = RecordingExtractor(),
-                getEnv = { name -> if (name == QD_FEED_TOKEN) "tok-123" else null },
+                getEnv = { name -> if (name == QODANA_READ_SPACE_PACKAGES_TOKEN) "tok-123" else null },
             )
         val resultWithToken = commandWithToken.test(baseArgs(feedUrl, targetWithToken, key))
         assertEquals(0, resultWithToken.statusCode, resultWithToken.output)
@@ -253,7 +253,7 @@ class ProvisionDistCommandTest {
                 feedClient = FeedClient(runner),
                 verifier = DistVerifier(runner),
                 extractor = extractor,
-                getEnv = { if (it == QD_FEED_TOKEN) "read-tok" else null },
+                getEnv = { if (it == QODANA_READ_SPACE_PACKAGES_TOKEN) "read-tok" else null },
             )
         val result =
             command.test(
@@ -269,7 +269,7 @@ class ProvisionDistCommandTest {
     }
 
     @Test
-    fun `sha256 mode hard-fails when QD_FEED_TOKEN is absent`(
+    fun `sha256 mode hard-fails when QODANA_READ_SPACE_PACKAGES_TOKEN is absent`(
         @TempDir tmp: Path,
     ) {
         val target = Files.createDirectories(tmp.resolve("staging"))
@@ -285,7 +285,7 @@ class ProvisionDistCommandTest {
                 sha256Args("https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed", target),
             )
         assertTrue(result.statusCode != 0, "missing token must hard-fail: ${result.output}")
-        assertTrue(result.output.contains("QD_FEED_TOKEN"), result.output)
+        assertTrue(result.output.contains("QODANA_READ_SPACE_PACKAGES_TOKEN"), result.output)
     }
 
     @Test

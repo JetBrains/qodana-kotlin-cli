@@ -18,27 +18,28 @@ first:
 
 `compose.yaml` uses `CLI_SOURCE=release`: the inner CLI is downloaded inside the builder stage, and the
 build `image-tool` is supplied by the `tooling` context (`build/install/image-tool` from `installDist`).
-No other from-tree build is required, and `QD_FEED_TOKEN` can be unset — the IDE dist is fetched from the
-public mirror and GPG- + sha256-verified, fail-closed.
+No other from-tree build is required, and `QODANA_READ_SPACE_PACKAGES_TOKEN` can be unset — the IDE dist
+is fetched from the public mirror and GPG- + sha256-verified, fail-closed.
+
+A single read-only token, `QODANA_READ_SPACE_PACKAGES_TOKEN`, reads every private JetBrains Space package
+the build needs, via the `space_packages_token` secret the private overlay defines.
 
 An image selects its feed by setting `QD_DISTRIBUTION_FEED` in its own `.env`; absent (as in the current
-`jvm`/`android` images) it defaults to the public feed above. A private feed additionally needs
-`QD_FEED_TOKEN`, supplied by the private overlay (the only file that defines the `feed_token` secret);
-the token is sent whenever `QD_FEED_TOKEN` is present:
+`jvm`/`android` images) it defaults to the public feed above. A private feed additionally needs the
+token; it is sent whenever present:
 
-    QD_FEED_TOKEN=<token> docker compose -f compose.yaml -f compose.private.yaml build qodana-jvm
+    QODANA_READ_SPACE_PACKAGES_TOKEN=<token> docker compose -f compose.yaml -f compose.private.yaml build qodana-jvm
 
 `qodana-clang` always needs the private overlay: its clang-tidy archive comes from the private
-qodana-cli-deps mirror, so the build mounts a `QODANA_CLI_DEPS_TOKEN` (a JB Space bearer token) secret —
-it cannot build from the bare `compose.yaml`. clang has no IDE dist, so it does NOT need `QD_FEED_TOKEN`:
+qodana-cli-deps mirror, read with the same token (a JB Space bearer token) — it cannot build from the
+bare `compose.yaml`:
 
-    QODANA_CLI_DEPS_TOKEN=<bearer-token> docker compose -f compose.yaml -f compose.private.yaml build qodana-clang
+    QODANA_READ_SPACE_PACKAGES_TOKEN=<bearer-token> docker compose -f compose.yaml -f compose.private.yaml build qodana-clang
 
 `qodana-cdnet` needs the private overlay for the same reason: its ReSharper CLT (InspectCode) archive
-comes from the private qodana-cli-deps mirror, so the build mounts the shared `QODANA_CLI_DEPS_TOKEN`
-secret. Like clang it has no IDE dist, so it does NOT need `QD_FEED_TOKEN`:
+comes from the private qodana-cli-deps mirror, read with the same token:
 
-    QODANA_CLI_DEPS_TOKEN=<bearer-token> docker compose -f compose.yaml -f compose.private.yaml build qodana-cdnet
+    QODANA_READ_SPACE_PACKAGES_TOKEN=<bearer-token> docker compose -f compose.yaml -f compose.private.yaml build qodana-cdnet
 
 ## Build from this tree (CI path)
 

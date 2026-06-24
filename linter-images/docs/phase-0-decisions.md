@@ -64,8 +64,8 @@ segment), NOT a clang compiler `<major>.<minor>.<patch>`: the ancestor
 `clang-tidy.json` carries only this package tag (`v1.0.0`). The mirror path
 prepends `v` (`…/clang-tidy/v1.0.0/clang-tidy-linux-amd64.tar.gz`), so
 `lib/tools.dockerfile` fetches `${CLANG_TIDY_MIRROR}/v${CLANG_TIDY_VERSION}/clang-tidy-linux-${CLI_ARCH}.tar.gz`.
-The mirror is PRIVATE (see below): the build supplies `QODANA_CLI_DEPS_TOKEN` as
-a build secret sent via `Authorization: Bearer`, and Renovate tracks new package
+The mirror is PRIVATE (see below): the build supplies `QODANA_READ_SPACE_PACKAGES_TOKEN`
+as a build secret sent via `Authorization: Bearer`, and Renovate tracks new package
 tags via the token-authenticated `versions.json` (a `customDatasource` in
 `.github/renovate.json5`; the bot supplies the read token out-of-band, like CI).
 
@@ -106,8 +106,8 @@ PRIVATE `qodana-cli-deps` JB Space project as clang-tidy, under a sibling path.
 `lib/resharper-clt.dockerfile` fetches `${CLT_MIRROR}/v${CLT_VERSION}/clt.zip`
 (the path prepends `v`, like clang-tidy); the archive is architecture-independent
 (managed .NET). Access mode is the same PRIVATE bearer-token flow as Spike B —
-the build supplies `QODANA_CLI_DEPS_TOKEN` via `Authorization: Bearer`, and CI
-provisions it; the same `qodana_cli_deps_token` build secret is shared with clang.
+the build supplies `QODANA_READ_SPACE_PACKAGES_TOKEN` via `Authorization: Bearer`, and
+CI provisions it; the same `space_packages_token` build secret is shared with clang.
 
 `EnvContractTest`'s `cdnet pins match phase-0-decisions` asserts the two pins
 below equal `qodana-cdnet.env`'s `CLT_MIRROR` / `CLT_VERSION`:

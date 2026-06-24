@@ -1,90 +1,84 @@
-# Private-source overlay. Two distinct tokens, each scoped to the services that consume it:
-#   feed_token (QD_FEED_TOKEN)            — jvm/android private IDE feed; lib/dist.dockerfile mounts it
-#                                           required=false (public path runs with it unset). Clang has
-#                                           no dist stage, so it does NOT mount feed_token.
-#   qodana_cli_deps_token                 — clang-tidy mirror (packages.jetbrains.team); always private,
-#     (QODANA_CLI_DEPS_TOKEN)               so lib/tools.dockerfile mounts it required=true. The clang
-#                                           image therefore CANNOT build from base compose.yaml alone —
-#                                           it needs this overlay (CI supplies the token; see Phase 5).
+# Private-source overlay. A SINGLE read-only token, QODANA_READ_SPACE_PACKAGES_TOKEN, reads every
+# private JetBrains Space package the build needs, exposed as the `space_packages_token` build secret:
+#   - the internal nightly IDE dist feed (qodana-dist-internal) — dist images mount it in
+#     lib/dist.dockerfile required=false, so the PUBLIC path builds with the token unset;
+#   - the qodana-cli-deps mirror (clang-tidy / ReSharper CLT) — clang/cdnet mount it in
+#     lib/tools.dockerfile / lib/resharper-clt.dockerfile required=true (they cannot build without it).
 # The token is sent as `Authorization: Bearer <token>` (a JB Space bearer token, raw value — not
 # `user:pass`), matching lib/tools.dockerfile and the canonical qodana-cli download-clang-tidy.go.
-# Usage (private feed):
-#   QD_FEED_TOKEN=<token> docker compose -f compose.yaml -f compose.private.yaml build qodana-jvm
-# Usage (clang, always token-gated):
-#   QODANA_CLI_DEPS_TOKEN=<bearer-token> docker compose -f compose.yaml -f compose.private.yaml build qodana-clang
-# The base compose.yaml references neither secret, so the public jvm/android path builds with both unset.
+# Usage:
+#   QODANA_READ_SPACE_PACKAGES_TOKEN=<token> docker compose -f compose.yaml -f compose.private.yaml build qodana-jvm
+# The base compose.yaml references no secret, so the public jvm/android path builds with the token unset.
 services:
   qodana-jvm:
     build:
       secrets:
-        - feed_token
+        - space_packages_token
   qodana-jvm-community:
     build:
       secrets:
-        - feed_token
+        - space_packages_token
   qodana-android:
     build:
       secrets:
-        - feed_token
+        - space_packages_token
   qodana-android-community:
     build:
       secrets:
-        - feed_token
+        - space_packages_token
   qodana-python-community:
     build:
       secrets:
-        - feed_token
+        - space_packages_token
   qodana-python:
     build:
       secrets:
-        - feed_token
+        - space_packages_token
   qodana-js:
     build:
       secrets:
-        - feed_token
+        - space_packages_token
   qodana-go:
     build:
       secrets:
-        - feed_token
+        - space_packages_token
   qodana-php:
     build:
       secrets:
-        - feed_token
+        - space_packages_token
   qodana-rust:
     build:
       secrets:
-        - feed_token
+        - space_packages_token
   qodana-ruby:
     build:
       secrets:
-        - feed_token
+        - space_packages_token
   qodana-ruby-3.2:
     build:
       secrets:
-        - feed_token
+        - space_packages_token
   qodana-ruby-3.4:
     build:
       secrets:
-        - feed_token
+        - space_packages_token
   qodana-dotnet:
     build:
       secrets:
-        - feed_token
+        - space_packages_token
   qodana-cpp:
     build:
       secrets:
-        - feed_token
+        - space_packages_token
   qodana-clang:
     build:
       secrets:
-        - qodana_cli_deps_token
+        - space_packages_token
   qodana-cdnet:
     build:
       secrets:
-        - qodana_cli_deps_token
+        - space_packages_token
 
 secrets:
-  feed_token:
-    environment: QD_FEED_TOKEN
-  qodana_cli_deps_token:
-    environment: QODANA_CLI_DEPS_TOKEN
+  space_packages_token:
+    environment: QODANA_READ_SPACE_PACKAGES_TOKEN

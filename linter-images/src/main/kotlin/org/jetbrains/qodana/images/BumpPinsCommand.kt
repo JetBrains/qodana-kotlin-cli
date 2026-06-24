@@ -102,7 +102,7 @@ class BumpPinsCommand(
         releaseType: String,
     ): String? {
         // Send the token unconditionally when present; FeedClient throws loudly if the fetch fails.
-        val token = getEnv(QD_FEED_TOKEN)?.takeIf { it.isNotBlank() }
+        val token = getEnv(QODANA_READ_SPACE_PACKAGES_TOKEN)?.takeIf { it.isNotBlank() }
         val feed = feedClient.fetch(feedUrl, slug, token)
         return feed.releases
             .filter { it.majorVersion == major && it.type == releaseType }
