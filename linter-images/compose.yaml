@@ -8,6 +8,13 @@
 # arg (Renovate-tracked), NOT an .env contract key. NOTE: nightly tags are pruned of their assets after
 # the 7 newest nightlies (docs/release.md) — Renovate must bump this to a retained tag, or switch the
 # default to a stable `v<MAJOR>` release once one carries the linux/amd64 asset.
+#
+# Multiarch platform policy (per-file): the arch-capable services follow the build host's arch
+# (TARGETARCH) and carry NO `platform:` pin; every OTHER service keeps `platform: linux/amd64` — its
+# toolchain layers are still amd64-only (QD-15171), so an arm64 host must not build a broken mixed-arch
+# image. The arch-capable set is the test-enforced source of truth `ArchContract.archCapable`
+# (ComposeContractTest asserts the no-pin services equal it); QD-15172/QD-15177 enabled qodana-jvm +
+# jvm-community/js/go/ruby(/-3.2/-3.4).
 services:
   qodana-jvm:
     build:
@@ -18,9 +25,7 @@ services:
         CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
       additional_contexts:
         tooling: build/install/image-tool
-    # qodana-jvm follows the build host's arch (TARGETARCH) — multiarch (QD-15172). The OTHER services
-    # keep `platform: linux/amd64`: their toolchain layers are still amd64-only (QD-15171), so an arm64
-    # host must not build a broken mixed-arch image of them.
+    # No platform pin: arch-capable (multiarch). See the per-file "Multiarch platform policy" header.
     image: qodana-jvm:dev
   qodana-jvm-community:
     build:
@@ -31,7 +36,6 @@ services:
         CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
       additional_contexts:
         tooling: build/install/image-tool
-    platform: linux/amd64
     image: qodana-jvm-community:dev
   qodana-android:
     build:
@@ -93,7 +97,6 @@ services:
         QODANA_GID: "1001"
       additional_contexts:
         tooling: build/install/image-tool
-    platform: linux/amd64
     image: qodana-js:dev
   qodana-go:
     build:
@@ -106,7 +109,6 @@ services:
         # base), so qodana-go keeps base.dockerfile's default 1000, like the debian-base images.
       additional_contexts:
         tooling: build/install/image-tool
-    platform: linux/amd64
     image: qodana-go:dev
   qodana-php:
     build:
@@ -153,7 +155,6 @@ services:
         PRIVILEGED_BASE_STAGE: base
       additional_contexts:
         tooling: build/install/image-tool
-    platform: linux/amd64
     image: qodana-ruby:dev
   qodana-ruby-3.2:
     build:
@@ -166,7 +167,6 @@ services:
         PRIVILEGED_BASE_STAGE: base
       additional_contexts:
         tooling: build/install/image-tool
-    platform: linux/amd64
     image: qodana-ruby-3.2:dev
   qodana-ruby-3.4:
     build:
@@ -179,7 +179,6 @@ services:
         PRIVILEGED_BASE_STAGE: base
       additional_contexts:
         tooling: build/install/image-tool
-    platform: linux/amd64
     image: qodana-ruby-3.4:dev
   qodana-dotnet:
     build:

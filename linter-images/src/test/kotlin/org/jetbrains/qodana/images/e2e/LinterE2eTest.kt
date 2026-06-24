@@ -24,10 +24,11 @@ import kotlin.test.fail
  * Docker-driving e2e suite. Tagged `linter-e2e` so it is excluded from the default `test` task and
  * runs only via `./gradlew :linter-images:linterE2eTest -Dlinter.e2e.image=<image>`.
  *
- * AMD64-ONLY: the qodana-jvm / qodana-android / qodana-clang images do not run natively on the
- * arm64 dev box, so this suite is CI-only. Every `pin:"needs-pinning"` rule id is resolved at
- * runtime from the control variant's report (see [resolveVariantExpectations]); every `[P]`-guessed
- * `confirmed` id in the fixtures is pinned from a CI control run, never locally.
+ * CI-ONLY: this docker-driving suite cannot run on the arm64 dev box. The arch-capable images
+ * (`ArchContract.archCapable` — jvm, jvm-community, js, go, ruby/-3.2/-3.4) run arm64 e2e on
+ * `ubuntu-24.04-arm`; the rest stay amd64-only pending QD-15171. Every `pin:"needs-pinning"` rule id
+ * is resolved at runtime from the control variant's report (see [resolveVariantExpectations]); every
+ * `[P]`-guessed `confirmed` id in the fixtures is pinned from a CI control run, never locally.
  *
  * Discovery: globs `e2e/fixtures/<linter.e2e.image>/<case>/expected.json` (cwd is the module root —
  * `linter-images/build.gradle.kts` pins the Test `workingDir`). One [DynamicTest] per
