@@ -11,18 +11,20 @@ import kotlin.io.path.readText
 /**
  * Locks in the "token-gated images fail loudly, not silently" invariant for the linter-images CI
  * matrix: a token-gated cell (clang/cdnet) with an empty QODANA_READ_SPACE_PACKAGES_TOKEN must fail
- * RED (a gate step that `exit 1`s), never no-op to green. Mirrors the feed_required gate. Test CWD is
- * the module root, so the repo-root workflow is read via `../` (cf. EslintPinTest).
+ * RED (a gate step that `exit 1`s), never no-op to green. Mirrors the feed_required gate. Since QD-15164
+ * the token-gated cells live in their own `e2e-internal-feed` job (gated by the `jetbrains-internal`
+ * Environment on fork PRs); this test reads that job. Test CWD is the module root, so the repo-root
+ * workflow is read via `../` (cf. EslintPinTest).
  */
 class LinterImagesWorkflowContractTest {
     private val workflow: JsonNode =
         YAMLMapper().readTree(Path.of("../.github/workflows/linter-images.yaml").readText())
 
     private val steps: List<JsonNode>
-        get() = workflow["jobs"]["e2e"]["steps"].toList()
+        get() = workflow["jobs"]["e2e-internal-feed"]["steps"].toList()
 
     private val cells: List<JsonNode>
-        get() = workflow["jobs"]["e2e"]["strategy"]["matrix"]["image"].toList()
+        get() = workflow["jobs"]["e2e-internal-feed"]["strategy"]["matrix"]["image"].toList()
 
     private fun JsonNode.ifExpr(): String = this["if"]?.asText() ?: ""
 
