@@ -36,8 +36,8 @@ jobs:
     # One job per image. Each cell builds ITS image from this tree, then runs the harness scoped to
     # that image (-Dlinter.e2e.image), so a build/scan/assert failure surfaces in — and only in — the
     # relevant image's job. fail-fast:false keeps the three signals independent.
-    name: Docker e2e (${{ matrix.image.name }})
-    runs-on: ubuntu-latest
+    name: Docker e2e (${{ matrix.image.name }}, linux/${{ matrix.image.arch }})
+    runs-on: ${{ matrix.image.runner }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -55,86 +55,127 @@ jobs:
             token_gated: "false"
             requires_license: "true"
             feed_required: "true"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-jvm
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: arm64
+            runner: ubuntu-24.04-arm
           - name: qodana-jvm-community
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "false"
             feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
           - name: qodana-android
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "false"
             feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
           - name: qodana-android-community
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "false"
             feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
           - name: qodana-python-community
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "false"
             feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
           - name: qodana-python
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
             feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
           - name: qodana-js
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
             feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
           - name: qodana-go
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
             feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
           - name: qodana-php
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
             feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
           - name: qodana-rust
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "false"
             feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
           - name: qodana-ruby
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
             feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
           - name: qodana-ruby-3.2
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
             feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
           - name: qodana-ruby-3.4
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
             feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
           - name: qodana-dotnet
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
             feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
           - name: qodana-cpp
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
             feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
           - name: qodana-clang
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "true"
             requires_license: "false"
             feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
           - name: qodana-cdnet
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "true"
             requires_license: "false"
             feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
     env:
       # QODANA_READ_SPACE_PACKAGES_TOKEN reads the private JetBrains Space packages — the qodana-cli-deps
       # mirror (clang/cdnet) AND the internal nightly dist feed (jvm). Surfaced as `env.*` so the
@@ -214,10 +255,18 @@ jobs:
         run: |
           set -euo pipefail
           ./gradlew \
-            :qodana-cli:assembleRelease -PtargetOs=linux -PtargetArch=amd64 -Pquick=true \
+            :qodana-cli:assembleRelease -PtargetOs=linux -PtargetArch=${{ matrix.image.arch }} -Pquick=true \
             :linter-images:installDist
           # qodana-jvm/android consume /cli-src/qodana (Cli kind already staged at release-staging/qodana).
           test -x qodana-cli/build/release-staging/qodana
+          # Fail-closed: the staged binary's ELF machine MUST match matrix.image.arch (nativeCompile is
+          # host-arch; -PtargetArch is only a label, so a arch/runner mismatch would ship a wrong-arch CLI).
+          want='${{ matrix.image.arch }}'
+          got="$(file -b qodana-cli/build/release-staging/qodana)"
+          case "$want" in
+            amd64) echo "$got" | grep -q 'x86-64' || { echo "::error::staged CLI is not x86-64 (arch=$want): $got"; exit 1; } ;;
+            arm64) echo "$got" | grep -q 'aarch64'  || { echo "::error::staged CLI is not aarch64 (arch=$want): $got"; exit 1; } ;;
+          esac
       - name: Build ${{ matrix.image.name }}
         if: ${{ matrix.image.token_gated != 'true' }}
         # Public-feed images fetch the IDE dist from the public mirror (GPG+sha256). Internal-feed images
@@ -249,10 +298,18 @@ jobs:
         run: |
           set -euo pipefail
           ./gradlew \
-            :qodana-cli:assembleRelease -PtargetOs=linux -PtargetArch=amd64 -Pquick=true \
-            :${{ matrix.image.name }}:assembleRelease -PtargetOs=linux -PtargetArch=amd64 -Pquick=true \
+            :qodana-cli:assembleRelease -PtargetOs=linux -PtargetArch=${{ matrix.image.arch }} -Pquick=true \
+            :${{ matrix.image.name }}:assembleRelease -PtargetOs=linux -PtargetArch=${{ matrix.image.arch }} -Pquick=true \
             :linter-images:installDist
           test -x qodana-cli/build/release-staging/qodana
+          # Fail-closed: the staged binary's ELF machine MUST match matrix.image.arch (nativeCompile is
+          # host-arch; -PtargetArch is only a label, so a arch/runner mismatch would ship a wrong-arch CLI).
+          want='${{ matrix.image.arch }}'
+          got="$(file -b qodana-cli/build/release-staging/qodana)"
+          case "$want" in
+            amd64) echo "$got" | grep -q 'x86-64' || { echo "::error::staged CLI is not x86-64 (arch=$want): $got"; exit 1; } ;;
+            arm64) echo "$got" | grep -q 'aarch64'  || { echo "::error::staged CLI is not aarch64 (arch=$want): $got"; exit 1; } ;;
+          esac
           # The token-gated images' inner CLI is a Tool-kind raw binary <module>_<version>_linux_amd64
           # (NOT staged). Place it at release-staging/<module> so /cli-src/<module> resolves. Parameterized
           # on matrix.image.name so each token-gated cell (clang, cdnet) stages ITS own binary.
@@ -285,7 +342,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-artifacts-${{ matrix.image.name }}
+          name: e2e-artifacts-${{ matrix.image.name }}-${{ matrix.image.arch }}
           path: linter-images/build/linter-e2e-artifacts/
           if-no-files-found: ignore
           retention-days: 14
@@ -296,7 +353,7 @@ jobs:
     # builds the from-tree CLI — no nightly-tag asset download. The job carries NO Space token, so a
     # silently-unapplied overlay falls back to the internal sha256 feed and fails RED. Functional steps are
     # gated on the FORK signal (not token presence): a same-repo run with broken creds fails loudly at
-    # login (the e2e contract); a fork PR (no creds) skips. NOT a required check — fork PRs no-op it.
+    # login (the e2e contract); a fork PR (no creds) skips. NOT a required check.
     name: Release-profile build smoke (qodana-jvm)
     runs-on: ubuntu-latest
     timeout-minutes: 45

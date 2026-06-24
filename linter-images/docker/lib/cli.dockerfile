@@ -3,13 +3,12 @@
 # context: image-tool reads the from-tree binary via the bind-mounted `cli` context. That context
 #          stages the BARE binary at its root (release-staging/qodana), so --context-path is the
 #          FILE /cli-src/${CLI_BINARY}, not a directory.
-# Consumes: CLI_BINARY CLI_SOURCE CLI_VERSION CLI_OS CLI_ARCH CLI_RELEASE_BASE_URL
-#           CLI_BASE_STAGE JDK_BUILDER_IMAGE
+# Consumes: CLI_BINARY CLI_SOURCE CLI_VERSION CLI_OS CLI_RELEASE_BASE_URL
+#           CLI_BASE_STAGE JDK_BUILDER_IMAGE. Arch comes from BuildKit's TARGETARCH (amd64/arm64).
 ARG CLI_BINARY=qodana
 ARG CLI_SOURCE=release
 ARG CLI_VERSION
 ARG CLI_OS=linux
-ARG CLI_ARCH=amd64
 ARG CLI_RELEASE_BASE_URL=https://github.com/JetBrains/qodana-kotlin-cli/releases/download
 # JDK_BUILDER_IMAGE + CLI_BASE_STAGE defaults + global scope live in lib/base.dockerfile (FROM-ARGs
 # must be declared before the first FROM); the FROMs below consume those global values.
@@ -21,15 +20,15 @@ ARG CLI_RELEASE_BASE_URL=https://github.com/JetBrains/qodana-kotlin-cli/releases
 FROM scratch AS cli
 
 FROM ${JDK_BUILDER_IMAGE} AS cli-builder
-# CLI_BINARY/CLI_VERSION/CLI_OS/CLI_ARCH are global .env ARGs; the bare re-declarations inherit them.
-# CLI_SOURCE/CLI_RELEASE_BASE_URL are build ARGs (compose passes them) but NOT .env keys, so their
-# pre-FROM defaults are inter-stage (not global) — re-default them HERE so the `set -u` RUN cannot trip
-# "parameter not set" on a bare `docker build` that omits them.
+# CLI_BINARY/CLI_VERSION/CLI_OS are global .env ARGs; the bare re-declarations inherit them. TARGETARCH
+# is BuildKit-provided (the build platform's arch). CLI_SOURCE/CLI_RELEASE_BASE_URL are build ARGs
+# (compose passes them) but NOT .env keys, so their pre-FROM defaults are inter-stage (not global) —
+# re-default them HERE so the `set -u` RUN cannot trip "parameter not set" on a bare `docker build`.
 ARG CLI_BINARY
 ARG CLI_SOURCE=release
 ARG CLI_VERSION
 ARG CLI_OS
-ARG CLI_ARCH
+ARG TARGETARCH
 ARG CLI_RELEASE_BASE_URL=https://github.com/JetBrains/qodana-kotlin-cli/releases/download
 RUN <<-EOT
 	set -eux
@@ -50,7 +49,7 @@ RUN --mount=type=bind,from=tooling,target=/tooling \
 		--source "${CLI_SOURCE}" \
 		--version "${CLI_VERSION}" \
 		--os "${CLI_OS}" \
-		--arch "${CLI_ARCH}" \
+		--arch "${TARGETARCH}" \
 		--release-base-url "${CLI_RELEASE_BASE_URL}" \
 		--context-path "/cli-src/${CLI_BINARY}" \
 		--target "/staging/bin/${CLI_BINARY}"

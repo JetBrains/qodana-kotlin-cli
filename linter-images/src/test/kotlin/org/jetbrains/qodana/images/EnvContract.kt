@@ -51,10 +51,6 @@ object EnvContract {
             "CLI_BINARY",
             "CLI_VERSION",
             "CLI_OS",
-            "CLI_ARCH",
-            "TINI_VERSION",
-            "TINI_ARCH",
-            "TINI_SHA256",
         )
     val node = setOf("NODE_MAJOR")
     val internalFeed = setOf("QD_DISTRIBUTION_FEED", "QD_VERIFY_MODE")

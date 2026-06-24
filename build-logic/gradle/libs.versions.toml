@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.4.0"
-graalvm-native = "1.1.1"
+graalvm-native = "1.1.2"
 ktlint-gradle = "14.2.0"
 detekt = "2.0.0-alpha.3"
 junit = "6.1.0"

@@ -63,7 +63,8 @@ CLANG_TIDY_VERSION = 1.0.0
 segment), NOT a clang compiler `<major>.<minor>.<patch>`: the ancestor
 `clang-tidy.json` carries only this package tag (`v1.0.0`). The mirror path
 prepends `v` (`…/clang-tidy/v1.0.0/clang-tidy-linux-amd64.tar.gz`), so
-`lib/tools.dockerfile` fetches `${CLANG_TIDY_MIRROR}/v${CLANG_TIDY_VERSION}/clang-tidy-linux-${CLI_ARCH}.tar.gz`.
+`lib/tools.dockerfile` fetches `${CLANG_TIDY_MIRROR}/v${CLANG_TIDY_VERSION}/clang-tidy-linux-${CLI_ARCH}.tar.gz`
+(here `CLI_ARCH` is `tools.dockerfile`'s own `ARG CLI_ARCH=amd64` default, NOT an `.env` key — clang/cdnet stay amd64; QD-15172 removed `CLI_ARCH` from all `.env`).
 The mirror is PRIVATE (see below): the build supplies `QODANA_READ_SPACE_PACKAGES_TOKEN`
 as a build secret sent via `Authorization: Bearer`, and Renovate tracks new package
 tags via the token-authenticated `versions.json` (a `customDatasource` in
@@ -185,6 +186,12 @@ the GPG leg and the `.asc` download (probed live: `.sha256.asc` → HTTP 404).
 
 QODANA_JVM_LINUX_SHA256_SIBLING = 200
 
+The `linuxARM64` arm64 dist (QD-15172) resolves and sha256-verifies too: both the `linuxARM64` `Link`
+and its `.sha256` `ChecksumLink` (`…-aarch64.tar.gz.sha256`) return HTTP 200 (probed live 2026-06-24
+with the token, build `263.484.2575`). So `provision-dist --arch arm64` is fail-closed for jvm.
+
+QODANA_JVM_LINUX_ARM64_SHA256_SIBLING = 200
+
 ### qodana-android feed pin (own pin; bakes the qodana-jvm dist)
 
 android bakes the `qodana-jvm` dist (`QD_LINTER_SLUG=qodana-jvm`) but pins independently so jvm's
@@ -207,6 +214,16 @@ digest; `EnvContractTest` asserts byte-identity with `qodana-jvm.env`'s
 in the plan's example `.env` blocks.
 
 QD_BASE_IMAGE = dhi.io/debian-base:bookworm@sha256:802b1fe0c2ac7827f82f4a33918f3bd69293fe83d18ddf471ae57f4312400cd5
+
+#### Multi-arch verification (QD-15172)
+
+Both images the qodana-jvm arm64 build resolves are OCI image indices
+(`application/vnd.oci.image.index.v1+json`) carrying `linux/amd64` AND `linux/arm64`, so
+`FROM ${QD_BASE_IMAGE}`/`FROM ${JDK_BUILDER_IMAGE}` resolve arm64 on `ubuntu-24.04-arm` with no `.env`
+repin (probed 2026-06-24 via `docker buildx imagetools inspect`):
+
+- `QD_BASE_IMAGE` `dhi.io/debian-base:bookworm@sha256:802b1fe0…` → index, carries linux/arm64.
+- `JDK_BUILDER_IMAGE` `eclipse-temurin:25.0.2_10-jdk@sha256:1bda4d9e…` (default in `lib/base.dockerfile`; re-verified after the #81 tag bump) → index, carries linux/arm64.
 
 ### dhi.io trixie hardened base digest (shared by new debian-base images)
 
@@ -705,7 +722,7 @@ root-owned world-readable PHP phar (no chown needed for the runtime user).
 `lib/toolchain/composer.dockerfile` consumes `COMPOSER_IMAGE` (an `.env` digest pin,
 like android's `CORRETTO*_IMAGE`); `ComposerToolchainTest` guards the `COPY --from`.
 
-COMPOSER_IMAGE = composer:2.8.10@sha256:20462d70afcfa999ad75dbd9333194067f4d869078bdb37430339e8d97e541d6
+COMPOSER_IMAGE = composer:2.10.0@sha256:1b73755de4f19775ba6087fd5313664493e06fab72b6fc27dc2044e87bb7c4c3
 
 ### uid 1000 is FREE → qodana-php keeps the default uid 1000 (NO uid override)
 
@@ -1099,10 +1116,13 @@ The seeded public release each dist image reproduces under `compose.release.yaml
 bumper rewrites only `QODANA_<X>_BUILD`, never `_RELEASE_BUILD`. `ReleaseProfileContractTest` asserts each
 overlay `QD_VERSION`/`QD_BUILD` byte-equals its row here; the drift canary re-verifies each against the
 public feed. android reuses the qodana-jvm dist and android-community the qodana-jvm-community dist (same
-`_RELEASE_BUILD`); ruby's 3 variants share `QODANA_RUBY_RELEASE_BUILD`. The qodana-jvm value predates its
-QD-15162 nightly repoint (its `.env` is now the 2026.3 nightly; this row keeps the last public pin).
-ruby/rust reproduce an EAP public dist — their public feed has no release-channel entry — but `verify-pin`
-resolves by exact `(version, build)` regardless of channel, so the gpg path is identical.
+`_RELEASE_BUILD`); ruby's 3 variants share `QODANA_RUBY_RELEASE_BUILD`. For a not-yet-migrated public image
+`_RELEASE_BUILD` mirrors its `.env QD_BUILD` today; the bumper advances only the `.env`, so the two diverge
+over time BY DESIGN — the frozen `_RELEASE` pin reproduces the seeded snapshot, while the bare build yields
+the live public release until that image repoints to the nightly (as qodana-jvm already does: its `.env` is
+the 2026.3 nightly, this row the last public pin). ruby/rust reproduce an EAP public dist — their public
+feed has no release-channel entry — but `verify-pin` resolves by exact `(version, build)` regardless of
+channel, so the gpg path is identical.
 
 QODANA_JVM_RELEASE_VERSION = 2026.1
 QODANA_JVM_RELEASE_BUILD = 261.25881

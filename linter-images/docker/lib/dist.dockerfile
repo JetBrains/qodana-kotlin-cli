@@ -29,6 +29,8 @@ ARG QD_DISTRIBUTION_FEED
 ARG QD_VERIFY_MODE
 ARG QD_PRODUCT_INFO_CODE
 ARG QD_DIST=/opt/idea
+# TARGETARCH is BuildKit-provided (the build platform's arch); provision-dist resolves linux/linuxARM64.
+ARG TARGETARCH
 # gnupg + curl for image-tool's signature verification and downloads.
 RUN <<-EOT
 	set -eux
@@ -59,6 +61,7 @@ RUN --mount=type=bind,from=tooling,target=/tooling \
 		--version "${QD_VERSION}" \
 		--build "${QD_BUILD}" \
 		--verify-mode "${QD_VERIFY_MODE:-gpg}" \
+		--arch "${TARGETARCH}" \
 		--gpg-key /build/lib/jetbrains.pub \
 		--gpg-fingerprint "$(cat /build/lib/jetbrains.pub.fpr)" \
 		--target "${QD_DIST}"

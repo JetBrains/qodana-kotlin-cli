@@ -44,7 +44,6 @@ class RustEnvContractTest {
         assertEquals("RR", env["QD_PRODUCT_INFO_CODE"], "qodana-rust product-info code is RR (RustRover)")
         assertEquals("eap", env["QD_RELEASE_TYPE"], "qodana-rust feed has only eap entries")
         assertEquals("rust-toolchain", env["DIST_BASE_STAGE"], "qodana-rust dist layers onto the rust install stage")
-        assertEquals("amd64", env["CLI_ARCH"], "qodana-rust is amd64-only")
     }
 
     @Test

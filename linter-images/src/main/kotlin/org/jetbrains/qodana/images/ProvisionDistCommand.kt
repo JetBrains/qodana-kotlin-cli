@@ -45,6 +45,9 @@ class ProvisionDistCommand(
         envvar = QD_VERIFY_MODE,
         help = "gpg (public) | sha256 (internal nightly)",
     ).choice("gpg", "sha256").default("gpg")
+    private val arch by option("--arch", help = "Target CPU arch: amd64 (default) | arm64")
+        .choice("amd64", "arm64")
+        .default("amd64")
     private val target by option("--target", help = "IDE root staging dir (becomes the dist root)").path().required()
 
     override fun run() {
@@ -59,7 +62,7 @@ class ProvisionDistCommand(
         val feed = feedClient.fetch(distributionFeed, linterSlug, token)
         // EXACT major+build pin — never max-by-Date.
         val release = ReleaseSelector.select(feed, majorVersion = version, build = build)
-        val resolved = DistResolver.resolve(release, os = "linux", arch = "amd64")
+        val resolved = DistResolver.resolve(release, os = "linux", arch = arch)
 
         Files.createDirectories(target)
         // ONE download path (curl through the runner); GPG-signer-match THEN sha256 (public), or sha256

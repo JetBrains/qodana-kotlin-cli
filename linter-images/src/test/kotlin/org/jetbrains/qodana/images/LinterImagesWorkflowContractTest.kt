@@ -3,6 +3,7 @@ package org.jetbrains.qodana.images
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
@@ -88,12 +89,46 @@ class LinterImagesWorkflowContractTest {
     }
 
     @Test
-    fun `the drift canary re-verifies the release pins`() {
+    fun `the drift canary re-verifies the release pins against the public feed`() {
         val drift = YAMLMapper().readTree(Path.of("../.github/workflows/linter-images-drift.yaml").readText())
-        val verifiesRelease =
-            drift["jobs"]["canary"]["steps"].toList().any {
-                it.runScript().contains("verify-pin") && it.runScript().contains("RELEASE")
-            }
-        assertTrue(verifiesRelease, "the drift canary must re-verify the QODANA_<X>_RELEASE_* pins (no forked canary)")
+        val canaryStep = drift["jobs"]["canary"]["steps"].toList().single { it.runScript().contains("verify-pin") }
+        val script = canaryStep.runScript()
+        // Bind to the release loop specifically: the phase-0 _RELEASE key derivation AND a verify-pin call
+        // against the release feed var. Deleting the release verify-pin block reddens this (not just a stray comment).
+        assertTrue("_RELEASE" in script, "the canary must derive the QODANA_<X>_RELEASE_* key")
+        assertTrue(
+            "--distribution-feed \"\$PUBLIC\"" in script,
+            "the canary must verify-pin the release pins against the public feed",
+        )
+    }
+
+    @Test
+    fun `every e2e cell declares arch and runner`() {
+        cells.forEach { c ->
+            val n = c["name"].asText()
+            assertTrue(c["arch"]?.asText() in setOf("amd64", "arm64"), "$n: arch must be amd64|arm64")
+            assertTrue(!c["runner"]?.asText().isNullOrBlank(), "$n: runner must be set")
+        }
+    }
+
+    @Test
+    fun `qodana-jvm has exactly one amd64 cell and one arm64 cell`() {
+        val jvm = cells.filter { it["name"].asText() == "qodana-jvm" }
+        assertEquals(setOf("amd64", "arm64"), jvm.map { it["arch"].asText() }.toSet(), "jvm cells: amd64 + arm64")
+        assertEquals(2, jvm.size, "exactly two qodana-jvm cells")
+        val arm = jvm.single { it["arch"].asText() == "arm64" }
+        assertEquals("ubuntu-24.04-arm", arm["runner"].asText(), "arm64 jvm cell runs on an arm64 runner")
+        // INVARIANT guard: arm64 cells run only on arm64 runners (-PtargetArch is a label, not cross-compile).
+        cells.filter { it["arch"]?.asText() == "arm64" }.forEach {
+            val n = it["name"].asText()
+            assertTrue(it["runner"].asText().endsWith("-arm"), "$n: arm64 cell must use an -arm runner")
+        }
+    }
+
+    @Test
+    fun `e2e job name is platform-tagged and runner-independent`() {
+        val name = workflow["jobs"]["e2e"]["name"].asText()
+        assertTrue(name.contains("linux/\${{ matrix.image.arch }}"), "check name must carry linux/<arch>, got: $name")
+        assertFalse(name.contains("ubuntu"), "check name must not embed the runner id: $name")
     }
 }
