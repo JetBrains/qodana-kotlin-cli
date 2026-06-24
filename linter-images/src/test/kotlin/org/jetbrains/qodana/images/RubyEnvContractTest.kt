@@ -1,10 +1,12 @@
 package org.jetbrains.qodana.images
 
+import org.jetbrains.qodana.images.EnvContract.node
+import org.jetbrains.qodana.images.EnvContract.parseEnv
+import org.jetbrains.qodana.images.EnvContract.pin
+import org.jetbrains.qodana.images.EnvContract.publicDist
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import java.nio.file.Path
-import kotlin.io.path.readText
 
 /**
  * Per-slug `.env` contract guard for the 3 qodana-ruby variants (QD-15040), split out of EnvContractTest
@@ -19,38 +21,11 @@ import kotlin.io.path.readText
  * ruby-runtime-agnostic, the android precedent) and differ ONLY in QD_BASE_IMAGE.
  */
 class RubyEnvContractTest {
-    private val imagesDir: Path = Path.of("docker/images")
-    private val decisions: Path = Path.of("docs/phase-0-decisions.md")
-
-    private fun parseEnv(slug: String): Map<String, String> {
-        // Build the map by hand so a duplicate key fails LOUDLY (matches EnvContractTest.parseEnv).
-        val env = linkedMapOf<String, String>()
-        imagesDir
-            .resolve("$slug.env")
-            .readText()
-            .lineSequence()
-            .map { it.trim() }
-            .filter { it.isNotEmpty() && !it.startsWith("#") }
-            .forEach { line ->
-                val i = line.indexOf('=')
-                assertTrue(i > 0, "malformed env line in $slug.env: '$line'")
-                val key = line.substring(0, i)
-                assertTrue(key !in env, "duplicate key '$key' in $slug.env")
-                env[key] = line.substring(i + 1)
-            }
-        return env
-    }
-
-    // jvm's PUBLIC dist key set: jvm is the sole internal-nightly-feed image, carrying QD_DISTRIBUTION_FEED
-    // + QD_VERIFY_MODE that public dist images (ruby included) omit. Interim baseline — replaced by named
-    // capability profiles in QD-15167.
-    private fun jvmPublicKeys(): Set<String> = parseEnv("qodana-jvm").keys - "QD_DISTRIBUTION_FEED" - "QD_VERIFY_MODE"
-
     @Test
     fun `qodana-ruby env has exactly the jvm key set plus DIST_BASE_STAGE`() {
         val env = parseEnv("qodana-ruby")
-        val expected = jvmPublicKeys() + "DIST_BASE_STAGE"
-        assertEquals(expected, env.keys, "ruby must be jvm's PUBLIC key set plus DIST_BASE_STAGE")
+        val expected = publicDist + node + setOf("DIST_BASE_STAGE")
+        assertEquals(expected, env.keys, "ruby must be publicDist + node plus DIST_BASE_STAGE")
         assertEquals(
             "privileged",
             env["DIST_BASE_STAGE"],
@@ -112,11 +87,6 @@ class RubyEnvContractTest {
 
     @Test
     fun `ruby pins match phase-0-decisions`() {
-        val d = decisions.readText()
-
-        fun pin(k: String) =
-            Regex("""^\s*$k\s*=\s*(\S+)""", RegexOption.MULTILINE).find(d)?.groupValues?.get(1)
-                ?: error("$k not recorded in $decisions")
         val primary = parseEnv("qodana-ruby")
         assertEquals(
             pin("QD_RUBY_BASE_IMAGE"),
