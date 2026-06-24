@@ -705,7 +705,7 @@ root-owned world-readable PHP phar (no chown needed for the runtime user).
 `lib/toolchain/composer.dockerfile` consumes `COMPOSER_IMAGE` (an `.env` digest pin,
 like android's `CORRETTO*_IMAGE`); `ComposerToolchainTest` guards the `COPY --from`.
 
-COMPOSER_IMAGE = composer:2.8.10@sha256:20462d70afcfa999ad75dbd9333194067f4d869078bdb37430339e8d97e541d6
+COMPOSER_IMAGE = composer:2.10.0@sha256:1b73755de4f19775ba6087fd5313664493e06fab72b6fc27dc2044e87bb7c4c3
 
 ### uid 1000 is FREE → qodana-php keeps the default uid 1000 (NO uid override)
 
