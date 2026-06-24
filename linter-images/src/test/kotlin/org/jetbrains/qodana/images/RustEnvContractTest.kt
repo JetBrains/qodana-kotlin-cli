@@ -42,15 +42,18 @@ class RustEnvContractTest {
         return env
     }
 
-    private fun jvmKeys(): Set<String> = parseEnv("qodana-jvm").keys
+    // jvm's PUBLIC dist key set: jvm is the sole internal-nightly-feed image, carrying QD_DISTRIBUTION_FEED
+    // + QD_VERIFY_MODE that public dist images (rust included) omit. Interim baseline — replaced by named
+    // capability profiles in QD-15167.
+    private fun jvmPublicKeys(): Set<String> = parseEnv("qodana-jvm").keys - "QD_DISTRIBUTION_FEED" - "QD_VERIFY_MODE"
 
     @Test
     fun `qodana-rust env has exactly the rust key set and no node`() {
         // python-community's key set minus MINICONDA_* plus RUST_VERSION + RUSTUP_INIT_SHA256. Equally:
-        // jvm's key set minus NODE_MAJOR, plus DIST_BASE_STAGE + RUST_VERSION + RUSTUP_INIT_SHA256.
+        // jvm's PUBLIC key set minus NODE_MAJOR, plus DIST_BASE_STAGE + RUST_VERSION + RUSTUP_INIT_SHA256.
         val env = parseEnv("qodana-rust")
         val expected =
-            (jvmKeys() - "NODE_MAJOR") + setOf("DIST_BASE_STAGE", "RUST_VERSION", "RUSTUP_INIT_SHA256")
+            (jvmPublicKeys() - "NODE_MAJOR") + setOf("DIST_BASE_STAGE", "RUST_VERSION", "RUSTUP_INIT_SHA256")
         assertEquals(expected, env.keys)
         assertTrue("NODE_MAJOR" !in env, "qodana-rust must not set NODE_MAJOR (RustRover bundles no JS analysis)")
         assertTrue(
