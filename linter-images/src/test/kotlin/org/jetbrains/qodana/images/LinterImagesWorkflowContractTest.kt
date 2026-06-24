@@ -68,6 +68,41 @@ class LinterImagesWorkflowContractTest {
     }
 
     @Test
+    fun `release-smoke builds qodana-jvm via the release overlay, fork-gated not token-gated, no Space token`() {
+        val job = workflow["jobs"]["release-smoke"]
+        assertTrue(job != null, "linter-images.yaml must define a release-smoke job")
+        val buildStep =
+            job!!["steps"].toList().single {
+                it.runScript().contains("compose.release.yaml") && it.runScript().contains("build qodana-jvm")
+            }
+        // Must NOT gate the build on the registry token — that would silently skip to GREEN on a same-repo
+        // misconfig (the e2e job fails loudly instead). Fork PRs are excluded via the fork signal.
+        assertTrue(
+            "DOCKER_READ_PUBLIC_REGISTRY_TOKEN" !in buildStep.ifExpr(),
+            "release-smoke build must not gate on the registry token; gate forks via head.repo.fork",
+        )
+        assertTrue("fork" in buildStep.ifExpr(), "release-smoke build must be fork-gated (head.repo.fork)")
+        assertTrue(
+            job["env"]?.get("QODANA_READ_SPACE_PACKAGES_TOKEN") == null,
+            "release-smoke must NOT carry the Space token, so a silently-unapplied overlay fails RED on sha256",
+        )
+    }
+
+    @Test
+    fun `the drift canary re-verifies the release pins against the public feed`() {
+        val drift = YAMLMapper().readTree(Path.of("../.github/workflows/linter-images-drift.yaml").readText())
+        val canaryStep = drift["jobs"]["canary"]["steps"].toList().single { it.runScript().contains("verify-pin") }
+        val script = canaryStep.runScript()
+        // Bind to the release loop specifically: the phase-0 _RELEASE key derivation AND a verify-pin call
+        // against the release feed var. Deleting the release verify-pin block reddens this (not just a stray comment).
+        assertTrue("_RELEASE" in script, "the canary must derive the QODANA_<X>_RELEASE_* key")
+        assertTrue(
+            "--distribution-feed \"\$PUBLIC\"" in script,
+            "the canary must verify-pin the release pins against the public feed",
+        )
+    }
+
+    @Test
     fun `every e2e cell declares arch and runner`() {
         cells.forEach { c ->
             val n = c["name"].asText()

@@ -1109,6 +1109,48 @@ analysis resolves the compiler for `compile_commands.json` TUs. The repo's `clan
 CPP-LOCALLY (a trailing `ARG CLANG` + `ENV` on the `runtime` stage), keeping `qodana-clang` byte-unchanged.
 A faithful carry-over of source behavior; flagged for the CI control run.
 
+## Release-profile pins (compose.release.yaml — public-feed reproduction)
+
+The seeded public release each dist image reproduces under `compose.release.yaml` (token-free, GPG). These
+`_RELEASE_*` rows and the nightly `QODANA_<X>_VERSION`/`_BUILD` rows above are SEPARATE: the daily drift
+bumper rewrites only `QODANA_<X>_BUILD`, never `_RELEASE_BUILD`. `ReleaseProfileContractTest` asserts each
+overlay `QD_VERSION`/`QD_BUILD` byte-equals its row here; the drift canary re-verifies each against the
+public feed. android reuses the qodana-jvm dist and android-community the qodana-jvm-community dist (same
+`_RELEASE_BUILD`); ruby's 3 variants share `QODANA_RUBY_RELEASE_BUILD`. For a not-yet-migrated public image
+`_RELEASE_BUILD` mirrors its `.env QD_BUILD` today; the bumper advances only the `.env`, so the two diverge
+over time BY DESIGN — the frozen `_RELEASE` pin reproduces the seeded snapshot, while the bare build yields
+the live public release until that image repoints to the nightly (as qodana-jvm already does: its `.env` is
+the 2026.3 nightly, this row the last public pin). ruby/rust reproduce an EAP public dist — their public
+feed has no release-channel entry — but `verify-pin` resolves by exact `(version, build)` regardless of
+channel, so the gpg path is identical.
+
+QODANA_JVM_RELEASE_VERSION = 2026.1
+QODANA_JVM_RELEASE_BUILD = 261.25881
+QODANA_JVM_COMMUNITY_RELEASE_VERSION = 2026.1
+QODANA_JVM_COMMUNITY_RELEASE_BUILD = 261.25881
+QODANA_ANDROID_RELEASE_VERSION = 2026.1
+QODANA_ANDROID_RELEASE_BUILD = 261.25881
+QODANA_ANDROID_COMMUNITY_RELEASE_VERSION = 2026.1
+QODANA_ANDROID_COMMUNITY_RELEASE_BUILD = 261.25881
+QODANA_PYTHON_RELEASE_VERSION = 2026.1
+QODANA_PYTHON_RELEASE_BUILD = 261.25883
+QODANA_PYTHON_COMMUNITY_RELEASE_VERSION = 2026.1
+QODANA_PYTHON_COMMUNITY_RELEASE_BUILD = 261.25883
+QODANA_JS_RELEASE_VERSION = 2026.1
+QODANA_JS_RELEASE_BUILD = 261.25882
+QODANA_GO_RELEASE_VERSION = 2026.1
+QODANA_GO_RELEASE_BUILD = 261.25884
+QODANA_PHP_RELEASE_VERSION = 2026.1
+QODANA_PHP_RELEASE_BUILD = 261.25880
+QODANA_RUBY_RELEASE_VERSION = 2026.1
+QODANA_RUBY_RELEASE_BUILD = 261.25886
+QODANA_RUST_RELEASE_VERSION = 2026.1
+QODANA_RUST_RELEASE_BUILD = 261.25885
+QODANA_DOTNET_RELEASE_VERSION = 2026.1
+QODANA_DOTNET_RELEASE_BUILD = 261.24105
+QODANA_CPP_RELEASE_VERSION = 2026.1
+QODANA_CPP_RELEASE_BUILD = 261.25887
+
 ## Why `qdist` is not wired (deferred — QD-15062)
 
 The `QD_DISTRIBUTION_FEED` build arg selects which feed an image fetches its IDE
