@@ -97,10 +97,10 @@ class ReleaseProfileContractTest {
 
     @Test
     fun `the overlay flips every internal-feed image back to the public feed and gpg`() {
-        // Today only qodana-jvm is on the internal nightly feed; iterating by .env state auto-covers any
-        // image a later family PR repoints, so an overlay left stale (still matching the internal .env) reddens.
+        // Discover internal-feed images by .env state (today the qodana-jvm lineage), so this auto-covers
+        // each image as its family PR repoints it; an overlay left stale (matching the internal .env) reddens.
         val internalFeedSlugs = releaseKey.keys.filter { parseEnv(it)["QD_DISTRIBUTION_FEED"] != null }
-        assertTrue(internalFeedSlugs.isNotEmpty(), "expected at least one internal-feed image (today: qodana-jvm)")
+        assertTrue(internalFeedSlugs.isNotEmpty(), "expected at least one internal-feed image (the jvm lineage)")
         for (slug in internalFeedSlugs) {
             val env = parseEnv(slug)
             val feed = env["QD_DISTRIBUTION_FEED"]
