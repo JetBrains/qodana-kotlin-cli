@@ -34,6 +34,7 @@ class VerifyPinCommand(
     private val verifyMode by option("--verify-mode", envvar = QD_VERIFY_MODE)
         .choice("gpg", "sha256")
         .default("gpg")
+    private val arch by option("--arch").choice("amd64", "arm64").default("amd64")
 
     override fun run() {
         // A private feed needs a bearer token; a public one fetches anonymously. The loud failure for a
@@ -48,7 +49,7 @@ class VerifyPinCommand(
         }
         val feed = feedClient.fetch(distributionFeed, linterSlug, token)
         val release = ReleaseSelector.select(feed, majorVersion = version, build = build)
-        val resolved = DistResolver.resolve(release, os = "linux", arch = "amd64")
+        val resolved = DistResolver.resolve(release, os = "linux", arch = arch)
         // SAME download path the provision flow uses: curl link + .sha256 (+ .sha256.asc in GPG mode).
         val work = Files.createTempDirectory("verify-pin")
         try {

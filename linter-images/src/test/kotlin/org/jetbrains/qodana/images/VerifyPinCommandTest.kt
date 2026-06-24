@@ -184,4 +184,49 @@ class VerifyPinCommandTest {
         assertTrue(result.statusCode != 0, "gpg mode without a key must fail: ${result.output}")
         assertTrue(result.output.contains("gpg verify mode"), result.output)
     }
+
+    @Test
+    fun `--arch arm64 re-verifies the linuxARM64 link`(
+        @TempDir tmp: Path,
+    ) {
+        val arm64Archive = "qodana-QDJVM-$build-aarch64.tar.gz"
+        val arm64Link = "https://download.jetbrains.com/qodana/2025.3/$arm64Archive"
+        val dualFeed =
+            """
+            {"Code":"QDJVM","Releases":[
+              {"Date":"2025-09-15","Type":"release","Version":"2025.3.1","MajorVersion":"2025.3","Build":"$build",
+               "Downloads":{
+                 "linux":{"Link":"$link","ChecksumLink":"$link.sha256","Size":1},
+                 "linuxARM64":{"Link":"$arm64Link","ChecksumLink":"$arm64Link.sha256","Size":1}}}
+            ]}
+            """.trimIndent()
+        val runner =
+            FakeCommandRunner().apply {
+                on({ it.contains("curl") }) { argv ->
+                    val out = Path.of(argv[argv.indexOf("-o") + 1])
+                    val url = argv.last()
+                    val body =
+                        when {
+                            url.endsWith(".releases.json") -> dualFeed
+                            url.endsWith(".sha256.asc") -> "-----BEGIN PGP SIGNATURE-----"
+                            url.endsWith(".sha256") -> "$goodSha  $arm64Archive\n"
+                            else -> "archive-bytes"
+                        }
+                    Files.createDirectories(out.parent)
+                    Files.writeString(out, body)
+                    CommandResult(0, "", "")
+                }
+                on({ it.contains("--import") }, CommandResult(0, "", ""))
+                on({ it.contains("--verify") }, CommandResult(0, "[GNUPG:] VALIDSIG $fingerprint 2025-09-15\n", ""))
+                on({ it.contains("sha256sum") }, CommandResult(0, "$goodSha  $arm64Archive\n", ""))
+            }
+        val key = Files.writeString(tmp.resolve("jetbrains.pub"), "PUBKEY")
+        val cmd = VerifyPinCommand(FeedClient(runner), DistVerifier(runner)) { null }
+        val result = cmd.test(baseArgs("https://download.jetbrains.com/qodana/feed", key) + " --arch arm64")
+        assertEquals(0, result.statusCode, result.output)
+        assertTrue(
+            runner.invocations.any { c -> c.contains("curl") && c.last() == arm64Link },
+            "expected a curl of the arm64 archive link: ${runner.invocations.filter { it.contains("curl") }}",
+        )
+    }
 }
