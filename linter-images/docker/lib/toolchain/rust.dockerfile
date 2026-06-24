@@ -1,13 +1,19 @@
 # toolchain/rust — rustup-init (sha-pinned) + the RUST_VERSION toolchain + rust-src. rust-only.
 # An install STAGE (the conda/clang pattern: `FROM base AS rust-toolchain`) that the dist layers onto
 # via DIST_BASE_STAGE=rust-toolchain. The trixie base ships NO Rust, so this fetches a sha-verified
-# rustup-init and installs the toolchain. Consumes: RUST_VERSION RUSTUP_INIT_SHA256.  Layers onto `base`.
+# rustup-init and installs the toolchain. Consumes: RUST_VERSION RUSTUP_INIT_SHA256_X86_64
+# RUSTUP_INIT_SHA256_AARCH64.  Layers onto `base`.
 ARG RUST_VERSION
-ARG RUSTUP_INIT_SHA256
+ARG RUSTUP_INIT_SHA256_X86_64
+ARG RUSTUP_INIT_SHA256_AARCH64
 
 FROM base AS rust-toolchain
 ARG RUST_VERSION
-ARG RUSTUP_INIT_SHA256
+ARG RUSTUP_INIT_SHA256_X86_64
+ARG RUSTUP_INIT_SHA256_AARCH64
+# BuildKit resets ARG scope at each FROM, so TARGETARCH must be re-declared in-stage (a pre-FROM-only
+# decl expands EMPTY in the RUN, aborting BOTH arches via the `*)` arm) — mirrors conda/runtime.
+ARG TARGETARCH
 
 # CARGO_HOME/RUSTUP_HOME sit on the STABLE /usr/local — NOT under /data/cache. The runtime bind-mounts
 # an empty host dir over /data/cache for the writable scan cache, which would SHADOW anything baked
@@ -22,26 +28,29 @@ ENV RUSTUP_HOME=/usr/local/rustup \
 	PATH=/usr/local/cargo/bin:/usr/local/rustup/bin:${PATH}
 
 # build-essential + pkg-config are RUNTIME deps: native crates compile C and probe system libs at scan
-# time, so they are NOT purged (unlike clang/node's transient gnupg). rustup-init is sha-verified
-# fail-closed (the conda/android installer-pin convention) before exec; amd64-only fleet, so the
-# x86_64-unknown-linux-gnu installer is fetched directly (no TARGETPLATFORM switch). rustup-init is a
-# self-contained static binary — its sha is RUST_VERSION-independent (it installs whatever toolchain
-# --default-toolchain names), so RUSTUP_INIT_SHA256 is a manually-maintained pin, refreshed only when
-# rustup ships a new installer (re-verify against the upstream .sha256 sidecar).
-ADD --checksum=sha256:${RUSTUP_INIT_SHA256} \
-	https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init \
-	/tmp/rustup-init
+# time, so they are NOT purged (unlike clang/node's transient gnupg). rustup-init is fetched
+# per-TARGETARCH (the conda/tini pattern: dockerfile-x can't branch ADD --checksum) and sha-verified
+# fail-closed before exec. rustup-init is a self-contained static binary — its sha is
+# RUST_VERSION-independent (it installs whatever toolchain --default-toolchain names), so the
+# RUSTUP_INIT_SHA256_* pins are manually-maintained, refreshed only when rustup ships a new installer
+# (re-verify against the upstream .sha256 sidecar).
 # hadolint ignore=DL4006
 RUN <<-EOT
 	set -eux
 	export DEBIAN_FRONTEND=noninteractive
+	case "${TARGETARCH}" in
+		amd64) rust_arch=x86_64-unknown-linux-gnu; rustup_sha="${RUSTUP_INIT_SHA256_X86_64}" ;;
+		arm64) rust_arch=aarch64-unknown-linux-gnu; rustup_sha="${RUSTUP_INIT_SHA256_AARCH64}" ;;
+		*) echo "unsupported TARGETARCH=${TARGETARCH}" >&2; exit 1 ;;
+	esac
+	curl -fsSL -o /tmp/rustup-init "https://static.rust-lang.org/rustup/dist/${rust_arch}/rustup-init"
 	apt-get update
 	apt-get install -y --no-install-recommends \
 		build-essential \
 		pkg-config
-	# Defense-in-depth: ADD --checksum already gates the fetch, but re-verify so a future edit that
-	# swaps ADD for curl cannot silently drop the check (the conda/android pattern).
-	echo "${RUSTUP_INIT_SHA256}  /tmp/rustup-init" | sha256sum -c -
+	# Fail-closed: the sha256sum -c on the curl'd installer is the SOLE authoritative gate (no
+	# ADD --checksum pre-verify), identical to conda's RUN.
+	echo "${rustup_sha}  /tmp/rustup-init" | sha256sum -c -
 	chmod +x /tmp/rustup-init
 	/tmp/rustup-init -y --no-modify-path --default-toolchain "${RUST_VERSION}"
 	rustup component add rust-src

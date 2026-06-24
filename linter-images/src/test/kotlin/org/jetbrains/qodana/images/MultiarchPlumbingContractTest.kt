@@ -75,4 +75,25 @@ class MultiarchPlumbingContractTest {
         assertTrue(d.contains("sha256sum -c"), "Miniconda must be verified fail-closed")
         assertFalse(d.contains("Linux-x86_64.sh"), "no hardcoded x86_64 installer URL")
     }
+
+    @Test
+    fun `rust toolchain selects rustup-init per-TARGETARCH fail-closed`() {
+        val d = Path.of("docker/lib/toolchain/rust.dockerfile").readText()
+        assertTrue(
+            d.contains("amd64) rust_arch=x86_64-unknown-linux-gnu; rustup_sha=\"\${RUSTUP_INIT_SHA256_X86_64}\""),
+            "amd64 arm",
+        )
+        assertTrue(
+            d.contains("arm64) rust_arch=aarch64-unknown-linux-gnu; rustup_sha=\"\${RUSTUP_INIT_SHA256_AARCH64}\""),
+            "arm64 arm",
+        )
+        assertTrue(d.contains("dist/\${rust_arch}/rustup-init"), "installer URL must use \${rust_arch}")
+        assertTrue(d.contains("curl -fsSL"), "rustup-init fetch must use curl -fsSL (fail on http error)")
+        assertTrue(Regex("""\*\)\s*echo "unsupported TARGETARCH""").containsMatchIn(d), "fail-closed default arm")
+        assertTrue(d.contains("sha256sum -c"), "fail-closed verify")
+        assertFalse(
+            d.contains("x86_64-unknown-linux-gnu/rustup-init"),
+            "no hardcoded x86_64 installer URL (must use \${rust_arch})",
+        )
+    }
 }
