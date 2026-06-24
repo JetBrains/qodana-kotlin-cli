@@ -268,7 +268,7 @@ jobs:
           docker-images: true
           swap-storage: false
           tool-cache: false
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       # GraalVM + Gradle for the from-tree native CLI (assembleRelease → nativeCompile) and the harness.
@@ -437,7 +437,7 @@ jobs:
           docker-images: true
           swap-storage: false
           tool-cache: false
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         if: ${{ github.event.pull_request.head.repo.fork != true }}
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
