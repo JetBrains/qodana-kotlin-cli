@@ -135,7 +135,6 @@ services:
         # lives in the .env (base.dockerfile does not declare it, so the INCLUDE_ARGS value survives).
       additional_contexts:
         tooling: build/install/image-tool
-    platform: linux/amd64
     image: qodana-rust:dev
   qodana-ruby:
     build:
