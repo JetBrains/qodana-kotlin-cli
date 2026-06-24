@@ -52,6 +52,9 @@ jobs:
           FPR="$(cat linter-images/docker/lib/jetbrains.pub.fpr)"
           KEY=linter-images/docker/lib/jetbrains.pub
           FAILED=0
+          # Slugs whose linux/arm64 dist we BUILD+SHIP (so its arm64 .sha256 must stay live). Add here
+          # when an image is arch-enabled under QD-15171.
+          ARM64_SLUGS="qodana-jvm"
           # Read each key per-file with grep (NOT `source`, which would leak a prior file's value into a
           # file that omits the key). jvm and android bake the SAME dist (QD_LINTER_SLUG=qodana-jvm), so
           # the SLUG:VERSION:BUILD:FEED dedup collapses their identical re-verification into one.
@@ -82,6 +85,20 @@ jobs:
               --gpg-fingerprint "$FPR" \
               || FAILED=1
             echo "::endgroup::"
+            if printf '%s\n' $ARM64_SLUGS | grep -qxF "$SLUG"; then
+              echo "::group::verify-pin $KEYID (arm64)"
+              "$TOOL" verify-pin \
+                --linter-slug "$SLUG" \
+                --version "$VERSION" \
+                --build "$BUILD" \
+                --distribution-feed "$FEED" \
+                --verify-mode "$VERIFY_MODE" \
+                --arch arm64 \
+                --gpg-key "$KEY" \
+                --gpg-fingerprint "$FPR" \
+                || FAILED=1
+              echo "::endgroup::"
+            fi
           done
           echo "FAILED=$FAILED" >> "$GITHUB_ENV"
       - name: Open an issue if the pin is broken
