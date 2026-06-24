@@ -3,6 +3,6 @@
   "private": true,
   "description": "Pinned global ESLint for Qodana JS/TS analysis (QD-15038). Renovate's built-in npm manager tracks this dependency; lib/toolchain/eslint.dockerfile installs it globally. Pinned exact so a bump is a reviewable PR. Reused by go/php/ruby.",
   "dependencies": {
-    "eslint": "9.31.0"
+    "eslint": "9.39.4"
   }
 }
