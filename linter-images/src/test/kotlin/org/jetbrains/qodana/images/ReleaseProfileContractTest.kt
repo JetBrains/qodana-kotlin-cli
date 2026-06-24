@@ -101,10 +101,10 @@ class ReleaseProfileContractTest {
         // image a later family PR repoints, so an overlay left stale (still matching the internal .env) reddens.
         for (slug in releaseKey.keys) {
             val env = parseEnv(slug)
-            if (env["QD_DISTRIBUTION_FEED"] == null) continue
+            val envFeed = env["QD_DISTRIBUTION_FEED"] ?: continue
             val args = argsOf(slug)
-            assertTrue(env["QD_DISTRIBUTION_FEED"] != args["QD_DISTRIBUTION_FEED"].asText(), "$slug overlay must flip the feed")
-            assertTrue(env["QD_VERIFY_MODE"] != args["QD_VERIFY_MODE"].asText(), "$slug overlay must flip verify-mode")
+            assertTrue(envFeed != args["QD_DISTRIBUTION_FEED"].asText(), "$slug overlay must flip the feed")
+            assertTrue(env["QD_VERIFY_MODE"] != args["QD_VERIFY_MODE"].asText(), "$slug must flip verify-mode")
         }
     }
 }
