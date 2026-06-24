@@ -13,8 +13,8 @@
 # (TARGETARCH) and carry NO `platform:` pin; every OTHER service keeps `platform: linux/amd64` — its
 # toolchain layers are still amd64-only (QD-15171), so an arm64 host must not build a broken mixed-arch
 # image. The arch-capable set is the test-enforced source of truth `ArchContract.archCapable`
-# (ComposeContractTest asserts the no-pin services equal it); QD-15172/QD-15177/QD-15178 enabled
-# qodana-jvm + jvm-community/js/go/ruby(/-3.2/-3.4)/python(/-community).
+# (ComposeContractTest asserts the no-pin services equal it) — consult that set for the current members
+# rather than re-enumerating here (grown per image-family under QD-15171).
 services:
   qodana-jvm:
     build:
