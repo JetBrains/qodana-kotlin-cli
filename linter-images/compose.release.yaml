@@ -1,0 +1,112 @@
+# Release profile overlay — builds the public-release-equivalent image, token-free. Each dist service
+# overrides the nightly `.env` defaults back to the public feed + GPG and its seeded public release pin.
+# No Space token is needed — the public dist is GPG-verified, fail-closed. Usage:
+#   docker compose -f compose.yaml -f compose.release.yaml build qodana-jvm
+# Pins are advanced deliberately, not by the nightly drift bumper (which only touches `.env`); they are
+# anchored to the QODANA_<X>_RELEASE_* rows in docs/phase-0-decisions.md (ReleaseProfileContractTest).
+services:
+  qodana-jvm:
+    build:
+      args:
+        QD_DISTRIBUTION_FEED: https://download.jetbrains.com/qodana/feed
+        QD_VERIFY_MODE: gpg
+        QD_VERSION: "2026.1"
+        QD_BUILD: "261.25881"
+  qodana-jvm-community:
+    build:
+      args:
+        QD_DISTRIBUTION_FEED: https://download.jetbrains.com/qodana/feed
+        QD_VERIFY_MODE: gpg
+        QD_VERSION: "2026.1"
+        QD_BUILD: "261.25881"
+  qodana-android:
+    build:
+      args:
+        QD_DISTRIBUTION_FEED: https://download.jetbrains.com/qodana/feed
+        QD_VERIFY_MODE: gpg
+        QD_VERSION: "2026.1"
+        QD_BUILD: "261.25881"
+  qodana-android-community:
+    build:
+      args:
+        QD_DISTRIBUTION_FEED: https://download.jetbrains.com/qodana/feed
+        QD_VERIFY_MODE: gpg
+        QD_VERSION: "2026.1"
+        QD_BUILD: "261.25881"
+  qodana-python-community:
+    build:
+      args:
+        QD_DISTRIBUTION_FEED: https://download.jetbrains.com/qodana/feed
+        QD_VERIFY_MODE: gpg
+        QD_VERSION: "2026.1"
+        QD_BUILD: "261.25883"
+  qodana-python:
+    build:
+      args:
+        QD_DISTRIBUTION_FEED: https://download.jetbrains.com/qodana/feed
+        QD_VERIFY_MODE: gpg
+        QD_VERSION: "2026.1"
+        QD_BUILD: "261.25883"
+  qodana-js:
+    build:
+      args:
+        QD_DISTRIBUTION_FEED: https://download.jetbrains.com/qodana/feed
+        QD_VERIFY_MODE: gpg
+        QD_VERSION: "2026.1"
+        QD_BUILD: "261.25882"
+  qodana-go:
+    build:
+      args:
+        QD_DISTRIBUTION_FEED: https://download.jetbrains.com/qodana/feed
+        QD_VERIFY_MODE: gpg
+        QD_VERSION: "2026.1"
+        QD_BUILD: "261.25884"
+  qodana-php:
+    build:
+      args:
+        QD_DISTRIBUTION_FEED: https://download.jetbrains.com/qodana/feed
+        QD_VERIFY_MODE: gpg
+        QD_VERSION: "2026.1"
+        QD_BUILD: "261.25880"
+  qodana-ruby:
+    build:
+      args:
+        QD_DISTRIBUTION_FEED: https://download.jetbrains.com/qodana/feed
+        QD_VERIFY_MODE: gpg
+        QD_VERSION: "2026.1"
+        QD_BUILD: "261.25886"
+  qodana-ruby-3.2:
+    build:
+      args:
+        QD_DISTRIBUTION_FEED: https://download.jetbrains.com/qodana/feed
+        QD_VERIFY_MODE: gpg
+        QD_VERSION: "2026.1"
+        QD_BUILD: "261.25886"
+  qodana-ruby-3.4:
+    build:
+      args:
+        QD_DISTRIBUTION_FEED: https://download.jetbrains.com/qodana/feed
+        QD_VERIFY_MODE: gpg
+        QD_VERSION: "2026.1"
+        QD_BUILD: "261.25886"
+  qodana-rust:
+    build:
+      args:
+        QD_DISTRIBUTION_FEED: https://download.jetbrains.com/qodana/feed
+        QD_VERIFY_MODE: gpg
+        QD_VERSION: "2026.1"
+        QD_BUILD: "261.25885"
+  qodana-dotnet:
+    build:
+      args:
+        QD_DISTRIBUTION_FEED: https://download.jetbrains.com/qodana/feed
+        QD_VERIFY_MODE: gpg
+        QD_VERSION: "2026.1"
+        QD_BUILD: "261.24105"
+  qodana-cpp:
+    build:
+      args:
+        QD_DISTRIBUTION_FEED: https://download.jetbrains.com/qodana/feed
+        QD_VERIFY_MODE: gpg
+        QD_VERSION: "2026.1"
+        QD_BUILD: "261.25887"
