@@ -77,13 +77,13 @@ class LinterImagesWorkflowContractTest {
     }
 
     @Test
-    fun `qodana-jvm has exactly one amd64 cell and one arm64 cell`() {
-        val jvm = cells.filter { it["name"].asText() == "qodana-jvm" }
-        assertEquals(setOf("amd64", "arm64"), jvm.map { it["arch"].asText() }.toSet(), "jvm cells: amd64 + arm64")
-        assertEquals(2, jvm.size, "exactly two qodana-jvm cells")
-        val arm = jvm.single { it["arch"].asText() == "arm64" }
-        assertEquals("ubuntu-24.04-arm", arm["runner"].asText(), "arm64 jvm cell runs on an arm64 runner")
-        // INVARIANT guard: arm64 cells run only on arm64 runners (-PtargetArch is a label, not cross-compile).
+    fun `exactly the arch-capable images have an amd64 and arm64 cell`() {
+        val arm64Images = cells.filter { it["arch"]?.asText() == "arm64" }.map { it["name"].asText() }.toSet()
+        assertEquals(ArchContract.archCapable, arm64Images, "exactly the arch-capable images may have an arm64 cell")
+        for (img in ArchContract.archCapable) {
+            val arches = cells.filter { it["name"].asText() == img }.map { it["arch"].asText() }
+            assertEquals(listOf("amd64", "arm64").sorted(), arches.sorted(), "$img needs one amd64 + one arm64 cell")
+        }
         cells.filter { it["arch"]?.asText() == "arm64" }.forEach {
             val n = it["name"].asText()
             assertTrue(it["runner"].asText().endsWith("-arm"), "$n: arm64 cell must use an -arm runner")

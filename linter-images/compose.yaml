@@ -18,9 +18,10 @@ services:
         CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
       additional_contexts:
         tooling: build/install/image-tool
-    # qodana-jvm follows the build host's arch (TARGETARCH) — multiarch (QD-15172). The OTHER services
-    # keep `platform: linux/amd64`: their toolchain layers are still amd64-only (QD-15171), so an arm64
-    # host must not build a broken mixed-arch image of them.
+    # The 7 arch-capable services (qodana-jvm, qodana-jvm-community, qodana-js, qodana-go, and
+    # qodana-ruby/-3.2/-3.4) follow the build host's arch (TARGETARCH) — multiarch (QD-15172/QD-15177) —
+    # so they carry NO platform pin. Every OTHER service keeps `platform: linux/amd64`: its toolchain
+    # layers are still amd64-only (QD-15171), so an arm64 host must not build a broken mixed-arch image.
     image: qodana-jvm:dev
   qodana-jvm-community:
     build:
@@ -31,7 +32,6 @@ services:
         CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
       additional_contexts:
         tooling: build/install/image-tool
-    platform: linux/amd64
     image: qodana-jvm-community:dev
   qodana-android:
     build:
@@ -93,7 +93,6 @@ services:
         QODANA_GID: "1001"
       additional_contexts:
         tooling: build/install/image-tool
-    platform: linux/amd64
     image: qodana-js:dev
   qodana-go:
     build:
@@ -106,7 +105,6 @@ services:
         # base), so qodana-go keeps base.dockerfile's default 1000, like the debian-base images.
       additional_contexts:
         tooling: build/install/image-tool
-    platform: linux/amd64
     image: qodana-go:dev
   qodana-php:
     build:
@@ -153,7 +151,6 @@ services:
         PRIVILEGED_BASE_STAGE: base
       additional_contexts:
         tooling: build/install/image-tool
-    platform: linux/amd64
     image: qodana-ruby:dev
   qodana-ruby-3.2:
     build:
@@ -166,7 +163,6 @@ services:
         PRIVILEGED_BASE_STAGE: base
       additional_contexts:
         tooling: build/install/image-tool
-    platform: linux/amd64
     image: qodana-ruby-3.2:dev
   qodana-ruby-3.4:
     build:
@@ -179,7 +175,6 @@ services:
         PRIVILEGED_BASE_STAGE: base
       additional_contexts:
         tooling: build/install/image-tool
-    platform: linux/amd64
     image: qodana-ruby-3.4:dev
   qodana-dotnet:
     build:

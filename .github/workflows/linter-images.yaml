@@ -71,6 +71,13 @@ jobs:
             feed_required: "false"
             arch: amd64
             runner: ubuntu-latest
+          - name: qodana-jvm-community
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            token_gated: "false"
+            requires_license: "false"
+            feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
           - name: qodana-android
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
@@ -106,6 +113,13 @@ jobs:
             feed_required: "false"
             arch: amd64
             runner: ubuntu-latest
+          - name: qodana-js
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
           - name: qodana-go
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
@@ -113,6 +127,13 @@ jobs:
             feed_required: "false"
             arch: amd64
             runner: ubuntu-latest
+          - name: qodana-go
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
           - name: qodana-php
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
@@ -134,7 +155,28 @@ jobs:
             feed_required: "false"
             arch: amd64
             runner: ubuntu-latest
+          - name: qodana-ruby
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
           - name: qodana-ruby-3.2
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-ruby-3.2
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-ruby-3.4
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
             requires_license: "true"
@@ -146,8 +188,8 @@ jobs:
             token_gated: "false"
             requires_license: "true"
             feed_required: "false"
-            arch: amd64
-            runner: ubuntu-latest
+            arch: arm64
+            runner: ubuntu-24.04-arm
           - name: qodana-dotnet
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
@@ -266,6 +308,7 @@ jobs:
           case "$want" in
             amd64) echo "$got" | grep -q 'x86-64' || { echo "::error::staged CLI is not x86-64 (arch=$want): $got"; exit 1; } ;;
             arm64) echo "$got" | grep -q 'aarch64'  || { echo "::error::staged CLI is not aarch64 (arch=$want): $got"; exit 1; } ;;
+            *) echo "::error::unexpected matrix arch '$want'"; exit 1 ;;
           esac
       - name: Build ${{ matrix.image.name }}
         if: ${{ matrix.image.token_gated != 'true' }}
@@ -309,6 +352,7 @@ jobs:
           case "$want" in
             amd64) echo "$got" | grep -q 'x86-64' || { echo "::error::staged CLI is not x86-64 (arch=$want): $got"; exit 1; } ;;
             arm64) echo "$got" | grep -q 'aarch64'  || { echo "::error::staged CLI is not aarch64 (arch=$want): $got"; exit 1; } ;;
+            *) echo "::error::unexpected matrix arch '$want'"; exit 1 ;;
           esac
           # The token-gated images' inner CLI is a Tool-kind raw binary <module>_<version>_linux_amd64
           # (NOT staged). Place it at release-staging/<module> so /cli-src/<module> resolves. Parameterized
