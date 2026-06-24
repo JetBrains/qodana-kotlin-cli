@@ -96,4 +96,23 @@ class LinterImagesWorkflowContractTest {
         assertTrue(name.contains("linux/\${{ matrix.image.arch }}"), "check name must carry linux/<arch>, got: $name")
         assertFalse(name.contains("ubuntu"), "check name must not embed the runner id: $name")
     }
+
+    @Test
+    fun `drift canary ARM64_SLUGS equals the arch-capable images' dist slugs`() {
+        // The drift canary's ARM64_SLUGS is a 4th copy of the arch-capable set (keyed by dist slug, so
+        // ruby-3.2/-3.4 collapse to qodana-ruby). Tie it to the single source so a forgotten update reddens
+        // here, not silently dropping an image's arm64 .sha256 re-verification.
+        val drift = Path.of("../.github/workflows/linter-images-drift.yaml").readText()
+        val declared =
+            Regex("""ARM64_SLUGS=\(([^)]*)\)""")
+                .find(drift)
+                ?.groupValues
+                ?.get(1)
+                ?.trim()
+                ?.split(Regex("\\s+"))
+                ?.toSet()
+                ?: error("ARM64_SLUGS=(...) not found in linter-images-drift.yaml")
+        val expected = ArchContract.archCapable.map { EnvContract.parseEnv(it).getValue("QD_LINTER_SLUG") }.toSet()
+        assertEquals(expected, declared, "drift ARM64_SLUGS must equal arch-capable images' dist slugs")
+    }
 }

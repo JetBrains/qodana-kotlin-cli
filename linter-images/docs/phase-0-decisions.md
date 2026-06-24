@@ -1137,7 +1137,7 @@ Bases — index, carries linux/arm64:
 - `QD_RUBY_32_BASE_IMAGE` `dhi.io/ruby:3.2-debian13-dev@sha256:b5ccc4…` (ruby-3.2).
 - `QD_RUBY_BASE_IMAGE` `dhi.io/ruby:3.3-debian13-dev@sha256:207bdd…` (ruby, primary).
 - `QD_RUBY_34_BASE_IMAGE` `dhi.io/ruby:3.4-debian13-dev@sha256:3f86a8…` (ruby-3.4).
-- jvm-community reuses `QD_BASE_IMAGE` `dhi.io/debian-base:bookworm` (the QD-15172 index, above).
+- `QD_BASE_IMAGE` `dhi.io/debian-base:trixie-debian13-dev@sha256:68b5f4c2…` (jvm-community; the shared trixie base, also python/-community/android-community) — index, carries linux/arm64.
 
 arm64 dist `.sha256` siblings — HTTP 200 (jvm-community/js/go bake their own
 dist; ruby-3.2/-3.4 share the `qodana-ruby` dist):
