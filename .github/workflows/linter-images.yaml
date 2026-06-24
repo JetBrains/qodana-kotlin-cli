@@ -3,9 +3,10 @@ name: Linter images
 # Additive CI for the in-repo Qodana linter images (qodana-jvm/android/clang). Separate from the
 # stock `CI` workflow's `Qodana` gate — this builds each IMAGE from this tree (CLI_SOURCE=context)
 # and runs the in-tree e2e fixtures against it the way a real customer would (the @Tag("linter-e2e")
-# harness). amd64-only, so it is the sole place those docker-driving tests run — the arm64 dev box
-# cannot. Path-filtered to the image build system so unrelated PRs don't pay for native compiles +
-# image builds + scans.
+# harness). CI-only: the docker-driving suite can't run on the arm64 dev box. The arch-capable images
+# (the `ArchContract.archCapable` set) also run arm64 e2e on `ubuntu-24.04-arm` runners (QD-15171); the
+# rest stay amd64-only. Path-filtered to the image build system so unrelated PRs don't pay for native
+# compiles + image builds + scans.
 
 on:
   pull_request:
