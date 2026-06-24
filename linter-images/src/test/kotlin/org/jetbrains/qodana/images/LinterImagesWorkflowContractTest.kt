@@ -65,4 +65,35 @@ class LinterImagesWorkflowContractTest {
         assertEquals(1, gate.size, "expected exactly one feed_required empty-token gate")
         assertTrue(gate.single().runScript().contains("exit 1"))
     }
+
+    @Test
+    fun `release-smoke builds qodana-jvm via the release overlay, fork-gated not token-gated, no Space token`() {
+        val job = workflow["jobs"]["release-smoke"]
+        assertTrue(job != null, "linter-images.yaml must define a release-smoke job")
+        val buildStep =
+            job!!["steps"].toList().single {
+                it.runScript().contains("compose.release.yaml") && it.runScript().contains("build qodana-jvm")
+            }
+        // Must NOT gate the build on the registry token — that would silently skip to GREEN on a same-repo
+        // misconfig (the e2e job fails loudly instead). Fork PRs are excluded via the fork signal.
+        assertTrue(
+            "DOCKER_READ_PUBLIC_REGISTRY_TOKEN" !in buildStep.ifExpr(),
+            "release-smoke build must not gate on the registry token; gate forks via head.repo.fork",
+        )
+        assertTrue("fork" in buildStep.ifExpr(), "release-smoke build must be fork-gated (head.repo.fork)")
+        assertTrue(
+            job["env"]?.get("QODANA_READ_SPACE_PACKAGES_TOKEN") == null,
+            "release-smoke must NOT carry the Space token, so a silently-unapplied overlay fails RED on sha256",
+        )
+    }
+
+    @Test
+    fun `the drift canary re-verifies the release pins`() {
+        val drift = YAMLMapper().readTree(Path.of("../.github/workflows/linter-images-drift.yaml").readText())
+        val verifiesRelease =
+            drift["jobs"]["canary"]["steps"].toList().any {
+                it.runScript().contains("verify-pin") && it.runScript().contains("RELEASE")
+            }
+        assertTrue(verifiesRelease, "the drift canary must re-verify the QODANA_<X>_RELEASE_* pins (no forked canary)")
+    }
 }

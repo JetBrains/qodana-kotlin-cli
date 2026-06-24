@@ -83,6 +83,36 @@ jobs:
               || FAILED=1
             echo "::endgroup::"
           done
+          # Re-verify the FROZEN public release pins (compose.release.yaml). They live in phase-0's
+          # QODANA_<X>_RELEASE_* rows, NOT the .env — once an image is repointed to the nightly feed its
+          # .env QD_BUILD is the nightly, so the loop above stops covering its public release pin. Public
+          # feed + gpg; the shared SEEN map dedups a release pin that still equals a .env pin (pre-migration
+          # images), so this nets only the genuinely-frozen pins.
+          DEC=linter-images/docs/phase-0-decisions.md
+          PUBLIC=https://download.jetbrains.com/qodana/feed
+          decval() { grep -E "^$1 *= *" "$DEC" | head -1 | sed -E 's/^[^=]*= *//' || true; }
+          for env in linter-images/docker/images/*.env; do
+            SLUG="$(val QD_LINTER_SLUG "$env")"
+            [ -n "$SLUG" ] || continue
+            base="$(basename "$env" .env | sed -E 's/-[0-9]+\.[0-9]+$//')"
+            key="QODANA_$(printf '%s' "${base#qodana-}" | tr 'a-z-' 'A-Z_')_RELEASE"
+            VERSION="$(decval "${key}_VERSION")"; BUILD="$(decval "${key}_BUILD")"
+            [ -n "$VERSION" ] && [ -n "$BUILD" ] || { echo "::error::no ${key}_* row in $DEC"; FAILED=1; continue; }
+            KEYID="${SLUG}:${VERSION}:${BUILD}:${PUBLIC}"
+            [ -z "${SEEN[$KEYID]:-}" ] || { echo "skip release $KEYID: already verified"; continue; }
+            SEEN[$KEYID]=1
+            echo "::group::verify-pin release $KEYID"
+            "$TOOL" verify-pin \
+              --linter-slug "$SLUG" \
+              --version "$VERSION" \
+              --build "$BUILD" \
+              --distribution-feed "$PUBLIC" \
+              --verify-mode gpg \
+              --gpg-key "$KEY" \
+              --gpg-fingerprint "$FPR" \
+              || FAILED=1
+            echo "::endgroup::"
+          done
           echo "FAILED=$FAILED" >> "$GITHUB_ENV"
       - name: Open an issue if the pin is broken
         if: ${{ env.FAILED == '1' }}
