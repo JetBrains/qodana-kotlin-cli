@@ -54,7 +54,7 @@ jobs:
           FAILED=0
           # Slugs whose linux/arm64 dist we BUILD+SHIP (so its arm64 .sha256 must stay live). Add here
           # when an image is arch-enabled under QD-15171.
-          ARM64_SLUGS=(qodana-jvm qodana-jvm-community qodana-js qodana-go qodana-ruby)
+          ARM64_SLUGS=(qodana-jvm qodana-jvm-community qodana-js qodana-go qodana-python qodana-python-community qodana-ruby)
           # Read each key per-file with grep (NOT `source`, which would leak a prior file's value into a
           # file that omits the key). jvm and android bake the SAME dist (QD_LINTER_SLUG=qodana-jvm), so
           # the SLUG:VERSION:BUILD:FEED dedup collapses their identical re-verification into one.
