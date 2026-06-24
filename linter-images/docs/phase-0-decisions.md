@@ -970,7 +970,7 @@ download there is no clean datasource; `RUSTUP_INIT_SHA256` is a MANUALLY-mainta
 manager), refreshed only when rustup ships a new installer. `RustEnvContractTest`'s `rust pins match
 phase-0-decisions` asserts both pins below equal `qodana-rust.env`'s `RUST_VERSION` / `RUSTUP_INIT_SHA256`.
 
-RUST_VERSION = 1.94.0
+RUST_VERSION = 1.95.0
 RUSTUP_INIT_SHA256 = 4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10
 
 ## .NET dist (qodana-dotnet — Ultimate Rider, RELEASE)
