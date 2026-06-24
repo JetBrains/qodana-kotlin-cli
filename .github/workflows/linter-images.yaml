@@ -31,11 +31,23 @@ jobs:
   # not as a job here. The image-tool unit tests (incl. the pure e2e-harness tests: manifest/planner/
   # evaluator) run in the stock `Test` job (./gradlew test). Only the @Tag("linter-e2e") docker runs
   # live here, behind a per-image build.
+  #
+  # The matrix is partitioned across two jobs by trust boundary:
+  #   * e2e               — public images whose build + scan need no private-feed token. Unauthenticated;
+  #                         a fork PR runs it without approval.
+  #   * e2e-internal-feed — images that read the PRIVATE JetBrains Space packages (clang/cdnet's
+  #                         clang-tidy mirror; later the internal nightly-dist jvm). A fork PR gets no
+  #                         repo secrets, so this job references the `jetbrains-internal` Environment (only
+  #                         on fork PRs) and pauses for maintainer approval, which unlocks the env secrets.
+  #                         An empty token there fails RED (fail-loud, QD-15165), never no-ops. Same-repo
+  #                         PRs, pushes, and workflow_dispatch use the repo secrets directly — no
+  #                         environment, no gate (the conditional `environment:` evaluates to '').
+  #                         One-time Environment setup: linter-images/docs/jetbrains-internal-environment.md.
 
   e2e:
-    # One job per image. Each cell builds ITS image from this tree, then runs the harness scoped to
-    # that image (-Dlinter.e2e.image), so a build/scan/assert failure surfaces in — and only in — the
-    # relevant image's job. fail-fast:false keeps the three signals independent.
+    # One job per public image. Each cell builds ITS image from this tree, then runs the harness scoped
+    # to that image (-Dlinter.e2e.image), so a build/scan/assert failure surfaces in — and only in — the
+    # relevant image's job. fail-fast:false keeps the signals independent.
     name: Docker e2e (${{ matrix.image.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -44,107 +56,61 @@ jobs:
       matrix:
         image:
           # compose_files: the exact `-f` flags for `docker compose` (repo-root-relative).
-          # token_gated: clang's clang-tidy comes from the PRIVATE mirror, so both its build and its
-          # e2e require QODANA_READ_SPACE_PACKAGES_TOKEN; an empty secret (e.g. a fork PR) fails RED, never no-ops.
           # requires_license: this image's e2e fixture passes QODANA_LICENSE_ONLY_TOKEN via passEnv (a
           # paid IDE-dist linter), so the scan step is gated on that secret — fork PRs (empty secret)
-          # skip it instead of hard-failing at planning time. Flip to "true" in the commit that adds the
-          # image's passEnv fixture.
+          # skip it instead of hard-failing at planning time.
           - name: qodana-jvm
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
-            token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
           - name: qodana-jvm-community
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
-            token_gated: "false"
             requires_license: "false"
-            feed_required: "false"
           - name: qodana-android
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
-            token_gated: "false"
             requires_license: "false"
-            feed_required: "false"
           - name: qodana-android-community
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
-            token_gated: "false"
             requires_license: "false"
-            feed_required: "false"
           - name: qodana-python-community
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
-            token_gated: "false"
             requires_license: "false"
-            feed_required: "false"
           - name: qodana-python
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
-            token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
           - name: qodana-js
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
-            token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
           - name: qodana-go
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
-            token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
           - name: qodana-php
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
-            token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
           - name: qodana-rust
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
-            token_gated: "false"
             requires_license: "false"
-            feed_required: "false"
           - name: qodana-ruby
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
-            token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
           - name: qodana-ruby-3.2
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
-            token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
           - name: qodana-ruby-3.4
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
-            token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
           - name: qodana-dotnet
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
-            token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
           - name: qodana-cpp
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
-            token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
-          - name: qodana-clang
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
-            token_gated: "true"
-            requires_license: "false"
-            feed_required: "false"
-          - name: qodana-cdnet
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
-            token_gated: "true"
-            requires_license: "false"
-            feed_required: "false"
     env:
-      # QODANA_READ_SPACE_PACKAGES_TOKEN reads the private JetBrains Space packages — the qodana-cli-deps
-      # mirror (clang/cdnet) AND the internal nightly dist feed (jvm). Surfaced as `env.*` so the
-      # clang/cdnet hard-fail and the feed_required hard-fail `if:`s can reference it (`secrets.*` is not
-      # addressable in a step-level `if:`). QODANA_LICENSE_ONLY_TOKEN licenses the paid IDE-dist linters
-      # at scan time in license-only mode (no upload); likewise surfaced as `env.*` for the paid-image
-      # fork-PR gate. The DOCKER_READ_PUBLIC_REGISTRY_* creds authenticate the docker.io and dhi.io pulls.
+      # QODANA_LICENSE_ONLY_TOKEN licenses the paid IDE-dist linters at scan time in license-only mode
+      # (no upload); surfaced as `env.*` so the paid-image fork-PR gate can reference it (`secrets.*` is
+      # not addressable in a step-level `if:`). DOCKER_READ_PUBLIC_REGISTRY_* authenticate the docker.io
+      # and dhi.io base pulls.
       DOCKER_READ_PUBLIC_REGISTRY_TOKEN: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
       DOCKER_READ_PUBLIC_REGISTRY_USER: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_USER }}
-      QODANA_READ_SPACE_PACKAGES_TOKEN: ${{ secrets.QODANA_READ_SPACE_PACKAGES_TOKEN }}
       QODANA_LICENSE_ONLY_TOKEN: ${{ secrets.QODANA_LICENSE_ONLY_TOKEN }}
     steps:
       # Each cell builds a multi-GB image AND runs a full IDE scan on one ~14 GB-free ubuntu-latest;
@@ -176,38 +142,15 @@ jobs:
           username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
           password: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
       - name: dhi.io login (Docker Hardened Images base)
-        # QD_BASE_IMAGE is a dhi.io OS or language base (debian-base for jvm/android/python/clang,
-        # node for js); this login authenticates the whole dhi.io registry with the same credentials. No
-        # if-gate: the base is mandatory, so a missing credential must fail loudly here, not skip.
+        # QD_BASE_IMAGE is a dhi.io OS or language base (debian-base for jvm/android/python, node for
+        # js); this login authenticates the whole dhi.io registry with the same credentials. No if-gate:
+        # the base is mandatory, so a missing credential must fail loudly here, not skip.
         uses: docker/login-action@v3
         with:
           registry: dhi.io
           username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
           password: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
-
-      - name: Require feed token for internal-feed images
-        # Same fail-loud contract as the clang/cdnet mirror-token gate below: an internal-feed image (feed_required=="true") with an
-        # empty QODANA_READ_SPACE_PACKAGES_TOKEN fails RED, never no-ops. On a fork PR an empty token means the run was not
-        # maintainer-approved (the internal-feed environment supplies it). Off for every cell until the
-        # jvm repoint flips feed_required to "true".
-        if: ${{ matrix.image.feed_required == 'true' && env.QODANA_READ_SPACE_PACKAGES_TOKEN == '' }}
-        run: |
-          echo "::error::QODANA_READ_SPACE_PACKAGES_TOKEN is required for ${{ matrix.image.name }} (internal nightly feed) but is empty."
-          echo "On a fork PR this means the run was not approved by a maintainer (see the internal-feed environment)."
-          exit 1
-      - name: Require mirror token for token-gated images
-        # Symmetric with the feed_required gate above: a token-gated image (clang/cdnet) with an empty
-        # QODANA_READ_SPACE_PACKAGES_TOKEN fails RED, never no-ops. Its clang-tidy/CLT comes from the
-        # private Space mirror, so an empty token can't build/scan; on a fork PR it means the run was not
-        # maintainer-approved. Re-run from a same-repo branch (the secret is repo-scoped).
-        if: ${{ matrix.image.token_gated == 'true' && env.QODANA_READ_SPACE_PACKAGES_TOKEN == '' }}
-        run: |
-          echo "::error::QODANA_READ_SPACE_PACKAGES_TOKEN is required for ${{ matrix.image.name }} (private clang-tidy/CLT mirror) but is empty."
-          echo "On a fork PR this means the run was not approved by a maintainer; re-run from a same-repo branch."
-          exit 1
-      # --- Non-token-gated images (jvm, android): stage contexts, build, run the harness. --------------
       - name: Stage from-tree contexts (cli + image-tool)
-        if: ${{ matrix.image.token_gated != 'true' }}
         # CI tests the code under review: the inner CLI is the from-tree binary (CLI_SOURCE=context),
         # the `tooling` image-tool comes from installDist. compose.ci.yaml binds the `cli` context to
         # qodana-cli/build/release-staging; install-cli reads /cli-src/${CLI_BINARY} there.
@@ -219,15 +162,14 @@ jobs:
           # qodana-jvm/android consume /cli-src/qodana (Cli kind already staged at release-staging/qodana).
           test -x qodana-cli/build/release-staging/qodana
       - name: Build ${{ matrix.image.name }}
-        if: ${{ matrix.image.token_gated != 'true' }}
-        # No token: jvm/android fetch the IDE dist from the public mirror (GPG+sha256 verified).
+        # No token: these images fetch the IDE dist from the public mirror (GPG+sha256 verified).
         run: |
           docker compose ${{ matrix.image.compose_files }} build ${{ matrix.image.name }}
           # Reclaim the BuildKit cache (a near-duplicate of the image layers) before the scan; the
           # built <image>:dev survives — the e2e step runs it, never rebuilds (QD-15127).
           docker builder prune -af
       - name: e2e ${{ matrix.image.name }} (free)
-        if: ${{ matrix.image.token_gated != 'true' && matrix.image.requires_license != 'true' }}
+        if: ${{ matrix.image.requires_license != 'true' }}
         # Builds the @Tag("linter-e2e") harness, discovers fixtures under
         # linter-images/e2e/fixtures/${image}/*/expected.json, scans the pre-built <image>:dev, and
         # asserts SARIF content + exit code + log gate. Missing/unparseable SARIF or Docker-down → loud.
@@ -235,13 +177,113 @@ jobs:
       - name: e2e ${{ matrix.image.name }} (licensed)
         # Paid IDE-dist linters license over the bridge network in license-only mode. On a fork PR the
         # secret is empty → skip rather than hard-fail (the harness fails loudly on a missing passEnv).
-        if: ${{ matrix.image.token_gated != 'true' && matrix.image.requires_license == 'true' && env.QODANA_LICENSE_ONLY_TOKEN != '' }}
+        if: ${{ matrix.image.requires_license == 'true' && env.QODANA_LICENSE_ONLY_TOKEN != '' }}
         run: ./gradlew :linter-images:linterE2eTest -Dlinter.e2e.image=${{ matrix.image.name }}
       - name: Note skipped ${{ matrix.image.name }} (no license token)
-        if: ${{ matrix.image.token_gated != 'true' && matrix.image.requires_license == 'true' && env.QODANA_LICENSE_ONLY_TOKEN == '' }}
+        if: ${{ matrix.image.requires_license == 'true' && env.QODANA_LICENSE_ONLY_TOKEN == '' }}
         run: echo "::notice::${{ matrix.image.name }} e2e skipped — QODANA_LICENSE_ONLY_TOKEN unavailable (fork PR)."
+      - name: Upload e2e artifacts (idea.log + sarif)
+        # Always upload whatever the harness archived to build/linter-e2e-artifacts (idea.log + SARIF per
+        # case), so a failing scan's real cause is downloadable. if-no-files-found:ignore covers skipped
+        # cells (no artifacts produced).
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-artifacts-${{ matrix.image.name }}
+          path: linter-images/build/linter-e2e-artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
 
-      # --- Token-gated images (clang, cdnet): identical flow, but build + e2e require the mirror token. -
+  e2e-internal-feed:
+    # clang/cdnet read the PRIVATE qodana-cli-deps mirror, so build + e2e require
+    # QODANA_READ_SPACE_PACKAGES_TOKEN. Same per-image isolation and fail-fast:false as the e2e job; the
+    # distinct check name keeps these cells addressable (e.g. for required-status config) apart from the
+    # public Docker e2e cells.
+    name: Docker e2e internal-feed (${{ matrix.image.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Reference the `jetbrains-internal` Environment ONLY for fork PRs: a fork PR gets no repo secrets, so
+    # the environment's required-reviewer approval is what unlocks the private-feed token (+ docker creds).
+    # Same-repo PRs, pushes, and workflow_dispatch evaluate to '' (no environment) and use the repo
+    # secrets directly — no approval gate, behavior unchanged. The event_name guard keeps a push (null
+    # pull_request.head.repo) from matching.
+    environment: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'jetbrains-internal' || '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          # token_gated: clang/cdnet's clang-tidy/CLT comes from the PRIVATE Space mirror, so build + e2e
+          # require QODANA_READ_SPACE_PACKAGES_TOKEN; an empty token fails RED at the "Require mirror token"
+          # gate, never no-ops (fail-loud, QD-15165). feed_required: the internal nightly-dist gate (future
+          # jvm); off until the jvm repoint flips it to "true".
+          - name: qodana-clang
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            feed_required: "false"
+          - name: qodana-cdnet
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            feed_required: "false"
+    env:
+      # QODANA_READ_SPACE_PACKAGES_TOKEN reads the private JetBrains Space packages (the qodana-cli-deps
+      # clang-tidy mirror; later the internal nightly dist feed). Surfaced as `env.*` so the hard-fail
+      # gates' `if:`s can reference it (`secrets.*` is not addressable in a step `if:`). On a fork PR it
+      # resolves to the jetbrains-internal environment secret (after approval); otherwise the repo secret.
+      # DOCKER_READ_PUBLIC_REGISTRY_* authenticate the docker.io/dhi.io base pulls and must ALSO exist as
+      # environment secrets so the approved-fork path can log in.
+      DOCKER_READ_PUBLIC_REGISTRY_TOKEN: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
+      DOCKER_READ_PUBLIC_REGISTRY_USER: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_USER }}
+      QODANA_READ_SPACE_PACKAGES_TOKEN: ${{ secrets.QODANA_READ_SPACE_PACKAGES_TOKEN }}
+    steps:
+      # Shared runner setup, identical to the e2e job (see there for the per-step rationale).
+      - name: Free runner disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: false
+          tool-cache: false
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: ./.github/actions/setup-native-build
+      - name: Docker Hub login (raise anonymous pull-rate ceiling)
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
+          password: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
+      - name: dhi.io login (Docker Hardened Images base)
+        # clang's base is a dhi.io debian-base; authenticate the whole dhi.io registry with the same
+        # credentials. No if-gate: the base is mandatory, so a missing credential must fail loudly.
+        uses: docker/login-action@v3
+        with:
+          registry: dhi.io
+          username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
+          password: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
+
+      - name: Require feed token for internal-feed images
+        # Same fail-loud contract as the mirror-token gate below: an internal-feed image
+        # (feed_required=="true") with an empty QODANA_READ_SPACE_PACKAGES_TOKEN fails RED, never no-ops.
+        # On a fork PR an empty token means the run was not maintainer-approved (the jetbrains-internal
+        # environment supplies it). Off for every cell until the jvm repoint flips feed_required to "true".
+        if: ${{ matrix.image.feed_required == 'true' && env.QODANA_READ_SPACE_PACKAGES_TOKEN == '' }}
+        run: |
+          echo "::error::QODANA_READ_SPACE_PACKAGES_TOKEN is required for ${{ matrix.image.name }} (internal nightly feed) but is empty."
+          echo "On a fork PR this means the run was not approved by a maintainer (see the jetbrains-internal environment)."
+          exit 1
+      - name: Require mirror token for token-gated images
+        # Symmetric with the feed_required gate above: a token-gated image (clang/cdnet) with an empty
+        # QODANA_READ_SPACE_PACKAGES_TOKEN fails RED, never no-ops. Its clang-tidy/CLT comes from the
+        # private Space mirror, so an empty token can't build/scan; on a fork PR it means the run was not
+        # maintainer-approved. Re-run from a same-repo branch (the secret is repo-scoped).
+        if: ${{ matrix.image.token_gated == 'true' && env.QODANA_READ_SPACE_PACKAGES_TOKEN == '' }}
+        run: |
+          echo "::error::QODANA_READ_SPACE_PACKAGES_TOKEN is required for ${{ matrix.image.name }} (private clang-tidy/CLT mirror) but is empty."
+          echo "On a fork PR this means the run was not approved by a maintainer; re-run from a same-repo branch."
+          exit 1
       - name: Stage from-tree contexts (cli + image-tool + ${{ matrix.image.name }} binary)
         if: ${{ matrix.image.token_gated == 'true' }}
         run: |
@@ -253,7 +295,7 @@ jobs:
           test -x qodana-cli/build/release-staging/qodana
           # The token-gated images' inner CLI is a Tool-kind raw binary <module>_<version>_linux_amd64
           # (NOT staged). Place it at release-staging/<module> so /cli-src/<module> resolves. Parameterized
-          # on matrix.image.name so each token-gated cell (clang, cdnet) stages ITS own binary.
+          # on matrix.image.name so each cell (clang, cdnet) stages ITS own binary.
           shopt -s nullglob
           tool_binaries=(${{ matrix.image.name }}/build/release/${{ matrix.image.name }}_*_linux_amd64)
           if [ "${#tool_binaries[@]}" -ne 1 ]; then
@@ -265,7 +307,8 @@ jobs:
       - name: Build ${{ matrix.image.name }} (token-gated clang-tidy mirror)
         # clang's clang-tidy comes from the PRIVATE qodana-cli-deps mirror, so its build REQUIRES the
         # token (lib/tools.dockerfile mounts the secret required=true). An empty token already failed the
-        # run at the "Require mirror token" gate above; same-repo PRs and pushes build + scan it.
+        # run at the "Require mirror token" gate above; same-repo PRs, pushes, and approved fork PRs build
+        # + scan it.
         if: ${{ matrix.image.token_gated == 'true' }}
         run: |
           docker compose ${{ matrix.image.compose_files }} build ${{ matrix.image.name }}
@@ -275,11 +318,7 @@ jobs:
       - name: e2e ${{ matrix.image.name }} (token-gated)
         if: ${{ matrix.image.token_gated == 'true' }}
         run: ./gradlew :linter-images:linterE2eTest -Dlinter.e2e.image=${{ matrix.image.name }}
-
       - name: Upload e2e artifacts (idea.log + sarif)
-        # Always upload whatever the harness archived to build/linter-e2e-artifacts (idea.log + SARIF per
-        # case), so a failing scan's real cause is downloadable. if-no-files-found:ignore covers skipped
-        # cells (no artifacts produced).
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
