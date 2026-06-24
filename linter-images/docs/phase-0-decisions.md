@@ -223,7 +223,7 @@ Both images the qodana-jvm arm64 build resolves are OCI image indices
 repin (probed 2026-06-24 via `docker buildx imagetools inspect`):
 
 - `QD_BASE_IMAGE` `dhi.io/debian-base:bookworm@sha256:802b1fe0…` → index, carries linux/arm64.
-- `JDK_BUILDER_IMAGE` `eclipse-temurin:25-jdk@sha256:dfc0093e…` (default in `lib/base.dockerfile`) → index, carries linux/arm64.
+- `JDK_BUILDER_IMAGE` `eclipse-temurin:25.0.2_10-jdk@sha256:1bda4d9e…` (default in `lib/base.dockerfile`; re-verified after the #81 tag bump) → index, carries linux/arm64.
 
 ### dhi.io trixie hardened base digest (shared by new debian-base images)
 
