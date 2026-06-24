@@ -1120,3 +1120,36 @@ wiring it in would break the build on every CI runner. Released linters (jvm,
 jvm-community, python, python-community, …) ship from the public feed and OMIT
 `QD_DISTRIBUTION_FEED` entirely, so this is moot for them. Pointing the switch at
 qdist for unreleased/internal builds is tracked by followup QD-15062.
+
+## Multi-arch verification (QD-15177)
+
+The 6 pure-dist images enabled for `linux/arm64` here — `qodana-jvm-community`,
+`qodana-js`, `qodana-go`, `qodana-ruby`/`-3.2`/`-3.4` — resolve arm64 with NO
+`.env` repin: every DHI base is an OCI image index
+(`application/vnd.oci.image.index.v1+json`) carrying `linux/arm64`, and every
+linux ARM64 dist Link has a live `.sha256` sibling. Probed 2026-06-24 via
+`docker buildx imagetools inspect` (bases) and `curl -I -L` (dist siblings).
+
+Bases — index, carries linux/arm64:
+
+- `QD_NODE_BASE_IMAGE` `dhi.io/node:22-debian13-dev@sha256:e2df7b…` (js).
+- `QD_GOLANG_BASE_IMAGE` `dhi.io/golang:1.26-debian13-dev@sha256:d1295e…` (go).
+- `QD_RUBY_32_BASE_IMAGE` `dhi.io/ruby:3.2-debian13-dev@sha256:b5ccc4…` (ruby-3.2).
+- `QD_RUBY_BASE_IMAGE` `dhi.io/ruby:3.3-debian13-dev@sha256:207bdd…` (ruby, primary).
+- `QD_RUBY_34_BASE_IMAGE` `dhi.io/ruby:3.4-debian13-dev@sha256:3f86a8…` (ruby-3.4).
+- jvm-community reuses `QD_BASE_IMAGE` `dhi.io/debian-base:bookworm` (the QD-15172 index, above).
+
+arm64 dist `.sha256` siblings — HTTP 200 (jvm-community/js/go bake their own
+dist; ruby-3.2/-3.4 share the `qodana-ruby` dist):
+
+QODANA_JVM_COMMUNITY_LINUX_ARM64_SHA256_SIBLING = 200
+QODANA_JS_LINUX_ARM64_SHA256_SIBLING = 200
+QODANA_GO_LINUX_ARM64_SHA256_SIBLING = 200
+QODANA_RUBY_LINUX_ARM64_SHA256_SIBLING = 200
+
+The arm64 dist Links (the `linuxARM64.Link` whose `.sha256` is probed above) end
+in the `-aarch64` sibling of each image's linux Link recorded above:
+`qodana-QDJVMC-261.25881.145-aarch64.tar.gz`,
+`qodana-QDJS-261.25882.140-aarch64.tar.gz`,
+`qodana-QDGO-261.25884.406-aarch64.tar.gz`,
+`qodana-QDRUBY-261.25886.142-aarch64.tar.gz` (shared by ruby-3.2/-3.4).
