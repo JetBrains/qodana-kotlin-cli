@@ -18,9 +18,9 @@ services:
         CLI_RELEASE_BASE_URL: https://github.com/JetBrains/qodana-kotlin-cli/releases/download/v2026.2.1-nightly.20260605
       additional_contexts:
         tooling: build/install/image-tool
-    # amd64-only by design (CLI_ARCH/TINI_ARCH=amd64, dist linux/amd64): pin so an arm64 host
-    # (dev Mac, ubuntu-*-arm runner) can't build a broken mixed-arch image (arm64 base + amd64 CLI).
-    platform: linux/amd64
+    # qodana-jvm follows the build host's arch (TARGETARCH) — multiarch (QD-15172). The OTHER services
+    # keep `platform: linux/amd64`: their toolchain layers are still amd64-only (QD-15171), so an arm64
+    # host must not build a broken mixed-arch image of them.
     image: qodana-jvm:dev
   qodana-jvm-community:
     build:
