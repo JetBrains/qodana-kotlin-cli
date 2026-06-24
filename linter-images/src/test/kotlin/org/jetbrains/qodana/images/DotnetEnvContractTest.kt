@@ -33,11 +33,7 @@ class DotnetEnvContractTest {
     fun `qodana-dotnet env has exactly the jvm key set plus DIST_BASE_STAGE and LIBICU_PKG`() {
         val env = parseEnv("qodana-dotnet")
         val expected = publicDist + node + internalFeed + setOf("DIST_BASE_STAGE", "LIBICU_PKG")
-        assertEquals(
-            expected,
-            env.keys,
-            "dotnet must be publicDist + node + internalFeed plus DIST_BASE_STAGE + LIBICU_PKG",
-        )
+        assertEquals(expected, env.keys)
         assertEquals(
             "privileged",
             env["DIST_BASE_STAGE"],

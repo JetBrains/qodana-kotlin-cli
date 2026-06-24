@@ -26,7 +26,7 @@ class RubyEnvContractTest {
     fun `qodana-ruby env has exactly the jvm key set plus DIST_BASE_STAGE`() {
         val env = parseEnv("qodana-ruby")
         val expected = publicDist + node + internalFeed + setOf("DIST_BASE_STAGE")
-        assertEquals(expected, env.keys, "ruby must be publicDist + node + internalFeed plus DIST_BASE_STAGE")
+        assertEquals(expected, env.keys)
         assertEquals(
             "privileged",
             env["DIST_BASE_STAGE"],

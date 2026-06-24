@@ -34,11 +34,7 @@ class CppEnvContractTest {
     fun `qodana-cpp env has exactly the jvm key set plus DIST_BASE_STAGE and CLANG keys`() {
         val env = parseEnv("qodana-cpp")
         val expected = publicDist + node + internalFeed + setOf("DIST_BASE_STAGE", "CLANG", "CLANG_OS")
-        assertEquals(
-            expected,
-            env.keys,
-            "cpp must be publicDist + node + internalFeed plus DIST_BASE_STAGE + CLANG + CLANG_OS",
-        )
+        assertEquals(expected, env.keys)
         assertEquals(
             "privileged",
             env["DIST_BASE_STAGE"],

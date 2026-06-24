@@ -76,18 +76,22 @@ class RustToolchainTest {
     fun `rust toolchain sha-verifies the rustup-init installer before exec`() {
         val rust = lib.resolve("toolchain/rust.dockerfile").readText()
         assertTrue(
-            Regex("""ARG RUSTUP_INIT_SHA256""").containsMatchIn(rust),
-            "rust toolchain must declare ARG RUSTUP_INIT_SHA256 (the .env-pinned installer sha)",
+            Regex("""ARG RUSTUP_INIT_SHA256_X86_64""").containsMatchIn(rust),
+            "must declare ARG RUSTUP_INIT_SHA256_X86_64",
+        )
+        assertTrue(
+            Regex("""ARG RUSTUP_INIT_SHA256_AARCH64""").containsMatchIn(rust),
+            "must declare ARG RUSTUP_INIT_SHA256_AARCH64",
+        )
+        assertTrue(
+            Regex("""\$\{RUSTUP_INIT_SHA256_(X86_64|AARCH64)\}""").containsMatchIn(rust),
+            "the per-arch sha ARG must be INTERPOLATED into the verify, not just declared",
         )
         // Fail-closed: `sha256sum -c -` (or an `echo "<sha>  <file>" | sha256sum -c`) must run BEFORE
         // the rustup-init is executed, mirroring conda/android's installer sha-pin.
         assertTrue(
             Regex("""sha256sum -c""").containsMatchIn(rust),
-            "rust toolchain must `sha256sum -c` the rustup-init before exec (the installer-pin convention)",
-        )
-        assertTrue(
-            Regex("""\$\{?RUSTUP_INIT_SHA256""").containsMatchIn(rust),
-            "rust toolchain must interpolate RUSTUP_INIT_SHA256 into the checksum line",
+            "must sha256sum -c the rustup-init before exec",
         )
     }
 

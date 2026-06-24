@@ -2,9 +2,8 @@
 # overrides the nightly `.env` back to the public feed + GPG and its seeded public release pin. Usage:
 #   docker compose -f compose.yaml -f compose.release.yaml build qodana-jvm
 # Pins are advanced deliberately; they are anchored to the QODANA_<X>_RELEASE_* rows in
-# docs/phase-0-decisions.md (ReleaseProfileContractTest). The internal-feed images (today the qodana-jvm
-# lineage: jvm, jvm-community, android, android-community) genuinely flip here back to the public dist; the
-# remaining rows still mirror their public `.env` until their own family PR repoints them.
+# docs/phase-0-decisions.md (ReleaseProfileContractTest). Every dist image is now on the internal nightly
+# feed, so each row here genuinely flips it back to the public dist — none is an inert `.env` mirror.
 services:
   qodana-jvm:
     build:

@@ -8,9 +8,8 @@ import kotlin.io.path.readText
 /**
  * Shared support for the linter-image `.env` contract tests: the single `parseEnv`/`pin` and the neutral
  * capability profiles each dist image's key set is composed from. The profiles are deliberately NOT
- * derived from any concrete image's `.env`, so no single image acts as the schema baseline; the `js` test
- * (`qodana-js.env` keys == [publicDist]) and `jvm-community` (`== publicDist + node`) pin the profiles to
- * real `.env` data, so a wrong profile literal reddens those tests.
+ * derived from any concrete image's `.env`, so no single image acts as the schema baseline; every dist
+ * image's key-set assert composes from these profiles, so a wrong profile literal reddens those tests.
  */
 object EnvContract {
     private val imagesDir: Path = Path.of("docker/images")

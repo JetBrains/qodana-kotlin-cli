@@ -3,9 +3,10 @@ name: Linter images
 # Additive CI for the in-repo Qodana linter images (qodana-jvm/android/clang). Separate from the
 # stock `CI` workflow's `Qodana` gate — this builds each IMAGE from this tree (CLI_SOURCE=context)
 # and runs the in-tree e2e fixtures against it the way a real customer would (the @Tag("linter-e2e")
-# harness). amd64-only, so it is the sole place those docker-driving tests run — the arm64 dev box
-# cannot. Path-filtered to the image build system so unrelated PRs don't pay for native compiles +
-# image builds + scans.
+# harness). CI-only: the docker-driving suite can't run on the arm64 dev box. The arch-capable images
+# (the `ArchContract.archCapable` set) also run arm64 e2e on `ubuntu-24.04-arm` runners (QD-15171); the
+# rest stay amd64-only. Path-filtered to the image build system so unrelated PRs don't pay for native
+# compiles + image builds + scans.
 
 on:
   pull_request:
@@ -162,6 +163,13 @@ jobs:
             feed_required: "true"
             arch: amd64
             runner: ubuntu-latest
+          - name: qodana-rust
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "false"
+            feed_required: "true"
+            arch: arm64
+            runner: ubuntu-24.04-arm
           - name: qodana-ruby
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
@@ -285,8 +293,9 @@ jobs:
       - name: Require feed token for internal-feed images
         # Same fail-loud contract as the clang/cdnet mirror-token gate below: an internal-feed image (feed_required=="true") with an
         # empty QODANA_READ_SPACE_PACKAGES_TOKEN fails RED, never no-ops. On a fork PR an empty token means the run was not
-        # maintainer-approved (the internal-feed environment supplies it). Active for qodana-jvm (internal
-        # nightly feed); off for the public-feed cells.
+        # maintainer-approved (the internal-feed environment supplies it). Active for the whole dist fleet
+        # (every feed_required cell — all IDE-dist images now pull the internal nightly); off only for the
+        # token-gated clang/cdnet cells (covered by the symmetric mirror-token gate below).
         if: ${{ matrix.image.feed_required == 'true' && env.QODANA_READ_SPACE_PACKAGES_TOKEN == '' }}
         run: |
           echo "::error::QODANA_READ_SPACE_PACKAGES_TOKEN is required for ${{ matrix.image.name }} (internal nightly feed) but is empty."

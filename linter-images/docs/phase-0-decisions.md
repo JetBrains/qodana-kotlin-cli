@@ -892,18 +892,20 @@ and the rustup-init sha-pin.
 
 ### rustup-init installer sha256 (build verify; version-INDEPENDENT)
 
-`lib/toolchain/rust.dockerfile` fetches `rustup-init` for `x86_64-unknown-linux-gnu` (amd64-only fleet,
-so the source's TARGETPLATFORM switch is dropped) and verifies it fail-closed via `ADD --checksum=` +
-a re-`sha256sum -c` (the conda/android installer-pin convention). The sha below was resolved
-EMPIRICALLY 2026-06-18 (`curl … | sha256sum`) and cross-checked byte-identical against the upstream
-`rustup-init.sha256` sidecar. `rustup-init` is a self-contained static installer — its sha is
+`lib/toolchain/rust.dockerfile` selects `rustup-init` per-`TARGETARCH` (amd64 →
+`x86_64-unknown-linux-gnu`, arm64 → `aarch64-unknown-linux-gnu`, the conda/tini pattern: dockerfile-x
+can't branch `ADD --checksum`) and verifies it fail-closed via `curl -fsSL` + `sha256sum -c`. The shas
+below were cross-checked byte-identical against the upstream `rustup-init.sha256` sidecar (`x86_64`
+2026-06-18, `aarch64` 2026-06-24). `rustup-init` is a self-contained static installer — its sha is
 INDEPENDENT of `RUST_VERSION` (it installs whatever `--default-toolchain` names) — so unlike a tagged
-download there is no clean datasource; `RUSTUP_INIT_SHA256` is a MANUALLY-maintained pin (no Renovate
-manager), refreshed only when rustup ships a new installer. `RustEnvContractTest`'s `rust pins match
-phase-0-decisions` asserts both pins below equal `qodana-rust.env`'s `RUST_VERSION` / `RUSTUP_INIT_SHA256`.
+download there is no clean datasource; the per-arch pins are MANUALLY-maintained (no Renovate manager),
+refreshed only when rustup ships a new installer. `RustEnvContractTest`'s `rust pins match
+phase-0-decisions` asserts the three pins below equal `qodana-rust.env`'s `RUST_VERSION`,
+`RUSTUP_INIT_SHA256_X86_64`, and `RUSTUP_INIT_SHA256_AARCH64`.
 
 RUST_VERSION = 1.95.0
-RUSTUP_INIT_SHA256 = 4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10
+RUSTUP_INIT_SHA256_X86_64 = 4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10
+RUSTUP_INIT_SHA256_AARCH64 = 9732d6c5e2a098d3521fca8145d826ae0aaa067ef2385ead08e6feac88fa5792
 
 ## .NET dist (qodana-dotnet — Ultimate Rider, RELEASE)
 
@@ -1132,3 +1134,18 @@ QODANA_PYTHON_COMMUNITY_LINUX_ARM64_SHA256_SIBLING = 200
 The arm64 dist Links end in the `-aarch64` sibling of each image's linux Link
 recorded above: `qodana-QDPY-261.15683.2195-aarch64.tar.gz`,
 `qodana-QDPYC-261.15683.1610-aarch64.tar.gz`.
+
+## Multi-arch verification (QD-15182)
+
+`qodana-rust` enabled for `linux/arm64`. The shared trixie base is already recorded
+above (QD-15177); the only arch-fragile piece is `lib/toolchain/rust.dockerfile`,
+now a per-`TARGETARCH` fetch of `rustup-init` (`x86_64`/`aarch64`) — both installers
+sha256-verified (`sha256sum -c`, fail-closed) against the digests in the rustup-init
+section above. Probed 2026-06-24 via `curl -I -L` (dist `.sha256` sibling).
+
+arm64 dist `.sha256` sibling — HTTP 200:
+
+QODANA_RUST_LINUX_ARM64_SHA256_SIBLING = 200
+
+The arm64 dist Link ends in the `-aarch64` sibling of qodana-rust's linux Link:
+`QDRST-262.7982.2437-aarch64`.

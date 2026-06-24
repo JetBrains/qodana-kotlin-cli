@@ -16,7 +16,8 @@ import org.junit.jupiter.api.Test
  * the dist FROMs that stage via DIST_BASE_STAGE=rust-toolchain (an .env KEY — base.dockerfile does not
  * default DIST_BASE_STAGE, so the INCLUDE_ARGS value survives, the android/php/conda convention). SAME
  * dist/cli/runtime keys as python-community (an IDE-dist toolchain image), with the MINICONDA_*
- * installer pins swapped for RUST_VERSION + RUSTUP_INIT_SHA256. NO NODE_MAJOR: RustRover bundles no JS
+ * installer pins swapped for RUST_VERSION + the per-arch RUSTUP_INIT_SHA256_X86_64/_AARCH64. NO
+ * NODE_MAJOR: RustRover bundles no JS
  * analysis, so — unlike go/php — rust does NOT layer the node toolchain (the source rust.Dockerfile's
  * ESLINT_VERSION is a dead copy-paste vestige: no node_base COPY, no npm install). Second eap image
  * after ruby (QD_RELEASE_TYPE=eap — the feed has only eap entries).
@@ -25,11 +26,16 @@ class RustEnvContractTest {
     @Test
     fun `qodana-rust env has exactly the rust key set and no node`() {
         // RustRover bundles no JS analysis, so rust is publicDist + internalFeed WITHOUT node, plus its
-        // install-stage keys (DIST_BASE_STAGE + RUST_VERSION + RUSTUP_INIT_SHA256). Equivalently
-        // python-community minus MINICONDA_* plus the rustup pins.
+        // install-stage keys (DIST_BASE_STAGE + RUST_VERSION + the per-arch RUSTUP_INIT_SHA256_X86_64/_AARCH64).
         val env = parseEnv("qodana-rust")
         val expected =
-            publicDist + internalFeed + setOf("DIST_BASE_STAGE", "RUST_VERSION", "RUSTUP_INIT_SHA256")
+            publicDist + internalFeed +
+                setOf(
+                    "DIST_BASE_STAGE",
+                    "RUST_VERSION",
+                    "RUSTUP_INIT_SHA256_X86_64",
+                    "RUSTUP_INIT_SHA256_AARCH64",
+                )
         assertEquals(expected, env.keys)
         assertTrue("NODE_MAJOR" !in env, "qodana-rust must not set NODE_MAJOR (RustRover bundles no JS analysis)")
         assertTrue(
@@ -60,6 +66,30 @@ class RustEnvContractTest {
             "rust product-info code must match phase-0-decisions",
         )
         assertEquals(pin("RUST_VERSION"), rust["RUST_VERSION"], "rust toolchain version must match phase-0-decisions")
-        assertEquals(pin("RUSTUP_INIT_SHA256"), rust["RUSTUP_INIT_SHA256"], "rustup-init sha256 must match phase-0")
+        assertEquals(
+            pin("RUSTUP_INIT_SHA256_X86_64"),
+            rust["RUSTUP_INIT_SHA256_X86_64"],
+            "x86_64 rustup-init sha must match phase-0",
+        )
+        assertEquals(
+            pin("RUSTUP_INIT_SHA256_AARCH64"),
+            rust["RUSTUP_INIT_SHA256_AARCH64"],
+            "aarch64 rustup-init sha must match phase-0",
+        )
+    }
+
+    @Test
+    fun `rust rustup-init shas are the upstream sidecar digests`() {
+        val rust = parseEnv("qodana-rust")
+        assertEquals(
+            "4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10",
+            rust["RUSTUP_INIT_SHA256_X86_64"],
+            "x86_64 rustup-init upstream sha",
+        )
+        assertEquals(
+            "9732d6c5e2a098d3521fca8145d826ae0aaa067ef2385ead08e6feac88fa5792",
+            rust["RUSTUP_INIT_SHA256_AARCH64"],
+            "aarch64 rustup-init upstream sha",
+        )
     }
 }
