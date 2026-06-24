@@ -194,12 +194,13 @@ QODANA_JVM_LINUX_ARM64_SHA256_SIBLING = 200
 
 ### qodana-android feed pin (own pin; bakes the qodana-jvm dist)
 
-android bakes the `qodana-jvm` dist (`QD_LINTER_SLUG=qodana-jvm`) but pins independently so jvm's
-internal-nightly repoint (QD-15032) cannot drag it. Initial values equal the jvm pin above
-(value-neutral decouple); `EnvContractTest` asserts them against `qodana-android.env`.
+android bakes the `qodana-jvm` dist (`QD_LINTER_SLUG=qodana-jvm`) on the internal nightly feed (QD-15173);
+it pins independently but is kept equal to the qodana-jvm nightly above since it bakes the same dist.
+`EnvContractTest` asserts these against `qodana-android.env`. Frozen public-release pin (compose.release.yaml):
+`QODANA_ANDROID_RELEASE_*`.
 
-QODANA_ANDROID_VERSION = 2026.1
-QODANA_ANDROID_BUILD = 261.25881
+QODANA_ANDROID_VERSION = 2026.3
+QODANA_ANDROID_BUILD = 263.484.2575
 
 ### dhi.io hardened base digest
 
@@ -265,39 +266,30 @@ JETBRAINS_PUB_KEY_FINGERPRINT = B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501
 
 ## Community JVM dist (jvm-community — android-community carries its own pin below)
 
-Resolved 2026-06-22 from `download.jetbrains.com/qodana/feed/qodana-jvm-community.releases.json`
-(max-by-Date among `MajorVersion==2026.1` AND `Type==release` — same engine major as
-the `qodana-jvm` pin above, so community + ultimate JVM track one engine major).
-Top-level feed `Code` is `QDJVMC`. The feed is the PUBLIC feed
-(`/qodana/feed`, no token): jvm-community is a released linter, so the image's
-`.env` OMITS `QD_DISTRIBUTION_FEED` and relies on the public default. Keys are
-named to match `BumpPinsCommand.syncDecisions` (slug `qodana-jvm-community` →
-`QODANA_JVM_COMMUNITY_BUILD`); `EnvContractTest` asserts byte-identity against the
-Phase-4 `.env`'s `QD_VERSION` (MajorVersion `2026.1`) and `QD_BUILD` (`261.25881`).
-The download Link embeds an extra build segment (`...-261.25881.145.tar.gz`); use
-the feed's Link VERBATIM — its `.145` differs from `qodana-jvm`'s `.415`, so do
-not reconstruct it from `Build`.
+Repointed onto the INTERNAL nightly dist feed (QD-15173). Resolved 2026-06-24 from
+`packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed/qodana-jvm-community.releases.json`
+(max-by-Date among `MajorVersion==2026.3` AND `Type==eap` — the feed is eap-only, read with the
+`QODANA_READ_SPACE_PACKAGES_TOKEN` bearer). `.env` sets `QD_DISTRIBUTION_FEED` to this feed and
+`QD_VERIFY_MODE=sha256` (the nightly is unsigned — sha256-only, no `.asc`). `EnvContractTest` asserts
+byte-identity against the `.env`'s `QD_VERSION` (`2026.3`) and `QD_BUILD` (`263.484.2162`). Frozen
+public-release pin (token-free reproduction, compose.release.yaml): `QODANA_JVM_COMMUNITY_RELEASE_*`.
 
-QODANA_JVM_COMMUNITY_VERSION = 2026.1
-QODANA_JVM_COMMUNITY_BUILD = 261.25881
+QODANA_JVM_COMMUNITY_VERSION = 2026.3
+QODANA_JVM_COMMUNITY_BUILD = 263.484.2162
 
-Full release version (for reference; NOT the `QD_VERSION`/`QD_BUILD` pin):
+Download links (verbatim from the internal feed):
 
-QODANA_JVM_COMMUNITY_FULL_VERSION = 2026.1.4
+QODANA_JVM_COMMUNITY_LINUX_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-jvm-community/qodana-QDJVMC-263.484.2162.tar.gz
+QODANA_JVM_COMMUNITY_LINUX_ARM64_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-jvm-community/qodana-QDJVMC-263.484.2162-aarch64.tar.gz
 
-Download links (verbatim from the feed):
+### Checksum sibling (DistVerifier depends on this)
 
-QODANA_JVM_COMMUNITY_LINUX_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDJVMC-261.25881.145.tar.gz
-QODANA_JVM_COMMUNITY_LINUX_ARM64_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDJVMC-261.25881.145-aarch64.tar.gz
-
-### Checksum + signature siblings (DistVerifier depends on these)
-
-Both siblings of the linux Link return HTTP 200 (probed live 2026-06-22,
-following CDN redirects): the `.sha256` checksum (`ChecksumLink`) and the
-`.sha256.asc` detached GPG signature (`ChecksumLink + ".asc"`).
+The `.sha256` sibling of each Link returns HTTP 200 (probed live 2026-06-24 with the token, amd64 +
+arm64). There is NO `.sha256.asc`: the internal nightly is unsigned, so `QD_VERIFY_MODE=sha256` skips the
+GPG leg.
 
 QODANA_JVM_COMMUNITY_LINUX_SHA256_SIBLING = 200
-QODANA_JVM_COMMUNITY_LINUX_ASC_SIBLING = 200
+QODANA_JVM_COMMUNITY_LINUX_ARM64_SHA256_SIBLING = 200
 
 ### product-info.json code (verify-dist-layout depends on this)
 
@@ -317,12 +309,12 @@ QODANA_JVM_COMMUNITY_FEED_CODE = QDJVMC
 
 ### qodana-android-community feed pin (own pin; bakes the qodana-jvm-community dist)
 
-android-community bakes the `qodana-jvm-community` dist but pins independently (forward-safe for a
-future jvm-community repoint). Initial values equal the Community JVM pin above; `EnvContractTest`
-asserts them against `qodana-android-community.env`.
+android-community bakes the `qodana-jvm-community` dist on the internal nightly feed (QD-15173), pinned
+independently but kept equal to the Community JVM nightly above (same dist). `EnvContractTest` asserts
+these against `qodana-android-community.env`. Frozen public-release pin: `QODANA_ANDROID_COMMUNITY_RELEASE_*`.
 
-QODANA_ANDROID_COMMUNITY_VERSION = 2026.1
-QODANA_ANDROID_COMMUNITY_BUILD = 261.25881
+QODANA_ANDROID_COMMUNITY_VERSION = 2026.3
+QODANA_ANDROID_COMMUNITY_BUILD = 263.484.2162
 
 ## Python dist (qodana-python — Ultimate)
 

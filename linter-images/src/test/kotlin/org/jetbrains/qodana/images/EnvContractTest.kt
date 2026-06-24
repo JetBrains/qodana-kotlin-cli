@@ -58,40 +58,37 @@ class EnvContractTest {
         }
     }
 
+    /** Asserts the internalFeed profile's VALUES: the internal nightly feed URL + sha256 (unsigned). */
+    private fun assertInternalNightlyFeed(
+        env: Map<String, String>,
+        slug: String,
+    ) {
+        assertEquals(
+            "https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed",
+            env["QD_DISTRIBUTION_FEED"],
+            "$slug fetches the internal nightly dist feed",
+        )
+        assertEquals("sha256", env["QD_VERIFY_MODE"], "$slug nightly dist is unsigned (sha256-only, no GPG .asc)")
+    }
+
     @Test
     fun `qodana-jvm env has exactly the jvm key set`() {
-        // Canonical .env CONTRACT. jvm is the ONE internal-nightly-feed image (QD-15032 Task 11): on top
-        // of the public dist + node keys it carries the internalFeed profile (QD_DISTRIBUTION_FEED +
-        // QD_VERIFY_MODE) and pins the eap channel. Public dist images compose from publicDist (+ node)
-        // WITHOUT internalFeed.
+        // Canonical .env CONTRACT: an internal-feed image = publicDist + node + internalFeed, eap channel.
         val jvm = parseEnv("qodana-jvm")
         assertEquals(publicDist + node + internalFeed, jvm.keys)
         assertEquals("eap", jvm["QD_RELEASE_TYPE"], "jvm pulls the eap internal nightly, not a public release")
-        assertEquals(
-            "https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed",
-            jvm["QD_DISTRIBUTION_FEED"],
-            "jvm fetches the internal nightly dist feed (QD-15032 Task 11)",
-        )
-        assertEquals(
-            "sha256",
-            jvm["QD_VERIFY_MODE"],
-            "the internal nightly dist is unsigned (sha256-only, no GPG .asc)",
-        )
+        assertInternalNightlyFeed(jvm, "qodana-jvm")
     }
 
     @Test
     fun `qodana-jvm-community env has exactly the jvm key set`() {
-        // Community JVM is a normal IDE-dist image like jvm: the public dist + node profile (no QD_CHANNEL,
-        // no QD_DISTRIBUTION_FEED — it uses the PUBLIC feed via the dockerfile default), differing only in
-        // slug/version/build/product-info/base values. The publicDist+node assert also pins the publicDist
-        // profile literal to a real `.env`.
+        // Community JVM is a normal internal-feed image like jvm; the set assert also pins the profile
+        // literals to a real `.env`.
         val community = parseEnv("qodana-jvm-community")
-        assertEquals(publicDist + node, community.keys, "jvm-community must share jvm's PUBLIC key set")
+        assertEquals(publicDist + node + internalFeed, community.keys)
         assertTrue("QD_CHANNEL" !in community, "QD_CHANNEL was removed by the foundation refactor")
-        assertTrue(
-            "QD_DISTRIBUTION_FEED" !in community,
-            "jvm-community uses the public feed (dockerfile default), so it must omit QD_DISTRIBUTION_FEED",
-        )
+        assertEquals("eap", community["QD_RELEASE_TYPE"], "jvm-community pulls the eap internal nightly")
+        assertInternalNightlyFeed(community, "qodana-jvm-community")
         assertEquals("qodana-jvm-community", community["QD_LINTER_SLUG"], "jvm-community has its own dist slug")
         assertEquals(
             "IU",
@@ -128,11 +125,11 @@ class EnvContractTest {
 
     @Test
     fun `qodana-android env has exactly the android key set and no node`() {
-        // publicDist (no node) plus the SDK/Corretto toolchain keys and DIST_BASE_STAGE (the orphan-fix
-        // selector that layers the dist onto android-toolchain).
+        // publicDist + internalFeed (no node) + the SDK/Corretto keys + DIST_BASE_STAGE (orphan-fix
+        // selector → android-toolchain). On the internal feed because it bakes the qodana-jvm dist (same slug).
         val env = parseEnv("qodana-android")
         val expected =
-            publicDist +
+            publicDist + internalFeed +
                 setOf(
                     "DIST_BASE_STAGE",
                     "ANDROID_SDK_VERSION",
@@ -143,6 +140,8 @@ class EnvContractTest {
                 )
         assertEquals(expected, env.keys)
         assertTrue("NODE_MAJOR" !in env, "android must not set NODE_MAJOR (no node toolchain)")
+        assertEquals("eap", env["QD_RELEASE_TYPE"], "android pulls the eap internal nightly")
+        assertInternalNightlyFeed(env, "qodana-android")
         assertEquals("android-toolchain", env["DIST_BASE_STAGE"], "android dist layers onto the SDK stage")
     }
 
@@ -159,10 +158,8 @@ class EnvContractTest {
         )
         assertTrue("NODE_MAJOR" !in community, "android-community must not set NODE_MAJOR (no node toolchain)")
         assertTrue("QD_CHANNEL" !in community, "QD_CHANNEL was removed by the foundation refactor")
-        assertTrue(
-            "QD_DISTRIBUTION_FEED" !in community,
-            "android-community uses the public feed (dockerfile default), so it must omit QD_DISTRIBUTION_FEED",
-        )
+        assertEquals("eap", community["QD_RELEASE_TYPE"], "android-community pulls the eap internal nightly")
+        assertInternalNightlyFeed(community, "qodana-android-community")
         assertEquals(
             "android-toolchain",
             community["DIST_BASE_STAGE"],
