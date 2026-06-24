@@ -1221,3 +1221,18 @@ QODANA_PYTHON_COMMUNITY_LINUX_ARM64_SHA256_SIBLING = 200
 The arm64 dist Links end in the `-aarch64` sibling of each image's linux Link
 recorded above: `qodana-QDPY-261.25883.162-aarch64.tar.gz`,
 `qodana-QDPYC-261.25883.161-aarch64.tar.gz`.
+
+## Multi-arch verification (QD-15182)
+
+`qodana-rust` enabled for `linux/arm64`. The shared trixie base is already recorded
+above (QD-15177); the only arch-fragile piece is `lib/toolchain/rust.dockerfile`,
+now a per-`TARGETARCH` fetch of `rustup-init` (`x86_64`/`aarch64`) — both installers
+sha256-verified (`sha256sum -c`, fail-closed) against the digests in the rustup-init
+section above. Probed 2026-06-24 via `curl -I -L` (dist `.sha256` sibling).
+
+arm64 dist `.sha256` sibling — HTTP 200:
+
+QODANA_RUST_LINUX_ARM64_SHA256_SIBLING = 200
+
+The arm64 dist Link ends in the `-aarch64` sibling of qodana-rust's linux Link:
+`QDRST-261.25885.149-aarch64`.
