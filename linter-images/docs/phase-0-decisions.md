@@ -250,7 +250,7 @@ plain bookworm DOES include apt; -dev matches the qodana-cli source. The value
 keeps the `:trixie-debian13-dev` tag before the digest, so the Phase-4 `.env`
 files MUST use this exact string.
 
-QD_TRIXIE_BASE_IMAGE = dhi.io/debian-base:trixie-debian13-dev@sha256:68b5f4c2c789b99dc6ab7574c7e695e724646f64616619c48c3245f8aaeae459
+QD_TRIXIE_BASE_IMAGE = dhi.io/debian-base:trixie-debian13-dev@sha256:62bc0610151db7155b7225f1a03c299bf109ab0b884da6777d1f808c7834d4ea
 
 ### Vendored JetBrains public key (verification only — we never sign)
 
