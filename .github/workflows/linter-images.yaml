@@ -226,6 +226,13 @@ jobs:
             feed_required: "false"
             arch: amd64
             runner: ubuntu-latest
+          - name: qodana-dotnet
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
           - name: qodana-cpp
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
@@ -317,6 +324,16 @@ jobs:
           echo "::error::QODANA_READ_SPACE_PACKAGES_TOKEN is required for ${{ matrix.image.name }} (private clang-tidy/CLT mirror) but is empty."
           echo "On a fork PR this means the run was not approved by a maintainer; re-run from a same-repo branch."
           exit 1
+      - name: Require license token for licensed images (non-fork)
+        # Without this, a requires_license cell whose licensed e2e step (guarded `!= ''`) soft-skips on an
+        # empty token GREENs with zero scan coverage. token_gated != 'true' keeps the domain equal to that
+        # e2e step — a paid token-gated cell scans via the mirror path and never reads the license token.
+        # Forks get no secret, so the fork signal skips them (mirrors release-smoke); head.repo.fork is null
+        # on push, so the gate is active on main.
+        if: ${{ matrix.image.token_gated != 'true' && matrix.image.requires_license == 'true' && github.event.pull_request.head.repo.fork != true && env.QODANA_LICENSE_ONLY_TOKEN == '' }}
+        run: |
+          echo "::error::QODANA_LICENSE_ONLY_TOKEN is required for ${{ matrix.image.name }} (paid IDE-dist scan) but is empty on a non-fork run (rotated/missing secret)."
+          exit 1
       # --- Non-token-gated images (jvm, android): stage contexts, build, run the harness. --------------
       - name: Stage from-tree contexts (cli + image-tool)
         if: ${{ matrix.image.token_gated != 'true' }}
@@ -361,7 +378,9 @@ jobs:
         if: ${{ matrix.image.token_gated != 'true' && matrix.image.requires_license == 'true' && env.QODANA_LICENSE_ONLY_TOKEN != '' }}
         run: ./gradlew :linter-images:linterE2eTest -Dlinter.e2e.image=${{ matrix.image.name }}
       - name: Note skipped ${{ matrix.image.name }} (no license token)
-        if: ${{ matrix.image.token_gated != 'true' && matrix.image.requires_license == 'true' && env.QODANA_LICENSE_ONLY_TOKEN == '' }}
+        # Fork-scoped: a NON-fork empty token is hard-failed by the "Require license token" gate above, so
+        # this soft-skip is reachable only on a fork PR (where the secret is legitimately unavailable).
+        if: ${{ matrix.image.token_gated != 'true' && matrix.image.requires_license == 'true' && github.event.pull_request.head.repo.fork == true && env.QODANA_LICENSE_ONLY_TOKEN == '' }}
         run: echo "::notice::${{ matrix.image.name }} e2e skipped — QODANA_LICENSE_ONLY_TOKEN unavailable (fork PR)."
 
       # --- Token-gated images (clang, cdnet): identical flow, but build + e2e require the mirror token. -
