@@ -157,10 +157,10 @@ jobs:
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-php
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
+            feed_required: "true"
             arch: arm64
             runner: ubuntu-24.04-arm
           - name: qodana-rust
@@ -227,10 +227,10 @@ jobs:
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-dotnet
-            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
-            feed_required: "false"
+            feed_required: "true"
             arch: arm64
             runner: ubuntu-24.04-arm
           - name: qodana-cpp
