@@ -156,6 +156,13 @@ jobs:
             feed_required: "false"
             arch: amd64
             runner: ubuntu-latest
+          - name: qodana-php
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
           - name: qodana-rust
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml
             token_gated: "false"
