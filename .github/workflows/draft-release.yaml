@@ -73,7 +73,7 @@ jobs:
       tag: ${{ steps.outputs.outputs.tag }}
       sha: ${{ steps.outputs.outputs.sha }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           # Pin to the same commit the build/publish jobs use (target-sha) so prepare normalizes and
           # checks the exact commit being shipped — no drift if `main` advances mid-run. Falls back to
@@ -171,7 +171,7 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.sha }}
       - uses: actions/setup-java@v5
@@ -234,7 +234,7 @@ jobs:
           - { name: windows/amd64, tag: windows-amd64, runner: windows-latest, os: windows, arch: amd64 }
     runs-on: ${{ matrix.platform.runner }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.sha }}
       - uses: ./.github/actions/setup-native-build
@@ -274,7 +274,7 @@ jobs:
         module: [qodana-clang, qodana-cdnet]
     runs-on: ${{ matrix.platform.runner }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.sha }}
       - uses: ./.github/actions/setup-native-build

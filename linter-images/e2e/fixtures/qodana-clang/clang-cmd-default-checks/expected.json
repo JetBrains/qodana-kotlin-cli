@@ -43,13 +43,5 @@
         "reason": "A baked-in wrong target triple surfaces as a clang-diagnostic-error 'unknown target triple', which poisons the whole TU (QD-14974). Must be absent."
       }
     ]
-  },
-  "log": {
-    "mustNotContain": [
-      {
-        "text": "Problems found loading plugins:",
-        "guards": []
-      }
-    ]
   }
 }

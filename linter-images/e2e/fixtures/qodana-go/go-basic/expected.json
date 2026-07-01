@@ -35,10 +35,5 @@
         "reason": "STARTING-GUESS id: the planted `unusedHelper` unexported function that is never called must surface as an unused-declaration inspection; pin the exact id from a CI control run and confirm it is in the Ultimate GoLand profile."
       }
     ]
-  },
-  "log": {
-    "mustNotContain": [
-      { "text": "Problems found loading plugins:", "guards": [] }
-    ]
   }
 }

@@ -26,10 +26,5 @@
         "reason": "The planted `new UndefinedHelperService()` references a class that is never defined or imported; PhpUndefinedClassInspection is enabled in the Ultimate PhpStorm profile and reports it. Pinned from CI control run 27850910835 (PhpUndefinedClassInspection observed firing under driver QDPHP)."
       }
     ]
-  },
-  "log": {
-    "mustNotContain": [
-      { "text": "Problems found loading plugins:", "guards": [] }
-    ]
   }
 }

@@ -32,7 +32,7 @@ jobs:
       # only if a future private-feed pin actually needs it.
       QODANA_READ_SPACE_PACKAGES_TOKEN: ${{ secrets.QODANA_READ_SPACE_PACKAGES_TOKEN }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -54,7 +54,7 @@ jobs:
           FAILED=0
           # Slugs whose linux/arm64 dist we BUILD+SHIP (so its arm64 .sha256 must stay live). Add here
           # when an image is arch-enabled under QD-15171.
-          ARM64_SLUGS=(qodana-jvm qodana-jvm-community qodana-js qodana-go qodana-python qodana-python-community qodana-ruby qodana-rust)
+          ARM64_SLUGS=(qodana-jvm qodana-jvm-community qodana-js qodana-go qodana-php qodana-python qodana-python-community qodana-ruby qodana-rust qodana-dotnet)
           # Read each key per-file with grep (NOT `source`, which would leak a prior file's value into a
           # file that omits the key). jvm and android bake the SAME dist (QD_LINTER_SLUG=qodana-jvm), so
           # the SLUG:VERSION:BUILD:FEED dedup collapses their identical re-verification into one.
@@ -160,7 +160,7 @@ jobs:
       # pins and fails loudly only if a future private-feed pin actually needs it.
       QODANA_READ_SPACE_PACKAGES_TOKEN: ${{ secrets.QODANA_READ_SPACE_PACKAGES_TOKEN }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: actions/setup-java@v5
         with:
           distribution: temurin

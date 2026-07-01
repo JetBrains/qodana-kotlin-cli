@@ -6,13 +6,14 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.writeText
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class ManifestLoaderTest {
     // A representative manifest that exercises every field group: a multi-variant
     // run with caps/securityOpt/extraArgs, a tool expectation, and several
     // expectation flavours (present-by-ruleId, absent-by-pattern, cross-variant
-    // needs-pinning, count + uri/message narrowing), plus a log gate.
+    // needs-pinning, count + uri/message narrowing).
     private val sampleJson =
         """
         {
@@ -64,11 +65,6 @@ class ManifestLoaderTest {
                 "reason": "noise families must never appear"
               }
             ]
-          },
-          "log": {
-            "mustNotContain": [
-              { "text": "Problems found loading plugins:", "guards": [] }
-            ]
           }
         }
         """.trimIndent()
@@ -112,13 +108,6 @@ class ManifestLoaderTest {
         val family = m.sarif.expectations[2]
         assertEquals("^(llvmlibc|fuchsia|altera)-", family.ruleIdPattern)
         assertEquals("==0", family.count)
-
-        assertEquals(
-            "Problems found loading plugins:",
-            m.log.mustNotContain
-                .single()
-                .text,
-        )
     }
 
     @Test
@@ -149,6 +138,17 @@ class ManifestLoaderTest {
         )
         assertEquals(false, m.sarif.qodanaSeverityRequired)
         assertEquals(emptyList(), m.sarif.expectations)
+    }
+
+    @Test
+    fun `rejects a manifest that declares a log field`() {
+        val dir = Files.createTempDirectory("manifest-test")
+        val file = dir.resolve("expected.json")
+        // e2e asserts the wrapper contract, not engine log cleanliness.
+        file.writeText("""{"case":"c","image":"qodana-jvm","description":"d","log":{"mustNotContain":[]}}""")
+        assertFailsWith<com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException> {
+            ManifestLoader.load(file)
+        }
     }
 
     // QD-15022 validity floor: the committed schema file must be syntactically

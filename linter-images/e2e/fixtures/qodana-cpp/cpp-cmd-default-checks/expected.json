@@ -36,8 +36,5 @@
         "reason": "A baked-in wrong target triple surfaces as an 'unknown target triple' diagnostic that poisons the whole TU (QD-14974). Asserted by message across ANY rule id (CLion does not surface it under a stable 'clang-diagnostic-error' id), so the two positive findings above could not be produced if the TU were poisoned. Must be absent."
       }
     ]
-  },
-  "log": {
-    "mustNotContain": []
   }
 }

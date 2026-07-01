@@ -119,7 +119,6 @@ services:
         # unlike the node base), so qodana-php keeps base.dockerfile's default 1000.
       additional_contexts:
         tooling: build/install/image-tool
-    platform: linux/amd64
     image: qodana-php:dev
   qodana-rust:
     build:
@@ -195,7 +194,6 @@ services:
         PRIVILEGED_BASE_STAGE: dotnet-toolchain
       additional_contexts:
         tooling: build/install/image-tool
-    platform: linux/amd64
     image: qodana-dotnet:dev
   qodana-cpp:
     build:
