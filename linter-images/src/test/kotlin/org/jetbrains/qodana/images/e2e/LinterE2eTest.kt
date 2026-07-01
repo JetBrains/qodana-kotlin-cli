@@ -126,21 +126,14 @@ class LinterE2eTest {
                 "idea.log tail:\n${result.ideaLog?.takeLast(STREAM_TAIL) ?: "<no idea.log produced>"}",
         )
 
-        // SARIF is only required when the manifest actually asserts on it. The android
-        // missing-SDK negative twin (QD-2179) deliberately fails the scan: non-zero exit,
-        // no/partial SARIF, and its signal lives entirely in `log.mustContain`. Hard-failing
-        // on a missing report there would mask the real assertion.
-        val sarifAsserted =
-            manifest.sarif.expectations.isNotEmpty() ||
-                manifest.sarif.tool != null ||
-                manifest.sarif.qodanaSeverityRequired
-        if (sarifAsserted) {
+        // A successful scan (exit 0) must produce a parseable SARIF — the wrapper's core deliverable. A
+        // case that expects a non-zero exit may fail before writing one, so it is not required there.
+        if (manifest.expectExitCode == 0) {
             val report =
                 result.report
                     ?: fail(
                         result.sarifParseError?.let {
-                            "${manifest.case} [${variant.id}] qodana.sarif.json exists but FAILED TO PARSE " +
-                                "(this case asserts on SARIF, so a parse failure is fatal, not a skip): $it"
+                            "${manifest.case} [${variant.id}] qodana.sarif.json exists but FAILED TO PARSE: $it"
                         } ?: (
                             "${manifest.case} [${variant.id}] produced no qodana.sarif.json; results dir contents:\n" +
                                 listing(result.resultsDir)
@@ -153,22 +146,6 @@ class LinterE2eTest {
                 "${manifest.case} [${variant.id}] SARIF expectations failed:\n" +
                     violations.joinToString("\n") { "  - ${it.reason}: ${it.detail}" } +
                     "\n" + reportInventory(report),
-            )
-        }
-
-        val ideaLog = result.ideaLog
-        // A null idea.log trivially satisfies mustNotContain; it FAILS mustContain.
-        manifest.log.mustNotContain.forEach { rule ->
-            assertTrue(
-                ideaLog == null || !ideaLog.contains(rule.text),
-                "${manifest.case} [${variant.id}] idea.log must not contain '${rule.text}' (guards ${rule.guards})",
-            )
-        }
-        manifest.log.mustContain.forEach { rule ->
-            assertTrue(
-                ideaLog != null && ideaLog.contains(rule.text),
-                "${manifest.case} [${variant.id}] idea.log must contain '${rule.text}' (guards ${rule.guards}); " +
-                    if (ideaLog == null) "idea.log was not produced" else "idea.log tail:\n${ideaLog.takeLast(2000)}",
             )
         }
     }

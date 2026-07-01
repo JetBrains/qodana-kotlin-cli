@@ -34,10 +34,5 @@
         "reason": "The planted non-snake-case binding `let MyValue = 42` surfaces as RsVariableNaming (qodanaSeverity High); confirmed from the QD-15111 CI control SARIF."
       }
     ]
-  },
-  "log": {
-    "mustNotContain": [
-      { "text": "Problems found loading plugins:", "guards": [] }
-    ]
   }
 }

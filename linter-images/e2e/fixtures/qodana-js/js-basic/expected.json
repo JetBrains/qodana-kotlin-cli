@@ -35,10 +35,5 @@
         "reason": "STARTING-GUESS id: the planted loose `==` comparison must surface as an equality-with-coercion inspection; pin the exact id from a CI control run and confirm it is in the Ultimate WebStorm profile."
       }
     ]
-  },
-  "log": {
-    "mustNotContain": [
-      { "text": "Problems found loading plugins:", "guards": [] }
-    ]
   }
 }

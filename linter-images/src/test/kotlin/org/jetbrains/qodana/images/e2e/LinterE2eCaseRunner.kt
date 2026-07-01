@@ -73,11 +73,10 @@ class LinterE2eCaseRunner(
         val command = commandRunner.run(argv)
 
         val sarifPath = resultsDir.resolve("qodana.sarif.json")
-        // An ABSENT file is a clean null (e.g. the android missing-SDK twin, QD-2179, fails before
-        // writing one). A PRESENT file is parsed; BOTH a thrown exception (malformed JSON) AND a null
-        // result (qodana-sarif/Gson returns null for empty / `[]` / `[null]` content WITHOUT throwing)
-        // are surfaced via [CaseRunResult.sarifParseError], so a SARIF-asserting case fails LOUDLY with
-        // an accurate cause — never the misleading "no SARIF produced" (spec Error-handling section).
+        // An absent file yields a null report; the caller requires a parseable SARIF for every exit-0
+        // case, so that fails loudly. A present file is parsed; both a thrown exception (malformed JSON)
+        // and a null result (qodana-sarif/Gson returns null for empty / `[]` / `[null]` content without
+        // throwing) are surfaced via [CaseRunResult.sarifParseError] so the failure names an accurate cause.
         val report: SarifReport?
         val sarifParseError: Throwable?
         if (sarifPath.isRegularFile()) {

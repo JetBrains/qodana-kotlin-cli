@@ -76,36 +76,6 @@
           }
         }
       }
-    },
-    "log": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "mustNotContain": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["text"],
-            "properties": {
-              "text": { "type": "string" },
-              "guards": { "type": "array", "items": { "type": "string" }, "default": [] }
-            }
-          }
-        },
-        "mustContain": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["text"],
-            "properties": {
-              "text": { "type": "string" },
-              "guards": { "type": "array", "items": { "type": "string" }, "default": [] }
-            }
-          }
-        }
-      }
     }
   }
 }

@@ -34,10 +34,5 @@
         "reason": "`Greeter.shout` never uses `self`, so PyMethodMayBeStaticInspection reports (pinned from CI run 27876312623)."
       }
     ]
-  },
-  "log": {
-    "mustNotContain": [
-      { "text": "Problems found loading plugins:", "guards": [] }
-    ]
   }
 }

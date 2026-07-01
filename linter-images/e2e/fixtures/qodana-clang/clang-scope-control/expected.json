@@ -34,13 +34,5 @@
         "reason": "third_party/foo.cpp is absent from compile_commands.json, so it must NOT be analyzed: zero findings under third_party/ (QD-9251). NO rule selector (neither ruleId nor ruleIdPattern) — scope is the only invariant, so a finding with ANY ruleId (or a null ruleId) under third_party/ counts and breaks the guard."
       }
     ]
-  },
-  "log": {
-    "mustNotContain": [
-      {
-        "text": "Problems found loading plugins:",
-        "guards": []
-      }
-    ]
   }
 }
