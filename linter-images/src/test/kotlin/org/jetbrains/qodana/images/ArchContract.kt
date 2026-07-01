@@ -15,5 +15,6 @@ object ArchContract {
             "qodana-ruby-3.2",
             "qodana-ruby-3.4",
             "qodana-rust",
+            "qodana-dotnet",
         )
 }

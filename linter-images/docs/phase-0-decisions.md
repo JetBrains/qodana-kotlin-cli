@@ -1241,3 +1241,22 @@ inspect` (bases) + `curl -I -L` (dist `.sha256` sibling):
 arm64 dist `.sha256` sibling — HTTP 200:
 
 QODANA_PHP_LINUX_ARM64_SHA256_SIBLING = 200
+
+## Multi-arch verification (QD-15234)
+
+`qodana-dotnet` enabled for `linux/arm64`. NO dockerfile/.env change — dotnet is arch-neutral:
+`lib/toolchain/dotnet.dockerfile` runs a revision-pinned `dotnet-install.sh` (a shell script that
+auto-detects the host arch; .NET SDK 8/9/10 are arm64-linux tier-1) with no `--architecture` flag, node
+comes from NodeSource apt (arch-aware) and eslint from npm (pure JS), and `lib/privileged.dockerfile`
+(sudo) + `lib/base.dockerfile` have no arch-specific bits. The shared trixie base is already a multi-arch
+index (proven by jvm-community/python/rust arm64).
+
+`qodana-dotnet` sets no `QD_VERIFY_MODE`/`QD_DISTRIBUTION_FEED`, so the effective mode is **gpg**: both the
+build's `DistVerifier` and the drift canary (`ARM64_SLUGS`) GPG-verify the arm64 signature, not just the
+sha256. Verified 2026-07-01 that all three arm64 artifacts are live and the signature validates under the
+pinned fingerprint via `image-tool verify-pin --arch arm64 --verify-mode gpg` (public feed):
+
+QODANA_DOTNET_LINUX_ARM64_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDNET-261.24105.117-aarch64.tar.gz
+QODANA_DOTNET_LINUX_ARM64_SHA256 = 188c85c1fcd289b15cac2ec7b12b56b93249a460dc44bd9a2e0a48fa09ea5e55
+QODANA_DOTNET_LINUX_ARM64_ASC_SIBLING = 200
+QODANA_DOTNET_LINUX_ARM64_GPG = GOODSIG+VALIDSIG under B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501

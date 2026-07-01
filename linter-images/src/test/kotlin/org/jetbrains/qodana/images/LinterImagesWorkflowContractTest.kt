@@ -37,6 +37,10 @@ class LinterImagesWorkflowContractTest {
     private val feedRequired = "matrix.image.feed_required == 'true'"
     private val emptyToken = "env.QODANA_READ_SPACE_PACKAGES_TOKEN == ''"
     private val nonEmptyToken = "env.QODANA_READ_SPACE_PACKAGES_TOKEN != ''"
+    private val notTokenGated = "matrix.image.token_gated != 'true'"
+    private val requiresLicense = "matrix.image.requires_license == 'true'"
+    private val emptyLicense = "env.QODANA_LICENSE_ONLY_TOKEN == ''"
+    private val nonFork = "head.repo.fork != true"
 
     @Test
     fun `token-gated cells exist (clang and cdnet)`() {
@@ -65,6 +69,36 @@ class LinterImagesWorkflowContractTest {
         val gate = stepsMatching(feedRequired, emptyToken)
         assertEquals(1, gate.size, "expected exactly one feed_required empty-token gate")
         assertTrue(gate.single().runScript().contains("exit 1"))
+    }
+
+    @Test
+    fun `licensed cells hard-fail on an empty license token for non-fork runs`() {
+        // Domain matches the licensed-e2e step it guards (token_gated != 'true').
+        val gate = stepsMatching(notTokenGated, requiresLicense, nonFork, emptyLicense)
+        assertEquals(1, gate.size, "expected exactly one licensed empty-token non-fork gate")
+        assertTrue(gate.single().runScript().contains("exit 1"), "the licensed gate must exit 1, not no-op")
+        assertTrue(gate.single().runScript().contains("::error::"), "the licensed gate must emit a loud ::error::")
+    }
+
+    @Test
+    fun `a non-fork empty license token cannot reach a scan-skip path`() {
+        val gateIdx =
+            steps.indexOfFirst { s ->
+                listOf(notTokenGated, requiresLicense, nonFork, emptyLicense).all { s.ifExpr().contains(it) }
+            }
+        val licensedE2eIdx = steps.indexOfFirst { it.ifExpr().contains("env.QODANA_LICENSE_ONLY_TOKEN != ''") }
+        val noteIdx = steps.indexOfFirst { it.runScript().contains("QODANA_LICENSE_ONLY_TOKEN unavailable") }
+        assertTrue(gateIdx in 0 until licensedE2eIdx, "gate must precede licensed e2e ($gateIdx<$licensedE2eIdx)")
+        assertTrue(gateIdx < noteIdx, "gate must precede note-skipped ($gateIdx<$noteIdx)")
+        assertTrue(steps[gateIdx]["continue-on-error"]?.asBoolean() != true, "the gate must not continue-on-error")
+        assertTrue(steps[noteIdx].ifExpr().contains("head.repo.fork == true"), "note-skipped must be fork-scoped")
+        // Pin the e2e step's guard domain to the gate's, so a drift in EITHER guard reddens rather than
+        // silently reopening the soft-skip hole.
+        val e2eIf = steps[licensedE2eIdx].ifExpr()
+        assertTrue(
+            e2eIf.contains(notTokenGated) && e2eIf.contains(requiresLicense),
+            "licensed e2e step must share the gate's domain (requires_license && token_gated != 'true'): $e2eIf",
+        )
     }
 
     @Test
@@ -149,5 +183,43 @@ class LinterImagesWorkflowContractTest {
                 ?: error("ARM64_SLUGS=(...) not found in linter-images-drift.yaml")
         val expected = ArchContract.archCapable.map { EnvContract.parseEnv(it).getValue("QD_LINTER_SLUG") }.toSet()
         assertEquals(expected, declared, "drift ARM64_SLUGS must equal arch-capable images' dist slugs")
+    }
+
+    @Test
+    fun `each arch-capable image's arm64 cell has the same gating keys and values as its amd64 cell`() {
+        for (img in ArchContract.archCapable) {
+            val byArch = cells.filter { it["name"].asText() == img }.associateBy { it["arch"].asText() }
+            val amd64 = byArch.getValue("amd64")
+            val arm64 = byArch.getValue("arm64")
+            // Full key-set equality first: catches a NEW gating dimension added to only one cell (a hand-listed
+            // subset would miss it). arch/runner keys are present on both — only their VALUES legitimately differ.
+            assertEquals(
+                amd64.fieldNames().asSequence().toSet(),
+                arm64.fieldNames().asSequence().toSet(),
+                "$img: arm64 cell must declare exactly the same keys as amd64",
+            )
+            // arch/runner differ by design; every other key's value must match.
+            amd64.fieldNames().asSequence().filter { it !in setOf("arch", "runner") }.forEach { k ->
+                assertEquals(amd64[k].asText(), arm64[k].asText(), "$img '$k': arm64 must match amd64")
+            }
+        }
+    }
+
+    @Test
+    fun `qodana-dotnet is inside the licensed hard-fail gate's domain`() {
+        // Parity above only pins arm64 == amd64. Also pin the ABSOLUTE values, so a symmetric flip of both
+        // cells to requires_license:"false" (which parity would accept) can't silently drop dotnet out of the
+        // license gate + licensed-e2e path and green with no scan.
+        val dotnet = cells.filter { it["name"].asText() == "qodana-dotnet" }
+        assertEquals(2, dotnet.size, "qodana-dotnet needs an amd64 + an arm64 cell")
+        dotnet.forEach {
+            val arch = it["arch"].asText()
+            assertEquals(
+                "true",
+                it["requires_license"]?.asText(),
+                "qodana-dotnet/$arch must be requires_license (gate + licensed-e2e domain)",
+            )
+            assertEquals("false", it["token_gated"]?.asText(), "qodana-dotnet/$arch must not be token_gated")
+        }
     }
 }
