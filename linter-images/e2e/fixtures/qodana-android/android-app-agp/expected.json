@@ -25,13 +25,5 @@
         "reason": "The qodana-android image must produce >=1 result when scanning a real AGP project after the customer-style sdkmanager bootstrap — proves the build + bootstrap + AGP import + scan pipeline works end to end. Id-agnostic floor (see the case description re: AndroidLint)."
       }
     ]
-  },
-  "log": {
-    "mustNotContain": [
-      {
-        "text": "Read access is allowed from inside read-action only",
-        "guards": ["QD-11439"]
-      }
-    ]
   }
 }

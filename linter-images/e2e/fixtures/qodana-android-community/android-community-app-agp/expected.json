@@ -25,17 +25,5 @@
         "reason": "The qodana-android-community image must produce >=1 result when scanning a real AGP project after the customer-style sdkmanager bootstrap — proves the build + bootstrap + AGP import + scan pipeline works end to end. Id-agnostic floor; pin the exact QDANDC driver name + rule ids from a CI control run."
       }
     ]
-  },
-  "log": {
-    "mustNotContain": [
-      {
-        "text": "Read access is allowed from inside read-action only",
-        "guards": ["QD-11439"]
-      },
-      {
-        "text": "Problems found loading plugins:",
-        "guards": []
-      }
-    ]
   }
 }

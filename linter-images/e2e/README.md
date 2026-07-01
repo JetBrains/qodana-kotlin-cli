@@ -19,7 +19,7 @@ linter-images/e2e/
   expected-manifest.schema.json     # JSON Schema for expected.json (validated by a unit test)
   fixtures/<image>/<case>/
     project/                        # the real project, mounted at /data/project (carries its qodana.yaml)
-    expected.json                   # run config + SARIF/log assertions for this case
+    expected.json                   # run config + SARIF assertions for this case
 ```
 
 `<image>` ∈ {`qodana-jvm`, `qodana-jvm-community`, `qodana-android`, `qodana-android-community`,
@@ -52,7 +52,6 @@ Conforms to `expected-manifest.schema.json` (and the Kotlin model in
   scope purely by `uriContains` — with `presence` (`present`|`absent`), `count` (`>=N`|`==N`|`==0`),
   `uriContains`, `messageContains`, `variant`, `pin` (`confirmed`|`needs-pinning`), `guards` (ticket
   ids), and a mandatory `reason`.
-- `log` — `mustNotContain` / `mustContain` substrings checked against `log/idea.log`.
 
 ### Hermeticity
 

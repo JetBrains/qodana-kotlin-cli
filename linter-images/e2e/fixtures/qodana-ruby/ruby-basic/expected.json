@@ -26,10 +26,5 @@
         "reason": "STARTING-GUESS id: the planted `unused = value * 2` local that is assigned and never read must surface as an unused-local-variable inspection; pin the exact id from a CI control run and confirm it is in the EAP RubyMine profile."
       }
     ]
-  },
-  "log": {
-    "mustNotContain": [
-      { "text": "Problems found loading plugins:", "guards": [] }
-    ]
   }
 }

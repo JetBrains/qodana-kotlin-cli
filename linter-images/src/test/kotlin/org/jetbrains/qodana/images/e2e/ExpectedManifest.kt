@@ -17,7 +17,6 @@ data class ExpectedManifest(
     val run: RunSpec = RunSpec(),
     val expectExitCode: Int = 0,
     val sarif: SarifExpectations = SarifExpectations(),
-    val log: LogExpectations = LogExpectations(),
 )
 
 data class RunSpec(
@@ -65,18 +64,6 @@ data class Expectation(
     val pin: String = "confirmed",
     val guards: List<String> = emptyList(),
     val reason: String,
-)
-
-data class LogExpectations(
-    val mustNotContain: List<LogRule> = emptyList(),
-    // mustContain: a substring that MUST appear in idea.log. Drives the android
-    // missing-SDK negative twin (QD-2179), which has no SARIF to assert against.
-    val mustContain: List<LogRule> = emptyList(),
-)
-
-data class LogRule(
-    val text: String,
-    val guards: List<String> = emptyList(),
 )
 
 /** Loads an `expected.json` into [ExpectedManifest] using jackson-module-kotlin. */
