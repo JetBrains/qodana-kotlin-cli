@@ -1,5 +1,6 @@
 package org.jetbrains.qodana.images
 
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
@@ -69,11 +70,23 @@ class FontLibIncludeTest {
     @ValueSource(
         strings = ["qodana-jvm", "qodana-jvm-community", "qodana-android", "qodana-android-community", "qodana-rust"],
     )
-    fun `image wires in the fonts fix`(image: String) {
-        val dockerfile = Path.of("docker/images/$image.dockerfile").readText()
-        assertTrue(
-            Regex("""(?m)^INCLUDE\s+lib/fonts\.dockerfile\s*$""").containsMatchIn(dockerfile),
-            "$image must INCLUDE lib/fonts.dockerfile so the JBR font libs ship",
+    fun `fonts include is each image's terminal directive so the unprivileged USER wins`(image: String) {
+        // Assert it is wired in AND last: the composed image's effective final USER is the last include's
+        // final USER, so an include appended after fonts (e.g. one that flips to USER 0) would ship a root
+        // image while a mere presence check stayed green.
+        val lastDirective =
+            Path
+                .of("docker/images/$image.dockerfile")
+                .readText()
+                .lineSequence()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && !it.startsWith("#") }
+                .lastOrNull()
+        assertEquals(
+            "INCLUDE lib/fonts.dockerfile",
+            lastDirective,
+            "$image must END with `INCLUDE lib/fonts.dockerfile` so its unprivileged USER is the image's " +
+                "effective final USER (an include after it could re-escalate to root undetected)",
         )
     }
 }

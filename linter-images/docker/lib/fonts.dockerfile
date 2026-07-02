@@ -1,8 +1,10 @@
-# JBR font-manager native libs, shared by the JVM/Android family (IDEA / Android Studio): their bundled
-# JBR dlopens libfreetype.so.6 while rendering the Maven/Gradle sync build view during project-model
-# configuration; absent, the font init throws and headless project-open can hang instead of failing.
-# Terminal include (continues the runtime stage); bare ARGs inherit base's UID/GID -- a `=1000` default
-# would shadow the INCLUDE_ARGS override.
+# JBR font-manager native libs, shared by every bundled-JBR IDE image that renders a build-tool sync view
+# during project-model configuration: the JVM/Android family (IDEA / Android Studio, Maven/Gradle) and
+# Rust (RustRover, Cargo). Their JBR dlopens libfreetype.so.6 while rendering that view; absent, the font
+# init throws and headless project-open can hang instead of failing. qodana-cpp keeps its own inline copy
+# (it also needs the .NET runtime libs). Must be the LAST include so its unprivileged USER is the image's
+# effective final USER; bare ARGs inherit base's UID/GID — a `=1000` default would shadow the INCLUDE_ARGS
+# override.
 ARG QODANA_UID
 ARG QODANA_GID
 USER 0
