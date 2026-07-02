@@ -1,6 +1,6 @@
 name: Linter images
 
-# Additive CI for the in-repo Qodana linter images (qodana-jvm/android/clang). Separate from the
+# Additive CI for the in-repo Qodana linter images. Separate from the
 # stock `CI` workflow's `Qodana` gate — this builds each IMAGE from this tree (CLI_SOURCE=context)
 # and runs the in-tree e2e fixtures against it the way a real customer would (the @Tag("linter-e2e")
 # harness). CI-only: the docker-driving suite can't run on the arm64 dev box. The arch-capable images
@@ -256,7 +256,7 @@ jobs:
             runner: ubuntu-latest
     env:
       # QODANA_READ_SPACE_PACKAGES_TOKEN reads the private JetBrains Space packages — the qodana-cli-deps
-      # mirror (clang/cdnet) AND the internal nightly dist feed (jvm). Surfaced as `env.*` so the
+      # mirror (clang/cdnet) AND the internal nightly dist feed (every dist image). Surfaced as `env.*` so the
       # clang/cdnet hard-fail and the feed_required hard-fail `if:`s can reference it (`secrets.*` is not
       # addressable in a step-level `if:`). QODANA_LICENSE_ONLY_TOKEN licenses the paid IDE-dist linters
       # at scan time in license-only mode (no upload); likewise surfaced as `env.*` for the paid-image
@@ -359,9 +359,9 @@ jobs:
           esac
       - name: Build ${{ matrix.image.name }}
         if: ${{ matrix.image.token_gated != 'true' }}
-        # Public-feed images fetch the IDE dist from the public mirror (GPG+sha256). Internal-feed images
-        # (qodana-jvm) add compose.private.yaml, so the space_packages_token secret is mounted required=false
-        # and they pull the internal nightly verified sha256-only — the job-level token supplies it.
+        # Every dist image fetches its IDE dist from the internal nightly feed: the compose.private.yaml
+        # overlay mounts the space_packages_token (required=false) and the dist is verified sha256-only —
+        # the job-level token supplies it. (Token-gated clang/cdnet mount the same token for the mirror.)
         run: |
           docker compose ${{ matrix.image.compose_files }} build ${{ matrix.image.name }}
           # Reclaim the BuildKit cache (a near-duplicate of the image layers) before the scan; the
