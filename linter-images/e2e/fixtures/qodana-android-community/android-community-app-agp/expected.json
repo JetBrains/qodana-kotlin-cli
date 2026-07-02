@@ -1,7 +1,7 @@
 {
   "case": "android-community-app-agp",
   "image": "qodana-android-community",
-  "description": "Community twin of qodana-android's android-app-agp: a single-module AGP app whose qodana.yaml bootstrap accepts SDK licenses and installs platforms;android-34 + build-tools;34.0.0 (the documented customer flow), then Qodana imports + scans. Validates the qodana-android-community image end to end: build + customer bootstrap + AGP import + scan producing SARIF, with plugins loaded cleanly. Network on (android's accepted cost). tool.driverName/driverFullName are NEEDS-PINNING (the QDANDC code is unconfirmed): pin both from a CI control run. The result assertion is an id-agnostic >=1 floor (same as android — broadening it to the AndroidLint family, QD-11439, is a follow-up).",
+  "description": "Community twin of android-app-agp: a single-module AGP app. The qodana.yaml bootstrap accepts SDK licenses and installs platforms;android-34 (the compile SDK). A Qodana scan is an IDE model import + inspections (not a build), so THIS fixture's scan needs no build-tools/aapt2. Validates qodana-android-community end to end: build + bootstrap + AGP import + analysis producing SARIF, with plugins loaded cleanly. Network on. The scan reliably flags an unstable Gradle/AGP DSL API in settings.gradle.kts as UnstableApiUsage. driver is QDJVM (the Community dist reports the Pro product code; qodana-android-community reuses the qodana-jvm-community dist). Deeper AndroidLint app-code assertions are QD-11439.",
   "run": {
     "network": "bridge",
     "extraArgs": ["--no-statistics"],
@@ -12,17 +12,19 @@
   "expectExitCode": 0,
   "sarif": {
     "tool": {
-      "driverName": null,
-      "driverFullName": null
+      "driverName": "QDJVM",
+      "driverFullName": "Qodana for JVM"
     },
     "qodanaSeverityRequired": false,
     "expectations": [
       {
+        "ruleId": "UnstableApiUsage",
         "presence": "present",
         "count": ">=1",
-        "pin": "needs-pinning",
+        "uriContains": "settings.gradle.kts",
+        "pin": "confirmed",
         "guards": [],
-        "reason": "The qodana-android-community image must produce >=1 result when scanning a real AGP project after the customer-style sdkmanager bootstrap — proves the build + bootstrap + AGP import + scan pipeline works end to end. Id-agnostic floor; pin the exact QDANDC driver name + rule ids from a CI control run."
+        "reason": "qodana-android-community analyzes the project's Kotlin build script and flags an unstable Gradle/AGP DSL API in settings.gradle.kts as UnstableApiUsage. Confirmed from the QD-15247 CI control run (PR #108: 4x on settings.gradle.kts, driver QDJVM — the Community dist reports the Pro code — on both amd64 and arm64). AndroidLint app-code depth is QD-11439."
       }
     ]
   }

@@ -1,7 +1,7 @@
 {
   "case": "android-app-agp",
   "image": "qodana-android",
-  "description": "Single-module AGP app; qodana.yaml bootstrap accepts SDK licenses and installs platforms;android-34 + build-tools;34.0.0 (the documented customer flow), then Qodana imports + scans. Validates the qodana-android image end to end: build + customer bootstrap + AGP import + scan producing SARIF, with plugins loaded cleanly. Network on (android's accepted cost). NOTE: on this image a valid AGP scan currently reports only platform inspections (e.g. UnstableApiUsage), NOT the AndroidLint family (HardcodedText/ContentDescription) the planted layout defects target — so the assertion is an id-agnostic >=1 floor for now; broadening it to guard the AndroidLint category (QD-11439) is a follow-up once it's confirmed whether AndroidLint should run here.",
+  "description": "Single-module AGP app. The qodana.yaml bootstrap accepts SDK licenses and installs platforms;android-34 (the compile SDK). A Qodana scan is an IDE Gradle model import + inspections (not a build), so THIS fixture's scan needs no build-tools/aapt2. Validates qodana-android end to end: build + bootstrap + AGP import + analysis producing SARIF, with plugins loaded cleanly. Network on (android's accepted cost). The scan reliably flags an unstable Gradle/AGP DSL API in the Kotlin build script settings.gradle.kts as UnstableApiUsage (driver QDJVM — qodana-android reuses the qodana-jvm dist). Deeper AndroidLint app-code assertions (HardcodedText/ContentDescription) are QD-11439.",
   "run": {
     "network": "bridge",
     "extraArgs": ["--no-statistics"],
@@ -18,11 +18,13 @@
     "qodanaSeverityRequired": false,
     "expectations": [
       {
+        "ruleId": "UnstableApiUsage",
         "presence": "present",
         "count": ">=1",
+        "uriContains": "settings.gradle.kts",
         "pin": "confirmed",
         "guards": [],
-        "reason": "The qodana-android image must produce >=1 result when scanning a real AGP project after the customer-style sdkmanager bootstrap — proves the build + bootstrap + AGP import + scan pipeline works end to end. Id-agnostic floor (see the case description re: AndroidLint)."
+        "reason": "qodana-android analyzes the project's Kotlin build script and flags an unstable Gradle/AGP DSL API in settings.gradle.kts as UnstableApiUsage. Confirmed from the QD-15247 CI control run (PR #108: 4x on settings.gradle.kts, driver QDJVM, on both amd64 and arm64). AndroidLint app-code depth is QD-11439."
       }
     ]
   }

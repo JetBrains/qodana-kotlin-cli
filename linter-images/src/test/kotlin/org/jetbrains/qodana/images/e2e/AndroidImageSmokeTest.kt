@@ -14,7 +14,8 @@ import kotlin.test.fail
  *
  * Unlike [LinterE2eTest] this produces no SARIF: it execs a shell into the selected image's `:dev`
  * tag and asserts the image's Android SDK + Corretto provisioning is intact (ANDROID_HOME,
- * sdkmanager, platform-tools, Corretto 11 + 17). Different KIND of assertion (image filesystem
+ * sdkmanager, Corretto 11 + 17), and that platform-tools is NOT baked (dropped for arch-neutrality,
+ * QD-15247). Different KIND of assertion (image filesystem
  * invariants), so it stays out of the manifest/SARIF pipeline and does not touch DockerRunPlanner /
  * evaluator / manifest.
  *
@@ -50,8 +51,10 @@ class AndroidImageSmokeTest {
                                 "{ echo 'missing sdkmanager'; exit 12; }; ",
                         )
                         append(
-                            "[ -d \"$ANDROID_HOME/platform-tools\" ] || " +
-                                "{ echo 'missing platform-tools'; exit 13; }; ",
+                            // platform-tools is deliberately NOT baked (x86_64-only adb/fastboot the scan
+                            // never runs; QD-15247, arch-neutral). Lock its absence so a re-add is caught.
+                            "[ ! -e \"$ANDROID_HOME/platform-tools\" ] || " +
+                                "{ echo 'unexpected platform-tools (dropped for arch-neutrality)'; exit 13; }; ",
                         )
                         append("[ -d \"$CORRETTO11\" ] || { echo 'missing $CORRETTO11'; exit 14; }; ")
                         append("[ -d \"$CORRETTO17\" ] || { echo 'missing $CORRETTO17'; exit 15; }; ")
