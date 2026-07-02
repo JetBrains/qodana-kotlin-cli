@@ -3,7 +3,8 @@ linter: qodana-android-community
 projectJDK: "17"
 
 # Customer-style SDK provisioning. The image exports ANDROID_HOME=/opt/android-sdk and bundles
-# cmdline-tools + Corretto 11/17, but bakes NO compile-SDK platform/build-tools — the customer
-# installs those here (QD-15022). bootstrap also gives the Gradle daemon a complete JDK
-# (the QD-14924 pattern): the bundled JBR is a runtime, not a full JDK.
+# cmdline-tools + Corretto 11/17 (no platform-tools/build-tools — arch-neutral). The customer installs
+# the compile SDK here (platforms;android-34, arch-neutral android.jar). A Qodana scan is a model import,
+# not a build, so THIS project's scan needs no build-tools/aapt2 (QD-15022, QD-15247). bootstrap also
+# gives the Gradle daemon a complete JDK (the QD-14924 pattern): the bundled JBR is a runtime.
 bootstrap: bash bootstrap.sh
