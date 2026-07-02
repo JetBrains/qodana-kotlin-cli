@@ -1180,3 +1180,32 @@ feed (probed with the token 2026-07-02) returns HTTP 200:
 
 QODANA_DOTNET_LINUX_ARM64_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-dotnet/qodana-QDNET-263.136.1738-aarch64.tar.gz
 QODANA_DOTNET_LINUX_ARM64_SHA256_SIBLING = 200
+
+## Multi-arch verification (QD-15247)
+
+`qodana-android` + `qodana-android-community` enabled for `linux/arm64`, and the x86_64-only Android SDK
+tooling the scan never runs was dropped so the toolchain is arch-neutral. A Qodana Android scan is an IDE
+Gradle model import + inspections, NOT a `./gradlew` build — the amd64 e2e logs show only
+`:prepareKotlinBuildScriptModel` ran (no AGP resource tasks, no native `aapt2`/`adb` process; findings on
+Kotlin source). So the scan never executes the SDK's native resource compiler (`aapt2`, in `build-tools`)
+or `platform-tools` (`adb`), both of which Google ships x86_64-only. Changes:
+
+- `lib/toolchain/android.dockerfile`: dropped `sdkmanager "platform-tools"` (only license pre-accept
+  remains, with a fail-loud post-condition asserting `$ANDROID_HOME/licenses` was written). Toolchain is
+  now cmdline-tools (Java) + Corretto 11/17 (multi-arch OCI indices) on a multi-arch base.
+- Both fixtures' `bootstrap.sh`: install only `platforms;android-34` (arch-neutral `android.jar`), no
+  `build-tools`; `app/build.gradle.kts`: dropped the pinned `buildToolsVersion`. Verified on native arm64
+  that `./gradlew :app:help` is BUILD SUCCESSFUL without `build-tools` present.
+
+Multi-arch inputs (verified 2026-07-01): Corretto 11 & 17 (digest-pinned) are multi-arch indices with
+`linux/arm64/v8`; both bases (`bookworm` for android, `trixie` for android-community) are multi-arch;
+cmdline-tools zip is arch-generic Java. Internal-feed arm64 dists live (HTTP 200, sha256 mode):
+
+QODANA_ANDROID_LINUX_ARM64_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-jvm/qodana-QDJVM-263.484.2575-aarch64.tar.gz
+QODANA_ANDROID_LINUX_ARM64_SHA256 = 90f06642d589b3782e07eccb1d5442111d30d4e98f56bc5be7031e7bcd47b9f0
+QODANA_ANDROID_COMMUNITY_LINUX_ARM64_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-jvm-community/qodana-QDJVMC-263.484.2162-aarch64.tar.gz
+QODANA_ANDROID_COMMUNITY_LINUX_ARM64_SHA256 = 8b028d61659bffb63734e2ad0795bee336f9877008eeee14c86546b6889d6faa
+
+No `ARM64_SLUGS` change: android's dist slug is `qodana-jvm` and android-community's is
+`qodana-jvm-community` (both reuse the JVM dist) — already re-verified by the jvm legs, so the drift
+canary dedup covers them.

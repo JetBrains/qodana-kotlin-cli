@@ -1,7 +1,7 @@
 {
   "case": "android-community-app-agp",
   "image": "qodana-android-community",
-  "description": "Community twin of qodana-android's android-app-agp: a single-module AGP app whose qodana.yaml bootstrap accepts SDK licenses and installs platforms;android-34 + build-tools;34.0.0 (the documented customer flow), then Qodana imports + scans. Validates the qodana-android-community image end to end: build + customer bootstrap + AGP import + scan producing SARIF, with plugins loaded cleanly. Network on (android's accepted cost). tool.driverName/driverFullName are NEEDS-PINNING (the QDANDC code is unconfirmed): pin both from a CI control run. The result assertion is an id-agnostic >=1 floor (same as android — broadening it to the AndroidLint family, QD-11439, is a follow-up).",
+  "description": "Community twin of android-app-agp: a single-module AGP app with a planted Kotlin defect (an empty catch in MainActivity.kt). The qodana.yaml bootstrap accepts SDK licenses and installs platforms;android-34 (the compile SDK). A Qodana scan is an IDE model import + inspections (not a build), so THIS fixture's scan needs no build-tools/aapt2. Validates qodana-android-community end to end: build + bootstrap + AGP import + Kotlin analysis producing SARIF, with plugins loaded cleanly. Network on. qodana-android-community reuses the qodana-jvm-community dist, so the empty catch surfaces as CatchMayIgnoreException (pinned in jvmc-basic). driverName/driverFullName are NEEDS-PINNING — pin both from the CI failure inventory dump alongside the rule id. The layout's AndroidLint defects are asserted once AndroidLint is confirmed to run here (QD-11439).",
   "run": {
     "network": "bridge",
     "extraArgs": ["--no-statistics"],
@@ -18,11 +18,13 @@
     "qodanaSeverityRequired": false,
     "expectations": [
       {
+        "ruleId": "CatchMayIgnoreException",
         "presence": "present",
         "count": ">=1",
+        "uriContains": "MainActivity.kt",
         "pin": "needs-pinning",
         "guards": [],
-        "reason": "The qodana-android-community image must produce >=1 result when scanning a real AGP project after the customer-style sdkmanager bootstrap — proves the build + bootstrap + AGP import + scan pipeline works end to end. Id-agnostic floor; pin the exact QDANDC driver name + rule ids from a CI control run."
+        "reason": "STARTING-GUESS id: the planted empty `catch (e: Exception) {}` in MainActivity.kt must surface as CatchMayIgnoreException (confirmed for the shared qodana-jvm-community dist in jvmc-basic; here on Kotlin). If the Kotlin id differs, read the observed id (and the driver name/fullName) from the CI failure inventory dump and pin them confirmed."
       }
     ]
   }
