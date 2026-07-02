@@ -8,11 +8,9 @@ import java.nio.file.Path
 import kotlin.io.path.readText
 
 /**
- * Guards the shared JBR font-manager fix for the qodana-jvm/android family (QD-15265). IDEA and Android
- * Studio's bundled JBR dlopens libfreetype.so.6 while rendering the Maven/Gradle sync build view during
- * project-model configuration; absent, the font init throws and headless project-open can hang instead of
- * failing. The fix lives in `lib/fonts.dockerfile` (cf. the inline blocks in qodana-cpp/qodana-rust) and is
- * INCLUDEd by each family image. EnvContractTest cannot see this (no `.env` key), so this reads the sources.
+ * Guards the shared JBR font-manager fix in `lib/fonts.dockerfile` (rationale in that file's header),
+ * INCLUDEd by each jvm/android family image. Separate from EnvContractTest because there is no `.env`
+ * key, so this reads the Dockerfile sources directly.
  */
 class JvmFamilyFontLibTest {
     private val fonts: String = Path.of("docker/lib/fonts.dockerfile").readText()
@@ -24,8 +22,23 @@ class JvmFamilyFontLibTest {
         for (pkg in listOf("fontconfig", "libfreetype6")) {
             assertTrue(
                 Regex("""apt-get\s+install\b[^\n]*\b${Regex.escape(pkg)}\b""").containsMatchIn(fonts),
-                "lib/fonts.dockerfile must `apt-get install $pkg`: the JBR font manager dlopens " +
-                    "libfreetype.so.6 when the sync build view renders; absent → headless project-open hang",
+                "lib/fonts.dockerfile must `apt-get install $pkg` (the JBR font manager needs libfreetype)",
+            )
+        }
+    }
+
+    @Test
+    fun `fonts include declares bare QODANA_UID and QODANA_GID with no shadowing default`() {
+        // A `=1000` default on these ARGs would shadow the INCLUDE_ARGS override, so the image would run
+        // as that uid regardless — and the final `USER ${QODANA_UID}` line would still look correct.
+        for (arg in listOf("QODANA_UID", "QODANA_GID")) {
+            assertTrue(
+                Regex("""(?m)^ARG\s+$arg\s*$""").containsMatchIn(fonts),
+                "lib/fonts.dockerfile must declare bare `ARG $arg`",
+            )
+            assertTrue(
+                !Regex("""(?m)^ARG\s+$arg\s*=""").containsMatchIn(fonts),
+                "`ARG $arg` must carry no default (a default shadows the INCLUDE_ARGS uid/gid override)",
             )
         }
     }
@@ -56,7 +69,7 @@ class JvmFamilyFontLibTest {
         val dockerfile = Path.of("docker/images/$image.dockerfile").readText()
         assertTrue(
             Regex("""(?m)^INCLUDE\s+lib/fonts\.dockerfile\s*$""").containsMatchIn(dockerfile),
-            "$image must INCLUDE lib/fonts.dockerfile so the JBR font libs ship (QD-15265)",
+            "$image must INCLUDE lib/fonts.dockerfile so the JBR font libs ship",
         )
     }
 }
