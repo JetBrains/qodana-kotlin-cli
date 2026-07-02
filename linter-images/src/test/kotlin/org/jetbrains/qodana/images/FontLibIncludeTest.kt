@@ -8,11 +8,13 @@ import java.nio.file.Path
 import kotlin.io.path.readText
 
 /**
- * Guards the shared JBR font-manager fix in `lib/fonts.dockerfile` (rationale in that file's header),
- * INCLUDEd by each jvm/android family image. Separate from EnvContractTest because there is no `.env`
- * key, so this reads the Dockerfile sources directly.
+ * Guards the shared JBR font-manager fix in `lib/fonts.dockerfile` (rationale in that file's header) and
+ * every image that INCLUDEs it. Bundled-JBR IDEs dlopen libfreetype.so.6 while rendering the Maven/Gradle
+ * sync build view, so absent the libs headless project-open can hang instead of failing. qodana-cpp keeps
+ * its own inline block (it also carries the .NET runtime libs), so it is covered by CppImageTest, not here.
+ * EnvContractTest cannot see this (no `.env` key), so this reads the Dockerfile sources directly.
  */
-class JvmFamilyFontLibTest {
+class FontLibIncludeTest {
     private val fonts: String = Path.of("docker/lib/fonts.dockerfile").readText()
 
     @Test
@@ -64,8 +66,10 @@ class JvmFamilyFontLibTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["qodana-jvm", "qodana-jvm-community", "qodana-android", "qodana-android-community"])
-    fun `family image wires in the fonts fix`(image: String) {
+    @ValueSource(
+        strings = ["qodana-jvm", "qodana-jvm-community", "qodana-android", "qodana-android-community", "qodana-rust"],
+    )
+    fun `image wires in the fonts fix`(image: String) {
         val dockerfile = Path.of("docker/images/$image.dockerfile").readText()
         assertTrue(
             Regex("""(?m)^INCLUDE\s+lib/fonts\.dockerfile\s*$""").containsMatchIn(dockerfile),
