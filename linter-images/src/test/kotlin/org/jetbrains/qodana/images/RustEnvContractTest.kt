@@ -1,5 +1,6 @@
 package org.jetbrains.qodana.images
 
+import org.jetbrains.qodana.images.EnvContract.internalFeed
 import org.jetbrains.qodana.images.EnvContract.parseEnv
 import org.jetbrains.qodana.images.EnvContract.pin
 import org.jetbrains.qodana.images.EnvContract.publicDist
@@ -24,12 +25,11 @@ import org.junit.jupiter.api.Test
 class RustEnvContractTest {
     @Test
     fun `qodana-rust env has exactly the rust key set and no node`() {
-        // RustRover bundles no JS analysis, so rust is publicDist WITHOUT node, plus its install-stage keys
-        // (DIST_BASE_STAGE + RUST_VERSION + the per-arch RUSTUP_INIT_SHA256_X86_64/_AARCH64). Equivalently
-        // python-community minus MINICONDA_* plus the rustup pins.
+        // RustRover bundles no JS analysis, so rust is publicDist + internalFeed WITHOUT node, plus its
+        // install-stage keys (DIST_BASE_STAGE + RUST_VERSION + the per-arch RUSTUP_INIT_SHA256_X86_64/_AARCH64).
         val env = parseEnv("qodana-rust")
         val expected =
-            publicDist +
+            publicDist + internalFeed +
                 setOf(
                     "DIST_BASE_STAGE",
                     "RUST_VERSION",
@@ -43,10 +43,7 @@ class RustEnvContractTest {
             "qodana-rust keeps the default uid 1000 (trixie base does not occupy 1000), no uid keys",
         )
         assertTrue("QD_CHANNEL" !in env, "QD_CHANNEL was removed by the foundation refactor")
-        assertTrue(
-            "QD_DISTRIBUTION_FEED" !in env,
-            "qodana-rust uses the public feed (dockerfile default), so it must omit QD_DISTRIBUTION_FEED",
-        )
+        EnvContract.assertInternalNightlyFeed(env, "qodana-rust")
         assertEquals("qodana-rust", env["QD_LINTER_SLUG"], "qodana-rust has its own dist slug")
         assertEquals("RR", env["QD_PRODUCT_INFO_CODE"], "qodana-rust product-info code is RR (RustRover)")
         assertEquals("eap", env["QD_RELEASE_TYPE"], "qodana-rust feed has only eap entries")

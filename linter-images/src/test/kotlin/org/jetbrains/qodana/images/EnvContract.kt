@@ -1,5 +1,6 @@
 package org.jetbrains.qodana.images
 
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import java.nio.file.Path
 import kotlin.io.path.readText
@@ -7,9 +8,8 @@ import kotlin.io.path.readText
 /**
  * Shared support for the linter-image `.env` contract tests: the single `parseEnv`/`pin` and the neutral
  * capability profiles each dist image's key set is composed from. The profiles are deliberately NOT
- * derived from any concrete image's `.env`, so no single image acts as the schema baseline; the `js` test
- * (`qodana-js.env` keys == [publicDist]) and `jvm-community` (`== publicDist + node`) pin the profiles to
- * real `.env` data, so a wrong profile literal reddens those tests.
+ * derived from any concrete image's `.env`, so no single image acts as the schema baseline; every dist
+ * image's key-set assert composes from these profiles, so a wrong profile literal reddens those tests.
  */
 object EnvContract {
     private val imagesDir: Path = Path.of("docker/images")
@@ -54,4 +54,17 @@ object EnvContract {
         )
     val node = setOf("NODE_MAJOR")
     val internalFeed = setOf("QD_DISTRIBUTION_FEED", "QD_VERIFY_MODE")
+
+    /** Asserts the internalFeed profile's VALUES: the internal nightly feed URL + sha256 (unsigned). */
+    fun assertInternalNightlyFeed(
+        env: Map<String, String>,
+        slug: String,
+    ) {
+        assertEquals(
+            "https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed",
+            env["QD_DISTRIBUTION_FEED"],
+            "$slug fetches the internal nightly dist feed",
+        )
+        assertEquals("sha256", env["QD_VERIFY_MODE"], "$slug nightly dist is unsigned (sha256-only, no GPG .asc)")
+    }
 }
