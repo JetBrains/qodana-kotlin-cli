@@ -595,7 +595,7 @@ public-release pin (token-free reproduction, compose.release.yaml): `QODANA_PHP_
 QODANA_PHP_VERSION = 2026.3
 QODANA_PHP_BUILD = 262.7881.2010
 
-Download link (verbatim from the internal feed; qodana-php is amd64-only):
+Download link (verbatim from the internal feed):
 
 QODANA_PHP_LINUX_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-php/qodana-QDPHP-262.7881.2010.tar.gz
 
@@ -834,7 +834,7 @@ public-release pin (token-free reproduction, compose.release.yaml): `QODANA_RUST
 QODANA_RUST_VERSION = 2026.3
 QODANA_RUST_BUILD = 262.7982.2437
 
-Download link (verbatim from the internal feed; qodana-rust is amd64-only):
+Download link (verbatim from the internal feed):
 
 QODANA_RUST_LINUX_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-rust/qodana-QDRST-262.7982.2437.tar.gz
 
@@ -920,7 +920,7 @@ public-release pin (token-free reproduction, compose.release.yaml): `QODANA_DOTN
 QODANA_DOTNET_VERSION = 2026.3
 QODANA_DOTNET_BUILD = 263.136.1738
 
-Download link (verbatim from the internal feed; qodana-dotnet is amd64-only):
+Download link (verbatim from the internal feed):
 
 QODANA_DOTNET_LINUX_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-dotnet/qodana-QDNET-263.136.1738.tar.gz
 
@@ -1157,13 +1157,12 @@ The arm64 dist Link ends in the `-aarch64` sibling of qodana-rust's linux Link:
 `COPY --from=composer-base` (literal stage), and BOTH the php base and the composer
 image are multi-arch OCI indices carrying linux/arm64 (so the arm64 composer resolves
 for free); node/eslint are arch-neutral. Probed 2026-06-24 via `docker buildx imagetools
-inspect` (bases) + `curl -I -L` (dist `.sha256` sibling):
+inspect` (bases). The arm64 dist `.sha256` sibling on the internal nightly feed (re-probed with the token 2026-07-02) returns HTTP 200:
 
 - `QD_BASE_IMAGE` `dhi.io/php:8.4-dev@sha256:6640324…` → index, carries linux/arm64.
 - `COMPOSER_IMAGE` `composer:2.10.0@sha256:1b73755…` → index, carries linux/arm64.
 
-arm64 dist `.sha256` sibling — HTTP 200:
-
+QODANA_PHP_LINUX_ARM64_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-php/qodana-QDPHP-262.7881.2010-aarch64.tar.gz
 QODANA_PHP_LINUX_ARM64_SHA256_SIBLING = 200
 
 ## Multi-arch verification (QD-15234)
@@ -1175,12 +1174,9 @@ comes from NodeSource apt (arch-aware) and eslint from npm (pure JS), and `lib/p
 (sudo) + `lib/base.dockerfile` have no arch-specific bits. The shared trixie base is already a multi-arch
 index (proven by jvm-community/python/rust arm64).
 
-`qodana-dotnet` sets no `QD_VERIFY_MODE`/`QD_DISTRIBUTION_FEED`, so the effective mode is **gpg**: both the
-build's `DistVerifier` and the drift canary (`ARM64_SLUGS`) GPG-verify the arm64 signature, not just the
-sha256. Verified 2026-07-01 that all three arm64 artifacts are live and the signature validates under the
-pinned fingerprint via `image-tool verify-pin --arch arm64 --verify-mode gpg` (public feed):
+`qodana-dotnet` is on the internal nightly feed (`QD_DISTRIBUTION_FEED` + `QD_VERIFY_MODE=sha256`), so the
+arm64 dist is sha256-verified — unsigned, no GPG `.asc`. The arm64 dist `.sha256` sibling on the internal
+feed (probed with the token 2026-07-02) returns HTTP 200:
 
-QODANA_DOTNET_LINUX_ARM64_LINK = https://download.jetbrains.com/qodana/2026.1/qodana-QDNET-261.24105.117-aarch64.tar.gz
-QODANA_DOTNET_LINUX_ARM64_SHA256 = 188c85c1fcd289b15cac2ec7b12b56b93249a460dc44bd9a2e0a48fa09ea5e55
-QODANA_DOTNET_LINUX_ARM64_ASC_SIBLING = 200
-QODANA_DOTNET_LINUX_ARM64_GPG = GOODSIG+VALIDSIG under B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501
+QODANA_DOTNET_LINUX_ARM64_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-dotnet/qodana-QDNET-263.136.1738-aarch64.tar.gz
+QODANA_DOTNET_LINUX_ARM64_SHA256_SIBLING = 200

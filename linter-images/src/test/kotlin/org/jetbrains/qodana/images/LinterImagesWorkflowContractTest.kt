@@ -222,4 +222,33 @@ class LinterImagesWorkflowContractTest {
             assertEquals("false", it["token_gated"]?.asText(), "qodana-dotnet/$arch must not be token_gated")
         }
     }
+
+    @Test
+    fun `each cell's feed wiring matches its dot-env feed state`() {
+        // Bind the workflow matrix to the .env source of truth: an image whose .env is on the internal
+        // nightly feed MUST carry feed_required + the compose.private.yaml overlay (which mounts the Space
+        // token for the sha256 dist fetch). The converse of compose.private does NOT hold — token-gated
+        // clang/cdnet also mount it for the mirror token — so the inverse only pins feed_required. Catches a
+        // cell's feed wiring drifting from its .env in a unit test, not only at CI build time.
+        val internalFeedUrl = "https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed"
+        cells.forEach { cell ->
+            val name = cell["name"].asText()
+            val arch = cell["arch"].asText()
+            val onInternalFeed = EnvContract.parseEnv(name)["QD_DISTRIBUTION_FEED"] == internalFeedUrl
+            val feedRequiredVal = cell["feed_required"]?.asText()
+            val composeFiles = cell["compose_files"].asText()
+            if (onInternalFeed) {
+                assertEquals("true", feedRequiredVal, "$name/$arch on the internal feed → feed_required must be true")
+                assertTrue(
+                    "compose.private.yaml" in composeFiles,
+                    "$name/$arch on the internal feed → compose_files must include compose.private.yaml: $composeFiles",
+                )
+            } else {
+                assertFalse(
+                    feedRequiredVal == "true",
+                    "$name/$arch has no embedded dist → feed_required must not be true (was $feedRequiredVal)",
+                )
+            }
+        }
+    }
 }
