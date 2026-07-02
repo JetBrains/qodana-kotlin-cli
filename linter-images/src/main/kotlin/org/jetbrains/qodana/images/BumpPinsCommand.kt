@@ -15,11 +15,11 @@ import kotlin.io.path.name
 /**
  * Per-linter within-major drift bump. For each `.env` under the images dir that pins an IDE dist
  * (has `QD_LINTER_SLUG`), fetch the feed and pick the NEWEST release (max by `Date`) whose
- * `MajorVersion == QD_VERSION` AND `Type == QD_RELEASE_TYPE`. If its `Build` differs from the pinned
- * `QD_BUILD`, rewrite ONLY the `QD_BUILD` line — `QD_VERSION` stays the major (EnvContractTest pins it
- * byte-identical to phase-0-decisions.md, and the major does not move within a within-major bump).
+ * `MajorVersion == QD_VERSION`. If its `Build` differs from the pinned `QD_BUILD`, rewrite ONLY the
+ * `QD_BUILD` line — `QD_VERSION` stays the major (EnvContractTest pins it byte-identical to
+ * phase-0-decisions.md, and the major does not move within a within-major bump).
  *
- * The selected build is resolved ONCE per distinct `(slug, feed, major, releaseType)` and reused
+ * The selected build is resolved ONCE per distinct `(slug, feed, major)` and reused
  * across the `.env` files that share that exact dist pin (jvm + android), so they agree on the new
  * build. After the `.env` rewrites, each image's OWN `QODANA_<IMAGE>_BUILD` row in [decisionsFile] is
  * synced — keyed on the `.env` FILE NAME (see [pinName]), NOT the dist slug, since android reuses the
@@ -70,15 +70,13 @@ class BumpPinsCommand(
         val slug = kv["QD_LINTER_SLUG"]
         val major = kv["QD_VERSION"]
         if (slug == null || major == null) return
-        val releaseType = kv["QD_RELEASE_TYPE"] ?: "release"
         val feed = kv["QD_DISTRIBUTION_FEED"] ?: fallbackFeed
 
         // Key on the FULL selection input — two files sharing only (slug, feed) but differing in
-        // major or release type (or sharing slug/major/type but on a DIFFERENT feed) must NOT reuse
-        // each other's resolved build.
+        // major (or sharing slug/major but on a DIFFERENT feed) must NOT reuse each other's resolved build.
         val newBuild =
-            newestBuildByPin.getOrPut("$slug|$feed|$major|$releaseType") {
-                resolveNewestBuild(feed, slug, major, releaseType) ?: ""
+            newestBuildByPin.getOrPut("$slug|$feed|$major") {
+                resolveNewestBuild(feed, slug, major) ?: ""
             }
         // Rewrite only when the feed offers a different within-major build; otherwise leave the file as-is.
         if (newBuild.isNotEmpty() && newBuild != kv["QD_BUILD"]) {
@@ -99,13 +97,12 @@ class BumpPinsCommand(
         feedUrl: String,
         slug: String,
         major: String,
-        releaseType: String,
     ): String? {
         // Send the token unconditionally when present; FeedClient throws loudly if the fetch fails.
         val token = getEnv(QODANA_READ_SPACE_PACKAGES_TOKEN)?.takeIf { it.isNotBlank() }
         val feed = feedClient.fetch(feedUrl, slug, token)
         return feed.releases
-            .filter { it.majorVersion == major && it.type == releaseType }
+            .filter { it.majorVersion == major }
             .maxByOrNull { parseDate(it.date) }
             ?.build
     }

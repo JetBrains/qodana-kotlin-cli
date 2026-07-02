@@ -12,8 +12,8 @@ import kotlin.test.assertTrue
 /**
  * bump-pins rewrites ONLY `QD_BUILD` within the pinned major, never `QD_VERSION` (which is
  * contractually the MAJOR — EnvContractTest pins it byte-identical to phase-0-decisions.md). It picks
- * the newest within-major release of the pinned `QD_RELEASE_TYPE` and never crosses majors. The feed
- * is read per-`.env` from `QD_DISTRIBUTION_FEED` (falling back to [DEFAULT_DISTRIBUTION_FEED]).
+ * the newest within-major release by date and never crosses majors. The feed is read per-`.env` from
+ * `QD_DISTRIBUTION_FEED` (falling back to [DEFAULT_DISTRIBUTION_FEED]).
  */
 class BumpPinsCommandTest {
     private fun feedRunner(body: String) =
@@ -47,16 +47,15 @@ class BumpPinsCommandTest {
                     QD_LINTER_SLUG=qodana-jvm
                     QD_VERSION=2025.3
                     QD_BUILD=253.1000
-                    QD_RELEASE_TYPE=release
                     """.trimIndent(),
                 )
             }
-        // Feed: a newer within-major build (253.2000, type release) plus a cross-major 261.500.
+        // Feed: a newer within-major build (253.2000) plus a cross-major 261.500.
         val runner =
             feedRunner(
                 """{"Code":"QDJVM","Releases":[
-                  {"Date":"2025-10-01","Type":"release","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}},
-                  {"Date":"2026-02-01","Type":"release","Version":"2026.1.0","MajorVersion":"2026.1","Build":"261.500","Downloads":{}}
+                  {"Date":"2025-10-01","Type":"eap","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}},
+                  {"Date":"2026-02-01","Type":"eap","Version":"2026.1.0","MajorVersion":"2026.1","Build":"261.500","Downloads":{}}
                 ]}""",
             )
         BumpPinsCommand(FeedClient(runner)).rewrite(env.parentFile.toPath())
@@ -69,7 +68,7 @@ class BumpPinsCommandTest {
     }
 
     @Test
-    fun `picks the newest within-major by date and ignores non-matching release types`(
+    fun `picks the newest within-major build by date regardless of type`(
         @TempDir dir: File,
     ) {
         val env =
@@ -79,11 +78,11 @@ class BumpPinsCommandTest {
                     QD_LINTER_SLUG=qodana-jvm
                     QD_VERSION=2025.3
                     QD_BUILD=253.1000
-                    QD_RELEASE_TYPE=release
                     """.trimIndent(),
                 )
             }
-        // Newest by Date is an EAP (must be ignored for QD_RELEASE_TYPE=release); newest RELEASE is 253.2000.
+        // The newest within-major entry by Date wins no matter its Type: the eap (253.3000, 2025-12-01)
+        // beats the older release (253.2000, 2025-10-01) purely on date.
         val runner =
             feedRunner(
                 """{"Code":"QDJVM","Releases":[
@@ -93,8 +92,8 @@ class BumpPinsCommandTest {
             )
         BumpPinsCommand(FeedClient(runner)).rewrite(env.parentFile.toPath())
         val text = env.readText()
-        assertTrue(text.contains("QD_BUILD=253.2000"), text)
-        assertTrue(!text.contains("253.3000"), "EAP build must be ignored for QD_RELEASE_TYPE=release: $text")
+        assertTrue(text.contains("QD_BUILD=253.3000"), "newest within-major by date wins regardless of type: $text")
+        assertTrue(!text.contains("253.1000"), "the stale pin must be replaced: $text")
     }
 
     @Test
@@ -126,14 +125,13 @@ class BumpPinsCommandTest {
             QD_LINTER_SLUG=qodana-jvm
             QD_VERSION=2025.3
             QD_BUILD=253.1000
-            QD_RELEASE_TYPE=release
             QD_DISTRIBUTION_FEED=$customFeed
             """.trimIndent(),
         )
         val runner =
             feedRunner(
                 """{"Code":"QDJVM","Releases":[
-                  {"Date":"2025-10-01","Type":"release","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
+                  {"Date":"2025-10-01","Type":"eap","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
                 ]}""",
             )
         BumpPinsCommand(FeedClient(runner)).rewrite(dir.toPath())
@@ -143,19 +141,18 @@ class BumpPinsCommandTest {
     }
 
     @Test
-    fun `same slug-major-type but different QD_DISTRIBUTION_FEED resolve independently`(
+    fun `same slug-major but different QD_DISTRIBUTION_FEED resolve independently`(
         @TempDir dir: File,
     ) {
         val feedA = "https://feed-a.example.com/feed"
         val feedB = "https://feed-b.example.com/feed"
-        // Two files with the SAME slug/major/releaseType differing ONLY in their feed: each must fetch
-        // its own feed and may land on a different build (the dedup key now includes the feed).
+        // Two files with the SAME slug/major differing ONLY in their feed: each must fetch its own feed
+        // and may land on a different build (the dedup key includes the feed).
         File(dir, "qodana-jvm-a.env").writeText(
             """
             QD_LINTER_SLUG=qodana-jvm
             QD_VERSION=2025.3
             QD_BUILD=253.1000
-            QD_RELEASE_TYPE=release
             QD_DISTRIBUTION_FEED=$feedA
             """.trimIndent(),
         )
@@ -164,7 +161,6 @@ class BumpPinsCommandTest {
             QD_LINTER_SLUG=qodana-jvm
             QD_VERSION=2025.3
             QD_BUILD=253.1000
-            QD_RELEASE_TYPE=release
             QD_DISTRIBUTION_FEED=$feedB
             """.trimIndent(),
         )
@@ -172,10 +168,10 @@ class BumpPinsCommandTest {
             feedRunnerByUrl(
                 mapOf(
                     feedA to """{"Code":"QDJVM","Releases":[
-                      {"Date":"2025-10-01","Type":"release","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
+                      {"Date":"2025-10-01","Type":"eap","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
                     ]}""",
                     feedB to """{"Code":"QDJVM","Releases":[
-                      {"Date":"2025-11-01","Type":"release","Version":"2025.3.5","MajorVersion":"2025.3","Build":"253.5000","Downloads":{}}
+                      {"Date":"2025-11-01","Type":"eap","Version":"2025.3.5","MajorVersion":"2025.3","Build":"253.5000","Downloads":{}}
                     ]}""",
                 ),
             )
@@ -197,7 +193,6 @@ class BumpPinsCommandTest {
                     QD_LINTER_SLUG=qodana-jvm
                     QD_VERSION=2025.3
                     QD_BUILD=253.1000
-                    QD_RELEASE_TYPE=release
                     """.trimIndent(),
                 )
             }
@@ -206,7 +201,7 @@ class BumpPinsCommandTest {
         val runner =
             feedRunner(
                 """{"Code":"QDJVM","Releases":[
-                  {"Date":"2025-10-01","Type":"release","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
+                  {"Date":"2025-10-01","Type":"eap","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
                 ]}""",
             )
         BumpPinsCommand(FeedClient(runner)).rewrite(dir.toPath())
@@ -226,13 +221,12 @@ class BumpPinsCommandTest {
             QD_LINTER_SLUG=qodana-jvm
             QD_VERSION=2025.3
             QD_BUILD=253.1000
-            QD_RELEASE_TYPE=release
             """.trimIndent(),
         )
         val runner =
             feedRunner(
                 """{"Code":"QDJVM","Releases":[
-                  {"Date":"2025-10-01","Type":"release","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
+                  {"Date":"2025-10-01","Type":"eap","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
                 ]}""",
             )
         BumpPinsCommand(
@@ -252,7 +246,6 @@ class BumpPinsCommandTest {
             QD_LINTER_SLUG=qodana-jvm
             QD_VERSION=2025.3
             QD_BUILD=253.1000
-            QD_RELEASE_TYPE=release
             """.trimIndent(),
         )
         val decisions =
@@ -270,7 +263,7 @@ class BumpPinsCommandTest {
         val runner =
             feedRunner(
                 """{"Code":"QDJVM","Releases":[
-                  {"Date":"2025-10-01","Type":"release","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
+                  {"Date":"2025-10-01","Type":"eap","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
                 ]}""",
             )
         BumpPinsCommand(FeedClient(runner)).rewrite(dir.toPath(), decisions.toPath())
@@ -289,7 +282,6 @@ class BumpPinsCommandTest {
             QD_LINTER_SLUG=qodana-jvm-community
             QD_VERSION=2025.3
             QD_BUILD=253.1000
-            QD_RELEASE_TYPE=release
             """.trimIndent(),
         )
         val decisions =
@@ -304,7 +296,7 @@ class BumpPinsCommandTest {
         val runner =
             feedRunner(
                 """{"Code":"QDJVMC","Releases":[
-                  {"Date":"2025-10-01","Type":"release","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
+                  {"Date":"2025-10-01","Type":"eap","Version":"2025.3.2","MajorVersion":"2025.3","Build":"253.2000","Downloads":{}}
                 ]}""",
             )
         BumpPinsCommand(FeedClient(runner)).rewrite(dir.toPath(), decisions.toPath())
@@ -314,7 +306,7 @@ class BumpPinsCommandTest {
     }
 
     @Test
-    fun `bumps an eap internal-feed jvm pin, ignores a newer release entry, forwards the token`(
+    fun `bumps an eap internal-feed jvm pin to the newest within-major and forwards the token`(
         @TempDir dir: File,
     ) {
         val feed = "https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed"
@@ -324,18 +316,15 @@ class BumpPinsCommandTest {
             QD_DISTRIBUTION_FEED=$feed
             QD_VERSION=2026.3
             QD_BUILD=263.1000.10
-            QD_RELEASE_TYPE=eap
             QD_VERIFY_MODE=sha256
             """.trimIndent(),
         )
-        // The newest-by-Date entry is a RELEASE (2026-06-20); it MUST be ignored for QD_RELEASE_TYPE=eap,
-        // so the type filter is genuinely load-bearing — the newest EAP (263.3000.30) wins instead.
+        // The internal nightly feed is eap-only; the newest within-major entry by Date (263.3000.30) wins.
         val runner =
             feedRunner(
                 """{"Code":"QDJVM","Releases":[
                   {"Date":"2026-06-18","Type":"eap","Version":"2026.3","MajorVersion":"2026.3","Build":"263.2000.20","Downloads":{}},
-                  {"Date":"2026-06-19","Type":"eap","Version":"2026.3","MajorVersion":"2026.3","Build":"263.3000.30","Downloads":{}},
-                  {"Date":"2026-06-20","Type":"release","Version":"2026.3","MajorVersion":"2026.3","Build":"263.9999.99","Downloads":{}}
+                  {"Date":"2026-06-19","Type":"eap","Version":"2026.3","MajorVersion":"2026.3","Build":"263.3000.30","Downloads":{}}
                 ]}""",
             )
         BumpPinsCommand(
@@ -343,8 +332,7 @@ class BumpPinsCommandTest {
             getEnv = { if (it == QODANA_READ_SPACE_PACKAGES_TOKEN) "tok-123" else null },
         ).rewrite(dir.toPath())
         val text = File(dir, "qodana-jvm.env").readText()
-        assertTrue(text.contains("QD_BUILD=263.3000.30"), "newest eap nightly must win: $text")
-        assertTrue(!text.contains("263.9999.99"), "a newer release entry must be ignored for eap: $text")
+        assertTrue(text.contains("QD_BUILD=263.3000.30"), "newest within-major nightly must win: $text")
         assertTrue(!text.contains("QD_VERSION=2026.3.0"), "QD_VERSION stays the major: $text")
         assertTrue(text.contains("QD_VERIFY_MODE=sha256"), "bump-pins must leave QD_VERIFY_MODE untouched: $text")
         val feedCurl = runner.invocations.first { it.contains("curl") && it.last().contains("releases.json") }
@@ -366,7 +354,6 @@ class BumpPinsCommandTest {
             QD_LINTER_SLUG=qodana-jvm
             QD_VERSION=2026.1
             QD_BUILD=261.1000
-            QD_RELEASE_TYPE=release
             """.trimIndent(),
         )
         File(dir, "qodana-android.env").writeText(
@@ -374,7 +361,6 @@ class BumpPinsCommandTest {
             QD_LINTER_SLUG=qodana-jvm
             QD_VERSION=2026.1
             QD_BUILD=261.1000
-            QD_RELEASE_TYPE=release
             """.trimIndent(),
         )
         val decisions =
@@ -391,7 +377,7 @@ class BumpPinsCommandTest {
         val runner =
             feedRunner(
                 """{"Code":"QDJVM","Releases":[
-                  {"Date":"2026-07-01","Type":"release","Version":"2026.1.5","MajorVersion":"2026.1","Build":"261.2000","Downloads":{}}
+                  {"Date":"2026-07-01","Type":"eap","Version":"2026.1.5","MajorVersion":"2026.1","Build":"261.2000","Downloads":{}}
                 ]}""",
             )
         BumpPinsCommand(FeedClient(runner)).rewrite(dir.toPath(), decisions.toPath())
@@ -414,7 +400,6 @@ class BumpPinsCommandTest {
             QD_LINTER_SLUG=qodana-ruby
             QD_VERSION=2026.1
             QD_BUILD=261.1000
-            QD_RELEASE_TYPE=release
             """.trimIndent(),
         )
         val decisions =
@@ -424,7 +409,7 @@ class BumpPinsCommandTest {
         val runner =
             feedRunner(
                 """{"Code":"QDRUBY","Releases":[
-                  {"Date":"2026-07-01","Type":"release","Version":"2026.1.5","MajorVersion":"2026.1","Build":"261.2000","Downloads":{}}
+                  {"Date":"2026-07-01","Type":"eap","Version":"2026.1.5","MajorVersion":"2026.1","Build":"261.2000","Downloads":{}}
                 ]}""",
             )
         BumpPinsCommand(FeedClient(runner)).rewrite(dir.toPath(), decisions.toPath())

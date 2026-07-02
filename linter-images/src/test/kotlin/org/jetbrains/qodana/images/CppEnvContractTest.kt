@@ -22,9 +22,8 @@ import org.junit.jupiter.api.Test
  * DIST_BASE_STAGE=privileged is an `.env` KEY (base.dockerfile does NOT default DIST_BASE_STAGE, so the
  * INCLUDE_ARGS value survives — the android/php/ruby/dotnet convention).
  *
- * Key set = jvm's key set (dist + node-toolchain keys) PLUS DIST_BASE_STAGE + CLANG + CLANG_OS. Unlike
- * ruby/rust (eap-only feeds), the QDCPP feed has `release` entries (cpp is no longer eap), so
- * QD_RELEASE_TYPE=release. CLANG=20/CLANG_OS=trixie pins the SINGLE build cell (the trixie LLVM repo row
+ * Key set = jvm's key set (dist + node-toolchain keys) PLUS DIST_BASE_STAGE + CLANG + CLANG_OS.
+ * CLANG=20/CLANG_OS=trixie pins the SINGLE build cell (the trixie LLVM repo row
  * in clang-versions.txt; the multi-clang tag matrix is deferred). Pins are the concrete values in
  * docs/phase-0-decisions.md; this asserts byte-identity for QD_VERSION/QD_BUILD/QD_PRODUCT_INFO_CODE +
  * the shared trixie base.
@@ -54,11 +53,6 @@ class CppEnvContractTest {
         EnvContract.assertInternalNightlyFeed(env, "qodana-cpp")
         assertEquals("qodana-cpp", env["QD_LINTER_SLUG"], "qodana-cpp has its own dist slug")
         assertEquals("CL", env["QD_PRODUCT_INFO_CODE"], "qodana-cpp product-info code is CL (CLion)")
-        assertEquals(
-            "eap",
-            env["QD_RELEASE_TYPE"],
-            "qodana-cpp pulls the eap internal nightly (the QDCPP nightly feed is eap-only)",
-        )
         assertEquals("qodana", env["CLI_BINARY"], "qodana-cpp's inner CLI is the generic qodana (Cli kind)")
         assertEquals(
             parseEnv("qodana-jvm")["NODE_MAJOR"],

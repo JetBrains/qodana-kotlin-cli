@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test
  * NODE_MAJOR: RustRover bundles no JS
  * analysis, so — unlike go/php — rust does NOT layer the node toolchain (the source rust.Dockerfile's
  * ESLINT_VERSION is a dead copy-paste vestige: no node_base COPY, no npm install). Second eap image
- * after ruby (QD_RELEASE_TYPE=eap — the feed has only eap entries).
+ * after ruby (the feed has only eap entries).
  */
 class RustEnvContractTest {
     @Test
@@ -46,7 +46,6 @@ class RustEnvContractTest {
         EnvContract.assertInternalNightlyFeed(env, "qodana-rust")
         assertEquals("qodana-rust", env["QD_LINTER_SLUG"], "qodana-rust has its own dist slug")
         assertEquals("RR", env["QD_PRODUCT_INFO_CODE"], "qodana-rust product-info code is RR (RustRover)")
-        assertEquals("eap", env["QD_RELEASE_TYPE"], "qodana-rust feed has only eap entries")
         assertEquals("rust-toolchain", env["DIST_BASE_STAGE"], "qodana-rust dist layers onto the rust install stage")
     }
 

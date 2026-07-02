@@ -63,7 +63,6 @@ class EnvContractTest {
         // Canonical .env CONTRACT: an internal-feed image = publicDist + node + internalFeed, eap channel.
         val jvm = parseEnv("qodana-jvm")
         assertEquals(publicDist + node + internalFeed, jvm.keys)
-        assertEquals("eap", jvm["QD_RELEASE_TYPE"], "jvm pulls the eap internal nightly, not a public release")
         EnvContract.assertInternalNightlyFeed(jvm, "qodana-jvm")
     }
 
@@ -74,7 +73,6 @@ class EnvContractTest {
         val community = parseEnv("qodana-jvm-community")
         assertEquals(publicDist + node + internalFeed, community.keys)
         assertTrue("QD_CHANNEL" !in community, "QD_CHANNEL was removed by the foundation refactor")
-        assertEquals("eap", community["QD_RELEASE_TYPE"], "jvm-community pulls the eap internal nightly")
         EnvContract.assertInternalNightlyFeed(community, "qodana-jvm-community")
         assertEquals("qodana-jvm-community", community["QD_LINTER_SLUG"], "jvm-community has its own dist slug")
         assertEquals(
@@ -127,7 +125,6 @@ class EnvContractTest {
                 )
         assertEquals(expected, env.keys)
         assertTrue("NODE_MAJOR" !in env, "android must not set NODE_MAJOR (no node toolchain)")
-        assertEquals("eap", env["QD_RELEASE_TYPE"], "android pulls the eap internal nightly")
         EnvContract.assertInternalNightlyFeed(env, "qodana-android")
         assertEquals("android-toolchain", env["DIST_BASE_STAGE"], "android dist layers onto the SDK stage")
     }
@@ -145,7 +142,6 @@ class EnvContractTest {
         )
         assertTrue("NODE_MAJOR" !in community, "android-community must not set NODE_MAJOR (no node toolchain)")
         assertTrue("QD_CHANNEL" !in community, "QD_CHANNEL was removed by the foundation refactor")
-        assertEquals("eap", community["QD_RELEASE_TYPE"], "android-community pulls the eap internal nightly")
         EnvContract.assertInternalNightlyFeed(community, "qodana-android-community")
         assertEquals(
             "android-toolchain",
@@ -224,7 +220,6 @@ class EnvContractTest {
         assertEquals(publicDist + internalFeed + conda, env.keys)
         assertTrue("NODE_MAJOR" !in env, "python-community must not set NODE_MAJOR (conda toolchain, not node)")
         assertTrue("QD_CHANNEL" !in env, "QD_CHANNEL was removed by the foundation refactor")
-        assertEquals("eap", env["QD_RELEASE_TYPE"], "python-community pulls the eap internal nightly")
         EnvContract.assertInternalNightlyFeed(env, "qodana-python-community")
         assertEquals("qodana-python-community", env["QD_LINTER_SLUG"], "python-community has its own dist slug")
         assertEquals(
@@ -272,7 +267,6 @@ class EnvContractTest {
         assertEquals("PY", env["QD_PRODUCT_INFO_CODE"], "python product-info code is PY (PyCharm Professional)")
         assertEquals("conda-toolchain", env["DIST_BASE_STAGE"], "python dist layers onto the conda(+node) stage")
         assertTrue("QD_CHANNEL" !in env, "QD_CHANNEL was removed by the foundation refactor")
-        assertEquals("eap", env["QD_RELEASE_TYPE"], "python pulls the eap internal nightly")
         EnvContract.assertInternalNightlyFeed(env, "qodana-python")
         assertEquals(
             parseEnv("qodana-jvm")["NODE_MAJOR"],
@@ -333,7 +327,6 @@ class EnvContractTest {
             "qodana-js uid override is a compose build arg, not an .env key (INCLUDE_ARGS would clobber it)",
         )
         assertTrue("QD_CHANNEL" !in env, "QD_CHANNEL was removed by the foundation refactor")
-        assertEquals("eap", env["QD_RELEASE_TYPE"], "qodana-js pulls the eap internal nightly")
         EnvContract.assertInternalNightlyFeed(env, "qodana-js")
         assertEquals("qodana-js", env["QD_LINTER_SLUG"], "qodana-js has its own dist slug")
         assertEquals("WS", env["QD_PRODUCT_INFO_CODE"], "qodana-js product-info code is WS (WebStorm)")
@@ -376,7 +369,6 @@ class EnvContractTest {
             "qodana-go keeps the default uid 1000 (golang base does not occupy 1000), no uid keys",
         )
         assertTrue("QD_CHANNEL" !in env, "QD_CHANNEL was removed by the foundation refactor")
-        assertEquals("eap", env["QD_RELEASE_TYPE"], "qodana-go pulls the eap internal nightly")
         EnvContract.assertInternalNightlyFeed(env, "qodana-go")
         assertEquals("qodana-go", env["QD_LINTER_SLUG"], "qodana-go has its own dist slug")
         assertEquals("GO", env["QD_PRODUCT_INFO_CODE"], "qodana-go product-info code is GO (GoLand)")
@@ -434,7 +426,6 @@ class EnvContractTest {
             "qodana-php keeps the default uid 1000 (php base does not occupy 1000), no uid keys",
         )
         assertTrue("QD_CHANNEL" !in env, "QD_CHANNEL was removed by the foundation refactor")
-        assertEquals("eap", env["QD_RELEASE_TYPE"], "qodana-php pulls the eap internal nightly")
         EnvContract.assertInternalNightlyFeed(env, "qodana-php")
         assertEquals("qodana-php", env["QD_LINTER_SLUG"], "qodana-php has its own dist slug")
         assertEquals("PS", env["QD_PRODUCT_INFO_CODE"], "qodana-php product-info code is PS (PhpStorm)")

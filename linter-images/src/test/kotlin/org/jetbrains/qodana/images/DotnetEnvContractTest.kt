@@ -23,8 +23,7 @@ import org.junit.jupiter.api.Test
  *
  * Key set = ruby's key set (jvm's dist + node-toolchain keys + DIST_BASE_STAGE) PLUS `LIBICU_PKG`: the
  * shared `lib/toolchain/dotnet.dockerfile` apt-installs `${LIBICU_PKG:-libicu72}`, and the trixie base
- * needs libicu76 (the cdnet bookworm default is libicu72). Unlike ruby/rust (eap-only feeds), the QDNET
- * feed has `release` entries, so QD_RELEASE_TYPE=release. Pins are the concrete values in
+ * needs libicu76 (the cdnet bookworm default is libicu72). Pins are the concrete values in
  * docs/phase-0-decisions.md; this asserts byte-identity for QD_VERSION/QD_BUILD/QD_PRODUCT_INFO_CODE +
  * the shared trixie base + LIBICU_PKG.
  */
@@ -56,11 +55,6 @@ class DotnetEnvContractTest {
         EnvContract.assertInternalNightlyFeed(env, "qodana-dotnet")
         assertEquals("qodana-dotnet", env["QD_LINTER_SLUG"], "qodana-dotnet has its own dist slug")
         assertEquals("RD", env["QD_PRODUCT_INFO_CODE"], "qodana-dotnet product-info code is RD (Rider)")
-        assertEquals(
-            "eap",
-            env["QD_RELEASE_TYPE"],
-            "qodana-dotnet pulls the eap internal nightly (the QDNET nightly feed is eap-only)",
-        )
         assertEquals("qodana", env["CLI_BINARY"], "qodana-dotnet's inner CLI is the generic qodana (Cli kind)")
         assertEquals(
             parseEnv("qodana-jvm")["NODE_MAJOR"],

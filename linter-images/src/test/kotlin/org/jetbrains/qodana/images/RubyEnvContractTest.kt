@@ -45,11 +45,6 @@ class RubyEnvContractTest {
         assertEquals("qodana-ruby", env["QD_LINTER_SLUG"], "qodana-ruby's shared dist slug")
         assertEquals("RM", env["QD_PRODUCT_INFO_CODE"], "qodana-ruby product-info code is RM (RubyMine)")
         assertEquals(
-            "eap",
-            env["QD_RELEASE_TYPE"],
-            "ruby is the fleet's first eap image (the QDRUBY feed has no release entries)",
-        )
-        assertEquals(
             parseEnv("qodana-jvm")["NODE_MAJOR"],
             env["NODE_MAJOR"],
             "ruby's NODE_MAJOR must match jvm's (shared node toolchain pin)",
@@ -64,7 +59,6 @@ class RubyEnvContractTest {
                 "QD_LINTER_SLUG",
                 "QD_VERSION",
                 "QD_BUILD",
-                "QD_RELEASE_TYPE",
                 "QD_DISTRIBUTION_FEED",
                 "QD_VERIFY_MODE",
                 "QD_PRODUCT_INFO_CODE",
