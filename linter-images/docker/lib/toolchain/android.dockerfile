@@ -1,4 +1,4 @@
-# toolchain/android — Android SDK cmdline-tools + Corretto 11/17. amd64-only, no Node.
+# toolchain/android — Android SDK cmdline-tools + Corretto 11/17. Multiarch (amd64+arm64), no Node.
 # Consumes: ANDROID_SDK_VERSION ANDROID_SDK_SHA256 CORRETTO11_IMAGE CORRETTO17_IMAGE DEVICEID
 ARG ANDROID_SDK_VERSION
 ARG ANDROID_SDK_SHA256
@@ -41,8 +41,16 @@ RUN <<-EOT
 	# `java`/`jre` symlinks dangle post-COPY (they target /etc/alternatives, which isn't copied).
 	export JAVA_HOME=/opt/java/corretto17/java-17-amazon-corretto
 	export PATH="${JAVA_HOME}/bin:${PATH}"
+	# Pre-accept SDK licenses so a customer bootstrap's sdkmanager runs unprompted. NOTHING else is
+	# installed here: no platform-tools (x86_64 adb/fastboot — device tooling a static scan never runs;
+	# unrunnable on arm64) and no build-tools/platform (the customer provisions the compile SDK at scan
+	# time). Keeps the toolchain arch-neutral: cmdline-tools is Java, Corretto is a multi-arch index.
 	yes | "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-	"${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platform-tools"
+	# `|| true` absorbs sdkmanager's SIGPIPE(141) when `yes` writes past the last prompt (benign). But it
+	# also masks a genuine failure (broken JDK, ENOSPC, crash) — and since platform-tools no longer runs
+	# here, no later sdkmanager op would surface it. So assert the licenses were actually written and fail
+	# LOUD otherwise; sdkmanager --licenses records accepted hashes under $ANDROID_HOME/licenses.
+	[ -n "$(ls -A "${ANDROID_HOME}/licenses" 2>/dev/null)" ] || { echo "sdkmanager --licenses accepted nothing" >&2; exit 1; }
 	chown -R 1000:1000 "${ANDROID_HOME}" /opt/java
 	apt-get purge -y unzip
 	apt-get autoremove -y
