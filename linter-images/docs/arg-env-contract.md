@@ -13,7 +13,6 @@ This table lists the `.env` keys `EnvContractTest` asserts. (Build ARGs with inc
 | `QD_LINTER_SLUG`       | `lib/dist.dockerfile` (provision-dist)                  | per-linter               | `qodana-jvm`; android reuses `qodana-jvm`; clang unset                               |
 | `QD_VERSION`           | `lib/dist.dockerfile` (provision-dist `--version`)      | phase-0-decisions.md     | engine MAJOR `2026.1`; jvm+android share it; clang unset                             |
 | `QD_BUILD`             | `lib/dist.dockerfile` (provision-dist `--build`)        | phase-0-decisions.md     | EXACT pinned build `261.…`; jvm+android share it; clang unset; drift bot rewrites    |
-| `QD_RELEASE_TYPE`      | (drift `bump-pins` only)                                | per-linter               | `release` (default) or `eap`; no include consumes it                                 |
 | `QD_PRODUCT_INFO_CODE` | `lib/dist.dockerfile` (verify-dist-layout)              | IntellijLinterProperties | product-info.json code: `IU` for jvm+android; clang unset                            |
 | `QD_BASE_IMAGE`        | `lib/base.dockerfile`                                   | phase-0-decisions.md     | `dhi.io/...@sha256:<digest>`, Renovate-tracked                                       |
 | `DIST_BASE_STAGE`      | `lib/dist.dockerfile` (`FROM ${DIST_BASE_STAGE:-base}`) | per-linter               | android only: `android-toolchain` so dist inherits the SDK; jvm/clang unset → `base` |

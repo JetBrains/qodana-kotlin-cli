@@ -45,7 +45,6 @@ object EnvContract {
             "QD_LINTER_SLUG",
             "QD_VERSION",
             "QD_BUILD",
-            "QD_RELEASE_TYPE",
             "QD_PRODUCT_INFO_CODE",
             "QD_BASE_IMAGE",
             "CLI_BINARY",

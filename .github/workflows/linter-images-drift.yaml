@@ -168,8 +168,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
       - run: ./gradlew :linter-images:installDist
       - name: Resolve newer within-major builds and rewrite pins
-        # bump-pins reads each IDE-dist .env, picks the newest within-major release of the pinned
-        # QD_RELEASE_TYPE, and rewrites QD_BUILD in place; it also syncs the QODANA_<SLUG>_BUILD row in
+        # bump-pins reads each IDE-dist .env, picks the newest within-major release by date, and
+        # rewrites QD_BUILD in place; it also syncs the QODANA_<SLUG>_BUILD row in
         # phase-0-decisions.md so EnvContractTest stays green on the resulting PR.
         run: |
           linter-images/build/install/image-tool/bin/image-tool bump-pins \
