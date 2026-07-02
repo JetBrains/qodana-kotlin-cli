@@ -2,5 +2,5 @@
 // AGP + Kotlin versions resolve once. Pinned for assertion stability (QD-15022).
 plugins {
     id("com.android.application") version "8.13.2" apply false
-    id("org.jetbrains.kotlin.android") version "1.9.25" apply false
+    id("org.jetbrains.kotlin.android") version "2.4.0" apply false
 }
