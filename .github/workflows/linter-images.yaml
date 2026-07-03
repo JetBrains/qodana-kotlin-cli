@@ -296,9 +296,8 @@ jobs:
           docker-images: true
           swap-storage: false
           tool-cache: false
+      # No `ref:` override → checkout defaults to github.ref = the PR merge commit on pull_request, so CI builds against latest main.
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       # GraalVM + Gradle for the from-tree native CLI (assembleRelease → nativeCompile) and the harness.
       - uses: ./.github/actions/setup-native-build
       - name: Docker Hub login (raise anonymous pull-rate ceiling)
@@ -478,10 +477,9 @@ jobs:
           docker-images: true
           swap-storage: false
           tool-cache: false
+      # No `ref:` override → checkout defaults to github.ref = the PR merge commit on pull_request, so CI builds against latest main.
       - uses: actions/checkout@v7
         if: ${{ github.event.pull_request.head.repo.fork != true }}
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: ./.github/actions/setup-native-build
         if: ${{ github.event.pull_request.head.repo.fork != true }}
       - name: Docker Hub login (raise anonymous pull-rate ceiling)
