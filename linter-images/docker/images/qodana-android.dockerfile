@@ -5,3 +5,4 @@ INCLUDE lib/toolchain/android.dockerfile
 INCLUDE lib/dist.dockerfile
 INCLUDE lib/cli.dockerfile
 INCLUDE lib/runtime.dockerfile
+INCLUDE lib/fonts.dockerfile

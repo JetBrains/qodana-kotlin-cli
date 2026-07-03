@@ -5,3 +5,4 @@ INCLUDE lib/toolchain/node.dockerfile
 INCLUDE lib/dist.dockerfile
 INCLUDE lib/cli.dockerfile
 INCLUDE lib/runtime.dockerfile
+INCLUDE lib/fonts.dockerfile
