@@ -166,7 +166,7 @@ asserts `QODANA_JVM_VERSION == qodana-jvm.env QD_VERSION` (the MajorVersion `202
 `QODANA_JVM_BUILD == qodana-jvm.env QD_BUILD` (the `Build` `263.484.2575`). Use the feed's Link VERBATIM.
 
 QODANA_JVM_VERSION = 2026.3
-QODANA_JVM_BUILD = 263.484.2575
+QODANA_JVM_BUILD = 263.1130.2618
 
 Full release version — the nightly's feed `Version`, which for this eap train equals the major (no
 patch segment yet); for reference, NOT the `QD_VERSION`/`QD_BUILD` pin:
@@ -200,7 +200,7 @@ it pins independently but is kept equal to the qodana-jvm nightly above since it
 `QODANA_ANDROID_RELEASE_*`.
 
 QODANA_ANDROID_VERSION = 2026.3
-QODANA_ANDROID_BUILD = 263.484.2575
+QODANA_ANDROID_BUILD = 263.1130.2618
 
 ### dhi.io hardened base digest
 
@@ -275,7 +275,7 @@ byte-identity against the `.env`'s `QD_VERSION` (`2026.3`) and `QD_BUILD` (`263.
 public-release pin (token-free reproduction, compose.release.yaml): `QODANA_JVM_COMMUNITY_RELEASE_*`.
 
 QODANA_JVM_COMMUNITY_VERSION = 2026.3
-QODANA_JVM_COMMUNITY_BUILD = 263.484.2162
+QODANA_JVM_COMMUNITY_BUILD = 263.1130.2174
 
 Download links (verbatim from the internal feed):
 
@@ -314,7 +314,7 @@ independently but kept equal to the Community JVM nightly above (same dist). `En
 these against `qodana-android-community.env`. Frozen public-release pin: `QODANA_ANDROID_COMMUNITY_RELEASE_*`.
 
 QODANA_ANDROID_COMMUNITY_VERSION = 2026.3
-QODANA_ANDROID_COMMUNITY_BUILD = 263.484.2162
+QODANA_ANDROID_COMMUNITY_BUILD = 263.1130.2174
 
 ## Python dist (qodana-python — Ultimate)
 
