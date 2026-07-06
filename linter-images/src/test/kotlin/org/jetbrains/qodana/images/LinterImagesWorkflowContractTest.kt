@@ -138,32 +138,35 @@ class LinterImagesWorkflowContractTest {
     }
 
     @Test
-    fun `no e2e-job step is fork-gated`() {
-        // The e2e fork sites (the deleted gate + note-skip) are gone. The file-wide raw-text lock lands in the
-        // release-smoke test, once release-smoke is scrubbed too.
-        val forkGated = steps.filter { it.ifExpr().contains("head.repo.fork") }
-        assertTrue(forkGated.isEmpty(), "no e2e step may be fork-gated: ${forkGated.map { it["name"]?.asText() }}")
-    }
-
-    @Test
-    fun `release-smoke builds qodana-jvm via the release overlay, fork-gated not token-gated, no Space token`() {
+    fun `release-smoke runs the build unconditionally, no Space token`() {
         val job = workflow["jobs"]["release-smoke"]
         assertTrue(job != null, "linter-images.yaml must define a release-smoke job")
-        val buildStep =
-            job!!["steps"].toList().single {
-                it.runScript().contains("compose.release.yaml") && it.runScript().contains("build qodana-jvm")
-            }
-        // Must NOT gate the build on the registry token — that would silently skip to GREEN on a same-repo
-        // misconfig (the e2e job fails loudly instead). Fork PRs are excluded via the fork signal.
-        assertTrue(
-            "DOCKER_READ_PUBLIC_REGISTRY_TOKEN" !in buildStep.ifExpr(),
-            "release-smoke build must not gate on the registry token; gate forks via head.repo.fork",
-        )
-        assertTrue("fork" in buildStep.ifExpr(), "release-smoke build must be fork-gated (head.repo.fork)")
+        // Anchor the build on the release overlay (its defining, stable signal), not literal command fragments.
+        val buildStep = job!!["steps"].toList().single { it.runScript().contains("compose.release.yaml") }
+        // Fork gates gone → the build runs unconditionally (a missing cred reds it at login/base-pull). Its overlay
+        // dist flip stays guarded by the no-Space-token tripwire below. We test that the image builds, not creds.
+        assertEquals("", buildStep.ifExpr(), "the release build must be unconditional so it always runs")
+        // NO SILENT SKIPS across the whole job: after the fork gates are stripped every step runs unconditionally,
+        // so no step (login/checkout/stage/build) may carry a skip conjunct — a fork gate or an `env.X != ''` guard.
+        job["steps"].toList().forEach { s ->
+            val n = s["name"]?.asText()
+            assertFalse(s.ifExpr().contains("''"), "$n: no release-smoke step may skip-guard on an empty secret")
+            assertFalse(s.ifExpr().contains("head.repo.fork"), "$n: no release-smoke step may be fork-gated")
+        }
         assertTrue(
             job["env"]?.get("QODANA_READ_SPACE_PACKAGES_TOKEN") == null,
             "release-smoke must NOT carry the Space token, so a silently-unapplied overlay fails RED on sha256",
         )
+    }
+
+    @Test
+    fun `the workflow has no fork-signal gating anywhere`() {
+        // Complete lock: a fork signal hidden in a matrix exclude, continue-on-error, runs-on, with:/env:
+        // interpolation, or a comment would evade a structural job/step-if scan. Read the raw file text (as the
+        // drift ARM64_SLUGS test does) and forbid every fork-discriminator spelling.
+        val text = Path.of("../.github/workflows/linter-images.yaml").readText()
+        assertFalse(text.contains("head.repo.fork"), "no step/job may gate on head.repo.fork")
+        assertFalse(text.contains("head.repo.full_name"), "no fork gate via head.repo.full_name != github.repository")
     }
 
     @Test

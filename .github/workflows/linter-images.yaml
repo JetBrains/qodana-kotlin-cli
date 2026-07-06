@@ -442,9 +442,9 @@ jobs:
     # End-to-end proof the release overlay flips a dist: qodana-jvm defaults to the internal nightly feed,
     # so compose.release.yaml must flip it back to the public dist. CLI_SOURCE=context (compose.ci.yaml)
     # builds the from-tree CLI — no nightly-tag asset download. The job carries NO Space token, so a
-    # silently-unapplied overlay falls back to the internal sha256 feed and fails RED. Functional steps are
-    # gated on the FORK signal (not token presence): a same-repo run with broken creds fails loudly at
-    # login (the e2e contract); a fork PR (no creds) skips. NOT a required check.
+    # silently-unapplied overlay falls back to the internal sha256 feed and fails RED. All steps run
+    # unconditionally: a missing registry credential reds the job at the docker login (docker/login-action
+    # errors on empty creds) — no fork special-casing; forks hard-red like every run. NOT a required check.
     name: Release-profile build smoke (qodana-jvm)
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -464,31 +464,22 @@ jobs:
           tool-cache: false
       # No `ref:` override → checkout defaults to github.ref = the PR merge commit on pull_request, so CI builds against latest main.
       - uses: actions/checkout@v7
-        if: ${{ github.event.pull_request.head.repo.fork != true }}
       - uses: ./.github/actions/setup-native-build
-        if: ${{ github.event.pull_request.head.repo.fork != true }}
       - name: Docker Hub login (raise anonymous pull-rate ceiling)
-        if: ${{ github.event.pull_request.head.repo.fork != true }}
         uses: docker/login-action@v4
         with:
           username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
           password: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
       - name: dhi.io login (Docker Hardened Images base)
-        if: ${{ github.event.pull_request.head.repo.fork != true }}
         uses: docker/login-action@v4
         with:
           registry: dhi.io
           username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
           password: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
       - name: Stage from-tree contexts (cli + image-tool)
-        if: ${{ github.event.pull_request.head.repo.fork != true }}
         run: |
           ./gradlew \
             :qodana-cli:assembleRelease -PtargetOs=linux -PtargetArch=amd64 -Pquick=true \
             :linter-images:installDist
       - name: Build qodana-jvm via the release profile (public feed, GPG, no token)
-        if: ${{ github.event.pull_request.head.repo.fork != true }}
         run: docker compose -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.release.yaml build qodana-jvm
-      - name: Note skipped (fork PR — no registry credentials)
-        if: ${{ github.event.pull_request.head.repo.fork == true }}
-        run: echo "::notice::release-smoke skipped on a fork PR (no registry credentials). The drift canary re-verifies the release pins."
