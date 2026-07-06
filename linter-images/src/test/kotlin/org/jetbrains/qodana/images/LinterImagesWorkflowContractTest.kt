@@ -40,7 +40,13 @@ class LinterImagesWorkflowContractTest {
     private val notTokenGated = "matrix.image.token_gated != 'true'"
     private val requiresLicense = "matrix.image.requires_license == 'true'"
     private val emptyLicense = "env.QODANA_LICENSE_ONLY_TOKEN == ''"
-    private val nonFork = "head.repo.fork != true"
+
+    /** e2e harness steps (`linterE2eTest`) whose `if:` carries the given `requires_license` domain fragment. */
+    private fun harnessSteps(domain: String): List<JsonNode> =
+        steps.filter { it.runScript().contains("linterE2eTest") && it.ifExpr().contains(domain) }
+
+    private val licensedImageNames: Set<String>
+        get() = cells.filter { it["requires_license"]?.asText() == "true" }.map { it["name"].asText() }.toSet()
 
     @Test
     fun `token-gated cells exist (clang and cdnet)`() {
@@ -72,33 +78,71 @@ class LinterImagesWorkflowContractTest {
     }
 
     @Test
-    fun `licensed cells hard-fail on an empty license token for non-fork runs`() {
-        // Domain matches the licensed-e2e step it guards (token_gated != 'true').
-        val gate = stepsMatching(notTokenGated, requiresLicense, nonFork, emptyLicense)
-        assertEquals(1, gate.size, "expected exactly one licensed empty-token non-fork gate")
-        assertTrue(gate.single().runScript().contains("exit 1"), "the licensed gate must exit 1, not no-op")
-        assertTrue(gate.single().runScript().contains("::error::"), "the licensed gate must emit a loud ::error::")
+    fun `the licensed and free e2e steps pin their exact domains (no per-cell skip conjunct)`() {
+        // NO SILENT SKIPS, 100% of cells: pin each e2e step's if: to EXACTLY its two-term domain, so a regression
+        // appending a conjunct (a re-added `&& … != ''` skip guard, a fork gate, or `&& matrix.image.name != 'x'`)
+        // that silently skips a cell reddens here. The scan RUNS on every paid cell and fails loud on a missing token.
+        val licensed = harnessSteps("requires_license == 'true'")
+        assertEquals(1, licensed.size, "one licensed e2e step, got ${licensed.map { it["name"]?.asText() }}")
+        assertEquals(
+            "\${{ matrix.image.token_gated != 'true' && matrix.image.requires_license == 'true' }}",
+            licensed.single().ifExpr(),
+            "licensed e2e step must be exactly its two-term domain — no skip guard, fork gate, or extra conjunct",
+        )
+        val free = harnessSteps("requires_license != 'true'")
+        assertEquals(1, free.size, "one free e2e step, got ${free.map { it["name"]?.asText() }}")
+        assertEquals(
+            "\${{ matrix.image.token_gated != 'true' && matrix.image.requires_license != 'true' }}",
+            free.single().ifExpr(),
+            "free e2e step must be exactly its complementary two-term domain",
+        )
     }
 
     @Test
-    fun `a non-fork empty license token cannot reach a scan-skip path`() {
-        val gateIdx =
-            steps.indexOfFirst { s ->
-                listOf(notTokenGated, requiresLicense, nonFork, emptyLicense).all { s.ifExpr().contains(it) }
+    fun `every requires_license fixture passes the license token, so an unlicensed scan fails loud`() {
+        // Deleting the "Require license token" gate is safe ONLY because a paid scan fails loud on a missing token:
+        // the fixture lists QODANA_LICENSE_ONLY_TOKEN in passEnv, so the harness error()s on a blank one. Lock the
+        // wiring for EVERY paid cell, else a future paid image whose fixture omits the token scans unlicensed.
+        assertTrue(licensedImageNames.isNotEmpty(), "sanity: there are requires_license cells")
+        licensedImageNames.forEach { image ->
+            val dirs =
+                Path
+                    .of("e2e/fixtures/$image")
+                    .toFile()
+                    .listFiles()
+                    ?.filter { it.isDirectory && it.resolve("expected.json").isFile }
+                    .orEmpty()
+            assertTrue(dirs.isNotEmpty(), "$image is requires_license but has no e2e fixture (no fail-loud target)")
+            dirs.forEach { dir ->
+                val passEnv =
+                    YAMLMapper()
+                        .readTree(dir.resolve("expected.json").readText())["run"]
+                        ?.get("passEnv")
+                        ?.map { it.asText() }
+                        .orEmpty()
+                assertTrue(
+                    "QODANA_LICENSE_ONLY_TOKEN" in passEnv,
+                    "$image/${dir.name}: fixture must pass QODANA_LICENSE_ONLY_TOKEN via passEnv",
+                )
             }
-        val licensedE2eIdx = steps.indexOfFirst { it.ifExpr().contains("env.QODANA_LICENSE_ONLY_TOKEN != ''") }
-        val noteIdx = steps.indexOfFirst { it.runScript().contains("QODANA_LICENSE_ONLY_TOKEN unavailable") }
-        assertTrue(gateIdx in 0 until licensedE2eIdx, "gate must precede licensed e2e ($gateIdx<$licensedE2eIdx)")
-        assertTrue(gateIdx < noteIdx, "gate must precede note-skipped ($gateIdx<$noteIdx)")
-        assertTrue(steps[gateIdx]["continue-on-error"]?.asBoolean() != true, "the gate must not continue-on-error")
-        assertTrue(steps[noteIdx].ifExpr().contains("head.repo.fork == true"), "note-skipped must be fork-scoped")
-        // Pin the e2e step's guard domain to the gate's, so a drift in EITHER guard reddens rather than
-        // silently reopening the soft-skip hole.
-        val e2eIf = steps[licensedE2eIdx].ifExpr()
-        assertTrue(
-            e2eIf.contains(notTokenGated) && e2eIf.contains(requiresLicense),
-            "licensed e2e step must share the gate's domain (requires_license && token_gated != 'true'): $e2eIf",
-        )
+        }
+    }
+
+    @Test
+    fun `the license-token gate and its fork note-skip are gone`() {
+        // Both were band-aids over the deleted skip guard; the scan step now fails loud on its own.
+        val gate = steps.filter { it.ifExpr().contains("QODANA_LICENSE_ONLY_TOKEN == ''") }
+        assertTrue(gate.isEmpty(), "no 'Require license token' gate may remain: ${gate.map { it["name"]?.asText() }}")
+        val note = steps.filter { it.runScript().contains("QODANA_LICENSE_ONLY_TOKEN unavailable") }
+        assertTrue(note.isEmpty(), "no fork note-skip may remain: ${note.map { it["name"]?.asText() }}")
+    }
+
+    @Test
+    fun `no e2e-job step is fork-gated`() {
+        // The e2e fork sites (the deleted gate + note-skip) are gone. The file-wide raw-text lock lands in the
+        // release-smoke test, once release-smoke is scrubbed too.
+        val forkGated = steps.filter { it.ifExpr().contains("head.repo.fork") }
+        assertTrue(forkGated.isEmpty(), "no e2e step may be fork-gated: ${forkGated.map { it["name"]?.asText() }}")
     }
 
     @Test
@@ -207,9 +251,10 @@ class LinterImagesWorkflowContractTest {
 
     @Test
     fun `qodana-dotnet is inside the licensed hard-fail gate's domain`() {
-        // Parity above only pins arm64 == amd64. Also pin the ABSOLUTE values, so a symmetric flip of both
-        // cells to requires_license:"false" (which parity would accept) can't silently drop dotnet out of the
-        // license gate + licensed-e2e path and green with no scan.
+        // Parity above only pins arm64 == amd64. Also pin the ABSOLUTE values: a symmetric flip of both cells to
+        // requires_license:"false" (which parity would accept) would silently drop dotnet out of the (now
+        // unconditional) licensed-e2e path into the free path, scanning it unlicensed. (There is no longer a
+        // "license gate" — the scan step itself fails loud on a missing token; this pins dotnet stays in its domain.)
         val dotnet = cells.filter { it["name"].asText() == "qodana-dotnet" }
         assertEquals(2, dotnet.size, "qodana-dotnet needs an amd64 + an arm64 cell")
         dotnet.forEach {
