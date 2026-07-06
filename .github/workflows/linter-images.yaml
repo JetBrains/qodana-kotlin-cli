@@ -48,8 +48,8 @@ jobs:
           # token_gated: clang's clang-tidy comes from the PRIVATE mirror, so both its build and its
           # e2e require QODANA_READ_SPACE_PACKAGES_TOKEN; an empty secret (e.g. a fork PR) fails RED, never no-ops.
           # requires_license: this image's e2e fixture passes QODANA_LICENSE_ONLY_TOKEN via passEnv (a
-          # paid IDE-dist linter). The scan step runs on every paid cell (never skipped) and fails loud on a
-          # missing token — the e2e harness errors on the blank passEnv. Flip to "true" in the commit that
+          # paid IDE-dist linter). The scan step runs on every paid cell and fails loud on a missing token (the
+          # harness errors on a blank passEnv). Flip to "true" in the commit that
           # adds the image's passEnv fixture.
           - name: qodana-jvm
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
@@ -273,9 +273,8 @@ jobs:
       # mirror (clang/cdnet) AND the internal nightly dist feed (every dist image). Surfaced as `env.*` so the
       # clang/cdnet hard-fail and the feed_required hard-fail `if:`s can reference it (`secrets.*` is not
       # addressable in a step-level `if:`). QODANA_LICENSE_ONLY_TOKEN licenses the paid IDE-dist linters
-      # at scan time in license-only mode (no upload); the e2e harness forwards it into the scan container via
-      # the fixture passEnv (it no longer gates any step `if:`). The DOCKER_READ_PUBLIC_REGISTRY_* creds
-      # authenticate the docker.io and dhi.io pulls.
+      # at scan time in license-only mode (no upload); the e2e harness forwards it into the scan container via the
+      # fixture passEnv. The DOCKER_READ_PUBLIC_REGISTRY_* creds authenticate the docker.io and dhi.io pulls.
       DOCKER_READ_PUBLIC_REGISTRY_TOKEN: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
       DOCKER_READ_PUBLIC_REGISTRY_USER: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_USER }}
       QODANA_READ_SPACE_PACKAGES_TOKEN: ${{ secrets.QODANA_READ_SPACE_PACKAGES_TOKEN }}
@@ -320,7 +319,7 @@ jobs:
 
       - name: Require feed token for internal-feed images
         # Same fail-loud contract as the clang/cdnet mirror-token gate below: an internal-feed image (feed_required=="true") with an
-        # empty QODANA_READ_SPACE_PACKAGES_TOKEN fails RED on every run, never no-ops. Active for the whole dist fleet
+        # empty QODANA_READ_SPACE_PACKAGES_TOKEN fails RED on every run. Active for the whole dist fleet
         # (every feed_required cell — all IDE-dist images now pull the internal nightly); off only for the
         # token-gated clang/cdnet cells (covered by the symmetric mirror-token gate below).
         if: ${{ matrix.image.feed_required == 'true' && env.QODANA_READ_SPACE_PACKAGES_TOKEN == '' }}
@@ -330,7 +329,7 @@ jobs:
           exit 1
       - name: Require mirror token for token-gated images
         # Symmetric with the feed_required gate above: a token-gated image (clang/cdnet) with an empty
-        # QODANA_READ_SPACE_PACKAGES_TOKEN fails RED on every run, never no-ops. Its clang-tidy/CLT comes
+        # QODANA_READ_SPACE_PACKAGES_TOKEN fails RED on every run. Its clang-tidy/CLT comes
         # from the private Space mirror, so an empty token can't build/scan (the secret is repo-scoped).
         if: ${{ matrix.image.token_gated == 'true' && env.QODANA_READ_SPACE_PACKAGES_TOKEN == '' }}
         run: |
@@ -376,9 +375,8 @@ jobs:
         # asserts SARIF content + exit code + log gate. Missing/unparseable SARIF or Docker-down → loud.
         run: ./gradlew :linter-images:linterE2eTest -Dlinter.e2e.image=${{ matrix.image.name }}
       - name: e2e ${{ matrix.image.name }} (licensed)
-        # Paid IDE-dist linters license over the bridge network in license-only mode. Runs on EVERY paid cell
-        # (never skipped); a missing/rotated QODANA_LICENSE_ONLY_TOKEN fails loud — the harness errors on the
-        # blank passEnv. Forks hard-red here like every run (no fork special-casing).
+        # Paid IDE-dist linters license over the bridge network in license-only mode. Runs on every paid cell;
+        # a missing/rotated QODANA_LICENSE_ONLY_TOKEN fails loud (the harness errors on a blank passEnv).
         if: ${{ matrix.image.token_gated != 'true' && matrix.image.requires_license == 'true' }}
         run: ./gradlew :linter-images:linterE2eTest -Dlinter.e2e.image=${{ matrix.image.name }}
 
@@ -444,7 +442,7 @@ jobs:
     # builds the from-tree CLI — no nightly-tag asset download. The job carries NO Space token, so a
     # silently-unapplied overlay falls back to the internal sha256 feed and fails RED. All steps run
     # unconditionally: a missing registry credential reds the job at the docker login (docker/login-action
-    # errors on empty creds) — no fork special-casing; forks hard-red like every run. NOT a required check.
+    # errors on empty creds). NOT a required check.
     name: Release-profile build smoke (qodana-jvm)
     runs-on: ubuntu-latest
     timeout-minutes: 45

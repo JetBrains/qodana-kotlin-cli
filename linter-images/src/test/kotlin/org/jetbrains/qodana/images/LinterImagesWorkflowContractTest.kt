@@ -37,9 +37,6 @@ class LinterImagesWorkflowContractTest {
     private val feedRequired = "matrix.image.feed_required == 'true'"
     private val emptyToken = "env.QODANA_READ_SPACE_PACKAGES_TOKEN == ''"
     private val nonEmptyToken = "env.QODANA_READ_SPACE_PACKAGES_TOKEN != ''"
-    private val notTokenGated = "matrix.image.token_gated != 'true'"
-    private val requiresLicense = "matrix.image.requires_license == 'true'"
-    private val emptyLicense = "env.QODANA_LICENSE_ONLY_TOKEN == ''"
 
     /** e2e harness steps (`linterE2eTest`) whose `if:` carries the given `requires_license` domain fragment. */
     private fun harnessSteps(domain: String): List<JsonNode> =
@@ -100,9 +97,9 @@ class LinterImagesWorkflowContractTest {
 
     @Test
     fun `every requires_license fixture passes the license token, so an unlicensed scan fails loud`() {
-        // Deleting the "Require license token" gate is safe ONLY because a paid scan fails loud on a missing token:
-        // the fixture lists QODANA_LICENSE_ONLY_TOKEN in passEnv, so the harness error()s on a blank one. Lock the
-        // wiring for EVERY paid cell, else a future paid image whose fixture omits the token scans unlicensed.
+        // A paid scan fails loud on a missing token ONLY if the fixture lists QODANA_LICENSE_ONLY_TOKEN in passEnv
+        // (the harness error()s on a blank one). Lock the wiring for EVERY paid cell, else a paid image whose
+        // fixture omits the token scans unlicensed.
         assertTrue(licensedImageNames.isNotEmpty(), "sanity: there are requires_license cells")
         licensedImageNames.forEach { image ->
             val dirs =
@@ -130,7 +127,7 @@ class LinterImagesWorkflowContractTest {
 
     @Test
     fun `the license-token gate and its fork note-skip are gone`() {
-        // Both were band-aids over the deleted skip guard; the scan step now fails loud on its own.
+        // The scan step fails loud on its own; neither gate nor fork note-skip may remain.
         val gate = steps.filter { it.ifExpr().contains("QODANA_LICENSE_ONLY_TOKEN == ''") }
         assertTrue(gate.isEmpty(), "no 'Require license token' gate may remain: ${gate.map { it["name"]?.asText() }}")
         val note = steps.filter { it.runScript().contains("QODANA_LICENSE_ONLY_TOKEN unavailable") }
@@ -143,11 +140,11 @@ class LinterImagesWorkflowContractTest {
         assertTrue(job != null, "linter-images.yaml must define a release-smoke job")
         // Anchor the build on the release overlay (its defining, stable signal), not literal command fragments.
         val buildStep = job!!["steps"].toList().single { it.runScript().contains("compose.release.yaml") }
-        // Fork gates gone → the build runs unconditionally (a missing cred reds it at login/base-pull). Its overlay
-        // dist flip stays guarded by the no-Space-token tripwire below. We test that the image builds, not creds.
+        // The build runs unconditionally (a missing cred reds it at login/base-pull). Its overlay dist flip stays
+        // guarded by the no-Space-token tripwire below. We test that the image builds, not creds.
         assertEquals("", buildStep.ifExpr(), "the release build must be unconditional so it always runs")
-        // NO SILENT SKIPS across the whole job: after the fork gates are stripped every step runs unconditionally,
-        // so no step (login/checkout/stage/build) may carry a skip conjunct — a fork gate or an `env.X != ''` guard.
+        // NO SILENT SKIPS across the whole job: every step runs unconditionally, so no step
+        // (login/checkout/stage/build) may carry a skip conjunct — a fork gate or an `env.X != ''` guard.
         job["steps"].toList().forEach { s ->
             val n = s["name"]?.asText()
             assertFalse(s.ifExpr().contains("''"), "$n: no release-smoke step may skip-guard on an empty secret")
@@ -161,12 +158,25 @@ class LinterImagesWorkflowContractTest {
 
     @Test
     fun `the workflow has no fork-signal gating anywhere`() {
-        // Complete lock: a fork signal hidden in a matrix exclude, continue-on-error, runs-on, with:/env:
-        // interpolation, or a comment would evade a structural job/step-if scan. Read the raw file text (as the
-        // drift ARM64_SLUGS test does) and forbid every fork-discriminator spelling.
+        // Raw-text lock over the whole file — catches a fork signal a structural job/step-`if:` scan would miss
+        // (a matrix exclude, continue-on-error, runs-on, with:/env: interpolation, or a comment). It is a
+        // BLOCKLIST of the realistic fork/actor discriminators, NOT an exhaustive proof: a positive same-repo gate
+        // (`github.repository == '<literal>'`) is the known residual.
         val text = Path.of("../.github/workflows/linter-images.yaml").readText()
-        assertFalse(text.contains("head.repo.fork"), "no step/job may gate on head.repo.fork")
-        assertFalse(text.contains("head.repo.full_name"), "no fork gate via head.repo.full_name != github.repository")
+        val forkDiscriminators =
+            listOf(
+                "head.repo.fork", // canonical fork spelling
+                "head.repo.full_name", // repo-name comparison (`!= github.repository`)
+                "head.repo.owner", // owner-login comparison
+                "head.repo.id", // repo-id comparison
+                "author_association", // PR-author / collaborator allow-list
+                "github.actor", // actor allow-list (maintainer-only gating)
+                "triggering_actor", // github.triggering_actor allow-list
+                "pull_request_target", // the trigger that would hand forks secrets
+            )
+        forkDiscriminators.forEach { spelling ->
+            assertFalse(text.contains(spelling), "'$spelling' fork/actor gating is banned (no silent fork skips)")
+        }
     }
 
     @Test
@@ -255,9 +265,8 @@ class LinterImagesWorkflowContractTest {
     @Test
     fun `qodana-dotnet is inside the licensed hard-fail gate's domain`() {
         // Parity above only pins arm64 == amd64. Also pin the ABSOLUTE values: a symmetric flip of both cells to
-        // requires_license:"false" (which parity would accept) would silently drop dotnet out of the (now
-        // unconditional) licensed-e2e path into the free path, scanning it unlicensed. (There is no longer a
-        // "license gate" — the scan step itself fails loud on a missing token; this pins dotnet stays in its domain.)
+        // requires_license:"false" (which parity would accept) would silently drop dotnet out of the licensed-e2e
+        // path into the free path, scanning it unlicensed.
         val dotnet = cells.filter { it["name"].asText() == "qodana-dotnet" }
         assertEquals(2, dotnet.size, "qodana-dotnet needs an amd64 + an arm64 cell")
         dotnet.forEach {
