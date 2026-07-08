@@ -975,7 +975,7 @@ public-release pin (token-free reproduction, compose.release.yaml): `QODANA_CPP_
 QODANA_CPP_VERSION = 2026.3
 QODANA_CPP_BUILD = 263.130.1007
 
-Download link (verbatim from the internal feed; qodana-cpp is amd64-only):
+Download link (verbatim from the internal feed; the amd64 blob):
 
 QODANA_CPP_LINUX_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-cpp/qodana-QDCPP-263.130.1007.tar.gz
 
@@ -1209,3 +1209,28 @@ QODANA_ANDROID_COMMUNITY_LINUX_ARM64_SHA256 = 8b028d61659bffb63734e2ad0795bee336
 No `ARM64_SLUGS` change: android's dist slug is `qodana-jvm` and android-community's is
 `qodana-jvm-community` (both reuse the JVM dist) — already re-verified by the jvm legs, so the drift
 canary dedup covers them.
+
+## Multi-arch verification (QD-15274)
+
+`qodana-cpp` enabled for `linux/arm64`. The cpp image is arch-transparent: `lib/toolchain/clang.dockerfile`
+installs `clang-20`/`clang-tools`/`cmake` from the `apt.llvm.org/trixie` LLVM apt repo (arch-aware; the
+trixie repo publishes `binary-arm64`) and node from the NodeSource apt repo — no hardcoded per-arch URL or
+sha256, no `ADD` of a versioned tarball — so the arm64 build needs NO dockerfile change. The dist/CLI resolve
+per-arch through BuildKit `TARGETARCH` (`provision-dist`/`install-cli --arch ${TARGETARCH}`), and tini is
+already per-arch in `lib/runtime.dockerfile`.
+
+Multi-arch inputs (re-verified 2026-07-07): the internal-feed arm64
+dist is live (HTTP 200, sha256 mode); the shared trixie base is a multi-arch index (proven in practice —
+rust/dotnet/python(-community)/jvm-community all build multiarch off it). The e2e fixture asserts one finding
+per DETERMINISTIC engine category on BOTH arches — `ClangTidy`, `CppLocalVariableMayBeConst` (native AST), and
+`Misra` (enabled via the fixture's qodana.yaml; MISRA is default-off — QD-14509, fixed in 262.SNAPSHOT.100 <
+our 263.130.1007). The native DFA construct (a dead store → `CppDFAUnusedValue`) is planted but NOT asserted:
+CLion drops it in an async race on fast machines (QD-15334 — on run 28882514628 it fired on arm64 but not the
+faster amd64), so gating on it would be a data race. A green arm64 cell proves each asserted category's engine
+works on arm64; cross-arch SARIF _equivalence_ remains QD-15262.
+
+`ARM64_SLUGS` GAINS `qodana-cpp`: cpp's dist slug is unique (`QD_LINTER_SLUG=qodana-cpp`), so — unlike
+android, which reuses `qodana-jvm` — the drift canary would not otherwise re-verify cpp's arm64 `.sha256`.
+
+QODANA_CPP_LINUX_ARM64_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-cpp/qodana-QDCPP-263.130.1007-aarch64.tar.gz
+QODANA_CPP_LINUX_ARM64_SHA256 = 6622554ef67ac1ff921b6f504361004ce26a19861603a0309717dd927c3ce5b0
