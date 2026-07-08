@@ -1,0 +1,6 @@
+version: "1.0"
+# The Misra inspection is absent from qodana.starter (default-OFF). Enable it so the scan produces
+# MISRA findings; the fixture pins the "Misra" category from the CI control run. All MISRA rules
+# surface under the single SARIF ruleId "Misra".
+include:
+  - name: Misra

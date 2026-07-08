@@ -18,5 +18,6 @@ object ArchContract {
             "qodana-dotnet",
             "qodana-android",
             "qodana-android-community",
+            "qodana-cpp",
         )
 }

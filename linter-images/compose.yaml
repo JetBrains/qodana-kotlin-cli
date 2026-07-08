@@ -209,7 +209,6 @@ services:
         # occupy uid 1000, so cpp keeps base.dockerfile's default 1000.
       additional_contexts:
         tooling: build/install/image-tool
-    platform: linux/amd64
     image: qodana-cpp:dev
   qodana-clang:
     build:
