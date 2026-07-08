@@ -1,5 +1,6 @@
 # Gradle
 .gradle/
+# (throwaway fork-flow demo — remove with the PR)
 build/
 bin/
 !gradle/wrapper/gradle-wrapper.jar
