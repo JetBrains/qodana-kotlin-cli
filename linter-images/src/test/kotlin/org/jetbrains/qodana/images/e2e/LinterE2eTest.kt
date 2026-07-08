@@ -26,9 +26,10 @@ import kotlin.test.fail
  *
  * CI-ONLY: this docker-driving suite cannot run on the arm64 dev box. The arch-capable images (the
  * `ArchContract.archCapable` set — the single source of truth; do not re-enumerate here) run arm64 e2e
- * on `ubuntu-24.04-arm`; the rest stay amd64-only pending QD-15171. Every `pin:"needs-pinning"` rule id
- * is resolved at runtime from the control variant's report (see [resolveVariantExpectations]); every
- * `[P]`-guessed `confirmed` id in the fixtures is pinned from a CI control run, never locally.
+ * on `ubuntu-24.04-arm`; the rest stay amd64-only pending QD-15171. Runtime rule-id resolution applies
+ * ONLY to `pin:"needs-pinning"` + `presence:"absent"` expectations (see [resolveVariantExpectations]); a
+ * `present` + `needs-pinning` expectation is NOT softened — it is enforced literally, identical to
+ * `confirmed`. Every `confirmed` id in the fixtures is pinned from a CI control run, never locally.
  *
  * Discovery: globs `e2e/fixtures/<linter.e2e.image>/<case>/expected.json` (cwd is the module root —
  * `linter-images/build.gradle.kts` pins the Test `workingDir`). One [DynamicTest] per
