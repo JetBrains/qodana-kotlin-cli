@@ -9,10 +9,10 @@ name: Linter images
 # compiles + image builds + scans.
 
 on:
+  # No paths filter on pull_request: the Docker e2e cells are REQUIRED status checks (Default Branch
+  # ruleset), so a paths-filtered PR that never triggers them would strand those checks in "Expected"
+  # merge limbo. Run the full matrix on every PR; cheap change-gating is deferred (QD-15343).
   pull_request:
-    paths:
-      - linter-images/**
-      - .github/workflows/linter-images.yaml
   push:
     branches: [main]
     paths:

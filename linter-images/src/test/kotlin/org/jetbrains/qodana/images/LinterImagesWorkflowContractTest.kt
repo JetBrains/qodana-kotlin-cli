@@ -19,6 +19,10 @@ class LinterImagesWorkflowContractTest {
     private val workflow: JsonNode =
         YAMLMapper().readTree(Path.of("../.github/workflows/linter-images.yaml").readText())
 
+    // Jackson/SnakeYAML may resolve the `on:` mapping key as a YAML 1.1 boolean (→ field name "true"); try both.
+    private val onTriggers: JsonNode
+        get() = workflow["on"] ?: workflow["true"] ?: error("`on:` trigger block not found in linter-images.yaml")
+
     private val steps: List<JsonNode>
         get() = workflow["jobs"]["e2e"]["steps"].toList()
 
@@ -278,6 +282,20 @@ class LinterImagesWorkflowContractTest {
             )
             assertEquals("false", it["token_gated"]?.asText(), "qodana-dotnet/$arch must not be token_gated")
         }
+    }
+
+    @Test
+    fun `pull_request trigger is unfiltered so required Docker e2e checks never stall (QD-15343)`() {
+        // The Default Branch ruleset marks every Docker e2e cell REQUIRED. If the pull_request trigger were
+        // paths-filtered, a PR not touching linter-images would leave those required checks "Expected" forever
+        // → merge limbo (only admin-bypass hides it today). Keep pull_request unfiltered so every PR runs the
+        // matrix and the required checks always report. (Deferred: cheap change-gating — see QD-15343.)
+        assertTrue(onTriggers.has("pull_request"), "workflow must trigger on pull_request")
+        val pr = onTriggers["pull_request"]
+        assertTrue(
+            pr == null || pr.isNull || !pr.has("paths"),
+            "pull_request must NOT be paths-filtered (required Docker e2e checks would stall): ${pr?.get("paths")}",
+        )
     }
 
     @Test
