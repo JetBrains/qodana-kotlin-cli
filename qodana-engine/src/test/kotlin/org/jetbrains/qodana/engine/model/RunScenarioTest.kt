@@ -3,7 +3,6 @@ package org.jetbrains.qodana.engine.model
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertNull
 
 class RunScenarioTest {
 
@@ -17,20 +16,6 @@ class RunScenarioTest {
     fun `full history scenario`() {
         val scenario: RunScenario = RunScenario.FullHistory
         assertIs<RunScenario.FullHistory>(scenario)
-    }
-
-    @Test
-    fun `local changes scenario with diffs`() {
-        val scenario = RunScenario.LocalChanges(diffStart = "abc", diffEnd = "def")
-        assertEquals("abc", scenario.diffStart)
-        assertEquals("def", scenario.diffEnd)
-    }
-
-    @Test
-    fun `local changes scenario without diffs`() {
-        val scenario = RunScenario.LocalChanges()
-        assertNull(scenario.diffStart)
-        assertNull(scenario.diffEnd)
     }
 
     @Test
@@ -50,10 +35,9 @@ class RunScenarioTest {
         val scenarios: List<RunScenario> = listOf(
             RunScenario.Default,
             RunScenario.FullHistory,
-            RunScenario.LocalChanges(),
             RunScenario.Scoped("main"),
             RunScenario.ReverseScoped("main"),
         )
-        assertEquals(5, scenarios.size)
+        assertEquals(4, scenarios.size)
     }
 }

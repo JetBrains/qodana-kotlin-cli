@@ -143,10 +143,6 @@ private abstract class BaseContainerExecutionIdeArgBuilder : BaseExecutionIdeArg
             }
         }
 
-        if (context.runtime.forceLocalChangesScript && context.runtime.script == "default") {
-            add("--force-local-changes-script")
-        }
-
         context.runtime.analysisId?.let {
             add("--analysis-id")
             add(it)

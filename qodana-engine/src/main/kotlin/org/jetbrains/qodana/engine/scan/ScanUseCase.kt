@@ -300,7 +300,6 @@ class ScanUseCase(
                 diffStart = null,
                 diffEnd = null,
                 forceFullHistory = false,
-                forceLocalChangesScript = false,
                 reversePrAnalysis = false,
                 script = "default",
             ),
@@ -311,7 +310,6 @@ class ScanUseCase(
         return when (context.scenario) {
             RunScenario.Default -> runSingleAnalysis(context)
             RunScenario.FullHistory -> runFullHistory(context)
-            is RunScenario.LocalChanges -> runLocalChanges(context)
             is RunScenario.Scoped -> runScoped(context, context.scenario)
             is RunScenario.ReverseScoped -> runReverseScoped(context, context.scenario)
         }
@@ -600,44 +598,6 @@ class ScanUseCase(
 
     private fun shouldStopAfterStage(exitCode: Int): Boolean {
         return exitCode != ExitCode.SUCCESS.code && exitCode != ExitCode.FAIL_THRESHOLD.code
-    }
-
-    private suspend fun runLocalChanges(context: ScanContext): Int {
-        val git = gitClient ?: return runSingleAnalysis(context)
-        val startHash = context.runtime.diffStart ?: return runSingleAnalysis(context)
-        val repositoryRoot = context.paths.repositoryRoot
-        var gitReset = false
-
-        val currentRevision = git.currentRevision(repositoryRoot).getOrNull()
-        if (!context.runtime.diffEnd.isNullOrBlank() &&
-            !currentRevision.isNullOrBlank() &&
-            context.runtime.diffEnd != currentRevision
-        ) {
-            terminal.warn(
-                "Cannot run local-changes because --diff-end is ${context.runtime.diffEnd} and HEAD is $currentRevision"
-            )
-        } else {
-            val resetResult = git.reset(repositoryRoot, startHash, hard = false)
-            if (resetResult.isSuccess) {
-                gitReset = true
-            } else {
-                terminal.warn(
-                    "Could not reset git repository, no --commit option will be applied: ${resetResult.exceptionOrNull()?.message}"
-                )
-            }
-        }
-
-        val contextForRun = if (gitReset) {
-            context.copy(runtime = context.runtime.copy(script = "local-changes"))
-        } else {
-            context
-        }
-        val exitCode = runSingleAnalysis(contextForRun)
-
-        if (gitReset) {
-            git.reset(repositoryRoot, "HEAD@{1}", hard = false)
-        }
-        return exitCode
     }
 
     private suspend fun runFullHistory(context: ScanContext): Int {

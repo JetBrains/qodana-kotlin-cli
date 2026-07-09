@@ -104,11 +104,11 @@ class IdeArgBuilderTest {
 
     @Test
     fun `script non-default is included`() {
-        val context = nativeContext().copy(runtime = RuntimeContext(script = "local-changes"))
+        val context = nativeContext().copy(runtime = RuntimeContext(script = "scoped:scope.json"))
         val args = IdeArgBuilder.build(context)
         val idx = args.indexOf("--script")
         assertTrue(idx >= 0)
-        assertEquals("local-changes", args[idx + 1])
+        assertEquals("scoped:scope.json", args[idx + 1])
     }
 
     @Test

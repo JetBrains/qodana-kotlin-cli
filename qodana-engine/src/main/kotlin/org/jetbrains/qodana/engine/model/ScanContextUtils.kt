@@ -14,13 +14,11 @@ object ScanContextUtils {
         fullHistory: Boolean,
         script: String,
         startHash: String?,
-        forceLocalChanges: Boolean,
         isContainer: Boolean,
         reversePrAnalysis: Boolean,
     ): RunScenario {
         if (fullHistory) return RunScenario.FullHistory
         if (startHash.isNullOrEmpty()) return RunScenario.Default
-        if (forceLocalChanges) return RunScenario.LocalChanges(diffStart = startHash, diffEnd = null)
         if (isContainer) return RunScenario.Default
         if (reversePrAnalysis) return RunScenario.ReverseScoped(targetBranch = startHash)
         return RunScenario.Scoped(targetBranch = startHash)

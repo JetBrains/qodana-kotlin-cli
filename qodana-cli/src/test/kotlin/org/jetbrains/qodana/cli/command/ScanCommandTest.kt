@@ -265,6 +265,60 @@ class ScanCommandTest {
     }
 
     @Test
+    fun `scan fails for removed local-changes script`(@TempDir tmpDir: Path) {
+        val projectDir = createProject(tmpDir)
+        val command = ScanCommand(
+            scanRunner = { 0 },
+            terminal = NoOpTerminal(),
+        )
+
+        val error = assertFailsWith<UsageError> {
+            command.parse(listOf("-i", projectDir.toString(), "--script", "local-changes"))
+        }
+
+        assertEquals(
+            "using --script local-changes is no longer supported, use standard incremental analysis instead. " +
+                "Further information - https://www.jetbrains.com/help/qodana/analyze-pr.html",
+            error.message,
+        )
+    }
+
+    @Test
+    fun `scan rejects removed force local changes flag`(@TempDir tmpDir: Path) {
+        val projectDir = createProject(tmpDir)
+        val command = ScanCommand(
+            scanRunner = { 0 },
+            terminal = NoOpTerminal(),
+        )
+
+        assertFailsWith<UsageError> {
+            command.parse(listOf("-i", projectDir.toString(), "--force-local-changes-script"))
+        }
+    }
+
+    @Test
+    fun `scan keeps commit as runtime diff start`(@TempDir tmpDir: Path) {
+        val projectDir = createProject(tmpDir)
+        var capturedContext: ScanContext? = null
+        val command = ScanCommand(
+            scanRunner = { context ->
+                capturedContext = context
+                0
+            },
+            terminal = NoOpTerminal(),
+        )
+
+        val result = assertFailsWith<ProgramResult> {
+            command.parse(listOf("-i", projectDir.toString(), "--commit", "abc123"))
+        }
+
+        assertEquals(0, result.statusCode)
+        val context = requireNotNull(capturedContext)
+        assertEquals("abc123", context.runtime.commit)
+        assertEquals("abc123", context.runtime.diffStart)
+    }
+
+    @Test
     fun `scan accepts legacy image in linter parameter even with within docker false`(@TempDir tmpDir: Path) {
         val projectDir = createProject(tmpDir)
         var capturedContext: ScanContext? = null

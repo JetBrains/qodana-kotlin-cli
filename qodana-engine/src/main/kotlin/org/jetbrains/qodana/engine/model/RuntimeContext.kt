@@ -27,7 +27,6 @@ data class RuntimeContext(
     val commit: String? = null,
     val diffStart: String? = null,
     val diffEnd: String? = null,
-    val forceLocalChangesScript: Boolean = false,
     val reversePrAnalysis: Boolean = false,
     val onlyDirectory: String? = null,
     val coverageDir: Path? = null,

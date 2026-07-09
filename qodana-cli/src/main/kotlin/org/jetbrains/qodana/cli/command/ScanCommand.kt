@@ -20,7 +20,6 @@ import org.jetbrains.qodana.core.product.Linters
 import org.jetbrains.qodana.core.terminal.MordantTerminal
 import org.jetbrains.qodana.engine.env.CiDetector
 import org.jetbrains.qodana.engine.env.RuntimeEnvironment
-import org.jetbrains.qodana.core.model.*
 import org.jetbrains.qodana.engine.model.*
 import org.jetbrains.qodana.engine.scan.ReportPort
 import java.nio.file.Files
@@ -39,6 +38,11 @@ class ScanCommand(
     private val envOverrides: Map<String, String> = emptyMap(),
     private val scanRunner: suspend (ScanContext) -> Int,
 ) : CliktCommand("scan") {
+    private companion object {
+        const val REMOVED_LOCAL_CHANGES_MESSAGE =
+            "using --script local-changes is no longer supported, use standard incremental analysis instead. " +
+                "Further information - https://www.jetbrains.com/help/qodana/analyze-pr.html"
+    }
 
     override fun help(context: Context) = "Scan project with Qodana"
 
@@ -63,7 +67,11 @@ class ScanCommand(
         .flag()
     private val codeClimate by option("--code-climate", help = "Generate Code Climate report")
         .flag(default = CiDetector.isGitLab())
-    private val bitbucketInsights by option("--bitbucket-insights", "--code-insights", help = "Send BitBucket Code Insights")
+    private val bitbucketInsights by option(
+        "--bitbucket-insights",
+        "--code-insights",
+        help = "Send BitBucket Code Insights"
+    )
         .flag(default = CiDetector.isBitBucket())
     private val clearCache by option("--clear-cache", help = "Clear local Qodana cache before analysis")
         .flag()
@@ -121,8 +129,6 @@ class ScanCommand(
 
     private val diffStart by option("--diff-start", help = "Commit to start diff run from")
     private val diffEnd by option("--diff-end", help = "Commit to end diff run on")
-    private val forceLocalChangesScript by option("--force-local-changes-script", help = "Force local-changes scenario")
-        .flag()
     private val reverse by option("--reverse", help = "Force reverse scoped analysis")
         .flag()
 
@@ -156,12 +162,7 @@ class ScanCommand(
 
     override fun run() {
         validateFlags()
-        if (forceLocalChangesScript || script == "local-changes") {
-            echo(
-                "Warning: Using local-changes script is deprecated, please switch to other mechanisms of incremental analysis. " +
-                    "Further information - https://www.jetbrains.com/help/qodana/analyze-pr.html"
-            )
-        }
+        validateRemovedLocalChangesScript()
 
         val absProjectDir = projectDir.toAbsolutePath().normalize()
         validateProjectDir(absProjectDir)
@@ -175,7 +176,6 @@ class ScanCommand(
             fullHistory = fullHistory,
             script = effectiveScript(),
             startHash = startHash,
-            forceLocalChanges = forceLocalChangesScript,
             isContainer = executionProfile.analysisRuntime == ExecutionProfile.AnalysisRuntime.CONTAINER,
             reversePrAnalysis = reverse,
         )
@@ -233,7 +233,6 @@ class ScanCommand(
                 commit = commit,
                 diffStart = startHash,
                 diffEnd = diffEnd,
-                forceLocalChangesScript = forceLocalChangesScript,
                 reversePrAnalysis = reverse,
                 onlyDirectory = onlyDirectory ?: sourceDirectory,
                 coverageDir = coverageDir,
@@ -281,6 +280,7 @@ class ScanCommand(
                 "Do you want to open the latest report",
                 listOf("Yes", "No"),
             ) == "Yes"
+
             else -> false
         }
         if (shouldShowReport) {
@@ -321,8 +321,8 @@ class ScanCommand(
         if (sourceDirectory != null && onlyDirectory != null) {
             throw UsageError("Options --source-directory and --only-directory are mutually exclusive")
         }
-        if (script != "default" && (forceLocalChangesScript || fullHistory)) {
-            throw UsageError("Options --script, --force-local-changes-script and --full-history are mutually exclusive")
+        if (script != "default" && fullHistory) {
+            throw UsageError("Options --script and --full-history are mutually exclusive")
         }
         if (commit != null && script != "default") {
             throw UsageError("Options --commit and --script are mutually exclusive")
@@ -357,6 +357,12 @@ class ScanCommand(
         val wd = withinDocker?.trim()?.lowercase()
         if (wd != null && wd.isNotEmpty() && wd != "true" && wd != "false") {
             throw UsageError("Wrong value for --within-docker: $withinDocker. Use true/false")
+        }
+    }
+
+    private fun validateRemovedLocalChangesScript() {
+        if (script == "local-changes") {
+            throw UsageError(REMOVED_LOCAL_CHANGES_MESSAGE)
         }
     }
 

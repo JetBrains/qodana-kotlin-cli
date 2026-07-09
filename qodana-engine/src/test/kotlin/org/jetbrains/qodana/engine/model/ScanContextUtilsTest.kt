@@ -17,7 +17,7 @@ class ScanContextUtilsTest {
     @Test
     fun `scenario fullHistory takes priority`() {
         val scenario = ScanContextUtils.determineRunScenario(
-            fullHistory = true, script = "default", startHash = "abc", forceLocalChanges = false,
+            fullHistory = true, script = "default", startHash = "abc",
             isContainer = false, reversePrAnalysis = false,
         )
         assertIs<RunScenario.FullHistory>(scenario)
@@ -26,7 +26,7 @@ class ScanContextUtilsTest {
     @Test
     fun `scenario no startHash returns Default`() {
         val scenario = ScanContextUtils.determineRunScenario(
-            fullHistory = false, script = "default", startHash = null, forceLocalChanges = false,
+            fullHistory = false, script = "default", startHash = null,
             isContainer = false, reversePrAnalysis = false,
         )
         assertIs<RunScenario.Default>(scenario)
@@ -35,26 +35,16 @@ class ScanContextUtilsTest {
     @Test
     fun `scenario empty startHash returns Default`() {
         val scenario = ScanContextUtils.determineRunScenario(
-            fullHistory = false, script = "default", startHash = "", forceLocalChanges = false,
+            fullHistory = false, script = "default", startHash = "",
             isContainer = false, reversePrAnalysis = false,
         )
         assertIs<RunScenario.Default>(scenario)
     }
 
     @Test
-    fun `scenario forceLocalChanges returns LocalChanges`() {
-        val scenario = ScanContextUtils.determineRunScenario(
-            fullHistory = false, script = "default", startHash = "abc123", forceLocalChanges = true,
-            isContainer = false, reversePrAnalysis = false,
-        )
-        assertIs<RunScenario.LocalChanges>(scenario)
-        assertEquals("abc123", scenario.diffStart)
-    }
-
-    @Test
     fun `scenario container overrides to Default`() {
         val scenario = ScanContextUtils.determineRunScenario(
-            fullHistory = false, script = "default", startHash = "abc", forceLocalChanges = false,
+            fullHistory = false, script = "default", startHash = "abc",
             isContainer = true, reversePrAnalysis = false,
         )
         assertIs<RunScenario.Default>(scenario)
@@ -63,7 +53,7 @@ class ScanContextUtilsTest {
     @Test
     fun `scenario reversePrAnalysis returns ReverseScoped`() {
         val scenario = ScanContextUtils.determineRunScenario(
-            fullHistory = false, script = "default", startHash = "main", forceLocalChanges = false,
+            fullHistory = false, script = "default", startHash = "main",
             isContainer = false, reversePrAnalysis = true,
         )
         assertIs<RunScenario.ReverseScoped>(scenario)
@@ -73,7 +63,7 @@ class ScanContextUtilsTest {
     @Test
     fun `scenario default with startHash returns Scoped`() {
         val scenario = ScanContextUtils.determineRunScenario(
-            fullHistory = false, script = "default", startHash = "develop", forceLocalChanges = false,
+            fullHistory = false, script = "default", startHash = "develop",
             isContainer = false, reversePrAnalysis = false,
         )
         assertIs<RunScenario.Scoped>(scenario)
@@ -207,8 +197,4 @@ class ScanContextUtilsTest {
         assertFalse(ScanContextUtils.isScopedScenario(RunScenario.FullHistory))
     }
 
-    @Test
-    fun `isScopedScenario false for LocalChanges`() {
-        assertFalse(ScanContextUtils.isScopedScenario(RunScenario.LocalChanges()))
-    }
 }
