@@ -15,7 +15,7 @@ inputs:
     required: false
     default: ${{ github.token }}
   native-image-job-reports:
-    description: 'Pass-through to graalvm/setup-graalvm `native-image-job-reports` (non-Windows). CI native-build uses true; release jobs leave false.'
+    description: 'Pass-through to graalvm/setup-graalvm `native-image-job-reports` (non-Windows). The CLI workflow''s build uses true; release jobs leave false.'
     required: false
     default: 'false'
   graalvm-hybridcrt-version:

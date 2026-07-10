@@ -221,7 +221,7 @@ jobs:
           retention-days: 14
 
   build-cli:
-    name: Build qodana-cli (${{ matrix.platform.name }})
+    name: Package qodana-cli (${{ matrix.platform.name }})
     needs: prepare
     strategy:
       fail-fast: false
@@ -259,7 +259,7 @@ jobs:
           retention-days: 14
 
   build-clang-cdnet:
-    name: Build ${{ matrix.module }} (${{ matrix.platform.name }})
+    name: Package ${{ matrix.module }} (${{ matrix.platform.name }})
     needs: prepare
     if: ${{ !inputs.cli-only }}
     strategy:

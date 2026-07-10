@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test
  * GraalVM, QD-14925).
  *
  * Tagged `native-deps` so `./gradlew test` skips it unless `-PnativeTests=true` is passed; the CI
- * Windows native-build matrix opts in. For local repro:
+ * CLI workflow's Windows `build` matrix opts in. For local repro:
  *
  *     GRAALVM_HOME=<hybridcrt-graalvm> ./gradlew :qodana-cli:nativeCompile \
  *               :qodana-cli:test --tests "*NativeWindowsDepsTest" \

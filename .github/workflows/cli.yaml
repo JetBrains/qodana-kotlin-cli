@@ -1,4 +1,4 @@
-name: CI
+name: CLI
 
 on:
   pull_request:
@@ -6,76 +6,14 @@ on:
     branches: [main]
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 jobs:
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@v6
-      - run: ./gradlew test
-
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@v6
-      - name: Run prek (commit-stage hooks)
-        uses: j178/prek-action@v2
-        with:
-          extra-args: --all-files --hook-stage pre-commit
-      - name: Run prek (push-stage hooks — Gradle lint)
-        uses: j178/prek-action@v2
-        with:
-          extra-args: --all-files --hook-stage pre-push
-
-  qodana:
-    name: Qodana
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      pull-requests: write
-      checks: write
-    steps:
-      # No `ref:` override → checkout defaults to github.ref = the PR merge commit on pull_request, so CI builds against latest main.
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 25
-      - uses: gradle/actions/setup-gradle@v6
-      # Requires the QODANA_CI_ACTION_TOKEN secret on the repo (project token from
-      # https://qodana.cloud). Without it the linter fails fast with
-      # "Starting from 2023.2 release versions require connection to Qodana Cloud."
-      # The env var stays QODANA_TOKEN (qodana-action's contract); only the secret it maps from changed.
-      - uses: JetBrains/qodana-action@v2026.1.0
-        env:
-          QODANA_TOKEN: ${{ secrets.QODANA_CI_ACTION_TOKEN }}
-        with:
-          pr-mode: false
-          post-pr-comment: true
-          use-annotations: true
-          upload-result: true
-
-  native-build:
+  build:
     name: "Build ${{ matrix.module }} (${{ matrix.platform.name }})"
     strategy:
       fail-fast: false
@@ -148,9 +86,9 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  native-e2e:
-    name: "E2E qodana-cli (${{ matrix.platform.tag }})"
-    needs: native-build
+  e2e:
+    name: E2E qodana-cli (${{ matrix.platform.name }})
+    needs: build
     strategy:
       fail-fast: false
       # Docker is gated off on darwin-arm64 (QD-14821, no nested virt) and
@@ -159,10 +97,10 @@ jobs:
       # aren't in the matrix at all (QD-14862, QD-14819).
       matrix:
         platform:
-          - { tag: linux-amd64,   artifact: qodana-cli-linux-amd64,   runner: ubuntu-latest,    setup: linux,   docker: true  }
-          - { tag: linux-arm64,   artifact: qodana-cli-linux-arm64,   runner: ubuntu-24.04-arm, setup: linux,   docker: true  }
-          - { tag: darwin-arm64,  artifact: qodana-cli-darwin-arm64,  runner: macos-15,         setup: macos,   docker: false }
-          - { tag: windows-amd64, artifact: qodana-cli-windows-amd64, runner: windows-latest,   setup: windows, docker: false }
+          - { name: linux/amd64,   tag: linux-amd64,   artifact: qodana-cli-linux-amd64,   runner: ubuntu-latest,    setup: linux,   docker: true  }
+          - { name: linux/arm64,   tag: linux-arm64,   artifact: qodana-cli-linux-arm64,   runner: ubuntu-24.04-arm, setup: linux,   docker: true  }
+          - { name: darwin/arm64,  tag: darwin-arm64,  artifact: qodana-cli-darwin-arm64,  runner: macos-15,         setup: macos,   docker: false }
+          - { name: windows/amd64, tag: windows-amd64, artifact: qodana-cli-windows-amd64, runner: windows-latest,   setup: windows, docker: false }
     runs-on: ${{ matrix.platform.runner }}
     timeout-minutes: 45
     steps:
@@ -229,15 +167,12 @@ jobs:
           name: ${{ matrix.platform.artifact }}
           path: ./bin
 
-      - name: chmod (POSIX)
-        if: matrix.platform.setup != 'windows'
-        shell: bash
-        run: chmod +x ./bin/qodana-cli
-
-      - name: Resolve binary path
+      - name: Prepare the binary
         id: bin
         shell: bash
         run: |
+          # chmod is POSIX-only; Windows carries the .exe. Then resolve the path the later steps invoke.
+          [ -f ./bin/qodana-cli.exe ] || chmod +x ./bin/qodana-cli
           if [ -f ./bin/qodana-cli.exe ]; then
             echo "path=$PWD/bin/qodana-cli.exe" >> "$GITHUB_OUTPUT"
           else
@@ -268,17 +203,13 @@ jobs:
           mkdir -p "$WORK/results-native" "$WORK/results-jvm" "$WORK/cache-native" "$WORK/cache-jvm" "$WORK/report-native" "$WORK/report-jvm"
           echo "QODANA_E2E_WORK=$WORK" >> "$GITHUB_ENV"
 
-      - name: --version
+      - name: Smoke-check informational commands
+        # Grouped: none needs its own failure boundary.
         shell: bash
-        run: ${{ steps.bin.outputs.path }} --version
-
-      - name: --help
-        shell: bash
-        run: ${{ steps.bin.outputs.path }} --help
-
-      - name: init --help
-        shell: bash
-        run: ${{ steps.bin.outputs.path }} init --help
+        run: |
+          ${{ steps.bin.outputs.path }} --version
+          ${{ steps.bin.outputs.path }} --help
+          ${{ steps.bin.outputs.path }} init --help
 
       - name: scan (native)
         if: matrix.platform.docker
@@ -316,7 +247,7 @@ jobs:
 
       # Force-removing alpine first ensures the pull actually streams (a
       # cached image short-circuits and the PullResponseItem DTO never fires).
-      - name: pull
+      - name: Pull an image
         if: matrix.platform.docker
         shell: bash
         run: |
@@ -329,11 +260,12 @@ jobs:
         run: |
           printf '%s' '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"test"}},"results":[]}]}' > "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
 
-      - name: view
+      - name: Render the report
         shell: bash
         run: ${{ steps.bin.outputs.path }} view -f "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
 
-      - name: send (via NativeBinarySendSmokeTest harness)
+      # Via the NativeBinarySendSmokeTest harness (JVM mock cloud + S3 stub).
+      - name: Smoke-test the send command
         shell: bash
         run: |
           ./gradlew :qodana-cli:nativeBinaryTest --tests 'org.jetbrains.qodana.cli.NativeBinarySendSmokeTest' \
@@ -341,6 +273,19 @@ jobs:
             -Dtest.project.dir="$QODANA_E2E_WORK/project" \
             -Dtest.results.dir="$QODANA_E2E_WORK/results-native"
 
-      - name: show --dir-only
+      - name: Show the report directory
         shell: bash
         run: ${{ steps.bin.outputs.path }} show -i "$QODANA_E2E_WORK/project" -o "$QODANA_E2E_WORK/results-native" --dir-only
+
+  cli:
+    # Stable required check for the native-binary build + e2e matrices — the ruleset requires `CLI`, not
+    # each build/e2e cell, so platforms rename/grow without touching governance. Fails if any needed cell
+    # fails. No `allowed-skips`/`allowed-failures`: a skipped or failed cell fails the gate.
+    name: CLI
+    needs: [build, e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}

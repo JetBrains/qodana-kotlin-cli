@@ -186,9 +186,9 @@ jobs:
           git checkout -b "$BRANCH"
           git commit -am "chore(linter-images): bump within-major dist pins"
           git push -u origin "$BRANCH"
-          # NOTE: a PR opened with GITHUB_TOKEN does NOT itself trigger the `Linter images` workflow
+          # NOTE: a PR opened with GITHUB_TOKEN does NOT itself trigger the `Images` workflow
           # (GitHub suppresses recursive workflow runs). A human must re-run / push to that PR to
-          # exercise the image build + Docker e2e tracks before merging.
+          # exercise the image build + e2e tracks before merging.
           gh pr create --fill --base main --head "$BRANCH" \
             --title "chore(linter-images): within-major dist pin bump" \
-            --body "Automated within-major bump of the linter dist pins. Re-run the **Linter images** workflow on this PR (it is not auto-triggered for bot-authored PRs) before merging."
+            --body "Automated within-major bump of the linter dist pins. Re-run the **Images** workflow on this PR (it is not auto-triggered for bot-authored PRs) before merging."

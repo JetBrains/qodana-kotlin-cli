@@ -1,27 +1,27 @@
-name: Linter images
+name: Images
 
-# Additive CI for the in-repo Qodana linter images. Separate from the
-# stock `CI` workflow's `Qodana` gate — this builds each IMAGE from this tree (CLI_SOURCE=context)
-# and runs the in-tree e2e fixtures against it the way a real customer would (the @Tag("linter-e2e")
-# harness). CI-only: the docker-driving suite can't run on the arm64 dev box. The arch-capable images
-# (the `ArchContract.archCapable` set) also run arm64 e2e on `ubuntu-24.04-arm` runners (QD-15171); the
-# rest stay amd64-only. Path-filtered to the image build system so unrelated PRs don't pay for native
-# compiles + image builds + scans.
+# Additive CI for the in-repo Qodana linter images. Separate from the `Checks` workflow's `Qodana`
+# check — this builds each IMAGE from this tree (CLI_SOURCE=context) and runs the in-tree e2e fixtures
+# against it the way a real customer would (the @Tag("linter-e2e") harness). CI-only: the docker-driving
+# suite can't run on the arm64 dev box. The arch-capable images (the `ArchContract.archCapable` set) also
+# run arm64 e2e on `ubuntu-24.04-arm` runners (QD-15171); the rest stay amd64-only. The full matrix runs
+# on every PR (pull_request is unfiltered so the required Images gate never stalls — QD-15343); only the
+# push trigger stays path-filtered to the image build system.
 
 on:
-  # No paths filter on pull_request: the Docker e2e cells are REQUIRED status checks (Default Branch
-  # ruleset), so a paths-filtered PR that never triggers them would strand those checks in "Expected"
-  # merge limbo. Run the full matrix on every PR; cheap change-gating is deferred (QD-15343).
+  # No paths filter on pull_request: the required `Images` gate aggregates the e2e matrix (Default Branch
+  # ruleset), so a paths-filtered PR that never triggers e2e would strand the gate in "Expected" merge
+  # limbo. Run the full matrix on every PR; cheap change-gating is deferred (QD-15343).
   pull_request:
   push:
     branches: [main]
     paths:
       - linter-images/**
-      - .github/workflows/linter-images.yaml
+      - .github/workflows/images.yaml
   workflow_dispatch: {}
 
 concurrency:
-  group: linter-images-${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -37,7 +37,7 @@ jobs:
     # One job per image. Each cell builds ITS image from this tree, then runs the harness scoped to
     # that image (-Dlinter.e2e.image), so a build/scan/assert failure surfaces in — and only in — the
     # relevant image's job. fail-fast:false keeps the three signals independent.
-    name: Docker e2e (${{ matrix.image.name }}, linux/${{ matrix.image.arch }})
+    name: E2E ${{ matrix.image.name }} (linux/${{ matrix.image.arch }})
     runs-on: ${{ matrix.image.runner }}
     timeout-minutes: 60
     strategy:
@@ -444,13 +444,14 @@ jobs:
           retention-days: 14
 
   release-smoke:
-    # End-to-end proof the release overlay flips a dist: qodana-jvm defaults to the internal nightly feed,
-    # so compose.release.yaml must flip it back to the public dist. CLI_SOURCE=context (compose.ci.yaml)
-    # builds the from-tree CLI — no nightly-tag asset download. The job carries NO Space token, so a
-    # silently-unapplied overlay falls back to the internal sha256 feed and fails RED. All steps run
-    # unconditionally: a missing registry credential reds the job at the docker login (docker/login-action
-    # errors on empty creds). NOT a required check.
-    name: Release-profile build smoke (qodana-jvm)
+    # qodana-jvm is an arbitrary canary for the release profile (any image would do). End-to-end proof the
+    # release overlay flips a dist: qodana-jvm defaults to the internal nightly feed, so compose.release.yaml
+    # must flip it back to the public dist.
+    # CLI_SOURCE=context (compose.ci.yaml) builds the from-tree CLI — no nightly-tag asset download. The job
+    # carries NO Space token, so a silently-unapplied overlay falls back to the internal sha256 feed and
+    # fails RED. All steps run unconditionally: a missing registry credential reds the job at the docker
+    # login (docker/login-action errors on empty creds). NOT a required check.
+    name: Release profile smoke
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -488,3 +489,17 @@ jobs:
             :linter-images:installDist
       - name: Build qodana-jvm via the release profile (public feed, GPG, no token)
         run: docker compose -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.release.yaml build qodana-jvm
+
+  images:
+    # Stable required check for the whole image matrix — the ruleset requires `Images`, not the ~30
+    # cell names, so cells rename/grow without touching governance. Fails if any needed cell fails.
+    # No `allowed-skips`/`allowed-failures`: strict handling means a skipped or failed e2e cell fails the
+    # gate, never silently greens it.
+    name: Images
+    needs: [e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}

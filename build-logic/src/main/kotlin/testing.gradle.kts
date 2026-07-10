@@ -4,7 +4,7 @@ tasks.withType<Test>().configureEach {
     // `native-deps` tag covers tests that need a built `nativeCompile` artifact on
     // disk (e.g. NativeWindowsDepsTest). Excluded by default so `./gradlew test`
     // on a fresh checkout doesn't trip; opt in via `-PnativeTests=true` (CI does
-    // this on the Windows native-build matrix entry).
+    // this on the CLI workflow's Windows `build` matrix entry).
     val nativeTestsEnabled = project.findProperty("nativeTests") == "true"
     useJUnitPlatform {
         if (!nativeTestsEnabled) {

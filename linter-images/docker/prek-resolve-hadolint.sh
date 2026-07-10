@@ -2,7 +2,7 @@
 # prek entry: resolve every thin image via dockerfile-x and hadolint the output. Quiet on success;
 # on failure prints the offending image + hadolint output and exits non-zero.
 #
-# Runs locally AND in CI (ci.yaml runs prek). No Docker daemon: dockerfile-x resolution is pure text.
+# Runs locally AND in CI (the Checks workflow runs prek). No Docker daemon: dockerfile-x resolution is pure text.
 # hadolint comes from the hook's pip env (hadolint-py, pinned in .pre-commit-config.yaml); npx (Node)
 # fetches dockerfile-x on demand.
 set -euo pipefail

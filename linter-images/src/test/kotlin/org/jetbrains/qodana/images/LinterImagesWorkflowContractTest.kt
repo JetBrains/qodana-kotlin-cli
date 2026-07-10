@@ -17,11 +17,11 @@ import kotlin.io.path.readText
  */
 class LinterImagesWorkflowContractTest {
     private val workflow: JsonNode =
-        YAMLMapper().readTree(Path.of("../.github/workflows/linter-images.yaml").readText())
+        YAMLMapper().readTree(Path.of("../.github/workflows/images.yaml").readText())
 
     // Jackson/SnakeYAML may resolve the `on:` mapping key as a YAML 1.1 boolean (→ field name "true"); try both.
     private val onTriggers: JsonNode
-        get() = workflow["on"] ?: workflow["true"] ?: error("`on:` trigger block not found in linter-images.yaml")
+        get() = workflow["on"] ?: workflow["true"] ?: error("`on:` trigger block not found in images.yaml")
 
     private val steps: List<JsonNode>
         get() = workflow["jobs"]["e2e"]["steps"].toList()
@@ -141,9 +141,10 @@ class LinterImagesWorkflowContractTest {
     @Test
     fun `release-smoke runs the build unconditionally, no Space token`() {
         val job = workflow["jobs"]["release-smoke"]
-        assertTrue(job != null, "linter-images.yaml must define a release-smoke job")
+        assertTrue(job != null, "images.yaml must define a release-smoke job")
+        assertEquals("Release profile smoke", job!!["name"].asText(), "release-smoke display name is linter-agnostic")
         // Anchor the build on the release overlay (its defining, stable signal), not literal command fragments.
-        val buildStep = job!!["steps"].toList().single { it.runScript().contains("compose.release.yaml") }
+        val buildStep = job["steps"].toList().single { it.runScript().contains("compose.release.yaml") }
         // The build runs unconditionally (a missing cred reds it at login/base-pull). Its overlay dist flip stays
         // guarded by the no-Space-token tripwire below. We test that the image builds, not creds.
         assertEquals("", buildStep.ifExpr(), "the release build must be unconditional so it always runs")
@@ -166,7 +167,7 @@ class LinterImagesWorkflowContractTest {
         // (a matrix exclude, continue-on-error, runs-on, with:/env: interpolation, or a comment). It is a
         // BLOCKLIST of the realistic fork/actor discriminators, NOT an exhaustive proof: a positive same-repo gate
         // (`github.repository == '<literal>'`) is the known residual.
-        val text = Path.of("../.github/workflows/linter-images.yaml").readText()
+        val text = Path.of("../.github/workflows/images.yaml").readText()
         val forkDiscriminators =
             listOf(
                 "head.repo.fork", // canonical fork spelling
@@ -223,6 +224,9 @@ class LinterImagesWorkflowContractTest {
     @Test
     fun `e2e job name is platform-tagged and runner-independent`() {
         val name = workflow["jobs"]["e2e"]["name"].asText()
+        assertTrue(name.startsWith("E2E "), "e2e check must use the unified 'E2E <subject> …' shape, got: $name")
+        assertTrue(name.contains("\${{ matrix.image.name }}"), "e2e check must keep the per-cell image subject: $name")
+        assertFalse(name.contains("Docker"), "drop the redundant 'Docker' prefix from the e2e check: $name")
         assertTrue(name.contains("linux/\${{ matrix.image.arch }}"), "check name must carry linux/<arch>, got: $name")
         assertFalse(name.contains("ubuntu"), "check name must not embed the runner id: $name")
     }
@@ -285,16 +289,16 @@ class LinterImagesWorkflowContractTest {
     }
 
     @Test
-    fun `pull_request trigger is unfiltered so required Docker e2e checks never stall (QD-15343)`() {
-        // The Default Branch ruleset marks every Docker e2e cell REQUIRED. If the pull_request trigger were
-        // paths-filtered, a PR not touching linter-images would leave those required checks "Expected" forever
+    fun `pull_request trigger is unfiltered so the required Images gate never stalls (QD-15343)`() {
+        // The required `Images` gate aggregates the e2e matrix. If the pull_request trigger were
+        // paths-filtered, a PR not touching linter-images would leave the gate "Expected" forever
         // → merge limbo (only admin-bypass hides it today). Keep pull_request unfiltered so every PR runs the
-        // matrix and the required checks always report. (Deferred: cheap change-gating — see QD-15343.)
+        // matrix and the gate always reports. (Deferred: cheap change-gating — see QD-15343.)
         assertTrue(onTriggers.has("pull_request"), "workflow must trigger on pull_request")
         val pr = onTriggers["pull_request"]
         assertTrue(
             pr == null || pr.isNull || !pr.has("paths"),
-            "pull_request must NOT be paths-filtered (required Docker e2e checks would stall): ${pr?.get("paths")}",
+            "pull_request must NOT be paths-filtered (the required Images gate would stall): ${pr?.get("paths")}",
         )
     }
 
