@@ -27,15 +27,6 @@ fun buildImageTool(): CliktCommand {
         ),
         InstallCliCommand(runner = runner),
         VerifyDistLayoutCommand(),
-        VerifyPinCommand(
-            feedClient = FeedClient(runner),
-            verifier = DistVerifier(runner),
-            getEnv = System::getenv,
-        ),
-        BumpPinsCommand(
-            feedClient = FeedClient(runner),
-            getEnv = System::getenv,
-        ),
         ResolveBuildArgsCommand(
             imagesDir = Path.of("linter-images/docker/images"),
             clangVersions = Path.of("linter-images/docker/clang-versions.txt"),

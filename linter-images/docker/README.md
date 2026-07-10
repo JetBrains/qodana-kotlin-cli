@@ -67,8 +67,9 @@ name — distinct from `/data/cache`, the runtime cache where clang's `tools` pr
 Every external artifact is pinned by digest/build and verified fail-closed: the IDE dist by GPG
 signature (key vendored in `lib/jetbrains.pub`) then sha256; `ADD --checksum=` for tini and the Android
 SDK; the dhi.io base and the dockerfile-x frontend by `@sha256`. Pins live in `images/<slug>.env` +
-`../docs/phase-0-decisions.md` (kept byte-identical by `EnvContractTest`) and are Renovate-tracked; the
-scheduled `Linter image drift` workflow re-verifies and bumps them.
+`../docs/phase-0-decisions.md` (kept byte-identical by `EnvContractTest`) and are Renovate-tracked (the
+`QD_BUILD` dist pin via the `custom.qodana-dist` datasource; base/frontend digests via the docker
+managers).
 
 `base` parameterizes the `qodana` user via `QODANA_UID`/`QODANA_GID` (default 1000, declared once in
 `base`'s global pre-FROM block, so the existing debian-base images are byte-identical; the consuming

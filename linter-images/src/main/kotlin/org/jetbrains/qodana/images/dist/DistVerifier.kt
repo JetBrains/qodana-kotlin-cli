@@ -28,7 +28,7 @@ class DistVerifier(
      * Downloads the archive + `.sha256` for [resolved] into [workDir], plus the `.sha256.asc` signature
      * unless [skipAsc] (internal nightly: unsigned, so [asc][DownloadedDist.asc] is null). The detached
      * signature link is derived as `checksumLink + ".asc"`. Fail-closed: any non-zero curl throws. This
-     * is the SINGLE download path shared by provision-dist and verify-pin.
+     * is the SINGLE download path used by provision-dist.
      */
     fun download(
         resolved: ResolvedDist,

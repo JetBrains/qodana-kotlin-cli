@@ -15,14 +15,7 @@ class MainTest {
     fun `image-tool registers all subcommands`() {
         val names = buildImageTool().registeredSubcommands().map { it.commandName }.toSet()
         assertEquals(
-            setOf(
-                "provision-dist",
-                "install-cli",
-                "verify-dist-layout",
-                "verify-pin",
-                "bump-pins",
-                "resolve-build-args",
-            ),
+            setOf("provision-dist", "install-cli", "verify-dist-layout", "resolve-build-args"),
             names,
         )
     }
