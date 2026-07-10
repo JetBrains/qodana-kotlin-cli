@@ -55,4 +55,37 @@ class CiWorkflowContractTest {
         val on = checks["on"] ?: checks["true"]
         assertTrue(on.has("pull_request"), "Checks must run on pull_request")
     }
+
+    @Test
+    fun `cli workflow builds and e2es the native binary`() {
+        val cli = wf("cli.yaml")
+        assertEquals("CLI", cli["name"].asText())
+        val jobs = cli["jobs"]
+        assertTrue(jobs.has("build") && !jobs.has("native-build"), "build job id must be 'build'")
+        assertTrue(jobs.has("e2e") && !jobs.has("native-e2e"), "e2e job id must be 'e2e'")
+        assertEquals("E2E qodana-cli (${'$'}{{ matrix.platform.name }})", jobs["e2e"]["name"].asText())
+        // Every e2e platform's display `name` is slash-form (no dash outlier); the dash lives only in the
+        // artifact/tag identifiers, which must stay dash to match native-build's upload-artifact names.
+        jobs["e2e"]["strategy"]["matrix"]["platform"].forEach { p ->
+            val pn = p["name"]?.asText() ?: error("e2e platform matrix entry missing a display 'name': $p")
+            assertTrue(pn.contains("/") && !pn.contains("-"), "e2e platform display name must be slash-form: $pn")
+        }
+    }
+
+    @Test
+    fun `cli gate aggregates build and e2e`() {
+        assertGate("cli.yaml", "cli", "CLI", listOf("build", "e2e"))
+    }
+
+    @Test
+    fun `both gates pin the identical alls-green ref`() {
+        fun allsGreenRef(file: String, jobId: String) =
+            wf(file)["jobs"][jobId]["steps"]
+                .first { it["uses"]?.asText()?.startsWith("re-actors/alls-green") == true }["uses"].asText()
+        assertEquals(
+            allsGreenRef("images.yaml", "images"),
+            allsGreenRef("cli.yaml", "cli"),
+            "CLI and Images gates must pin the same re-actors/alls-green SHA",
+        )
+    }
 }
