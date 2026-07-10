@@ -23,6 +23,15 @@ class MultiarchPlumbingContractTest {
             "arm64" to "07952557df20bfd2a95f9bef198b445e006171969499a1d361bd9e6f8e5e0e81",
         )
 
+    // clang-tidy digests for the pinned CLANG_TIDY_VERSION, from the private qodana-cli-deps Space mirror
+    // (not host-recomputable) — a separately-maintained ground truth that catches an ARG-default typo here
+    // rather than at arm64 image-build time (cf. tiniArchToSha).
+    private val clangTidyArchToSha =
+        mapOf(
+            "amd64" to "dea43a4f013db12fd352df6aac2884a760c53dd4eeac1f2e7114a1e74846bf95",
+            "arm64" to "75b12aea3d16bef36b01c4bac2fbd7770587281bbc5a9c6da549247c0bf6ef33",
+        )
+
     @Test
     fun `cli dockerfile passes TARGETARCH to install-cli and drops CLI_ARCH`() {
         val d = lib("cli.dockerfile")
@@ -101,5 +110,37 @@ class MultiarchPlumbingContractTest {
             d.contains("x86_64-unknown-linux-gnu/rustup-init"),
             "no hardcoded x86_64 installer URL (must use \${rust_arch})",
         )
+    }
+
+    @Test
+    fun `clang-tidy tools selects the archive per-TARGETARCH fail-closed`() {
+        val d = Path.of("docker/lib/tools.dockerfile").readText()
+        // Global ARGs don't cross FROM; the tools stage must re-declare TARGETARCH or the case hits `*)`.
+        assertTrue(d.contains("ARG TARGETARCH"), "tools stage must re-declare ARG TARGETARCH")
+        // Pin the ARG defaults to the mirror ground truth (catches a typo before the arm64 build).
+        assertTrue(
+            d.contains("ARG CLANG_TIDY_SHA256_AMD64=${clangTidyArchToSha["amd64"]}"),
+            "amd64 clang-tidy sha pinned to the mirror ground truth",
+        )
+        assertTrue(
+            d.contains("ARG CLANG_TIDY_SHA256_ARM64=${clangTidyArchToSha["arm64"]}"),
+            "arm64 clang-tidy sha pinned to the mirror ground truth",
+        )
+        assertTrue(
+            d.contains("amd64) CLANG_TIDY_SHA256=\"\${CLANG_TIDY_SHA256_AMD64}\""),
+            "amd64 case must select CLANG_TIDY_SHA256_AMD64",
+        )
+        assertTrue(
+            d.contains("arm64) CLANG_TIDY_SHA256=\"\${CLANG_TIDY_SHA256_ARM64}\""),
+            "arm64 case must select CLANG_TIDY_SHA256_ARM64",
+        )
+        assertTrue(
+            d.contains("clang-tidy-linux-\${TARGETARCH}.tar.gz"),
+            "URL must fetch clang-tidy-linux-\${TARGETARCH}",
+        )
+        assertTrue(Regex("""\*\)\s*echo "unsupported TARGETARCH""").containsMatchIn(d), "fail-closed default arm")
+        assertTrue(d.contains("sha256sum -c"), "clang-tidy must be verified fail-closed")
+        assertFalse(d.contains("CLI_ARCH"), "tools.dockerfile must not reference CLI_ARCH")
+        assertFalse(d.contains("clang-tidy-linux-amd64"), "no hardcoded amd64 archive URL (must use \${TARGETARCH})")
     }
 }

@@ -62,9 +62,9 @@ CLANG_TIDY_VERSION = 1.0.0
 `CLANG_TIDY_VERSION` is the qodana-cli-deps **package** tag (the `$version`
 segment), NOT a clang compiler `<major>.<minor>.<patch>`: the ancestor
 `clang-tidy.json` carries only this package tag (`v1.0.0`). The mirror path
-prepends `v` (`…/clang-tidy/v1.0.0/clang-tidy-linux-amd64.tar.gz`), so
-`lib/tools.dockerfile` fetches `${CLANG_TIDY_MIRROR}/v${CLANG_TIDY_VERSION}/clang-tidy-linux-${CLI_ARCH}.tar.gz`
-(here `CLI_ARCH` is `tools.dockerfile`'s own `ARG CLI_ARCH=amd64` default, NOT an `.env` key — clang/cdnet stay amd64; QD-15172 removed `CLI_ARCH` from all `.env`).
+prepends `v` (`…/clang-tidy/v1.0.0/clang-tidy-linux-<arch>.tar.gz`), so
+`lib/tools.dockerfile` fetches `${CLANG_TIDY_MIRROR}/v${CLANG_TIDY_VERSION}/clang-tidy-linux-${TARGETARCH}.tar.gz`
+(arch from BuildKit `TARGETARCH`; a per-arch `CLANG_TIDY_SHA256_<ARCH>` is selected by a `case` block and verified fail-closed — QD-15373).
 The mirror is PRIVATE (see below): the build supplies `QODANA_READ_SPACE_PACKAGES_TOKEN`
 as a build secret sent via `Authorization: Bearer`, and Renovate tracks new package
 tags via the token-authenticated `versions.json` (a `customDatasource` in
@@ -1243,3 +1243,14 @@ QODANA_CPP_LINUX_ARM64_SHA256 = 6622554ef67ac1ff921b6f504361004ce26a19861603a030
 (QD-15234), the ReSharper CLT is architecture-independent managed .NET (`dotnet exec`), and the inner CLI
 resolves per-arch via BuildKit `TARGETARCH`. Feed-less (no `QD_LINTER_SLUG`, no IDE dist) → no `ARM64_SLUGS`
 entry.
+
+## Multi-arch verification (QD-15373)
+
+`qodana-clang` enabled for `linux/arm64` — finishing QD-15171 (all 17 images multiarch). The mirror
+clang-tidy is arch-specific: `lib/tools.dockerfile` now fetches `clang-tidy-linux-${TARGETARCH}.tar.gz` and
+verifies a per-arch sha256 via a `case "$TARGETARCH"` block (the runtime.dockerfile tini shape), dropping the
+amd64-only `CLI_ARCH`. The LLVM-apt clang toolchain is arch-transparent (no change, like cpp), and the inner
+`qodana-clang` binary resolves per-arch via BuildKit `TARGETARCH`. Feed-less (no `QD_LINTER_SLUG`, no IDE
+dist) → no `ARM64_SLUGS` entry.
+
+QODANA_CLANG_TIDY_ARM64_SHA256 = 75b12aea3d16bef36b01c4bac2fbd7770587281bbc5a9c6da549247c0bf6ef33
