@@ -289,16 +289,16 @@ class LinterImagesWorkflowContractTest {
     }
 
     @Test
-    fun `pull_request trigger is unfiltered so required Docker e2e checks never stall (QD-15343)`() {
-        // The Default Branch ruleset marks every Docker e2e cell REQUIRED. If the pull_request trigger were
-        // paths-filtered, a PR not touching linter-images would leave those required checks "Expected" forever
+    fun `pull_request trigger is unfiltered so the required Images gate never stalls (QD-15343)`() {
+        // The required `Images` gate aggregates the e2e matrix. If the pull_request trigger were
+        // paths-filtered, a PR not touching linter-images would leave the gate "Expected" forever
         // → merge limbo (only admin-bypass hides it today). Keep pull_request unfiltered so every PR runs the
-        // matrix and the required checks always report. (Deferred: cheap change-gating — see QD-15343.)
+        // matrix and the gate always reports. (Deferred: cheap change-gating — see QD-15343.)
         assertTrue(onTriggers.has("pull_request"), "workflow must trigger on pull_request")
         val pr = onTriggers["pull_request"]
         assertTrue(
             pr == null || pr.isNull || !pr.has("paths"),
-            "pull_request must NOT be paths-filtered (required Docker e2e checks would stall): ${pr?.get("paths")}",
+            "pull_request must NOT be paths-filtered (the required Images gate would stall): ${pr?.get("paths")}",
         )
     }
 

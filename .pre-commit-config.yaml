@@ -46,7 +46,7 @@ repos:
       - id: resolve-hadolint
         name: resolve + hadolint
         # hadolint via hadolint-py (pip; no Docker, no manual install), pinned + Renovate-trackable;
-        # npx resolves the dockerfile-x thin files. Runs locally and in CI (ci.yaml runs prek).
+        # npx resolves the dockerfile-x thin files. Runs locally and in CI (the Checks workflow runs prek).
         language: python
         additional_dependencies:
           - "hadolint-py @ git+https://github.com/AleksaC/hadolint-py.git@v2.14.0"

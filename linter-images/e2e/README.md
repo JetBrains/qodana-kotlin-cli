@@ -4,7 +4,7 @@ End-to-end tests for the in-repo Qodana linter images (`qodana-jvm`, `qodana-jvm
 `qodana-android`, `qodana-android-community`, `qodana-clang`, `qodana-python-community`,
 `qodana-python`, `qodana-js`, `qodana-go`, `qodana-php`, `qodana-rust`, `qodana-ruby`, `qodana-ruby-3.2`,
 `qodana-ruby-3.4`, `qodana-dotnet`, `qodana-cpp`). Each image
-gets its own CI job — **`Docker e2e (<image>)`** — that builds the image
+gets its own CI job — **`E2E <image>`** — that builds the image
 from this tree and runs every fixture under `fixtures/<image>/`, asserting the produced
 `qodana.sarif.json` against a per-case `expected.json`. A job goes red on any problem with its image,
 and only its image (`fail-fast: false`).
@@ -73,4 +73,4 @@ expectation is resolved automatically from the control variant's report at runti
    `expected.json`.
 2. `./gradlew :linter-images:test --tests '*Manifest*'` — `FixtureManifestsTest` validates the new
    manifest with no Docker.
-3. Push; read the `Docker e2e (<image>)` run, pin any `needs-pinning` ids, re-run to green.
+3. Push; read the `E2E <image>` run, pin any `needs-pinning` ids, re-run to green.

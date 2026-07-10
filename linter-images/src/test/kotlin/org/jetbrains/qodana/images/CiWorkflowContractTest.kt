@@ -66,7 +66,7 @@ class CiWorkflowContractTest {
         assertTrue(jobs.has("e2e") && !jobs.has("native-e2e"), "e2e job id must be 'e2e'")
         assertEquals("E2E qodana-cli (${'$'}{{ matrix.platform.name }})", jobs["e2e"]["name"].asText())
         // Every e2e platform's display `name` is slash-form (no dash outlier); the dash lives only in the
-        // artifact/tag identifiers, which must stay dash to match native-build's upload-artifact names.
+        // artifact/tag identifiers, which must stay dash to match the build job's upload-artifact names.
         jobs["e2e"]["strategy"]["matrix"]["platform"].forEach { p ->
             val pn = p["name"]?.asText() ?: error("e2e platform matrix entry missing a display 'name': $p")
             assertTrue(pn.contains("/") && !pn.contains("-"), "e2e platform display name must be slash-form: $pn")

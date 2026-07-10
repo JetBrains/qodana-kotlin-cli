@@ -6,7 +6,7 @@ import java.nio.file.Path
 
 /**
  * Asserts JVM vs native SARIF parity via [SarifCompare]. Inputs come from the
- * CI `native-e2e` job (which runs scan twice and passes both reports via
+ * CI `e2e` job / CLI workflow (which runs scan twice and passes both reports via
  * `-Dtest.sarif.{jvm,native}` + `-Dtest.project.dir`). Tagged `native-binary`
  * so default `test` skips it; only CI has the artifacts.
  */

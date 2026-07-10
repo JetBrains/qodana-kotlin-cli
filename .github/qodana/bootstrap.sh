@@ -7,7 +7,7 @@
 # (/usr/lib/jvm and /opt are read-only), so install a matching complete JDK under the writable
 # Gradle home and register it via org.gradle.java.installations.paths, which daemon auto-detection
 # reads. The version is read from the criteria file so it tracks future bumps. Runs only in the
-# linter container — no effect on native-build or other CI jobs.
+# linter container — no effect on the CLI `build` or other CI jobs.
 set -euxo pipefail
 
 criteria=gradle/gradle-daemon-jvm.properties
