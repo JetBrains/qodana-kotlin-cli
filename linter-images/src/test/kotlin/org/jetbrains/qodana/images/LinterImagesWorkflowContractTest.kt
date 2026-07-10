@@ -17,11 +17,11 @@ import kotlin.io.path.readText
  */
 class LinterImagesWorkflowContractTest {
     private val workflow: JsonNode =
-        YAMLMapper().readTree(Path.of("../.github/workflows/linter-images.yaml").readText())
+        YAMLMapper().readTree(Path.of("../.github/workflows/images.yaml").readText())
 
     // Jackson/SnakeYAML may resolve the `on:` mapping key as a YAML 1.1 boolean (→ field name "true"); try both.
     private val onTriggers: JsonNode
-        get() = workflow["on"] ?: workflow["true"] ?: error("`on:` trigger block not found in linter-images.yaml")
+        get() = workflow["on"] ?: workflow["true"] ?: error("`on:` trigger block not found in images.yaml")
 
     private val steps: List<JsonNode>
         get() = workflow["jobs"]["e2e"]["steps"].toList()
@@ -141,7 +141,7 @@ class LinterImagesWorkflowContractTest {
     @Test
     fun `release-smoke runs the build unconditionally, no Space token`() {
         val job = workflow["jobs"]["release-smoke"]
-        assertTrue(job != null, "linter-images.yaml must define a release-smoke job")
+        assertTrue(job != null, "images.yaml must define a release-smoke job")
         // Anchor the build on the release overlay (its defining, stable signal), not literal command fragments.
         val buildStep = job!!["steps"].toList().single { it.runScript().contains("compose.release.yaml") }
         // The build runs unconditionally (a missing cred reds it at login/base-pull). Its overlay dist flip stays
@@ -166,7 +166,7 @@ class LinterImagesWorkflowContractTest {
         // (a matrix exclude, continue-on-error, runs-on, with:/env: interpolation, or a comment). It is a
         // BLOCKLIST of the realistic fork/actor discriminators, NOT an exhaustive proof: a positive same-repo gate
         // (`github.repository == '<literal>'`) is the known residual.
-        val text = Path.of("../.github/workflows/linter-images.yaml").readText()
+        val text = Path.of("../.github/workflows/images.yaml").readText()
         val forkDiscriminators =
             listOf(
                 "head.repo.fork", // canonical fork spelling

@@ -1,4 +1,4 @@
-name: Linter images
+name: Images
 
 # Additive CI for the in-repo Qodana linter images. Separate from the
 # stock `CI` workflow's `Qodana` gate — this builds each IMAGE from this tree (CLI_SOURCE=context)
@@ -21,7 +21,7 @@ on:
   workflow_dispatch: {}
 
 concurrency:
-  group: linter-images-${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
