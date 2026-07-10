@@ -23,7 +23,8 @@ jobs:
           distribution: temurin
           java-version: 25
       - uses: gradle/actions/setup-gradle@v6
-      - run: ./gradlew test
+      - name: Run tests
+        run: ./gradlew test
 
   lint:
     name: Lint

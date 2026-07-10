@@ -3,6 +3,7 @@ package org.jetbrains.qodana.images
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
@@ -75,6 +76,22 @@ class CiWorkflowContractTest {
     @Test
     fun `cli gate aggregates build and e2e`() {
         assertGate("cli.yaml", "cli", "CLI", listOf("build", "e2e"))
+    }
+
+    @Test
+    fun `run steps have sentence-y names, never raw flags`() {
+        // Scoped to the workflows this refactor cleans (the PR-gating set + pr-title). nightly/draft/publish
+        // get light-touch (job-name-only) naming and drift is untouched/being retired — out of scope here.
+        listOf("checks.yaml", "cli.yaml", "images.yaml", "pr-title.yaml").forEach { file ->
+            wf(file)["jobs"].properties().forEach { (jobId, job) ->
+                job["steps"]?.filter { it.has("run") }?.forEach { step ->
+                    val name = step["name"]?.asText()
+                    assertTrue(!name.isNullOrBlank(), "$file/$jobId: a run step has no name (shows the raw command)")
+                    assertFalse(name!!.trim().startsWith("-"), "$file/$jobId step name is a raw flag: '$name'")
+                    assertFalse(name.contains("--"), "$file/$jobId step name embeds a raw flag: '$name'")
+                }
+            }
+        }
     }
 
     @Test

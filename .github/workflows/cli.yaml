@@ -167,15 +167,12 @@ jobs:
           name: ${{ matrix.platform.artifact }}
           path: ./bin
 
-      - name: chmod (POSIX)
-        if: matrix.platform.setup != 'windows'
-        shell: bash
-        run: chmod +x ./bin/qodana-cli
-
-      - name: Resolve binary path
+      - name: Prepare the binary
         id: bin
         shell: bash
         run: |
+          # chmod is POSIX-only; Windows carries the .exe. Then resolve the path the later steps invoke.
+          [ -f ./bin/qodana-cli.exe ] || chmod +x ./bin/qodana-cli
           if [ -f ./bin/qodana-cli.exe ]; then
             echo "path=$PWD/bin/qodana-cli.exe" >> "$GITHUB_OUTPUT"
           else
@@ -206,17 +203,14 @@ jobs:
           mkdir -p "$WORK/results-native" "$WORK/results-jvm" "$WORK/cache-native" "$WORK/cache-jvm" "$WORK/report-native" "$WORK/report-jvm"
           echo "QODANA_E2E_WORK=$WORK" >> "$GITHUB_ENV"
 
-      - name: --version
+      - name: Smoke-check informational commands
+        # Read-only invocations that just prove the binary runs and prints; grouped since none needs its
+        # own failure boundary.
         shell: bash
-        run: ${{ steps.bin.outputs.path }} --version
-
-      - name: --help
-        shell: bash
-        run: ${{ steps.bin.outputs.path }} --help
-
-      - name: init --help
-        shell: bash
-        run: ${{ steps.bin.outputs.path }} init --help
+        run: |
+          ${{ steps.bin.outputs.path }} --version
+          ${{ steps.bin.outputs.path }} --help
+          ${{ steps.bin.outputs.path }} init --help
 
       - name: scan (native)
         if: matrix.platform.docker
@@ -254,7 +248,7 @@ jobs:
 
       # Force-removing alpine first ensures the pull actually streams (a
       # cached image short-circuits and the PullResponseItem DTO never fires).
-      - name: pull
+      - name: Pull an image
         if: matrix.platform.docker
         shell: bash
         run: |
@@ -267,11 +261,12 @@ jobs:
         run: |
           printf '%s' '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"test"}},"results":[]}]}' > "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
 
-      - name: view
+      - name: Render the report
         shell: bash
         run: ${{ steps.bin.outputs.path }} view -f "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
 
-      - name: send (via NativeBinarySendSmokeTest harness)
+      # Exercises the send command via the NativeBinarySendSmokeTest harness (JVM mock cloud + S3 stub).
+      - name: Smoke-test the send command
         shell: bash
         run: |
           ./gradlew :qodana-cli:nativeBinaryTest --tests 'org.jetbrains.qodana.cli.NativeBinarySendSmokeTest' \
@@ -279,7 +274,7 @@ jobs:
             -Dtest.project.dir="$QODANA_E2E_WORK/project" \
             -Dtest.results.dir="$QODANA_E2E_WORK/results-native"
 
-      - name: show --dir-only
+      - name: Show the report directory
         shell: bash
         run: ${{ steps.bin.outputs.path }} show -i "$QODANA_E2E_WORK/project" -o "$QODANA_E2E_WORK/results-native" --dir-only
 
