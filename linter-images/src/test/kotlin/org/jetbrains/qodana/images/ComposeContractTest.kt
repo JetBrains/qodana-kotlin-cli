@@ -30,8 +30,6 @@ class ComposeContractTest {
             "qodana-php",
             "qodana-cdnet",
             "qodana-ruby",
-            "qodana-ruby-3.2",
-            "qodana-ruby-3.4",
             "qodana-rust",
             "qodana-dotnet",
             "qodana-cpp",
@@ -122,8 +120,6 @@ class ComposeContractTest {
             "qodana-go",
             "qodana-php",
             "qodana-ruby",
-            "qodana-ruby-3.2",
-            "qodana-ruby-3.4",
             "qodana-rust",
             "qodana-dotnet",
             "qodana-cpp",
@@ -161,7 +157,7 @@ class ComposeContractTest {
         // KEY (no clobber — base.dockerfile does not declare it), NOT a compose build arg, so it must be
         // ABSENT here (EnvContractTest asserts it lives in the .env). CLI_BASE_STAGE stays the `dist`
         // default (ruby has a dist) — asserted in the no-override loop above.
-        for (slug in listOf("qodana-ruby", "qodana-ruby-3.2", "qodana-ruby-3.4")) {
+        for (slug in listOf("qodana-ruby")) {
             val args = root[slug]["build"]["args"]
             assertEquals(
                 "base",

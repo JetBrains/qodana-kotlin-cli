@@ -389,13 +389,12 @@ class BumpPinsCommandTest {
     }
 
     @Test
-    fun `bumps a ruby runtime-variant env to the shared QODANA_RUBY_BUILD row`(
+    fun `syncs the single qodana-ruby env to its QODANA_RUBY_BUILD row`(
         @TempDir dir: File,
     ) {
-        // qodana-ruby-3.2 is a runtime variant of the qodana-ruby linter: the trailing -X.Y suffix is
-        // stripped so it syncs the SHARED QODANA_RUBY_BUILD row (there is exactly one), not an invented
-        // QODANA_RUBY_3_2_BUILD row that would fail the loud single-row check.
-        File(dir, "qodana-ruby-3.2.env").writeText(
+        // QD-15369 collapsed ruby to ONE image: the `.env` file name IS the pin identity (no -X.Y suffix
+        // strip), so qodana-ruby.env syncs the QODANA_RUBY_BUILD row directly.
+        File(dir, "qodana-ruby.env").writeText(
             """
             QD_LINTER_SLUG=qodana-ruby
             QD_VERSION=2026.1
@@ -414,6 +413,6 @@ class BumpPinsCommandTest {
             )
         BumpPinsCommand(FeedClient(runner)).rewrite(dir.toPath(), decisions.toPath())
         val text = decisions.readText()
-        assertTrue(text.contains("QODANA_RUBY_BUILD = 261.2000"), "shared ruby row synced: $text")
+        assertTrue(text.contains("QODANA_RUBY_BUILD = 261.2000"), "ruby row synced: $text")
     }
 }

@@ -75,20 +75,6 @@ services:
         QD_VERIFY_MODE: gpg
         QD_VERSION: "2026.1"
         QD_BUILD: "261.25886"
-  qodana-ruby-3.2:
-    build:
-      args:
-        QD_DISTRIBUTION_FEED: https://download.jetbrains.com/qodana/feed
-        QD_VERIFY_MODE: gpg
-        QD_VERSION: "2026.1"
-        QD_BUILD: "261.25886"
-  qodana-ruby-3.4:
-    build:
-      args:
-        QD_DISTRIBUTION_FEED: https://download.jetbrains.com/qodana/feed
-        QD_VERIFY_MODE: gpg
-        QD_VERSION: "2026.1"
-        QD_BUILD: "261.25886"
   qodana-rust:
     build:
       args:

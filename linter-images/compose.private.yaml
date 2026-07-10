@@ -54,14 +54,6 @@ services:
     build:
       secrets:
         - space_packages_token
-  qodana-ruby-3.2:
-    build:
-      secrets:
-        - space_packages_token
-  qodana-ruby-3.4:
-    build:
-      secrets:
-        - space_packages_token
   qodana-dotnet:
     build:
       secrets:

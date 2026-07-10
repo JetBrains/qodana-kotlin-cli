@@ -22,8 +22,9 @@ class ReleaseProfileContractTest {
     private val publicFeed = "https://download.jetbrains.com/qodana/feed"
     private val overrideKeys = setOf("QD_DISTRIBUTION_FEED", "QD_VERIFY_MODE", "QD_VERSION", "QD_BUILD")
 
-    // slug -> its phase-0 release-pin key prefix. android* reuse the jvm(-community) dist and the ruby
-    // variants share the qodana-ruby dist, so those map onto a shared key.
+    // slug -> its phase-0 release-pin key prefix. android* reuse the jvm(-community) dist, so those map
+    // onto a shared key. The single qodana-ruby family uses QODANA_RUBY_RELEASE (its runtimes are a CI
+    // version sub-axis, not separate services).
     private val releaseKey =
         mapOf(
             "qodana-jvm" to "QODANA_JVM_RELEASE",
@@ -36,8 +37,6 @@ class ReleaseProfileContractTest {
             "qodana-go" to "QODANA_GO_RELEASE",
             "qodana-php" to "QODANA_PHP_RELEASE",
             "qodana-ruby" to "QODANA_RUBY_RELEASE",
-            "qodana-ruby-3.2" to "QODANA_RUBY_RELEASE",
-            "qodana-ruby-3.4" to "QODANA_RUBY_RELEASE",
             "qodana-rust" to "QODANA_RUST_RELEASE",
             "qodana-dotnet" to "QODANA_DOTNET_RELEASE",
             "qodana-cpp" to "QODANA_CPP_RELEASE",

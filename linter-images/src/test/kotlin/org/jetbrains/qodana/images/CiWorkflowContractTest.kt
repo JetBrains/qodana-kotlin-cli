@@ -133,18 +133,42 @@ class CiWorkflowContractTest {
 
     private val matrixRef = Regex("""\$\{\{\s*matrix\.([\w.]+)\s*\}\}""")
 
+    // The optional-suffix idiom the versioned e2e job name uses (QD-15369):
+    //   ${{ matrix.<path> != '' && format('-{0}', matrix.<path>) || '' }}
+    // → the value with a leading '-' when the axis is present, else empty. Resolve it BEFORE the plain
+    // matrixRef pass so a versioned cell's name expands to the distinct string GitHub actually renders
+    // (else all versions collapse to one literal name and the uniqueness guard mis-fires).
+    private val optionalSuffixRef =
+        Regex(
+            """\$\{\{\s*matrix\.([\w.]+)\s*!=\s*''\s*&&\s*format\('-\{0}',\s*matrix\.[\w.]+\)\s*\|\|\s*''\s*\}\}""",
+        )
+
+    private fun resolvePath(
+        path: String,
+        binding: Map<String, JsonNode>,
+    ): String? {
+        val segs = path.split(".")
+        var node: JsonNode? = binding[segs[0]]
+        for (seg in segs.drop(1)) node = node?.get(seg)
+        return node?.asText()
+    }
+
     private fun substitute(
         template: String,
         binding: Map<String, JsonNode>,
-    ): String =
-        matrixRef.replace(template) { m ->
-            val path = m.groupValues[1].split(".")
-            var node: JsonNode? = binding[path[0]]
-            for (seg in path.drop(1)) node = node?.get(seg)
+    ): String {
+        val withSuffix =
+            optionalSuffixRef.replace(template) { m ->
+                val v = resolvePath(m.groupValues[1], binding) ?: ""
+                if (v.isNotEmpty()) "-$v" else ""
+            }
+        return matrixRef.replace(withSuffix) { m ->
             // Fail loud on an unresolved ref (a name pointing at a nonexistent matrix key) — never leave the
             // literal `${{ … }}` in, which would silently make cells look alike or unlike.
-            node?.asText() ?: error("unresolved ${m.value} against matrix keys ${binding.keys} in '$template'")
+            resolvePath(m.groupValues[1], binding)
+                ?: error("unresolved ${m.value} against matrix keys ${binding.keys} in '$template'")
         }
+    }
 
     /** Every expanded job display name a workflow file produces (GitHub-style matrix cross-product). */
     private fun expandedNames(file: String): List<String> =

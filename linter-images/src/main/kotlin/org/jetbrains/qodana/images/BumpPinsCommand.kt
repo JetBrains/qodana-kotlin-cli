@@ -88,10 +88,9 @@ class BumpPinsCommand(
     /**
      * The decision-row identity for an image `.env` is its FILE NAME, not its [QD_LINTER_SLUG]: android
      * reuses the qodana-jvm dist (slug `qodana-jvm`) yet pins its own `QODANA_ANDROID_BUILD` row, so a
-     * slug-keyed sync would leave android's row stale and redden the drift PR. Runtime variants (a
-     * trailing `-X.Y`, e.g. qodana-ruby-3.2) collapse to their base linter's single shared row.
+     * slug-keyed sync would leave android's row stale and redden the drift PR.
      */
-    private fun pinName(env: Path): String = env.name.removeSuffix(".env").replace(Regex("""-\d+\.\d+$"""), "")
+    private fun pinName(env: Path): String = env.name.removeSuffix(".env")
 
     private fun resolveNewestBuild(
         feedUrl: String,

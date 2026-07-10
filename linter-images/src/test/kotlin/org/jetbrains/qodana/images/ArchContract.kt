@@ -12,8 +12,6 @@ object ArchContract {
             "qodana-python",
             "qodana-python-community",
             "qodana-ruby",
-            "qodana-ruby-3.2",
-            "qodana-ruby-3.4",
             "qodana-rust",
             "qodana-dotnet",
             "qodana-android",

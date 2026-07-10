@@ -111,7 +111,7 @@ jobs:
           for env in linter-images/docker/images/*.env; do
             SLUG="$(val QD_LINTER_SLUG "$env")"
             [ -n "$SLUG" ] || continue
-            base="$(basename "$env" .env | sed -E 's/-[0-9]+\.[0-9]+$//')"
+            base="$(basename "$env" .env)"
             key="QODANA_$(printf '%s' "${base#qodana-}" | tr 'a-z-' 'A-Z_')_RELEASE"
             VERSION="$(decval "${key}_VERSION")"; BUILD="$(decval "${key}_BUILD")"
             if [ -z "$VERSION" ] || [ -z "$BUILD" ]; then echo "::error::no ${key}_* row in $DEC"; FAILED=1; continue; fi
