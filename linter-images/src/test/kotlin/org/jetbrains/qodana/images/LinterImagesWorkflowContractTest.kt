@@ -52,6 +52,22 @@ class LinterImagesWorkflowContractTest {
     /** Absent version == the default. */
     private fun JsonNode.version(): String = this["version"]?.asText() ?: ""
 
+    private fun clangMajors(): List<String> =
+        Path.of("docker/clang-versions.txt").readText().lineSequence()
+            .map { it.substringBefore('#').trim() }.filter { it.isNotEmpty() }
+            .map { it.split(Regex("\\s+"))[0] }.toList().sorted()
+
+    @Test
+    fun `cpp builds every clang major on both arches`() {
+        val cpp = cells.filter { it["name"].asText() == "qodana-cpp" }
+        val cppDefaultClang = EnvContract.parseEnv("qodana-cpp").getValue("CLANG")
+        // Effective version per cell = its version, or the .env default when absent.
+        val versionsByArch = cpp.groupBy { it["arch"].asText() }
+            .mapValues { (_, g) -> g.map { it.version().ifEmpty { cppDefaultClang } }.sorted() }
+        assertEquals(clangMajors(), versionsByArch["amd64"], "cpp must cover every clang major on amd64")
+        assertEquals(clangMajors(), versionsByArch["arm64"], "cpp must cover every clang major on arm64")
+    }
+
     @Test
     fun `token-gated cells exist (clang and cdnet)`() {
         val names =

@@ -268,6 +268,89 @@ jobs:
             feed_required: "true"
             arch: arm64
             runner: ubuntu-24.04-arm
+          # qodana-cpp version sub-axis (QD-15369): the default (clang 20) pair above omits `version`;
+          # the 16/17/18/19/21 pairs rebuild qodana-cpp with the --build-arg set (CLANG/CLANG_OS/QD_BASE_IMAGE)
+          # resolved from docker/clang-versions.txt by the Resolve version build-args step below.
+          - name: qodana-cpp
+            version: "16"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-cpp
+            version: "16"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-cpp
+            version: "17"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-cpp
+            version: "17"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-cpp
+            version: "18"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-cpp
+            version: "18"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-cpp
+            version: "19"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-cpp
+            version: "19"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-cpp
+            version: "21"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-cpp
+            version: "21"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: arm64
+            runner: ubuntu-24.04-arm
           - name: qodana-clang
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "true"
