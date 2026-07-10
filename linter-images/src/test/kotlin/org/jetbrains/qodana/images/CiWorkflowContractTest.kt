@@ -43,4 +43,16 @@ class CiWorkflowContractTest {
     fun `images gate aggregates the e2e matrix`() {
         assertGate("images.yaml", "images", "Images", listOf("e2e"))
     }
+
+    @Test
+    fun `checks workflow hosts the repo-wide gates`() {
+        val checks = wf("checks.yaml")
+        assertEquals("Checks", checks["name"].asText())
+        val jobs = checks["jobs"]
+        assertEquals("Test", jobs["test"]["name"].asText())
+        assertEquals("Lint", jobs["lint"]["name"].asText())
+        assertEquals("Qodana", jobs["qodana"]["name"].asText())
+        val on = checks["on"] ?: checks["true"]
+        assertTrue(on.has("pull_request"), "Checks must run on pull_request")
+    }
 }
