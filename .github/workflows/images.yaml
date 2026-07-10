@@ -444,13 +444,14 @@ jobs:
           retention-days: 14
 
   release-smoke:
-    # End-to-end proof the release overlay flips a dist: qodana-jvm defaults to the internal nightly feed,
-    # so compose.release.yaml must flip it back to the public dist. CLI_SOURCE=context (compose.ci.yaml)
-    # builds the from-tree CLI — no nightly-tag asset download. The job carries NO Space token, so a
-    # silently-unapplied overlay falls back to the internal sha256 feed and fails RED. All steps run
-    # unconditionally: a missing registry credential reds the job at the docker login (docker/login-action
-    # errors on empty creds). NOT a required check.
-    name: Release-profile build smoke (qodana-jvm)
+    # qodana-jvm is an ARBITRARY canary for the release profile (public feed + GPG, no token); it is not
+    # special — any image would do. End-to-end proof the release overlay flips a dist: qodana-jvm defaults
+    # to the internal nightly feed, so compose.release.yaml must flip it back to the public dist.
+    # CLI_SOURCE=context (compose.ci.yaml) builds the from-tree CLI — no nightly-tag asset download. The job
+    # carries NO Space token, so a silently-unapplied overlay falls back to the internal sha256 feed and
+    # fails RED. All steps run unconditionally: a missing registry credential reds the job at the docker
+    # login (docker/login-action errors on empty creds). NOT a required check.
+    name: Release profile smoke
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:

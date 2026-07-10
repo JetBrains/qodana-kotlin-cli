@@ -142,8 +142,9 @@ class LinterImagesWorkflowContractTest {
     fun `release-smoke runs the build unconditionally, no Space token`() {
         val job = workflow["jobs"]["release-smoke"]
         assertTrue(job != null, "images.yaml must define a release-smoke job")
+        assertEquals("Release profile smoke", job!!["name"].asText(), "release-smoke display name is linter-agnostic")
         // Anchor the build on the release overlay (its defining, stable signal), not literal command fragments.
-        val buildStep = job!!["steps"].toList().single { it.runScript().contains("compose.release.yaml") }
+        val buildStep = job["steps"].toList().single { it.runScript().contains("compose.release.yaml") }
         // The build runs unconditionally (a missing cred reds it at login/base-pull). Its overlay dist flip stays
         // guarded by the no-Space-token tripwire below. We test that the image builds, not creds.
         assertEquals("", buildStep.ifExpr(), "the release build must be unconditional so it always runs")
