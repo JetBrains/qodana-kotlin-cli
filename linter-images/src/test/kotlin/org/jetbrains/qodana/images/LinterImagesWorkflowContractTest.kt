@@ -185,6 +185,18 @@ class LinterImagesWorkflowContractTest {
     }
 
     @Test
+    fun `token-gated staging globs the inner CLI binary per cell arch, not a hardcoded amd64`() {
+        // The clang/cdnet staging step globs the Tool-kind inner CLI <module>_<version>_linux_<arch>. The
+        // arch suffix must follow matrix.image.arch, not a hardcoded amd64 suffix.
+        val text = Path.of("../.github/workflows/images.yaml").readText()
+        val glob =
+            Regex("""tool_binaries=\([^)]*\)""").find(text)?.value
+                ?: error("token-gated tool_binaries glob not found in images.yaml")
+        assertTrue("_linux_\${{ matrix.image.arch }}" in glob, "tool_binaries must select the cell's arch: $glob")
+        assertFalse("_linux_amd64" in glob, "tool_binaries must not hardcode _linux_amd64: $glob")
+    }
+
+    @Test
     fun `every e2e cell declares arch and runner`() {
         cells.forEach { c ->
             val n = c["name"].asText()
