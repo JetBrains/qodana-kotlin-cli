@@ -1,0 +1,3 @@
+# OS→DHI-base-digest, bound to phase-0-decisions.md by DebianBasesTest. Format: <codename> <digest>
+bookworm dhi.io/debian-base:bookworm@sha256:802b1fe0c2ac7827f82f4a33918f3bd69293fe83d18ddf471ae57f4312400cd5
+trixie dhi.io/debian-base:trixie-debian13-dev@sha256:68b5f4c2c789b99dc6ab7574c7e695e724646f64616619c48c3245f8aaeae459
