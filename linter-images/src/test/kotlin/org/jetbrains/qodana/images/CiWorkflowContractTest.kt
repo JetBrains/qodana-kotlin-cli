@@ -112,4 +112,46 @@ class CiWorkflowContractTest {
             "CLI and Images gates must pin the same re-actors/alls-green SHA",
         )
     }
+
+    // --- Expanded-name uniqueness guard (matrix cross-product) -----------------------------------------
+    // `pre + listOf(it)`, NOT `pre + it`: a JsonNode is itself Iterable<JsonNode>, so `pre + it` would pick
+    // Collection.plus(Iterable) and splice an object's field-values in instead of appending the node.
+    private fun cartesian(lists: List<List<JsonNode>>): List<List<JsonNode>> =
+        lists.fold(listOf<List<JsonNode>>(emptyList())) { acc, l -> acc.flatMap { pre -> l.map { pre + listOf(it) } } }
+
+    private val matrixRef = Regex("""\$\{\{\s*matrix\.([\w.]+)\s*\}\}""")
+
+    private fun substitute(template: String, binding: Map<String, JsonNode>): String =
+        matrixRef.replace(template) { m ->
+            val path = m.groupValues[1].split(".")
+            var node: JsonNode? = binding[path[0]]
+            for (seg in path.drop(1)) node = node?.get(seg)
+            // Fail loud on an unresolved ref (a name pointing at a nonexistent matrix key) — never leave the
+            // literal `${{ … }}` in, which would silently make cells look alike or unlike.
+            node?.asText() ?: error("unresolved ${m.value} against matrix keys ${binding.keys} in '$template'")
+        }
+
+    /** Every expanded job display name a workflow file produces (GitHub-style matrix cross-product). */
+    private fun expandedNames(file: String): List<String> =
+        wf(file)["jobs"].properties().asSequence().flatMap { (id, job) ->
+            val template = job["name"]?.asText() ?: id
+            val matrix = job["strategy"]?.get("matrix") ?: return@flatMap sequenceOf(template)
+            // include/exclude ADD/REMOVE combinations — not cross-product axes. Fail loud if a future matrix
+            // uses them, so the guard is never silently wrong (rather than folding them into the product).
+            check(!matrix.has("include") && !matrix.has("exclude")) {
+                "$file/$id matrix uses include/exclude — teach expandedNames to model them first"
+            }
+            val entries = matrix.properties().toList()
+            val lists = entries.map { it.value.toList() }
+            cartesian(lists).asSequence().map { combo ->
+                substitute(template, entries.map { it.key }.zip(combo).toMap())
+            }
+        }.toList()
+
+    @Test
+    fun `expanded check names are globally unique across PR-triggered workflows`() {
+        val all = listOf("checks.yaml", "cli.yaml", "images.yaml", "pr-title.yaml").flatMap { expandedNames(it) }
+        val dupes = all.groupingBy { it }.eachCount().filter { it.value > 1 }.keys
+        assertTrue(dupes.isEmpty(), "duplicate expanded check names block required checks: $dupes")
+    }
 }
