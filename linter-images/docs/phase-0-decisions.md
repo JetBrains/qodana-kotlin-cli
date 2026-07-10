@@ -157,9 +157,9 @@ DOTNET_CHANNELS = 8.0 9.0 10.0
 ### qodana-jvm feed pin (jvm — android carries its own pin below)
 
 Repointed onto the INTERNAL nightly dist feed (QD-15032 Task 11). Resolved 2026-06-24 from
-`packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed/qodana-jvm.releases.json` (max-by-Date
-among `MajorVersion==2026.3` AND `Type==eap` — the predicate `BumpPinsCommand` uses; the feed is
-eap-only). `Code` is `QDJVM`. The feed reads with the `QODANA_READ_SPACE_PACKAGES_TOKEN` bearer token;
+`packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed/qodana-jvm.releases.json` (newest
+within-major, `MajorVersion==2026.3`, on the eap-only feed — tracked by the Renovate `custom.qodana-dist`
+datasource in `.github/renovate.json5`). `Code` is `QDJVM`. The feed reads with the `QODANA_READ_SPACE_PACKAGES_TOKEN` bearer token;
 `qodana-jvm.env` sets `QD_DISTRIBUTION_FEED` to this feed and `QD_VERIFY_MODE=sha256` (the nightly is
 unsigned — sha256-only, no GPG `.asc`). The `EnvContractTest` `pins match phase-0-decisions` test
 asserts `QODANA_JVM_VERSION == qodana-jvm.env QD_VERSION` (the MajorVersion `2026.3`) and
@@ -955,8 +955,8 @@ via the `.env`-keyed `LIBICU_PKG`: the apt line installs `${LIBICU_PKG:-libicu72
 declares a BARE `ARG LIBICU_PKG` (no default — a same-name `ARG` default declared after dockerfile-x's
 INCLUDE_ARGS block would CLOBBER the `.env` value, the QODANA_UID trap). cdnet sets NO key (its `.env` is
 unchanged) → the `:-libicu72` fallback keeps it on libicu72; qodana-dotnet sets `LIBICU_PKG=libicu76`.
-`LIBICU_PKG` is a base-coupled Debian package name, NOT a JetBrains feed pin — it is NOT Renovate- or
-drift-tracked (it changes only when an image migrates to a new Debian generation). `DotnetEnvContractTest`
+`LIBICU_PKG` is a base-coupled Debian package name, NOT a JetBrains feed pin — it is NOT Renovate-tracked
+(it changes only when an image migrates to a new Debian generation). `DotnetEnvContractTest`
 asserts `qodana-dotnet.env`'s `LIBICU_PKG=libicu76`; `DotnetToolchainTest` guards the fragment shape +
 the cdnet-libicu72 fallback. The .NET SDK install (revision/sha/channels) is unchanged from cdnet.
 
@@ -1027,16 +1027,18 @@ A faithful carry-over of source behavior; flagged for the CI control run.
 ## Release-profile pins (compose.release.yaml — public-feed reproduction)
 
 The seeded public release each dist image reproduces under `compose.release.yaml` (token-free, GPG). These
-`_RELEASE_*` rows and the nightly `QODANA_<X>_VERSION`/`_BUILD` rows above are SEPARATE: the daily drift
-bumper rewrites only `QODANA_<X>_BUILD`, never `_RELEASE_BUILD`. `ReleaseProfileContractTest` asserts each
-overlay `QD_VERSION`/`QD_BUILD` byte-equals its row here; the drift canary re-verifies each against the
-public feed. android reuses the qodana-jvm dist and android-community the qodana-jvm-community dist (same
+`_RELEASE_*` rows and the nightly `QODANA_<X>_VERSION`/`_BUILD` rows above are SEPARATE: Renovate
+(`custom.qodana-dist`) advances only the nightly `QODANA_<X>_BUILD` rows, never the frozen `_RELEASE_BUILD`
+rows. `ReleaseProfileContractTest` asserts each overlay `QD_VERSION`/`QD_BUILD` byte-equals its row here. The
+frozen `_RELEASE_*` pins are an immutable publisher contract, NOT periodically re-verified; a pin's
+resolvability is exercised only incidentally, at build time via `provision-dist`, when that image next builds
+through `compose.release.yaml`. android reuses the qodana-jvm dist and android-community the qodana-jvm-community dist (same
 `_RELEASE_BUILD`); ruby's 3 variants share `QODANA_RUBY_RELEASE_BUILD`. For a not-yet-migrated public image
-`_RELEASE_BUILD` mirrors its `.env QD_BUILD` today; the bumper advances only the `.env`, so the two diverge
+`_RELEASE_BUILD` mirrors its `.env QD_BUILD` today; Renovate advances only the `.env`, so the two diverge
 over time BY DESIGN — the frozen `_RELEASE` pin reproduces the seeded snapshot, while the bare build yields
 the live public release until that image repoints to the nightly (as qodana-jvm already does: its `.env` is
 the 2026.3 nightly, this row the last public pin). ruby/rust reproduce an EAP public dist — their public
-feed has no release-channel entry — but `verify-pin` resolves by exact `(version, build)` regardless of
+feed has no release-channel entry — but `provision-dist` resolves by exact `(version, build)` regardless of
 channel, so the gpg path is identical.
 
 QODANA_JVM_RELEASE_VERSION = 2026.1
@@ -1206,9 +1208,9 @@ QODANA_ANDROID_LINUX_ARM64_SHA256 = 90f06642d589b3782e07eccb1d5442111d30d4e98f56
 QODANA_ANDROID_COMMUNITY_LINUX_ARM64_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-jvm-community/qodana-QDJVMC-263.484.2162-aarch64.tar.gz
 QODANA_ANDROID_COMMUNITY_LINUX_ARM64_SHA256 = 8b028d61659bffb63734e2ad0795bee336f9877008eeee14c86546b6889d6faa
 
-No `ARM64_SLUGS` change: android's dist slug is `qodana-jvm` and android-community's is
-`qodana-jvm-community` (both reuse the JVM dist) — already re-verified by the jvm legs, so the drift
-canary dedup covers them.
+android's dist slug is `qodana-jvm` and android-community's is `qodana-jvm-community` (both reuse the JVM
+dist), so their arm64 dist is the same artifact the jvm / jvm-community arm64 image builds already
+provision-verify.
 
 ## Multi-arch verification (QD-15274)
 
@@ -1229,8 +1231,8 @@ CLion drops it in an async race on fast machines (QD-15334 — on run 2888251462
 faster amd64), so gating on it would be a data race. A green arm64 cell proves each asserted category's engine
 works on arm64; cross-arch SARIF _equivalence_ remains QD-15262.
 
-`ARM64_SLUGS` GAINS `qodana-cpp`: cpp's dist slug is unique (`QD_LINTER_SLUG=qodana-cpp`), so — unlike
-android, which reuses `qodana-jvm` — the drift canary would not otherwise re-verify cpp's arm64 `.sha256`.
+cpp's dist slug is unique (`QD_LINTER_SLUG=qodana-cpp`), so its arm64 `.sha256` is verified by cpp's own
+`linux/arm64` image build (`provision-dist --arch ${TARGETARCH}`).
 
 QODANA_CPP_LINUX_ARM64_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-cpp/qodana-QDCPP-263.130.1007-aarch64.tar.gz
 QODANA_CPP_LINUX_ARM64_SHA256 = 6622554ef67ac1ff921b6f504361004ce26a19861603a0309717dd927c3ce5b0
