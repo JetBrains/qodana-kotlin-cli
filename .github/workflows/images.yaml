@@ -275,6 +275,13 @@ jobs:
             feed_required: "false"
             arch: amd64
             runner: ubuntu-latest
+          - name: qodana-cdnet
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
     env:
       # QODANA_READ_SPACE_PACKAGES_TOKEN reads the private JetBrains Space packages — the qodana-cli-deps
       # mirror (clang/cdnet) AND the internal nightly dist feed (every dist image). Surfaced as `env.*` so the
