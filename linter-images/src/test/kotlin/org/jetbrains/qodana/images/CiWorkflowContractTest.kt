@@ -78,6 +78,13 @@ class CiWorkflowContractTest {
     }
 
     @Test
+    fun `pr-title workflow uses Title Case names`() {
+        val pr = wf("pr-title.yaml")
+        assertEquals("PR Title", pr["name"].asText())
+        assertEquals("Validate PR title", pr["jobs"]["validate"]["name"].asText())
+    }
+
+    @Test
     fun `both gates pin the identical alls-green ref`() {
         fun allsGreenRef(file: String, jobId: String) =
             wf(file)["jobs"][jobId]["steps"]
