@@ -43,6 +43,10 @@ class FixtureManifestsTest {
                         )
                         assertTrue(e.reason.isNotBlank(), "expectation.reason is required in $path")
                     }
+                    assertTrue(
+                        m.sarif.expectations.any { it.presence == "present" },
+                        "each fixture must assert at least one present finding: $path",
+                    )
                 }
             }.stream()
     }

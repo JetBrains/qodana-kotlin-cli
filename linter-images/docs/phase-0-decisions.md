@@ -1236,3 +1236,10 @@ cpp's dist slug is unique (`QD_LINTER_SLUG=qodana-cpp`), so its arm64 `.sha256` 
 
 QODANA_CPP_LINUX_ARM64_LINK = https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/qodana-cpp/qodana-QDCPP-263.130.1007-aarch64.tar.gz
 QODANA_CPP_LINUX_ARM64_SHA256 = 6622554ef67ac1ff921b6f504361004ce26a19861603a0309717dd927c3ce5b0
+
+## Multi-arch verification (QD-15372)
+
+`qodana-cdnet` enabled for `linux/arm64` — no dockerfile change. The .NET toolchain is already multi-arch
+(QD-15234), the ReSharper CLT is architecture-independent managed .NET (`dotnet exec`), and the inner CLI
+resolves per-arch via BuildKit `TARGETARCH`. Feed-less (no `QD_LINTER_SLUG`, no IDE dist) → no `ARM64_SLUGS`
+entry.
