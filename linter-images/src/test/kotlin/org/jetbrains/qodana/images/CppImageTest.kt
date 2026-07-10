@@ -1,5 +1,6 @@
 package org.jetbrains.qodana.images
 
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
@@ -98,6 +99,35 @@ class CppImageTest {
         assertTrue(
             lastUser != null && lastUser != "0" && !lastUser.startsWith("root"),
             "qodana-cpp's final USER must be the qodana uid (not root) so scans run unprivileged; was '$lastUser'",
+        )
+    }
+
+    @Test
+    fun `cpp libicu major and gcc-stock pin are CLANG_OS-aware, not trixie-hardcoded`() {
+        val dockerfile =
+            java.nio.file.Path
+                .of("docker/images/qodana-cpp.dockerfile")
+                .let {
+                    java.nio.file.Files
+                        .readString(it)
+                }
+        // Anchor on the real `case "${CLANG_OS}" in … esac` block, then pin each arm inside it, so a stray
+        // matching string in a comment or unrelated block can't satisfy the assertion.
+        val caseBlock =
+            Regex("""case\s+"\$\{CLANG_OS}"\s+in([\s\S]*?)esac""").find(dockerfile)?.groupValues?.get(1)
+                ?: error("cpp dockerfile must select libicu with a `case \"\${CLANG_OS}\" in … esac` block")
+        assertTrue(Regex("""bookworm\)\s*libicu_pkg=libicu72""").containsMatchIn(caseBlock), "bookworm arm → libicu72")
+        assertTrue(Regex("""trixie\)\s*libicu_pkg=libicu76""").containsMatchIn(caseBlock), "trixie arm → libicu76")
+        assertFalse(
+            Regex("""install[^\n]*\blibicu7[26]\b""").containsMatchIn(dockerfile),
+            "the apt install line must reference the derived package, not a literal libicu major",
+        )
+        // The gcc-stock pin (trixie +dhi gcc-14 eviction, QD-15107) must be guarded on CLANG_OS=trixie, else
+        // it runs unconditionally over the bookworm base it was never written for.
+        assertTrue(
+            Regex("""(if|case)[^\n]*CLANG_OS[\s\S]{0,120}gcc-stock""").containsMatchIn(dockerfile) ||
+                Regex("""CLANG_OS[^\n]*=\s*trixie[\s\S]{0,200}gcc-stock""").containsMatchIn(dockerfile),
+            "the gcc-stock apt-pin must be conditional on CLANG_OS=trixie",
         )
     }
 }
