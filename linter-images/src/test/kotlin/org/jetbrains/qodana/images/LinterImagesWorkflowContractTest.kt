@@ -185,20 +185,6 @@ class LinterImagesWorkflowContractTest {
     }
 
     @Test
-    fun `the drift canary re-verifies the release pins against the public feed`() {
-        val drift = YAMLMapper().readTree(Path.of("../.github/workflows/linter-images-drift.yaml").readText())
-        val canaryStep = drift["jobs"]["canary"]["steps"].toList().single { it.runScript().contains("verify-pin") }
-        val script = canaryStep.runScript()
-        // Bind to the release loop specifically: the phase-0 _RELEASE key derivation AND a verify-pin call
-        // against the release feed var. Deleting the release verify-pin block reddens this (not just a stray comment).
-        assertTrue("_RELEASE" in script, "the canary must derive the QODANA_<X>_RELEASE_* key")
-        assertTrue(
-            "--distribution-feed \"\$PUBLIC\"" in script,
-            "the canary must verify-pin the release pins against the public feed",
-        )
-    }
-
-    @Test
     fun `every e2e cell declares arch and runner`() {
         cells.forEach { c ->
             val n = c["name"].asText()
@@ -229,25 +215,6 @@ class LinterImagesWorkflowContractTest {
         assertFalse(name.contains("Docker"), "drop the redundant 'Docker' prefix from the e2e check: $name")
         assertTrue(name.contains("linux/\${{ matrix.image.arch }}"), "check name must carry linux/<arch>, got: $name")
         assertFalse(name.contains("ubuntu"), "check name must not embed the runner id: $name")
-    }
-
-    @Test
-    fun `drift canary ARM64_SLUGS equals the arch-capable images' dist slugs`() {
-        // The drift canary's ARM64_SLUGS is a 4th copy of the arch-capable set (keyed by dist slug, so
-        // ruby-3.2/-3.4 collapse to qodana-ruby). Tie it to the single source so a forgotten update reddens
-        // here, not silently dropping an image's arm64 .sha256 re-verification.
-        val drift = Path.of("../.github/workflows/linter-images-drift.yaml").readText()
-        val declared =
-            Regex("""ARM64_SLUGS=\(([^)]*)\)""")
-                .find(drift)
-                ?.groupValues
-                ?.get(1)
-                ?.trim()
-                ?.split(Regex("\\s+"))
-                ?.toSet()
-                ?: error("ARM64_SLUGS=(...) not found in linter-images-drift.yaml")
-        val expected = ArchContract.archCapable.map { EnvContract.parseEnv(it).getValue("QD_LINTER_SLUG") }.toSet()
-        assertEquals(expected, declared, "drift ARM64_SLUGS must equal arch-capable images' dist slugs")
     }
 
     @Test

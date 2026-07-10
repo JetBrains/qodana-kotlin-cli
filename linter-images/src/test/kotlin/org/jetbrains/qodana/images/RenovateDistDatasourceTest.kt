@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.json.JsonReadFeature
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.json.JsonMapper
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
@@ -157,5 +158,13 @@ class RenovateDistDatasourceTest {
                 assertEquals(expected, total, "$slug matchString must match exactly $expected line(s): /$pat/")
             }
         }
+    }
+
+    @Test
+    fun `the drift workflow is retired`() {
+        assertFalse(
+            Files.exists(Path.of("../.github/workflows/linter-images-drift.yaml")),
+            "linter-images-drift.yaml must be deleted (QD_BUILD bumping moved to Renovate)",
+        )
     }
 }
