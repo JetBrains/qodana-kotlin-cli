@@ -604,7 +604,7 @@ jobs:
           # built <image>:dev survives — the e2e step runs it, never rebuilds (QD-15127).
           docker builder prune -af
       - name: Verify built runtime version (token-gated)
-        # Fail loud if the requested-runtime --build-arg silently didn't take (ARG-shadowing). EXPECT_TOOL=none skips.
+        # Same guard as the free variant above, for the token-gated build.
         if: ${{ matrix.image.token_gated == 'true' && env.EXPECT_TOOL != 'none' }}
         run: |
           set -euo pipefail

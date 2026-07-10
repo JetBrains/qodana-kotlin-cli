@@ -2,7 +2,9 @@ package org.jetbrains.qodana.images
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import kotlin.io.path.writeText
 import kotlin.test.assertTrue
 
 class ResolveBuildArgsCommandTest {
@@ -10,6 +12,16 @@ class ResolveBuildArgsCommandTest {
         ResolveBuildArgsCommand(
             imagesDir = Path.of("docker/images"),
             clangVersions = Path.of("docker/clang-versions.txt"),
+            rubyVersions = Path.of("docker/ruby-versions.txt"),
+            debianBases = Path.of("docker/debian-bases.txt"),
+        )
+
+    // A command whose clang-versions path is the given temp file; the other three stay real, so
+    // resolve("qodana-cpp", "17") reaches rows(clangVersions, ...) and exercises its error branches.
+    private fun withClangVersions(clangVersions: Path) =
+        ResolveBuildArgsCommand(
+            imagesDir = Path.of("docker/images"),
+            clangVersions = clangVersions,
             rubyVersions = Path.of("docker/ruby-versions.txt"),
             debianBases = Path.of("docker/debian-bases.txt"),
         )
@@ -119,5 +131,42 @@ class ResolveBuildArgsCommandTest {
         val ex = runCatching { cmd.resolve("qodana-ruby", "3.9") }.exceptionOrNull()
         assertTrue(ex is IllegalStateException, "unknown ruby version must throw, was $ex")
         assertTrue(ex.message!!.contains("3.9"), "the error must name the offending version: ${ex.message}")
+    }
+
+    // rows() error paths — the doc comment promises "arity-validated before any positional index", so each
+    // failure must be a loud IllegalStateException naming the file, never a downstream NoSuchElement/
+    // IndexOutOfBounds. Driven through public resolve("qodana-cpp","17") (a non-default clang major reaches
+    // rows(clangVersions, ...)); only clangVersions points at the corrupt temp file.
+    @Test
+    fun `a missing version file fails loudly, naming the file`() {
+        val missing = Path.of("does-not-exist/clang-versions.txt")
+        val ex = runCatching { withClangVersions(missing).resolve("qodana-cpp", "17") }.exceptionOrNull()
+        assertTrue(ex is IllegalStateException, "a missing version file must throw, was $ex")
+        assertTrue(ex.message!!.contains("clang-versions.txt"), "the error must name the file: ${ex.message}")
+        assertTrue(ex.message!!.contains("not found"), "the error must say it was not found: ${ex.message}")
+    }
+
+    @Test
+    fun `an empty version file fails loudly, naming the file`(
+        @TempDir tmp: Path,
+    ) {
+        val empty = tmp.resolve("clang-versions.txt")
+        empty.writeText("")
+        val ex = runCatching { withClangVersions(empty).resolve("qodana-cpp", "17") }.exceptionOrNull()
+        assertTrue(ex is IllegalStateException, "an empty version file must throw, was $ex")
+        assertTrue(ex.message!!.contains("clang-versions.txt"), "the error must name the file: ${ex.message}")
+        assertTrue(ex.message!!.contains("empty"), "the error must say the file is empty: ${ex.message}")
+    }
+
+    @Test
+    fun `a malformed-arity row fails loudly, naming the file`(
+        @TempDir tmp: Path,
+    ) {
+        val malformed = tmp.resolve("clang-versions.txt")
+        malformed.writeText("17 bookworm extra\n")
+        val ex = runCatching { withClangVersions(malformed).resolve("qodana-cpp", "17") }.exceptionOrNull()
+        assertTrue(ex is IllegalStateException, "a malformed row must throw, was $ex")
+        assertTrue(ex.message!!.contains("malformed row"), "the error must say 'malformed row': ${ex.message}")
+        assertTrue(ex.message!!.contains("clang-versions.txt"), "the error must name the file: ${ex.message}")
     }
 }
