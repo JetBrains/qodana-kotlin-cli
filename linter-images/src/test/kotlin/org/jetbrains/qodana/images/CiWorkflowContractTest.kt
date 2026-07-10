@@ -67,6 +67,11 @@ class CiWorkflowContractTest {
         assertEquals("CLI", cli["name"].asText())
         val jobs = cli["jobs"]
         assertTrue(jobs.has("build") && !jobs.has("native-build"), "build job id must be 'build'")
+        assertEquals(
+            "Build ${'$'}{{ matrix.module }} (${'$'}{{ matrix.platform.name }})",
+            jobs["build"]["name"].asText(),
+            "build check name (symmetric with e2e; must keep module + slash platform)",
+        )
         assertTrue(jobs.has("e2e") && !jobs.has("native-e2e"), "e2e job id must be 'e2e'")
         assertEquals("E2E qodana-cli (${'$'}{{ matrix.platform.name }})", jobs["e2e"]["name"].asText())
         // Every e2e platform's display `name` is slash-form (no dash outlier); the dash lives only in the
@@ -84,8 +89,8 @@ class CiWorkflowContractTest {
 
     @Test
     fun `run steps have sentence-y names, never raw flags`() {
-        // Scoped to the workflows this refactor cleans (the PR-gating set + pr-title). nightly/draft/publish
-        // get light-touch (job-name-only) naming and drift is untouched/being retired — out of scope here.
+        // Scoped to the PR-gating workflows + pr-title; nightly/draft/publish/drift use job-name-only
+        // naming and are out of scope.
         listOf("checks.yaml", "cli.yaml", "images.yaml", "pr-title.yaml").forEach { file ->
             wf(file)["jobs"].properties().forEach { (jobId, job) ->
                 job["steps"]?.filter { it.has("run") }?.forEach { step ->

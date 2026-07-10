@@ -204,8 +204,7 @@ jobs:
           echo "QODANA_E2E_WORK=$WORK" >> "$GITHUB_ENV"
 
       - name: Smoke-check informational commands
-        # Read-only invocations that just prove the binary runs and prints; grouped since none needs its
-        # own failure boundary.
+        # Grouped: none needs its own failure boundary.
         shell: bash
         run: |
           ${{ steps.bin.outputs.path }} --version
@@ -265,7 +264,7 @@ jobs:
         shell: bash
         run: ${{ steps.bin.outputs.path }} view -f "$QODANA_E2E_WORK/results-native/qodana.sarif.json"
 
-      # Exercises the send command via the NativeBinarySendSmokeTest harness (JVM mock cloud + S3 stub).
+      # Via the NativeBinarySendSmokeTest harness (JVM mock cloud + S3 stub).
       - name: Smoke-test the send command
         shell: bash
         run: |

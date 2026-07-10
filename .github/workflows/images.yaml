@@ -1,12 +1,12 @@
 name: Images
 
-# Additive CI for the in-repo Qodana linter images. Separate from the
-# stock `CI` workflow's `Qodana` gate — this builds each IMAGE from this tree (CLI_SOURCE=context)
-# and runs the in-tree e2e fixtures against it the way a real customer would (the @Tag("linter-e2e")
-# harness). CI-only: the docker-driving suite can't run on the arm64 dev box. The arch-capable images
-# (the `ArchContract.archCapable` set) also run arm64 e2e on `ubuntu-24.04-arm` runners (QD-15171); the
-# rest stay amd64-only. Path-filtered to the image build system so unrelated PRs don't pay for native
-# compiles + image builds + scans.
+# Additive CI for the in-repo Qodana linter images. Separate from the `Checks` workflow's `Qodana`
+# check — this builds each IMAGE from this tree (CLI_SOURCE=context) and runs the in-tree e2e fixtures
+# against it the way a real customer would (the @Tag("linter-e2e") harness). CI-only: the docker-driving
+# suite can't run on the arm64 dev box. The arch-capable images (the `ArchContract.archCapable` set) also
+# run arm64 e2e on `ubuntu-24.04-arm` runners (QD-15171); the rest stay amd64-only. The full matrix runs
+# on every PR (pull_request is unfiltered so the required Images gate never stalls — QD-15343); only the
+# push trigger stays path-filtered to the image build system.
 
 on:
   # No paths filter on pull_request: the required `Images` gate aggregates the e2e matrix (Default Branch
@@ -444,9 +444,9 @@ jobs:
           retention-days: 14
 
   release-smoke:
-    # qodana-jvm is an ARBITRARY canary for the release profile (public feed + GPG, no token); it is not
-    # special — any image would do. End-to-end proof the release overlay flips a dist: qodana-jvm defaults
-    # to the internal nightly feed, so compose.release.yaml must flip it back to the public dist.
+    # qodana-jvm is an arbitrary canary for the release profile (any image would do). End-to-end proof the
+    # release overlay flips a dist: qodana-jvm defaults to the internal nightly feed, so compose.release.yaml
+    # must flip it back to the public dist.
     # CLI_SOURCE=context (compose.ci.yaml) builds the from-tree CLI — no nightly-tag asset download. The job
     # carries NO Space token, so a silently-unapplied overlay falls back to the internal sha256 feed and
     # fails RED. All steps run unconditionally: a missing registry credential reds the job at the docker
