@@ -489,3 +489,17 @@ jobs:
             :linter-images:installDist
       - name: Build qodana-jvm via the release profile (public feed, GPG, no token)
         run: docker compose -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.release.yaml build qodana-jvm
+
+  images:
+    # Stable required check for the whole image matrix — the ruleset requires `Images`, not the ~30
+    # cell names, so cells rename/grow without touching governance. Fails if any needed cell fails.
+    # No `allowed-skips`/`allowed-failures`: strict handling means a skipped or failed e2e cell fails the
+    # gate, never silently greens it.
+    name: Images
+    needs: [e2e]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: re-actors/alls-green@05ac9388f0aebcb5727afa17fcccfecd6f8ec5fe # release/v1
+        with:
+          jobs: ${{ toJSON(needs) }}
