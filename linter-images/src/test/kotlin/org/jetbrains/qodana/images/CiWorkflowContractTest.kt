@@ -16,11 +16,15 @@ import kotlin.io.path.readText
  * LinterImagesWorkflowContractTest.
  */
 class CiWorkflowContractTest {
-    private fun wf(file: String): JsonNode =
-        YAMLMapper().readTree(Path.of("../.github/workflows/$file").readText())
+    private fun wf(file: String): JsonNode = YAMLMapper().readTree(Path.of("../.github/workflows/$file").readText())
 
     /** A gate job: aggregates a matrix/job set into one stable required check via re-actors/alls-green. */
-    private fun assertGate(file: String, jobId: String, displayName: String, needs: List<String>) {
+    private fun assertGate(
+        file: String,
+        jobId: String,
+        displayName: String,
+        needs: List<String>,
+    ) {
         val job = wf(file)["jobs"][jobId] ?: error("$file must define gate job '$jobId'")
         assertEquals(displayName, job["name"].asText(), "$jobId gate display name")
         assertEquals("always()", job["if"].asText(), "$jobId gate must run with if: always()")
@@ -103,9 +107,12 @@ class CiWorkflowContractTest {
 
     @Test
     fun `both gates pin the identical alls-green ref`() {
-        fun allsGreenRef(file: String, jobId: String) =
-            wf(file)["jobs"][jobId]["steps"]
-                .first { it["uses"]?.asText()?.startsWith("re-actors/alls-green") == true }["uses"].asText()
+        fun allsGreenRef(
+            file: String,
+            jobId: String,
+        ) = wf(file)["jobs"][jobId]["steps"]
+            .first { it["uses"]?.asText()?.startsWith("re-actors/alls-green") == true }["uses"]
+            .asText()
         assertEquals(
             allsGreenRef("images.yaml", "images"),
             allsGreenRef("cli.yaml", "cli"),
@@ -121,7 +128,10 @@ class CiWorkflowContractTest {
 
     private val matrixRef = Regex("""\$\{\{\s*matrix\.([\w.]+)\s*\}\}""")
 
-    private fun substitute(template: String, binding: Map<String, JsonNode>): String =
+    private fun substitute(
+        template: String,
+        binding: Map<String, JsonNode>,
+    ): String =
         matrixRef.replace(template) { m ->
             val path = m.groupValues[1].split(".")
             var node: JsonNode? = binding[path[0]]
@@ -133,25 +143,33 @@ class CiWorkflowContractTest {
 
     /** Every expanded job display name a workflow file produces (GitHub-style matrix cross-product). */
     private fun expandedNames(file: String): List<String> =
-        wf(file)["jobs"].properties().asSequence().flatMap { (id, job) ->
-            val template = job["name"]?.asText() ?: id
-            val matrix = job["strategy"]?.get("matrix") ?: return@flatMap sequenceOf(template)
-            // include/exclude ADD/REMOVE combinations — not cross-product axes. Fail loud if a future matrix
-            // uses them, so the guard is never silently wrong (rather than folding them into the product).
-            check(!matrix.has("include") && !matrix.has("exclude")) {
-                "$file/$id matrix uses include/exclude — teach expandedNames to model them first"
-            }
-            val entries = matrix.properties().toList()
-            val lists = entries.map { it.value.toList() }
-            cartesian(lists).asSequence().map { combo ->
-                substitute(template, entries.map { it.key }.zip(combo).toMap())
-            }
-        }.toList()
+        wf(file)["jobs"]
+            .properties()
+            .asSequence()
+            .flatMap { (id, job) ->
+                val template = job["name"]?.asText() ?: id
+                val matrix = job["strategy"]?.get("matrix") ?: return@flatMap sequenceOf(template)
+                // include/exclude ADD/REMOVE combinations — not cross-product axes. Fail loud if a future matrix
+                // uses them, so the guard is never silently wrong (rather than folding them into the product).
+                check(!matrix.has("include") && !matrix.has("exclude")) {
+                    "$file/$id matrix uses include/exclude — teach expandedNames to model them first"
+                }
+                val entries = matrix.properties().toList()
+                val lists = entries.map { it.value.toList() }
+                cartesian(lists).asSequence().map { combo ->
+                    substitute(template, entries.map { it.key }.zip(combo).toMap())
+                }
+            }.toList()
 
     @Test
     fun `expanded check names are globally unique across PR-triggered workflows`() {
         val all = listOf("checks.yaml", "cli.yaml", "images.yaml", "pr-title.yaml").flatMap { expandedNames(it) }
-        val dupes = all.groupingBy { it }.eachCount().filter { it.value > 1 }.keys
+        val dupes =
+            all
+                .groupingBy { it }
+                .eachCount()
+                .filter { it.value > 1 }
+                .keys
         assertTrue(dupes.isEmpty(), "duplicate expanded check names block required checks: $dupes")
     }
 }
