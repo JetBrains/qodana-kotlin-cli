@@ -358,6 +358,50 @@ jobs:
             feed_required: "false"
             arch: amd64
             runner: ubuntu-latest
+          # qodana-clang version sub-axis (QD-15369): the default (clang 19) cell above omits `version`;
+          # the 16/17/18/20/21 cells rebuild qodana-clang with the --build-arg set (CLANG/CLANG_OS/QD_BASE_IMAGE)
+          # resolved from docker/clang-versions.txt by the Resolve version build-args step below. amd64-only:
+          # clang's arm64 is out of scope (QD-15171).
+          - name: qodana-clang
+            version: "16"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-clang
+            version: "17"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-clang
+            version: "18"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-clang
+            version: "20"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-clang
+            version: "21"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
           - name: qodana-cdnet
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "true"

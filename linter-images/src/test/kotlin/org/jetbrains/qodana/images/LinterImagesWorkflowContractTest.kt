@@ -53,19 +53,38 @@ class LinterImagesWorkflowContractTest {
     private fun JsonNode.version(): String = this["version"]?.asText() ?: ""
 
     private fun clangMajors(): List<String> =
-        Path.of("docker/clang-versions.txt").readText().lineSequence()
-            .map { it.substringBefore('#').trim() }.filter { it.isNotEmpty() }
-            .map { it.split(Regex("\\s+"))[0] }.toList().sorted()
+        Path
+            .of("docker/clang-versions.txt")
+            .readText()
+            .lineSequence()
+            .map { it.substringBefore('#').trim() }
+            .filter { it.isNotEmpty() }
+            .map { it.split(Regex("\\s+"))[0] }
+            .toList()
+            .sorted()
 
     @Test
     fun `cpp builds every clang major on both arches`() {
         val cpp = cells.filter { it["name"].asText() == "qodana-cpp" }
         val cppDefaultClang = EnvContract.parseEnv("qodana-cpp").getValue("CLANG")
         // Effective version per cell = its version, or the .env default when absent.
-        val versionsByArch = cpp.groupBy { it["arch"].asText() }
-            .mapValues { (_, g) -> g.map { it.version().ifEmpty { cppDefaultClang } }.sorted() }
+        val versionsByArch =
+            cpp
+                .groupBy { it["arch"].asText() }
+                .mapValues { (_, g) -> g.map { it.version().ifEmpty { cppDefaultClang } }.sorted() }
         assertEquals(clangMajors(), versionsByArch["amd64"], "cpp must cover every clang major on amd64")
         assertEquals(clangMajors(), versionsByArch["arm64"], "cpp must cover every clang major on arm64")
+    }
+
+    @Test
+    fun `clang builds every clang major on amd64 only, token-gated`() {
+        val clang = cells.filter { it["name"].asText() == "qodana-clang" }
+        val clangDefault = EnvContract.parseEnv("qodana-clang").getValue("CLANG")
+        val allAmd64 = clang.all { it["arch"].asText() == "amd64" }
+        assertTrue(allAmd64, "clang version matrix is amd64-only (arm64 is QD-15171)")
+        assertTrue(clang.all { it["token_gated"].asText() == "true" }, "every clang cell stays token-gated")
+        val majors = clang.map { it.version().ifEmpty { clangDefault } }.sorted()
+        assertEquals(clangMajors(), majors, "clang must cover every clang major on amd64")
     }
 
     @Test
