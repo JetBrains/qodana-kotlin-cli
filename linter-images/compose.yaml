@@ -222,7 +222,6 @@ services:
         CLI_BASE_STAGE: tools
       additional_contexts:
         tooling: build/install/image-tool
-    platform: linux/amd64
     image: qodana-clang:dev
   qodana-cdnet:
     build:

@@ -20,5 +20,6 @@ object ArchContract {
             "qodana-android-community",
             "qodana-cpp",
             "qodana-cdnet",
+            "qodana-clang",
         )
 }
