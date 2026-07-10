@@ -13,6 +13,20 @@
       // prepends the `v` for the mirror path. Without the strip Renovate writes `v1.0.1` and the
       // build requests `.../vv1.0.1/...`.
       "transformTemplates": ["{ \"releases\": versions.{ \"version\": $replace($, /^v/, \"\") } }"]
+    },
+    "qodana-dist": {
+      "defaultRegistryUrlTemplate": "https://packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed/{{packageName}}.releases.json",
+      "format": "json",
+      // Feed = one object per slug: {"Releases":[{"Build","MajorVersion","Date",...}]}, eap-only. Keep the
+      // pinned major, expose Build as version + Date as releaseTimestamp; Renovate pins the highest
+      // within-major Build (the platform-newest). [Releases[...]] forces array context (a single match
+      // would otherwise collapse to a scalar); `and Build` drops rows with no Build. The "2026.3" literal
+      // is bound to every IDE-dist .env QD_VERSION by RenovateDistDatasourceTest (Renovate has no runtime
+      // equivalent — this offline test is the only major-coupling guard). packageName = the dist slug, set
+      // per-manager via depNameTemplate (authoritative). Bearer from the hostRules secret below. Replaces
+      // the retired drift bump job (QD-15370); a feed that stops returning 2026.3 freezes the pin (stale,
+      // not broken) — see the "Datasource liveness" note in the plan.
+      "transformTemplates": ["{ \"releases\": [Releases[MajorVersion = \"2026.3\" and Build]].{ \"version\": Build, \"releaseTimestamp\": Date } }"]
     }
   },
   "hostRules": [
@@ -93,6 +107,177 @@
       ],
       "matchStrings": [
         "# syntax=(?<depName>docker\\.io/devthefuture/dockerfile-x):(?<currentValue>[^\\s@]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "QD-15370: qodana-python nightly dist build (QD_BUILD) + the byte-identical QODANA_PYTHON_BUILD row; one manager owns both so a bump lands in one PR (EnvContractTest byte-identity). Replaces the retired drift bump job.",
+      "datasourceTemplate": "custom.qodana-dist",
+      "depNameTemplate": "qodana-python",
+      "versioningTemplate": "loose",
+      "managerFilePatterns": [
+        "linter-images/docker/images/qodana-python.env",
+        "linter-images/docs/phase-0-decisions.md"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+QD_BUILD=(?<currentValue>\\S+)",
+        "\\nQODANA_PYTHON_BUILD = (?<currentValue>\\S+)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "QD-15370: qodana-python-community nightly dist build + QODANA_PYTHON_COMMUNITY_BUILD row.",
+      "datasourceTemplate": "custom.qodana-dist",
+      "depNameTemplate": "qodana-python-community",
+      "versioningTemplate": "loose",
+      "managerFilePatterns": [
+        "linter-images/docker/images/qodana-python-community.env",
+        "linter-images/docs/phase-0-decisions.md"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+QD_BUILD=(?<currentValue>\\S+)",
+        "\\nQODANA_PYTHON_COMMUNITY_BUILD = (?<currentValue>\\S+)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "QD-15370: qodana-go nightly dist build + QODANA_GO_BUILD row.",
+      "datasourceTemplate": "custom.qodana-dist",
+      "depNameTemplate": "qodana-go",
+      "versioningTemplate": "loose",
+      "managerFilePatterns": [
+        "linter-images/docker/images/qodana-go.env",
+        "linter-images/docs/phase-0-decisions.md"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+QD_BUILD=(?<currentValue>\\S+)",
+        "\\nQODANA_GO_BUILD = (?<currentValue>\\S+)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "QD-15370: qodana-js nightly dist build + QODANA_JS_BUILD row.",
+      "datasourceTemplate": "custom.qodana-dist",
+      "depNameTemplate": "qodana-js",
+      "versioningTemplate": "loose",
+      "managerFilePatterns": [
+        "linter-images/docker/images/qodana-js.env",
+        "linter-images/docs/phase-0-decisions.md"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+QD_BUILD=(?<currentValue>\\S+)",
+        "\\nQODANA_JS_BUILD = (?<currentValue>\\S+)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "QD-15370: qodana-php nightly dist build + QODANA_PHP_BUILD row.",
+      "datasourceTemplate": "custom.qodana-dist",
+      "depNameTemplate": "qodana-php",
+      "versioningTemplate": "loose",
+      "managerFilePatterns": [
+        "linter-images/docker/images/qodana-php.env",
+        "linter-images/docs/phase-0-decisions.md"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+QD_BUILD=(?<currentValue>\\S+)",
+        "\\nQODANA_PHP_BUILD = (?<currentValue>\\S+)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "QD-15370: qodana-rust nightly DIST build + QODANA_RUST_BUILD row. Distinct from the RUST_VERSION manager (the rustup toolchain, not the Qodana dist).",
+      "datasourceTemplate": "custom.qodana-dist",
+      "depNameTemplate": "qodana-rust",
+      "versioningTemplate": "loose",
+      "managerFilePatterns": [
+        "linter-images/docker/images/qodana-rust.env",
+        "linter-images/docs/phase-0-decisions.md"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+QD_BUILD=(?<currentValue>\\S+)",
+        "\\nQODANA_RUST_BUILD = (?<currentValue>\\S+)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "QD-15370: qodana-cpp nightly dist build + QODANA_CPP_BUILD row.",
+      "datasourceTemplate": "custom.qodana-dist",
+      "depNameTemplate": "qodana-cpp",
+      "versioningTemplate": "loose",
+      "managerFilePatterns": [
+        "linter-images/docker/images/qodana-cpp.env",
+        "linter-images/docs/phase-0-decisions.md"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+QD_BUILD=(?<currentValue>\\S+)",
+        "\\nQODANA_CPP_BUILD = (?<currentValue>\\S+)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "QD-15370: qodana-dotnet nightly dist build + QODANA_DOTNET_BUILD row.",
+      "datasourceTemplate": "custom.qodana-dist",
+      "depNameTemplate": "qodana-dotnet",
+      "versioningTemplate": "loose",
+      "managerFilePatterns": [
+        "linter-images/docker/images/qodana-dotnet.env",
+        "linter-images/docs/phase-0-decisions.md"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+QD_BUILD=(?<currentValue>\\S+)",
+        "\\nQODANA_DOTNET_BUILD = (?<currentValue>\\S+)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "QD-15370: qodana-jvm nightly dist build. android REUSES this dist, so one manager owns qodana-jvm.env + qodana-android.env AND both QODANA_JVM_BUILD + QODANA_ANDROID_BUILD rows (identical build) — one PR keeps all four byte-identical.",
+      "datasourceTemplate": "custom.qodana-dist",
+      "depNameTemplate": "qodana-jvm",
+      "versioningTemplate": "loose",
+      "managerFilePatterns": [
+        "linter-images/docker/images/qodana-jvm.env",
+        "linter-images/docker/images/qodana-android.env",
+        "linter-images/docs/phase-0-decisions.md"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+QD_BUILD=(?<currentValue>\\S+)",
+        "\\nQODANA_JVM_BUILD = (?<currentValue>\\S+)",
+        "\\nQODANA_ANDROID_BUILD = (?<currentValue>\\S+)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "QD-15370: qodana-jvm-community nightly dist build. android-community REUSES this dist; one manager owns qodana-jvm-community.env + qodana-android-community.env AND QODANA_JVM_COMMUNITY_BUILD + QODANA_ANDROID_COMMUNITY_BUILD (identical build).",
+      "datasourceTemplate": "custom.qodana-dist",
+      "depNameTemplate": "qodana-jvm-community",
+      "versioningTemplate": "loose",
+      "managerFilePatterns": [
+        "linter-images/docker/images/qodana-jvm-community.env",
+        "linter-images/docker/images/qodana-android-community.env",
+        "linter-images/docs/phase-0-decisions.md"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+QD_BUILD=(?<currentValue>\\S+)",
+        "\\nQODANA_JVM_COMMUNITY_BUILD = (?<currentValue>\\S+)",
+        "\\nQODANA_ANDROID_COMMUNITY_BUILD = (?<currentValue>\\S+)"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "QD-15370: qodana-ruby nightly dist build. The 3 runtime variants (ruby, ruby-3.2, ruby-3.4) share one dist + one QODANA_RUBY_BUILD row; one manager owns all three .env files + that row.",
+      "datasourceTemplate": "custom.qodana-dist",
+      "depNameTemplate": "qodana-ruby",
+      "versioningTemplate": "loose",
+      "managerFilePatterns": [
+        "linter-images/docker/images/qodana-ruby.env",
+        "linter-images/docker/images/qodana-ruby-3.2.env",
+        "linter-images/docker/images/qodana-ruby-3.4.env",
+        "linter-images/docs/phase-0-decisions.md"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+) versioning=(?<versioning>\\S+)\\s+QD_BUILD=(?<currentValue>\\S+)",
+        "\\nQODANA_RUBY_BUILD = (?<currentValue>\\S+)"
       ]
     }
   ],
