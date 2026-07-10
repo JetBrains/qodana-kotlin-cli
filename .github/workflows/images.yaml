@@ -37,7 +37,7 @@ jobs:
     # One job per image. Each cell builds ITS image from this tree, then runs the harness scoped to
     # that image (-Dlinter.e2e.image), so a build/scan/assert failure surfaces in — and only in — the
     # relevant image's job. fail-fast:false keeps the three signals independent.
-    name: Docker e2e (${{ matrix.image.name }}, linux/${{ matrix.image.arch }})
+    name: E2E ${{ matrix.image.name }} (linux/${{ matrix.image.arch }})
     runs-on: ${{ matrix.image.runner }}
     timeout-minutes: 60
     strategy:

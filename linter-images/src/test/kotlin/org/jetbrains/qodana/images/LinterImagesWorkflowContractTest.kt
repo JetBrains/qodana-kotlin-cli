@@ -223,6 +223,9 @@ class LinterImagesWorkflowContractTest {
     @Test
     fun `e2e job name is platform-tagged and runner-independent`() {
         val name = workflow["jobs"]["e2e"]["name"].asText()
+        assertTrue(name.startsWith("E2E "), "e2e check must use the unified 'E2E <subject> …' shape, got: $name")
+        assertTrue(name.contains("\${{ matrix.image.name }}"), "e2e check must keep the per-cell image subject: $name")
+        assertFalse(name.contains("Docker"), "drop the redundant 'Docker' prefix from the e2e check: $name")
         assertTrue(name.contains("linux/\${{ matrix.image.arch }}"), "check name must carry linux/<arch>, got: $name")
         assertFalse(name.contains("ubuntu"), "check name must not embed the runner id: $name")
     }
