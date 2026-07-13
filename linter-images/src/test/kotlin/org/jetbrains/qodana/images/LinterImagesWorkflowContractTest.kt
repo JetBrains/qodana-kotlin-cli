@@ -151,26 +151,29 @@ class LinterImagesWorkflowContractTest {
     }
 
     @Test
-    fun `release-smoke runs the build unconditionally, no Space token`() {
+    fun `release-smoke builds via the action unconditionally with no Space token`() {
         val job = workflow["jobs"]["release-smoke"]
         assertTrue(job != null, "images.yaml must define a release-smoke job")
         assertEquals("Release profile smoke", job!!["name"].asText(), "release-smoke display name is linter-agnostic")
-        // Anchor the build on the release overlay (its defining, stable signal), not literal command fragments.
-        val buildStep = job["steps"].toList().single { it.runScript().contains("compose.release.yaml") }
-        // The build runs unconditionally (a missing cred reds it at login/base-pull). Its overlay dist flip stays
-        // guarded by the no-Space-token tripwire below. We test that the image builds, not creds.
-        assertEquals("", buildStep.ifExpr(), "the release build must be unconditional so it always runs")
-        // NO SILENT SKIPS across the whole job: every step runs unconditionally, so no step
-        // (login/checkout/stage/build) may carry a skip conjunct — a fork gate or an `env.X != ''` guard.
+        val build = job["steps"].toList().single { it["uses"]?.asText() == "./.github/actions/build-linter-image" }
+        assertEquals("", build.ifExpr(), "the release build must be unconditional so it always runs")
+        val w = build["with"] ?: error("release-smoke build needs a with: block")
+        assertTrue(
+            w["compose-files"].asText().contains("compose.release.yaml"),
+            "release-smoke must build through the release overlay: ${w["compose-files"].asText()}",
+        )
+        // No Space token: a silently-unapplied overlay falls back to the internal sha256 feed and fails RED.
+        assertTrue(
+            w["space-packages-token"] == null || w["space-packages-token"].asText().isBlank(),
+            "release-smoke must pass an empty space-packages-token: ${w["space-packages-token"]}",
+        )
+        assertTrue(job["env"]?.get("QODANA_READ_SPACE_PACKAGES_TOKEN") == null, "release-smoke must not carry the Space token")
+        // NO SILENT SKIPS: no step may skip-guard on an empty secret or a fork signal.
         job["steps"].toList().forEach { s ->
             val n = s["name"]?.asText()
             assertFalse(s.ifExpr().contains("''"), "$n: no release-smoke step may skip-guard on an empty secret")
             assertFalse(s.ifExpr().contains("head.repo.fork"), "$n: no release-smoke step may be fork-gated")
         }
-        assertTrue(
-            job["env"]?.get("QODANA_READ_SPACE_PACKAGES_TOKEN") == null,
-            "release-smoke must NOT carry the Space token, so a silently-unapplied overlay fails RED on sha256",
-        )
     }
 
     @Test

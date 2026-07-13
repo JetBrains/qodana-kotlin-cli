@@ -514,41 +514,18 @@ jobs:
     name: Release profile smoke
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    env:
-      DOCKER_READ_PUBLIC_REGISTRY_TOKEN: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
-      DOCKER_READ_PUBLIC_REGISTRY_USER: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_USER }}
     steps:
-      - name: Free runner disk space
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: false
-          tool-cache: false
-      # No `ref:` override → checkout defaults to github.ref = the PR merge commit on pull_request, so CI builds against latest main.
       - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup-native-build
-      - name: Docker Hub login (raise anonymous pull-rate ceiling)
-        uses: docker/login-action@v4
-        with:
-          username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
-          password: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
-      - name: dhi.io login (Docker Hardened Images base)
-        uses: docker/login-action@v4
-        with:
-          registry: dhi.io
-          username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
-          password: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
-      - name: Stage from-tree contexts (cli + image-tool)
-        run: |
-          ./gradlew \
-            :qodana-cli:assembleRelease -PtargetOs=linux -PtargetArch=amd64 -Pquick=true \
-            :linter-images:installDist
       - name: Build qodana-jvm via the release profile (public feed, GPG, no token)
-        run: docker compose -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.release.yaml build qodana-jvm
+        uses: ./.github/actions/build-linter-image
+        with:
+          image: qodana-jvm
+          arch: amd64
+          feed-required: 'false'
+          compose-files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.release.yaml
+          docker-registry-user: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_USER }}
+          docker-registry-token: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
+          # space-packages-token intentionally omitted (empty): the release overlay must build token-free.
 
   images:
     # Stable required check for the whole image matrix — the ruleset requires `Images`, not the ~30
