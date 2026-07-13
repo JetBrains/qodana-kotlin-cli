@@ -50,7 +50,7 @@ class RubyToolchainTest {
 
     @Test
     fun `all ruby thin images include the ruby toolchain fragment`() {
-        for (slug in listOf("qodana-ruby", "qodana-ruby-3.2", "qodana-ruby-3.4")) {
+        for (slug in listOf("qodana-ruby")) {
             val thin = images.resolve("$slug.dockerfile").readText()
             assertTrue(
                 Regex("""(?m)^INCLUDE lib/toolchain/ruby\.dockerfile$""").containsMatchIn(thin),

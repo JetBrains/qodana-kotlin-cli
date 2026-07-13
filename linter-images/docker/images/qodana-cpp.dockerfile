@@ -22,8 +22,8 @@ INCLUDE lib/runtime.dockerfile
 #     output-console editor during project-model generation; absent → UnsatisfiedLinkError.
 #   Either failure wedges the headless analyzer at "Awaits CLion backend activities" — it HANGS instead of
 #   failing (QD-15107). The source qodana-cli cpp base pulls these in via `default-jre` (fonts) + its
-#   dotnet-community sibling (the .NET runtime libs). libicu major tracks the distro generation — cpp is
-#   trixie → libicu76 (matching lib/toolchain/dotnet.dockerfile). The gcc-runtime libs the .NET backend
+#   dotnet-community sibling (the .NET runtime libs). libicu major tracks the base OS the clang matrix spans
+#   (trixie libicu76, bookworm libicu72) — derived from CLANG_OS below. The gcc-runtime libs the .NET backend
 #   also needs (libstdc++6/libgcc-s1/libc6/zlib1g) are ALREADY present (clang + base), so they are NOT
 #   re-installed: pulling them explicitly drags in the +dhi gcc-14 runtime, which breaks clang-20's
 #   libobjc-14-dev `=`-pin to the stock revision and makes apt EVICT clang (see the gcc-stock pin below).
@@ -34,6 +34,7 @@ INCLUDE lib/runtime.dockerfile
 #   (clang acts as the C++ driver when invoked via a `++` name) and run `clang++ --version` so a
 #   missing/broken compiler fails the BUILD (loud) rather than the scan.
 ARG CLANG
+ARG CLANG_OS
 ARG QODANA_UID
 ARG QODANA_GID
 USER 0
@@ -45,15 +46,24 @@ RUN <<-EOT
 	# and apt would EVICT clang-20 to resolve the broken `=`-pin — taking /usr/lib/llvm-${CLANG} with it
 	# (QD-15107). Re-assert the stock pin for this layer (mirroring clang.dockerfile), then drop it so the
 	# shipped apt state stays vendor-clean.
-	cat > /etc/apt/preferences.d/gcc-stock <<-'PREF'
-		Package: gcc-*-base libgcc-* libstdc++* libgomp* libitm* libatomic* libasan* liblsan* libtsan* libubsan* libhwasan* libquadmath* libcc1-* libobjc*
-		Pin: release o=Debian
-		Pin-Priority: 1001
-	PREF
+	# gcc-stock pin is trixie-only: bookworm's stock gcc-12 already matches the LLVM repo (clang.dockerfile),
+	# so no pin is needed there. libicu major tracks the OS: trixie libicu76, bookworm libicu72.
+	if [ "${CLANG_OS}" = trixie ]; then
+		cat > /etc/apt/preferences.d/gcc-stock <<-'PREF'
+			Package: gcc-*-base libgcc-* libstdc++* libgomp* libitm* libatomic* libasan* liblsan* libtsan* libubsan* libhwasan* libquadmath* libcc1-* libobjc*
+			Pin: release o=Debian
+			Pin-Priority: 1001
+		PREF
+	fi
 	apt-get update
+	case "${CLANG_OS}" in
+		bookworm) libicu_pkg=libicu72 ;;
+		trixie) libicu_pkg=libicu76 ;;
+		*) echo "ERROR: no libicu major mapped for CLANG_OS=${CLANG_OS}" >&2; exit 1 ;;
+	esac
 	apt-get install -y --no-install-recommends \
 		fontconfig libfreetype6 \
-		libgssapi-krb5-2 libicu76 libssl3 tzdata
+		libgssapi-krb5-2 "${libicu_pkg}" libssl3 tzdata
 	rm -f /etc/apt/preferences.d/gcc-stock
 	rm -rf /var/lib/apt/lists/*
 	# Pin a self-owned clang driver. The dhi base's clang-20 (installed by clang.dockerfile via the gcc-pin

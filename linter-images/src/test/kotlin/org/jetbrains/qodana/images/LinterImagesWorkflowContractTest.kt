@@ -49,6 +49,47 @@ class LinterImagesWorkflowContractTest {
     private val licensedImageNames: Set<String>
         get() = cells.filter { it["requires_license"]?.asText() == "true" }.map { it["name"].asText() }.toSet()
 
+    /** Absent version == the default. */
+    private fun JsonNode.version(): String = this["version"]?.asText() ?: ""
+
+    private fun clangMajors(): List<String> =
+        Path
+            .of("docker/clang-versions.txt")
+            .readText()
+            .lineSequence()
+            .map { it.substringBefore('#').trim() }
+            .filter { it.isNotEmpty() }
+            .map { it.split(Regex("\\s+"))[0] }
+            .toList()
+            .sorted()
+
+    @Test
+    fun `cpp builds every clang major on both arches`() {
+        val cpp = cells.filter { it["name"].asText() == "qodana-cpp" }
+        val cppDefaultClang = EnvContract.parseEnv("qodana-cpp").getValue("CLANG")
+        // Effective version per cell = its version, or the .env default when absent.
+        val versionsByArch =
+            cpp
+                .groupBy { it["arch"].asText() }
+                .mapValues { (_, g) -> g.map { it.version().ifEmpty { cppDefaultClang } }.sorted() }
+        assertEquals(clangMajors(), versionsByArch["amd64"], "cpp must cover every clang major on amd64")
+        assertEquals(clangMajors(), versionsByArch["arm64"], "cpp must cover every clang major on arm64")
+    }
+
+    @Test
+    fun `clang builds every clang major on both arches, token-gated`() {
+        val clang = cells.filter { it["name"].asText() == "qodana-clang" }
+        val clangDefault = EnvContract.parseEnv("qodana-clang").getValue("CLANG")
+        assertTrue(clang.all { it["token_gated"].asText() == "true" }, "every clang cell stays token-gated")
+        // Effective version per cell = its version, or the .env default when absent (mirrors cpp).
+        val versionsByArch =
+            clang
+                .groupBy { it["arch"].asText() }
+                .mapValues { (_, g) -> g.map { it.version().ifEmpty { clangDefault } }.sorted() }
+        assertEquals(clangMajors(), versionsByArch["amd64"], "clang must cover every clang major on amd64")
+        assertEquals(clangMajors(), versionsByArch["arm64"], "clang must cover every clang major on arm64")
+    }
+
     @Test
     fun `token-gated cells exist (clang and cdnet)`() {
         val names =
@@ -209,13 +250,124 @@ class LinterImagesWorkflowContractTest {
     fun `exactly the arch-capable images have an amd64 and arm64 cell`() {
         val arm64Images = cells.filter { it["arch"]?.asText() == "arm64" }.map { it["name"].asText() }.toSet()
         assertEquals(ArchContract.archCapable, arm64Images, "exactly the arch-capable images may have an arm64 cell")
-        for (img in ArchContract.archCapable) {
-            val arches = cells.filter { it["name"].asText() == img }.map { it["arch"].asText() }
-            assertEquals(listOf("amd64", "arm64").sorted(), arches.sorted(), "$img needs one amd64 + one arm64 cell")
+        cells.groupBy { it["name"].asText() to it.version() }.forEach { (id, group) ->
+            val (name, _) = id
+            val arches = group.map { it["arch"].asText() }.sorted()
+            val expected = if (name in ArchContract.archCapable) listOf("amd64", "arm64") else listOf("amd64")
+            assertEquals(expected, arches, "$id must have exactly $expected")
         }
         cells.filter { it["arch"]?.asText() == "arm64" }.forEach {
             val n = it["name"].asText()
             assertTrue(it["runner"].asText().endsWith("-arm"), "$n: arm64 cell must use an -arm runner")
+        }
+    }
+
+    @Test
+    fun `ruby is one family with version cells matching ruby-versions_txt`() {
+        val ruby = cells.filter { it["name"].asText() == "qodana-ruby" }
+        val variantFamily = Regex("qodana-ruby-.*")
+        assertTrue(cells.none { it["name"].asText().matches(variantFamily) }, "no qodana-ruby-X.Y families remain")
+        val nonDefaultVersions = ruby.map { it.version() }.filter { it.isNotEmpty() }.toSet()
+        val fileVersions =
+            Path
+                .of("docker/ruby-versions.txt")
+                .readText()
+                .lineSequence()
+                .map { it.substringBefore('#').trim() }
+                .filter { it.isNotEmpty() }
+                .map { it.split(Regex("\\s+")) }
+        val fileNonDefault = fileVersions.filter { it.getOrNull(2) != "default" }.map { it[0] }.toSet()
+        assertEquals(fileNonDefault, nonDefaultVersions, "ruby matrix non-default versions must equal the file's")
+        // Every ruby version (default + each variant) must be a full amd64+arm64 pair, not a lone cell.
+        ruby.groupBy { it.version() }.forEach { (v, group) ->
+            val arches = group.map { it["arch"].asText() }.sorted()
+            assertEquals(listOf("amd64", "arm64"), arches, "ruby version '$v' needs both arches")
+        }
+    }
+
+    @Test
+    fun `resolve-build-args runs before every build step, which consumes BUILD_ARGS`() {
+        // Pins ordering (the guard needs BUILD_ARGS from Resolve) AND that each build interpolates ${BUILD_ARGS}.
+        val names = steps.map { it["name"]?.asText() ?: "" }
+        val resolveIdx = names.indexOfFirst { it.contains("Resolve version build-args") }
+        assertTrue(resolveIdx >= 0, "the Resolve version build-args step must exist")
+        val buildSteps =
+            steps.withIndex().filter { (_, s) ->
+                s.runScript().contains("docker compose") && s.runScript().contains(" build ")
+            }
+        assertTrue(buildSteps.isNotEmpty(), "expected docker compose build steps")
+        buildSteps.forEach { (i, s) ->
+            assertTrue(resolveIdx < i, "Resolve step (idx $resolveIdx) must precede build step at idx $i")
+            assertTrue("\${BUILD_ARGS}" in s.runScript(), "build step at idx $i must interpolate \${BUILD_ARGS}")
+        }
+    }
+
+    @Test
+    fun `each runtime guard runs after its build and before its e2e`() {
+        // The guard only guards if it sits between the build that produced <image>:dev and that variant's
+        // e2e — a refactor that moved it after e2e (or before the build) would defeat it silently. Pin the
+        // ordering per token-gating variant: Build idx < guard idx < first matching e2e idx.
+        fun name(s: JsonNode) = s["name"]?.asText() ?: ""
+        val guards = steps.withIndex().filter { (_, s) -> name(s).startsWith("Verify built runtime version") }
+        val guardNames = guards.map { name(it.value) }
+        assertEquals(2, guards.size, "expected two runtime guards (free + token-gated): $guardNames")
+        val gatedDomain = "token_gated == 'true'"
+        val freeDomain = "token_gated != 'true'"
+        guards.forEach { (gi, g) ->
+            // The guard's own token_gated domain (== 'true' vs != 'true') distinguishes the two variants.
+            val variant = if (g.ifExpr().contains(gatedDomain)) gatedDomain else freeDomain
+
+            fun matchesVariant(s: JsonNode): Boolean = s.ifExpr().contains(variant)
+            val buildIdx =
+                steps.withIndex().indexOfFirst { (_, s) ->
+                    s.runScript().contains("docker compose") && s.runScript().contains(" build ") && matchesVariant(s)
+                }
+            val e2eIdx =
+                steps.withIndex().indexOfFirst { (_, s) ->
+                    s.runScript().contains("linterE2eTest") && matchesVariant(s)
+                }
+            assertTrue(buildIdx in 0 until gi, "${name(g)}: its Build (idx $buildIdx) must precede the guard (idx $gi)")
+            assertTrue(e2eIdx > gi, "${name(g)}: its e2e (idx $e2eIdx) must follow the guard (idx $gi)")
+        }
+    }
+
+    @Test
+    fun `every matrix image name is a real compose service`() {
+        // Verifies the resolve-build-args else->none path can't mask a typo'd matrix.image.name: an unknown
+        // name has no compose service, so `docker compose build <name>` would red. Bind it here too.
+        val services =
+            YAMLMapper()
+                .readTree(Path.of("compose.yaml").readText())["services"]
+                .fieldNames()
+                .asSequence()
+                .toSet()
+        cells.map { it["name"].asText() }.toSet().forEach {
+            assertTrue(it in services, "matrix image '$it' must be a compose.yaml service (else build reds): $services")
+        }
+    }
+
+    @Test
+    fun `no version cell explicitly pins its family default`() {
+        // A pinned-default cell (e.g. cpp version:"20") would silently duplicate the un-versioned default cell.
+        // The default is expressed by OMITTING version.
+        val defaults =
+            mapOf(
+                "qodana-cpp" to EnvContract.parseEnv("qodana-cpp").getValue("CLANG"),
+                "qodana-clang" to EnvContract.parseEnv("qodana-clang").getValue("CLANG"),
+                "qodana-ruby" to
+                    Path
+                        .of("docker/ruby-versions.txt")
+                        .readText()
+                        .lineSequence()
+                        .map { it.substringBefore('#').trim() }
+                        .filter { it.isNotEmpty() }
+                        .map { it.split(Regex("\\s+")) }
+                        .single { it.getOrNull(2) == "default" }[0],
+            )
+        cells.forEach { c ->
+            val n = c["name"].asText()
+            val d = defaults[n] ?: return@forEach
+            assertTrue(c.version() != d, "$n must OMIT version for its default ($d), not pin it explicitly")
         }
     }
 
@@ -231,22 +383,22 @@ class LinterImagesWorkflowContractTest {
 
     @Test
     fun `each arch-capable image's arm64 cell has the same gating keys and values as its amd64 cell`() {
-        for (img in ArchContract.archCapable) {
-            val byArch = cells.filter { it["name"].asText() == img }.associateBy { it["arch"].asText() }
-            val amd64 = byArch.getValue("amd64")
-            val arm64 = byArch.getValue("arm64")
-            // Full key-set equality first: catches a NEW gating dimension added to only one cell (a hand-listed
-            // subset would miss it). arch/runner keys are present on both — only their VALUES legitimately differ.
-            assertEquals(
-                amd64.fieldNames().asSequence().toSet(),
-                arm64.fieldNames().asSequence().toSet(),
-                "$img: arm64 cell must declare exactly the same keys as amd64",
-            )
-            // arch/runner differ by design; every other key's value must match.
-            amd64.fieldNames().asSequence().filter { it !in setOf("arch", "runner") }.forEach { k ->
-                assertEquals(amd64[k].asText(), arm64[k].asText(), "$img '$k': arm64 must match amd64")
+        cells
+            .filter { it["name"].asText() in ArchContract.archCapable }
+            .groupBy { it["name"].asText() to it.version() }
+            .forEach { (id, group) ->
+                val byArch = group.associateBy { it["arch"].asText() }
+                val amd64 = byArch.getValue("amd64")
+                val arm64 = byArch.getValue("arm64")
+                assertEquals(
+                    amd64.fieldNames().asSequence().toSet(),
+                    arm64.fieldNames().asSequence().toSet(),
+                    "$id: arm64 cell must declare exactly the same keys as amd64",
+                )
+                amd64.fieldNames().asSequence().filter { it !in setOf("arch", "runner") }.forEach { k ->
+                    assertEquals(amd64[k].asText(), arm64[k].asText(), "$id '$k': arm64 must match amd64")
+                }
             }
-        }
     }
 
     @Test

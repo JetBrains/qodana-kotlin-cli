@@ -10,16 +10,16 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * Per-slug `.env` contract guard for the 3 qodana-ruby variants (QD-15040), split out of EnvContractTest
- * to keep each class focused. RubyMine-on-DHI-ruby-base: the ruby base ships ruby/gem/bundle pre-baked
- * but NO node, so ruby layers the node toolchain (NODE_MAJOR) + the in-place eslint pin + the in-place
- * gem-cache redirect (lib/toolchain/ruby.dockerfile) — jvm's key set. Ruby scans shell out to sudo to
- * install project gems (source PRIVILEGED=true), so ruby INCLUDEs lib/privileged.dockerfile and its dist
- * FROMs the privileged stage: DIST_BASE_STAGE=privileged is an .env KEY (base.dockerfile does NOT default
- * DIST_BASE_STAGE, so the INCLUDE_ARGS value survives — the android/php convention). PRIVILEGED_BASE_STAGE
- * is its dual — a compose build arg only (base.dockerfile defaults it, clobbering an .env value), so it is
- * NOT an .env key. All 3 variants share the SAME RM dist (QD_LINTER_SLUG=qodana-ruby — the IDE dist is
- * ruby-runtime-agnostic, the android precedent) and differ ONLY in QD_BASE_IMAGE.
+ * Per-slug `.env` contract guard for the one qodana-ruby family (QD-15040); runtime versions live in
+ * ruby-versions.txt (the CI `version` sub-axis, QD-15369), not separate images. Split out of
+ * EnvContractTest to keep each class focused. RubyMine-on-DHI-ruby-base: the ruby base ships
+ * ruby/gem/bundle pre-baked but NO node, so ruby layers the node toolchain (NODE_MAJOR) + the in-place
+ * eslint pin + the in-place gem-cache redirect (lib/toolchain/ruby.dockerfile) — jvm's key set. Ruby
+ * scans shell out to sudo to install project gems (source PRIVILEGED=true), so ruby INCLUDEs
+ * lib/privileged.dockerfile and its dist FROMs the privileged stage: DIST_BASE_STAGE=privileged is an
+ * .env KEY (base.dockerfile does NOT default DIST_BASE_STAGE, so the INCLUDE_ARGS value survives — the
+ * android/php convention). PRIVILEGED_BASE_STAGE is its dual — a compose build arg only (base.dockerfile
+ * defaults it, clobbering an .env value), so it is NOT an .env key.
  */
 class RubyEnvContractTest {
     @Test
@@ -52,33 +52,6 @@ class RubyEnvContractTest {
     }
 
     @Test
-    fun `ruby variants share the same dist pins and slug, differing only in base image`() {
-        val primary = parseEnv("qodana-ruby")
-        val sharedKeys =
-            listOf(
-                "QD_LINTER_SLUG",
-                "QD_VERSION",
-                "QD_BUILD",
-                "QD_DISTRIBUTION_FEED",
-                "QD_VERIFY_MODE",
-                "QD_PRODUCT_INFO_CODE",
-                "DIST_BASE_STAGE",
-                "NODE_MAJOR",
-                "CLI_BINARY",
-                "CLI_VERSION",
-            )
-        for (variant in listOf("qodana-ruby-3.2", "qodana-ruby-3.4")) {
-            val v = parseEnv(variant)
-            assertEquals(primary.keys, v.keys, "$variant must share qodana-ruby's exact key set")
-            for (shared in sharedKeys) {
-                assertEquals(primary[shared], v[shared], "$variant must share qodana-ruby's $shared (same RM dist)")
-            }
-            assertTrue(primary["QD_BASE_IMAGE"] != v["QD_BASE_IMAGE"], "$variant must use its OWN ruby base digest")
-            assertEquals("qodana-ruby", v["QD_LINTER_SLUG"], "$variant reuses the shared qodana-ruby dist")
-        }
-    }
-
-    @Test
     fun `ruby pins match phase-0-decisions`() {
         val primary = parseEnv("qodana-ruby")
         assertEquals(
@@ -92,16 +65,6 @@ class RubyEnvContractTest {
             pin("QODANA_RUBY_PRODUCT_INFO_CODE"),
             primary["QD_PRODUCT_INFO_CODE"],
             "ruby product-info code must match phase-0-decisions",
-        )
-        assertEquals(
-            pin("QD_RUBY_32_BASE_IMAGE"),
-            parseEnv("qodana-ruby-3.2")["QD_BASE_IMAGE"],
-            "ruby 3.2 base digest must match phase-0-decisions",
-        )
-        assertEquals(
-            pin("QD_RUBY_34_BASE_IMAGE"),
-            parseEnv("qodana-ruby-3.4")["QD_BASE_IMAGE"],
-            "ruby 3.4 base digest must match phase-0-decisions",
         )
     }
 }

@@ -265,14 +265,12 @@
     },
     {
       "customType": "regex",
-      "description": "QD-15370: qodana-ruby nightly dist build. The 3 runtime variants (ruby, ruby-3.2, ruby-3.4) share one dist + one QODANA_RUBY_BUILD row; one manager owns all three .env files + that row.",
+      "description": "QD-15370: qodana-ruby nightly dist build. One qodana-ruby family image (runtime as a version sub-axis, QD-15369) with one dist + one QODANA_RUBY_BUILD row; this manager owns its .env file + that row.",
       "datasourceTemplate": "custom.qodana-dist",
       "depNameTemplate": "qodana-ruby",
       "versioningTemplate": "loose",
       "managerFilePatterns": [
         "linter-images/docker/images/qodana-ruby.env",
-        "linter-images/docker/images/qodana-ruby-3.2.env",
-        "linter-images/docker/images/qodana-ruby-3.4.env",
         "linter-images/docs/phase-0-decisions.md"
       ],
       "matchStrings": [

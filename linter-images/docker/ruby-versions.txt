@@ -1,0 +1,8 @@
+# Canonical qodana-ruby runtime set — one image family, runtime version as a tag sub-axis.
+# The product publishes jetbrains/qodana-ruby:<ver>[-ruby<X.Y>]; the `default` row is the no-suffix tag.
+# The default digest MUST equal qodana-ruby.env's QD_BASE_IMAGE; the variants are built via
+# --build-arg QD_BASE_IMAGE. Bound to phase-0-decisions.md by RubyVersionsTest. Format:
+#   <ruby-version> <dhi-base-digest> [default]
+3.2 dhi.io/ruby:3.2-debian13-dev@sha256:b5ccc40b29ec7d3c60239340857c984497fd87a76f5e6e98d3b8f1bab83146d9
+3.3 dhi.io/ruby:3.3-debian13-dev@sha256:207bdd81b3fbec45e858f7255a0e4032cd6c6bfa4c1348532c2c50989e361a73 default
+3.4 dhi.io/ruby:3.4-debian13-dev@sha256:3f86a864dbd00ad09e92268c0cac6604fe2e472604a16e06ea826d57cae45abd

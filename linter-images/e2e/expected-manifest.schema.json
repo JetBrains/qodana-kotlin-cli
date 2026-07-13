@@ -8,7 +8,7 @@
   "required": ["case", "image", "description"],
   "properties": {
     "case": { "type": "string" },
-    "image": { "type": "string", "enum": ["qodana-jvm", "qodana-jvm-community", "qodana-android", "qodana-android-community", "qodana-clang", "qodana-python-community", "qodana-python", "qodana-js", "qodana-go", "qodana-php", "qodana-cdnet", "qodana-ruby", "qodana-ruby-3.2", "qodana-ruby-3.4", "qodana-rust", "qodana-dotnet", "qodana-cpp"] },
+    "image": { "type": "string", "enum": ["qodana-jvm", "qodana-jvm-community", "qodana-android", "qodana-android-community", "qodana-clang", "qodana-python-community", "qodana-python", "qodana-js", "qodana-go", "qodana-php", "qodana-cdnet", "qodana-ruby", "qodana-rust", "qodana-dotnet", "qodana-cpp"] },
     "description": { "type": "string" },
     "expectExitCode": { "type": "integer", "default": 0 },
     "run": {

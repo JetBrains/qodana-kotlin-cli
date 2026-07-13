@@ -37,7 +37,7 @@ jobs:
     # One job per image. Each cell builds ITS image from this tree, then runs the harness scoped to
     # that image (-Dlinter.e2e.image), so a build/scan/assert failure surfaces in — and only in — the
     # relevant image's job. fail-fast:false keeps the three signals independent.
-    name: E2E ${{ matrix.image.name }} (linux/${{ matrix.image.arch }})
+    name: E2E ${{ matrix.image.name }}${{ matrix.image.version != '' && format('-{0}', matrix.image.version) || '' }} (linux/${{ matrix.image.arch }})
     runs-on: ${{ matrix.image.runner }}
     timeout-minutes: 60
     strategy:
@@ -191,6 +191,9 @@ jobs:
             feed_required: "true"
             arch: arm64
             runner: ubuntu-24.04-arm
+          # qodana-ruby is ONE image family with a runtime `version` sub-axis (QD-15369): the default
+          # (3.3) pair omits `version`; the 3.2/3.4 pairs rebuild qodana-ruby with a --build-arg
+          # QD_BASE_IMAGE resolved from docker/ruby-versions.txt (Resolve version build-args step below).
           - name: qodana-ruby
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
@@ -205,28 +208,32 @@ jobs:
             feed_required: "true"
             arch: arm64
             runner: ubuntu-24.04-arm
-          - name: qodana-ruby-3.2
+          - name: qodana-ruby
+            version: "3.2"
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
             feed_required: "true"
             arch: amd64
             runner: ubuntu-latest
-          - name: qodana-ruby-3.2
+          - name: qodana-ruby
+            version: "3.2"
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
             feed_required: "true"
             arch: arm64
             runner: ubuntu-24.04-arm
-          - name: qodana-ruby-3.4
+          - name: qodana-ruby
+            version: "3.4"
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
             feed_required: "true"
             arch: amd64
             runner: ubuntu-latest
-          - name: qodana-ruby-3.4
+          - name: qodana-ruby
+            version: "3.4"
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
@@ -255,6 +262,89 @@ jobs:
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-cpp
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          # qodana-cpp version sub-axis (QD-15369): the default (clang 20) pair above omits `version`;
+          # the 16/17/18/19/21 pairs rebuild qodana-cpp with the --build-arg set (CLANG/CLANG_OS/QD_BASE_IMAGE)
+          # resolved from docker/clang-versions.txt by the Resolve version build-args step below.
+          - name: qodana-cpp
+            version: "16"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-cpp
+            version: "16"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-cpp
+            version: "17"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-cpp
+            version: "17"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-cpp
+            version: "18"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-cpp
+            version: "18"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-cpp
+            version: "19"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-cpp
+            version: "19"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-cpp
+            version: "21"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "false"
+            requires_license: "true"
+            feed_required: "true"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-cpp
+            version: "21"
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "false"
             requires_license: "true"
@@ -269,6 +359,90 @@ jobs:
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-clang
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          # qodana-clang version sub-axis (QD-15369): the default (clang 19) cells above omit `version`; the
+          # 16/17/18/20/21 cells rebuild qodana-clang with the --build-arg set (CLANG/CLANG_OS/QD_BASE_IMAGE)
+          # resolved from docker/clang-versions.txt by the Resolve version build-args step below. Both arches
+          # (QD-15373 made qodana-clang arch-capable), mirroring the cpp version matrix.
+          - name: qodana-clang
+            version: "16"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-clang
+            version: "16"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-clang
+            version: "17"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-clang
+            version: "17"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-clang
+            version: "18"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-clang
+            version: "18"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-clang
+            version: "20"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-clang
+            version: "20"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-clang
+            version: "21"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-clang
+            version: "21"
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "true"
             requires_license: "false"
@@ -338,6 +512,17 @@ jobs:
           username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
           password: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
 
+      - name: Resolve version build-args
+        # Translate matrix.image.version into the per-cell --build-arg set via image-tool (single-sourced
+        # from the version files); empty version = the family default → no build args. Emits BUILD_ARGS +
+        # EXPECT_TOOL/EXPECT_VERSION (for the runtime guard) to $GITHUB_ENV. Runs before both Build steps.
+        run: |
+          set -euo pipefail
+          ./gradlew :linter-images:installDist
+          linter-images/build/install/image-tool/bin/image-tool resolve-build-args \
+            --image '${{ matrix.image.name }}' \
+            --version '${{ matrix.image.version }}' >> "$GITHUB_ENV"
+
       - name: Require feed token for internal-feed images
         # Same fail-loud contract as the clang/cdnet mirror-token gate below: an internal-feed image (feed_required=="true") with an
         # empty QODANA_READ_SPACE_PACKAGES_TOKEN fails RED on every run. Active for the whole dist fleet
@@ -385,10 +570,40 @@ jobs:
         # overlay mounts the space_packages_token (required=false) and the dist is verified sha256-only —
         # the job-level token supplies it. (Token-gated clang/cdnet mount the same token for the mirror.)
         run: |
-          docker compose ${{ matrix.image.compose_files }} build ${{ matrix.image.name }}
+          # shellcheck disable=SC2086
+          docker compose ${{ matrix.image.compose_files }} build ${BUILD_ARGS} ${{ matrix.image.name }}
           # Reclaim the BuildKit cache (a near-duplicate of the image layers) before the scan; the
           # built <image>:dev survives — the e2e step runs it, never rebuilds (QD-15127).
           docker builder prune -af
+      - name: Verify built runtime version (free)
+        # Fail loud if the requested-runtime --build-arg silently didn't take (ARG-shadowing). EXPECT_TOOL=none skips.
+        if: ${{ matrix.image.token_gated != 'true' && env.EXPECT_TOOL != 'none' }}
+        run: |
+          set -euo pipefail
+          img="${{ matrix.image.name }}:dev"
+          case "$EXPECT_TOOL" in
+            # clang: probe the version-SPECIFIC path /usr/lib/llvm-<M>/bin/clang — a wrong baked CLANG has
+            # no such tree, so the probe can't run and the step reds (exit-0 is the load-bearing signal;
+            # the needle grep is a secondary sanity check). That path exists on BOTH cpp (which also pins
+            # /usr/local/bin/clang and does NOT create /usr/bin/clang-<M>) and clang-community.
+            # ruby: `ruby --version` exits 0 for ANY baked ruby, so here the needle grep is the PRIMARY
+            # version discriminator — a wrong-baked runtime prints `ruby 3.2.…` and fails the 3.3 grep.
+            ruby)  probe="ruby --version";                                  needle="ruby $EXPECT_VERSION." ;;
+            clang) probe="/usr/lib/llvm-$EXPECT_VERSION/bin/clang --version"; needle="version $EXPECT_VERSION." ;;
+            *) echo "::error::unknown EXPECT_TOOL=$EXPECT_TOOL"; exit 1 ;;
+          esac
+          # --network none: the version probe needs no network; deny it so a hung/hostile base can't stall the guard.
+          if ! out="$(docker run --rm --network none --entrypoint /bin/sh "$img" -c "$probe" 2>&1)"; then
+            echo "::error::runtime guard: '$probe' did not run in $img — the requested runtime is likely not baked (ARG-shadowing?):"
+            echo "$out"
+            # Disambiguate wrong-baked-runtime from a container/PATH issue: list what IS present, per family.
+            [ "$EXPECT_TOOL" = clang ] && docker run --rm --network none --entrypoint /bin/sh "$img" -c 'ls -d /usr/lib/llvm-* 2>&1 || true'
+            [ "$EXPECT_TOOL" = ruby ] && docker run --rm --network none --entrypoint /bin/sh "$img" -c 'command -v ruby; ruby --version 2>&1 || true'
+            exit 1
+          fi
+          echo "$out"
+          printf '%s\n' "$out" | grep -qF "$needle" || {
+            echo "::error::runtime guard sanity check failed for $img: wanted '$needle', got: $out"; exit 1; }
       - name: e2e ${{ matrix.image.name }} (free)
         if: ${{ matrix.image.token_gated != 'true' && matrix.image.requires_license != 'true' }}
         # Builds the @Tag("linter-e2e") harness, discovers fixtures under
@@ -438,10 +653,40 @@ jobs:
         # run at the "Require mirror token" gate above; same-repo PRs and pushes build + scan it.
         if: ${{ matrix.image.token_gated == 'true' }}
         run: |
-          docker compose ${{ matrix.image.compose_files }} build ${{ matrix.image.name }}
+          # shellcheck disable=SC2086
+          docker compose ${{ matrix.image.compose_files }} build ${BUILD_ARGS} ${{ matrix.image.name }}
           # Reclaim the BuildKit cache (a near-duplicate of the image layers) before the scan; the
           # built <image>:dev survives — the e2e step runs it, never rebuilds (QD-15127).
           docker builder prune -af
+      - name: Verify built runtime version (token-gated)
+        # Same guard as the free variant above, for the token-gated build.
+        if: ${{ matrix.image.token_gated == 'true' && env.EXPECT_TOOL != 'none' }}
+        run: |
+          set -euo pipefail
+          img="${{ matrix.image.name }}:dev"
+          case "$EXPECT_TOOL" in
+            # clang: probe the version-SPECIFIC path /usr/lib/llvm-<M>/bin/clang — a wrong baked CLANG has
+            # no such tree, so the probe can't run and the step reds (exit-0 is the load-bearing signal;
+            # the needle grep is a secondary sanity check). That path exists on BOTH cpp (which also pins
+            # /usr/local/bin/clang and does NOT create /usr/bin/clang-<M>) and clang-community.
+            # ruby: `ruby --version` exits 0 for ANY baked ruby, so here the needle grep is the PRIMARY
+            # version discriminator — a wrong-baked runtime prints `ruby 3.2.…` and fails the 3.3 grep.
+            ruby)  probe="ruby --version";                                  needle="ruby $EXPECT_VERSION." ;;
+            clang) probe="/usr/lib/llvm-$EXPECT_VERSION/bin/clang --version"; needle="version $EXPECT_VERSION." ;;
+            *) echo "::error::unknown EXPECT_TOOL=$EXPECT_TOOL"; exit 1 ;;
+          esac
+          # --network none: the version probe needs no network; deny it so a hung/hostile base can't stall the guard.
+          if ! out="$(docker run --rm --network none --entrypoint /bin/sh "$img" -c "$probe" 2>&1)"; then
+            echo "::error::runtime guard: '$probe' did not run in $img — the requested runtime is likely not baked (ARG-shadowing?):"
+            echo "$out"
+            # Disambiguate wrong-baked-runtime from a container/PATH issue: list what IS present, per family.
+            [ "$EXPECT_TOOL" = clang ] && docker run --rm --network none --entrypoint /bin/sh "$img" -c 'ls -d /usr/lib/llvm-* 2>&1 || true'
+            [ "$EXPECT_TOOL" = ruby ] && docker run --rm --network none --entrypoint /bin/sh "$img" -c 'command -v ruby; ruby --version 2>&1 || true'
+            exit 1
+          fi
+          echo "$out"
+          printf '%s\n' "$out" | grep -qF "$needle" || {
+            echo "::error::runtime guard sanity check failed for $img: wanted '$needle', got: $out"; exit 1; }
       - name: e2e ${{ matrix.image.name }} (token-gated)
         if: ${{ matrix.image.token_gated == 'true' }}
         run: ./gradlew :linter-images:linterE2eTest -Dlinter.e2e.image=${{ matrix.image.name }}
@@ -453,7 +698,7 @@ jobs:
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-artifacts-${{ matrix.image.name }}-${{ matrix.image.arch }}
+          name: e2e-artifacts-${{ matrix.image.name }}-${{ matrix.image.version || 'default' }}-${{ matrix.image.arch }}
           path: linter-images/build/linter-e2e-artifacts/
           if-no-files-found: ignore
           retention-days: 14

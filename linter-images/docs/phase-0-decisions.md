@@ -686,7 +686,7 @@ as an `.env` key NOR as a compose build arg. `ComposeContractTest`'s
 uid-1000-conflict test already asserts every service except `qodana-js` omits the
 uid build args.
 
-## Ruby dist (qodana-ruby — RubyMine, 3 variants, EAP)
+## Ruby dist (qodana-ruby — RubyMine, runtime version sub-axis, EAP)
 
 Repointed onto the INTERNAL nightly dist feed (QD-15183). Resolved 2026-06-24 from
 `packages.jetbrains.team/files/p/sa/qodana-dist-internal/feed/qodana-ruby.releases.json`
@@ -696,11 +696,12 @@ Repointed onto the INTERNAL nightly dist feed (QD-15183). Resolved 2026-06-24 fr
 byte-identity against the `.env`'s `QD_VERSION` (`2026.3`) and `QD_BUILD` (`263.148.1874`). Frozen
 public-release pin (token-free reproduction, compose.release.yaml): `QODANA_RUBY_RELEASE_*`.
 
-All 3 ruby variants (3.2, 3.3-primary, 3.4) share this SINGLE RM dist (the IDE dist is
+All ruby runtimes (3.2, 3.3-primary, 3.4) share this SINGLE RM dist (the IDE dist is
 ruby-runtime-agnostic — the android precedent, where android reuses the jvm dist), so
-all 3 `.env` carry `QD_LINTER_SLUG=qodana-ruby` and exactly ONE `QODANA_RUBY_BUILD` row
-suffices (the 3 bump passes idempotently rewrite the same row — the jvm+android
-precedent).
+one `qodana-ruby.env` carries `QD_LINTER_SLUG=qodana-ruby` and exactly ONE
+`QODANA_RUBY_BUILD` row suffices. The runtime is a CI matrix `version` sub-axis, not a
+separate image: the non-default runtimes rebuild `qodana-ruby` with a
+`--build-arg QD_BASE_IMAGE` from `docker/ruby-versions.txt` (QD-15369).
 
 QODANA_RUBY_VERSION = 2026.3
 QODANA_RUBY_BUILD = 263.148.1874
@@ -733,7 +734,7 @@ distinct feed artifact code, not the product-info code.
 QODANA_RUBY_PRODUCT_INFO_CODE = RM
 QODANA_RUBY_FEED_CODE = QDRUBY
 
-## dhi.io ruby language base + gem-cache toolchain (qodana-ruby, 3 variants)
+## dhi.io ruby language base + gem-cache toolchain (qodana-ruby, runtime sub-axis)
 
 `qodana-ruby` builds on the DHI **ruby** language base — ruby/gem/bundle PRE-BAKED at
 `/usr/local/bin` — but the base ships NO node. So like qodana-go/php it LAYERS the
@@ -780,31 +781,31 @@ NOPASSWD — matching the source `PRIVILEGED=true`. cdnet has privileged but NO 
 dist-on-privileged combination has no precedent, so its ONLY validation is the CI e2e
 `docker compose build`.
 
-### Three variants; 3.1 DROPPED
+### Three runtimes; 3.1 DROPPED
 
-Three ruby-runtime variants: `qodana-ruby` (RUBY 3.3, PRIMARY/default tag),
-`qodana-ruby-3.2`, `qodana-ruby-3.4`. `dhi.io/ruby:3.1-debian13-dev` returns
-`not found` (404, confirmed 2026-06-18 via `docker buildx imagetools inspect`), so 3.1
-is DROPPED. The bases (the tag the source pins, in the `-debian13-dev` flavour — `-dev`
-ships apt-get, which `lib/base` needs) resolved daemonless 2026-06-18 via
-`docker buildx imagetools inspect dhi.io/ruby:<ver>-debian13-dev`. `EnvContractTest`
-asserts each variant `.env`'s `QD_BASE_IMAGE` is byte-identical to its row here.
+Three ruby runtimes: 3.3 (PRIMARY/default tag), 3.2, 3.4.
+`dhi.io/ruby:3.1-debian13-dev` returns `not found` (404, confirmed 2026-06-18 via
+`docker buildx imagetools inspect`), so 3.1 is DROPPED. The bases (the tag the source
+pins, in the `-debian13-dev` flavour — `-dev` ships apt-get, which `lib/base` needs)
+resolved daemonless 2026-06-18 via
+`docker buildx imagetools inspect dhi.io/ruby:<ver>-debian13-dev`. The three digests
+are the canonical source `docker/ruby-versions.txt` (`RubyVersionsTest` binds them to
+these rows byte-identically); the default (3.3) also equals `qodana-ruby.env`'s
+`QD_BASE_IMAGE`.
 
 QD_RUBY_BASE_IMAGE = dhi.io/ruby:3.3-debian13-dev@sha256:207bdd81b3fbec45e858f7255a0e4032cd6c6bfa4c1348532c2c50989e361a73
 QD_RUBY_32_BASE_IMAGE = dhi.io/ruby:3.2-debian13-dev@sha256:b5ccc40b29ec7d3c60239340857c984497fd87a76f5e6e98d3b8f1bab83146d9
 QD_RUBY_34_BASE_IMAGE = dhi.io/ruby:3.4-debian13-dev@sha256:3f86a864dbd00ad09e92268c0cac6604fe2e472604a16e06ea826d57cae45abd
 
-### Variant-modeling: 3 thin dockerfiles + 3 `.env` (Option A)
+### Runtime-modeling: one image, a CI `version` sub-axis (QD-15369)
 
-`ComposeContractTest` asserts each service's `build.dockerfile` equals
-`images/$slug.dockerfile` EXACTLY, and `EnvContractTest` iterates ALL `authoredSlugs`
-reading `docker/images/$slug.env` — so every authored slug needs BOTH its own
-dockerfile AND its own `.env`. A single shared dockerfile (per-service `QD_BASE_IMAGE`
-compose override) cannot satisfy the per-slug `dockerfile`-path assertion without
-restructuring the contract tests, so Option A (3 thin files + 3 `.env`) is the
-zero-structural-change choice. The 3 thin dockerfiles are byte-identical except their
-`INCLUDE_ARGS images/<slug>.env` line; the 3 `.env` share an identical key set + the
-dist pins and differ ONLY in `QD_BASE_IMAGE`.
+`qodana-ruby` is ONE image with ONE thin `qodana-ruby.dockerfile` + one
+`qodana-ruby.env` (pinning the default 3.3 base). The non-default runtimes are NOT
+separate images: the CI e2e matrix carries a `version` sub-axis (`3.2`/`3.4`) and
+rebuilds `qodana-ruby` with a `--build-arg QD_BASE_IMAGE=<digest>` resolved from
+`docker/ruby-versions.txt` by `image-tool resolve-build-args`. A post-build guard
+(`ruby --version`) fails loud if the requested runtime silently didn't take. This
+supersedes the earlier three-thin-dockerfiles-plus-three-`.env` modeling.
 
 ### uid 1000 is FREE → qodana-ruby keeps the default uid 1000 (NO uid override)
 
@@ -813,8 +814,8 @@ dist pins and differ ONLY in `QD_BASE_IMAGE`.
 creates the qodana user at the FREE uid 1000. Verified EMPIRICALLY on the linux/amd64
 build target, 2026-06-18: all 3 pinned ruby bases' `/etc/passwd` list ONLY `root` (0),
 `nonroot` (65532), `_apt` (42), `nobody` (65534) — uid/gid 1000 AND 1001 all return
-free from `getent`. So `lib/base`'s `groupadd --gid 1000 qodana` succeeds, and all 3
-ruby variants keep `base.dockerfile`'s DEFAULT uid/gid 1000 (byte-identical to the
+free from `getent`. So `lib/base`'s `groupadd --gid 1000 qodana` succeeds, and every
+ruby runtime keeps `base.dockerfile`'s DEFAULT uid/gid 1000 (byte-identical to the
 debian/golang/php-base images). They set NO `QODANA_UID`/`QODANA_GID` — neither as an
 `.env` key NOR as a compose build arg. The ruby bases also lack a `root` NAME entry
 that some tools expect, but `lib/base` + `lib/privileged` already handle this
@@ -1033,7 +1034,7 @@ rows. `ReleaseProfileContractTest` asserts each overlay `QD_VERSION`/`QD_BUILD` 
 frozen `_RELEASE_*` pins are an immutable publisher contract, NOT periodically re-verified; a pin's
 resolvability is exercised only incidentally, at build time via `provision-dist`, when that image next builds
 through `compose.release.yaml`. android reuses the qodana-jvm dist and android-community the qodana-jvm-community dist (same
-`_RELEASE_BUILD`); ruby's 3 variants share `QODANA_RUBY_RELEASE_BUILD`. For a not-yet-migrated public image
+`_RELEASE_BUILD`); the qodana-ruby family (one image, runtime as a version sub-axis) uses `QODANA_RUBY_RELEASE_BUILD`. For a not-yet-migrated public image
 `_RELEASE_BUILD` mirrors its `.env QD_BUILD` today; Renovate advances only the `.env`, so the two diverge
 over time BY DESIGN — the frozen `_RELEASE` pin reproduces the seeded snapshot, while the bare build yields
 the live public release until that image repoints to the nightly (as qodana-jvm already does: its `.env` is
@@ -1082,9 +1083,9 @@ unreleased/internal builds is tracked by followup QD-15062.
 
 ## Multi-arch verification (QD-15177)
 
-The 6 pure-dist images enabled for `linux/arm64` here — `qodana-jvm-community`,
-`qodana-js`, `qodana-go`, `qodana-ruby`/`-3.2`/`-3.4` — resolve arm64 with NO
-`.env` repin: every DHI base is an OCI image index
+The pure-dist images enabled for `linux/arm64` here — `qodana-jvm-community`,
+`qodana-js`, `qodana-go`, and `qodana-ruby` (all three runtimes: 3.2/3.3/3.4) —
+resolve arm64 with NO `.env` repin: every DHI base is an OCI image index
 (`application/vnd.oci.image.index.v1+json`) carrying `linux/arm64`, and every
 linux ARM64 dist Link has a live `.sha256` sibling. Probed 2026-06-24 via
 `docker buildx imagetools inspect` (bases) and `curl -I -L` (dist siblings).

@@ -69,18 +69,6 @@ services:
         CLI_SOURCE: context
       additional_contexts:
         cli: ../qodana-cli/build/release-staging
-  qodana-ruby-3.2:
-    build:
-      args:
-        CLI_SOURCE: context
-      additional_contexts:
-        cli: ../qodana-cli/build/release-staging
-  qodana-ruby-3.4:
-    build:
-      args:
-        CLI_SOURCE: context
-      additional_contexts:
-        cli: ../qodana-cli/build/release-staging
   qodana-dotnet:
     build:
       args:

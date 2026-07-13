@@ -9,6 +9,7 @@ import org.jetbrains.qodana.images.dist.FeedClient
 import org.jetbrains.qodana.images.dist.TarGzExtractor
 import org.jetbrains.qodana.images.dist.VerifyDistLayoutCommand
 import org.jetbrains.qodana.images.process.ProcessCommandRunner
+import java.nio.file.Path
 
 /**
  * Assembles the `image-tool` root command with production collaborators (canonical factory).
@@ -26,6 +27,12 @@ fun buildImageTool(): CliktCommand {
         ),
         InstallCliCommand(runner = runner),
         VerifyDistLayoutCommand(),
+        ResolveBuildArgsCommand(
+            imagesDir = Path.of("linter-images/docker/images"),
+            clangVersions = Path.of("linter-images/docker/clang-versions.txt"),
+            rubyVersions = Path.of("linter-images/docker/ruby-versions.txt"),
+            debianBases = Path.of("linter-images/docker/debian-bases.txt"),
+        ),
     )
 }
 
