@@ -358,12 +358,35 @@ jobs:
             feed_required: "false"
             arch: amd64
             runner: ubuntu-latest
-          # qodana-clang version sub-axis (QD-15369): the default (clang 19) cell above omits `version`;
-          # the 16/17/18/20/21 cells rebuild qodana-clang with the --build-arg set (CLANG/CLANG_OS/QD_BASE_IMAGE)
-          # resolved from docker/clang-versions.txt by the Resolve version build-args step below. amd64-only:
-          # clang's arm64 is out of scope (QD-15171).
+          - name: qodana-clang
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          # qodana-clang version sub-axis (QD-15369): the default (clang 19) cells above omit `version`; the
+          # 16/17/18/20/21 cells rebuild qodana-clang with the --build-arg set (CLANG/CLANG_OS/QD_BASE_IMAGE)
+          # resolved from docker/clang-versions.txt by the Resolve version build-args step below. Both arches
+          # (QD-15373 made qodana-clang arch-capable), mirroring the cpp version matrix.
           - name: qodana-clang
             version: "16"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: amd64
+            runner: ubuntu-latest
+          - name: qodana-clang
+            version: "16"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-clang
+            version: "17"
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "true"
             requires_license: "false"
@@ -376,10 +399,26 @@ jobs:
             token_gated: "true"
             requires_license: "false"
             feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-clang
+            version: "18"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-clang
             version: "18"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-clang
+            version: "20"
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "true"
             requires_license: "false"
@@ -392,10 +431,25 @@ jobs:
             token_gated: "true"
             requires_license: "false"
             feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-clang
+            version: "21"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
             arch: amd64
             runner: ubuntu-latest
           - name: qodana-clang
             version: "21"
+            compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
+            token_gated: "true"
+            requires_license: "false"
+            feed_required: "false"
+            arch: arm64
+            runner: ubuntu-24.04-arm
+          - name: qodana-cdnet
             compose_files: -f linter-images/compose.yaml -f linter-images/compose.ci.yaml -f linter-images/compose.private.yaml
             token_gated: "true"
             requires_license: "false"
@@ -407,8 +461,8 @@ jobs:
             token_gated: "true"
             requires_license: "false"
             feed_required: "false"
-            arch: amd64
-            runner: ubuntu-latest
+            arch: arm64
+            runner: ubuntu-24.04-arm
     env:
       # QODANA_READ_SPACE_PACKAGES_TOKEN reads the private JetBrains Space packages — the qodana-cli-deps
       # mirror (clang/cdnet) AND the internal nightly dist feed (every dist image). Surfaced as `env.*` so the
@@ -581,11 +635,12 @@ jobs:
             arm64) echo "$got" | grep -q 'aarch64'  || { echo "::error::staged CLI is not aarch64 (arch=$want): $got"; exit 1; } ;;
             *) echo "::error::unexpected matrix arch '$want'"; exit 1 ;;
           esac
-          # The token-gated images' inner CLI is a Tool-kind raw binary <module>_<version>_linux_amd64
+          # The token-gated images' inner CLI is a Tool-kind raw binary <module>_<version>_linux_<arch>
           # (NOT staged). Place it at release-staging/<module> so /cli-src/<module> resolves. Parameterized
-          # on matrix.image.name so each token-gated cell (clang, cdnet) stages ITS own binary.
+          # on matrix.image.name AND matrix.image.arch so each token-gated cell (clang, cdnet) stages ITS own
+          # binary for the cell's arch.
           shopt -s nullglob
-          tool_binaries=(${{ matrix.image.name }}/build/release/${{ matrix.image.name }}_*_linux_amd64)
+          tool_binaries=(${{ matrix.image.name }}/build/release/${{ matrix.image.name }}_*_linux_${{ matrix.image.arch }})
           if [ "${#tool_binaries[@]}" -ne 1 ]; then
             echo "::error::expected exactly one ${{ matrix.image.name }} tool binary, found ${#tool_binaries[@]}: ${tool_binaries[*]:-<none>}"
             exit 1

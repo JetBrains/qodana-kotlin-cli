@@ -77,14 +77,17 @@ class LinterImagesWorkflowContractTest {
     }
 
     @Test
-    fun `clang builds every clang major on amd64 only, token-gated`() {
+    fun `clang builds every clang major on both arches, token-gated`() {
         val clang = cells.filter { it["name"].asText() == "qodana-clang" }
         val clangDefault = EnvContract.parseEnv("qodana-clang").getValue("CLANG")
-        val allAmd64 = clang.all { it["arch"].asText() == "amd64" }
-        assertTrue(allAmd64, "clang version matrix is amd64-only (arm64 is QD-15171)")
         assertTrue(clang.all { it["token_gated"].asText() == "true" }, "every clang cell stays token-gated")
-        val majors = clang.map { it.version().ifEmpty { clangDefault } }.sorted()
-        assertEquals(clangMajors(), majors, "clang must cover every clang major on amd64")
+        // Effective version per cell = its version, or the .env default when absent (mirrors cpp).
+        val versionsByArch =
+            clang
+                .groupBy { it["arch"].asText() }
+                .mapValues { (_, g) -> g.map { it.version().ifEmpty { clangDefault } }.sorted() }
+        assertEquals(clangMajors(), versionsByArch["amd64"], "clang must cover every clang major on amd64")
+        assertEquals(clangMajors(), versionsByArch["arm64"], "clang must cover every clang major on arm64")
     }
 
     @Test
@@ -220,6 +223,18 @@ class LinterImagesWorkflowContractTest {
         forkDiscriminators.forEach { spelling ->
             assertFalse(text.contains(spelling), "'$spelling' fork/actor gating is banned (no silent fork skips)")
         }
+    }
+
+    @Test
+    fun `token-gated staging globs the inner CLI binary per cell arch, not a hardcoded amd64`() {
+        // The clang/cdnet staging step globs the Tool-kind inner CLI <module>_<version>_linux_<arch>. The
+        // arch suffix must follow matrix.image.arch, not a hardcoded amd64 suffix.
+        val text = Path.of("../.github/workflows/images.yaml").readText()
+        val glob =
+            Regex("""tool_binaries=\([^)]*\)""").find(text)?.value
+                ?: error("token-gated tool_binaries glob not found in images.yaml")
+        assertTrue("_linux_\${{ matrix.image.arch }}" in glob, "tool_binaries must select the cell's arch: $glob")
+        assertFalse("_linux_amd64" in glob, "tool_binaries must not hardcode _linux_amd64: $glob")
     }
 
     @Test
