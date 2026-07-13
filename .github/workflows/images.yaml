@@ -482,8 +482,7 @@ jobs:
         if: ${{ matrix.image.token_gated != 'true' && matrix.image.requires_license != 'true' }}
         run: ./gradlew :linter-images:linterE2eTest -Dlinter.e2e.image=${{ matrix.image.name }}
       - name: e2e ${{ matrix.image.name }} (licensed)
-        # Paid IDE-dist linters license over the bridge network in license-only mode. The token forwards
-        # via the fixture passEnv; the harness errors on a blank one, so a missing token fails loud.
+        # Paid IDE-dist linters license over the bridge network; a missing token fails loud (blank passEnv).
         if: ${{ matrix.image.token_gated != 'true' && matrix.image.requires_license == 'true' }}
         env:
           QODANA_LICENSE_ONLY_TOKEN: ${{ secrets.QODANA_LICENSE_ONLY_TOKEN }}

@@ -8,12 +8,7 @@ import org.junit.jupiter.api.Test
 import java.nio.file.Path
 import kotlin.io.path.readText
 
-/**
- * The build-linter-image composite action's contract: it builds one linter image for one arch, fails
- * loud on a missing required token, arch-verifies the staged CLI, and leaves the runtime guard as its
- * last step so a caller's scan/push tail runs strictly after build+guard. These invariants back both
- * images.yaml (e2e) and publish-image.yaml (Plan 2).
- */
+/** Contract for the build-linter-image composite action, shared by images.yaml (e2e) and future publish callers. */
 class BuildLinterImageActionContractTest {
     private val path = Path.of("../.github/actions/build-linter-image/action.yaml")
     private val action: JsonNode = YAMLMapper().readTree(path.readText())

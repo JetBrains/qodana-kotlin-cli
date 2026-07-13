@@ -1,10 +1,9 @@
 name: Build a linter image
 description: |
   Builds one Qodana linter image from this tree (CLI_SOURCE=context) for a single arch, ready for a
-  caller to scan (e2e) or push (publish). Encapsulates the shared build core: disk reclaim, toolchain
-  and registry logins, required-token hard-fail gates, version build-arg resolution, from-tree CLI
-  staging, `docker compose build`, and the runtime-version guard. On success the built `<image>:dev`
-  is loaded locally and $GITHUB_ENV carries BUILD_ARGS / EXPECT_TOOL / EXPECT_VERSION.
+  caller to scan (e2e) or push (publish). Encapsulates the shared build core (disk reclaim, logins,
+  token gates, build, runtime guard) used by both callers. On success the built `<image>:dev` is
+  loaded locally and $GITHUB_ENV carries BUILD_ARGS / EXPECT_TOOL / EXPECT_VERSION.
 
   IMPORTANT: callers MUST run actions/checkout themselves before invoking this action — local
   composite actions are resolved from the workspace.
