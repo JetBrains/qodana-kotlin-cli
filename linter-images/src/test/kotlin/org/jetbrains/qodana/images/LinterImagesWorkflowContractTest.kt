@@ -167,7 +167,8 @@ class LinterImagesWorkflowContractTest {
             w["space-packages-token"] == null || w["space-packages-token"].asText().isBlank(),
             "release-smoke must pass an empty space-packages-token: ${w["space-packages-token"]}",
         )
-        assertTrue(job["env"]?.get("QODANA_READ_SPACE_PACKAGES_TOKEN") == null, "release-smoke must not carry the Space token")
+        val jobEnvToken = job["env"]?.get("QODANA_READ_SPACE_PACKAGES_TOKEN")
+        assertTrue(jobEnvToken == null, "release-smoke must not carry the Space token")
         // NO SILENT SKIPS: no step may skip-guard on an empty secret or a fork signal.
         job["steps"].toList().forEach { s ->
             val n = s["name"]?.asText()
@@ -281,7 +282,7 @@ class LinterImagesWorkflowContractTest {
         assertEquals(
             "\${{ secrets.QODANA_LICENSE_ONLY_TOKEN }}",
             licensed["env"]?.get("QODANA_LICENSE_ONLY_TOKEN")?.asText(),
-            "the licensed scan must carry QODANA_LICENSE_ONLY_TOKEN in its step env (the harness errors on a blank passEnv)",
+            "the licensed scan must carry QODANA_LICENSE_ONLY_TOKEN in its step env",
         )
     }
 

@@ -25,6 +25,11 @@ class BuildLinterImageActionContractTest {
 
     private fun idxOf(pred: (JsonNode) -> Boolean) = steps.indexOfFirst(pred)
 
+    private fun JsonNode.isBuild(): Boolean {
+        val r = runScript()
+        return r.contains("docker compose") && r.contains(" build ")
+    }
+
     @Test
     fun `is a composite action`() {
         assertTrue(action["runs"]["using"].asText() == "composite", "must be a composite action")
@@ -66,7 +71,8 @@ class BuildLinterImageActionContractTest {
     fun `no step re-guards on a non-empty token`() {
         // Structural (parsed if:), not raw-text: a re-guard is a step that SKIPS when the token is present.
         val reguarded = steps.filter { it.ifExpr().contains("space-packages-token != ''") }
-        assertTrue(reguarded.isEmpty(), "no step may skip on a present token: ${reguarded.map { it["name"]?.asText() }}")
+        val names = reguarded.map { it["name"]?.asText() }
+        assertTrue(reguarded.isEmpty(), "no step may skip on a present token: $names")
     }
 
     @Test
@@ -79,7 +85,7 @@ class BuildLinterImageActionContractTest {
     @Test
     fun `resolve-build-args precedes the build, which interpolates BUILD_ARGS`() {
         val resolveIdx = idxOf { it.runScript().contains("resolve-build-args") }
-        val buildIdx = idxOf { it.runScript().contains("docker compose") && it.runScript().contains(" build ") }
+        val buildIdx = idxOf { it.isBuild() }
         assertTrue(resolveIdx in 0 until buildIdx, "resolve ($resolveIdx) must precede build ($buildIdx)")
         assertTrue(steps[buildIdx].runScript().contains("\${BUILD_ARGS}"), "build must interpolate \${BUILD_ARGS}")
     }
@@ -104,7 +110,7 @@ class BuildLinterImageActionContractTest {
 
     @Test
     fun `the runtime guard follows the build and is the action's last step`() {
-        val buildIdx = idxOf { it.runScript().contains("docker compose") && it.runScript().contains(" build ") }
+        val buildIdx = idxOf { it.isBuild() }
         val guardIdx = idxOf { (it["name"]?.asText() ?: "").startsWith("Verify built runtime version") }
         assertTrue(guardIdx > buildIdx, "guard ($guardIdx) must follow build ($buildIdx)")
         assertTrue(guardIdx == steps.lastIndex, "guard must be the action's last step (caller's tail follows it)")
