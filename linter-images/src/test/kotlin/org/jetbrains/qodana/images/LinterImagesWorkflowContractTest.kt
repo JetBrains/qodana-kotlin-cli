@@ -33,15 +33,6 @@ class LinterImagesWorkflowContractTest {
 
     private fun JsonNode.runScript(): String = this["run"]?.asText() ?: ""
 
-    /** Steps whose `if` contains every given expression fragment. Keeps the filter lambdas ≤120 cols. */
-    private fun stepsMatching(vararg fragments: String): List<JsonNode> =
-        steps.filter { step -> fragments.all { step.ifExpr().contains(it) } }
-
-    private val tokenGated = "matrix.image.token_gated == 'true'"
-    private val feedRequired = "matrix.image.feed_required == 'true'"
-    private val emptyToken = "env.QODANA_READ_SPACE_PACKAGES_TOKEN == ''"
-    private val nonEmptyToken = "env.QODANA_READ_SPACE_PACKAGES_TOKEN != ''"
-
     /** e2e harness steps (`linterE2eTest`) whose `if:` carries the given `requires_license` domain fragment. */
     private fun harnessSteps(domain: String): List<JsonNode> =
         steps.filter { it.runScript().contains("linterE2eTest") && it.ifExpr().contains(domain) }
@@ -97,26 +88,6 @@ class LinterImagesWorkflowContractTest {
                 .filter { it["token_gated"]?.asText() == "true" }
                 .map { it["name"].asText() }
         assertTrue(names.containsAll(listOf("qodana-clang", "qodana-cdnet")), "token-gated cells: $names")
-    }
-
-    @Test
-    fun `empty-token token-gated step is a single loud hard-fail`() {
-        val gate = stepsMatching(tokenGated, emptyToken)
-        assertEquals(1, gate.size, "expected exactly one token-gated empty-token step (the gate)")
-        assertTrue(gate.single().runScript().contains("exit 1"), "the gate must exit 1, not no-op")
-    }
-
-    @Test
-    fun `no token-gated step is guarded by a non-empty-token check`() {
-        val guarded = stepsMatching(tokenGated, nonEmptyToken)
-        assertTrue(guarded.isEmpty(), "token-gated build/e2e steps must not re-guard on token != '': $guarded")
-    }
-
-    @Test
-    fun `feed_required gate remains a loud hard-fail (regression guard)`() {
-        val gate = stepsMatching(feedRequired, emptyToken)
-        assertEquals(1, gate.size, "expected exactly one feed_required empty-token gate")
-        assertTrue(gate.single().runScript().contains("exit 1"))
     }
 
     @Test
@@ -180,26 +151,30 @@ class LinterImagesWorkflowContractTest {
     }
 
     @Test
-    fun `release-smoke runs the build unconditionally, no Space token`() {
+    fun `release-smoke builds via the action unconditionally with no Space token`() {
         val job = workflow["jobs"]["release-smoke"]
         assertTrue(job != null, "images.yaml must define a release-smoke job")
         assertEquals("Release profile smoke", job!!["name"].asText(), "release-smoke display name is linter-agnostic")
-        // Anchor the build on the release overlay (its defining, stable signal), not literal command fragments.
-        val buildStep = job["steps"].toList().single { it.runScript().contains("compose.release.yaml") }
-        // The build runs unconditionally (a missing cred reds it at login/base-pull). Its overlay dist flip stays
-        // guarded by the no-Space-token tripwire below. We test that the image builds, not creds.
-        assertEquals("", buildStep.ifExpr(), "the release build must be unconditional so it always runs")
-        // NO SILENT SKIPS across the whole job: every step runs unconditionally, so no step
-        // (login/checkout/stage/build) may carry a skip conjunct — a fork gate or an `env.X != ''` guard.
+        val build = job["steps"].toList().single { it["uses"]?.asText() == "./.github/actions/build-linter-image" }
+        assertEquals("", build.ifExpr(), "the release build must be unconditional so it always runs")
+        val w = build["with"] ?: error("release-smoke build needs a with: block")
+        assertTrue(
+            w["compose-files"].asText().contains("compose.release.yaml"),
+            "release-smoke must build through the release overlay: ${w["compose-files"].asText()}",
+        )
+        // No Space token: a silently-unapplied overlay falls back to the internal sha256 feed and fails RED.
+        assertTrue(
+            w["space-packages-token"] == null || w["space-packages-token"].asText().isBlank(),
+            "release-smoke must pass an empty space-packages-token: ${w["space-packages-token"]}",
+        )
+        val jobEnvToken = job["env"]?.get("QODANA_READ_SPACE_PACKAGES_TOKEN")
+        assertTrue(jobEnvToken == null, "release-smoke must not carry the Space token")
+        // NO SILENT SKIPS: no step may skip-guard on an empty secret or a fork signal.
         job["steps"].toList().forEach { s ->
             val n = s["name"]?.asText()
             assertFalse(s.ifExpr().contains("''"), "$n: no release-smoke step may skip-guard on an empty secret")
             assertFalse(s.ifExpr().contains("head.repo.fork"), "$n: no release-smoke step may be fork-gated")
         }
-        assertTrue(
-            job["env"]?.get("QODANA_READ_SPACE_PACKAGES_TOKEN") == null,
-            "release-smoke must NOT carry the Space token, so a silently-unapplied overlay fails RED on sha256",
-        )
     }
 
     @Test
@@ -223,18 +198,6 @@ class LinterImagesWorkflowContractTest {
         forkDiscriminators.forEach { spelling ->
             assertFalse(text.contains(spelling), "'$spelling' fork/actor gating is banned (no silent fork skips)")
         }
-    }
-
-    @Test
-    fun `token-gated staging globs the inner CLI binary per cell arch, not a hardcoded amd64`() {
-        // The clang/cdnet staging step globs the Tool-kind inner CLI <module>_<version>_linux_<arch>. The
-        // arch suffix must follow matrix.image.arch, not a hardcoded amd64 suffix.
-        val text = Path.of("../.github/workflows/images.yaml").readText()
-        val glob =
-            Regex("""tool_binaries=\([^)]*\)""").find(text)?.value
-                ?: error("token-gated tool_binaries glob not found in images.yaml")
-        assertTrue("_linux_\${{ matrix.image.arch }}" in glob, "tool_binaries must select the cell's arch: $glob")
-        assertFalse("_linux_amd64" in glob, "tool_binaries must not hardcode _linux_amd64: $glob")
     }
 
     @Test
@@ -286,49 +249,48 @@ class LinterImagesWorkflowContractTest {
     }
 
     @Test
-    fun `resolve-build-args runs before every build step, which consumes BUILD_ARGS`() {
-        // Pins ordering (the guard needs BUILD_ARGS from Resolve) AND that each build interpolates ${BUILD_ARGS}.
-        val names = steps.map { it["name"]?.asText() ?: "" }
-        val resolveIdx = names.indexOfFirst { it.contains("Resolve version build-args") }
-        assertTrue(resolveIdx >= 0, "the Resolve version build-args step must exist")
-        val buildSteps =
-            steps.withIndex().filter { (_, s) ->
-                s.runScript().contains("docker compose") && s.runScript().contains(" build ")
-            }
-        assertTrue(buildSteps.isNotEmpty(), "expected docker compose build steps")
-        buildSteps.forEach { (i, s) ->
-            assertTrue(resolveIdx < i, "Resolve step (idx $resolveIdx) must precede build step at idx $i")
-            assertTrue("\${BUILD_ARGS}" in s.runScript(), "build step at idx $i must interpolate \${BUILD_ARGS}")
-        }
+    fun `e2e job builds each cell through the build-linter-image action`() {
+        assertTrue(
+            steps.any { it["uses"]?.asText() == "./.github/actions/build-linter-image" },
+            "e2e job must build via the shared action, not inline steps",
+        )
     }
 
     @Test
-    fun `each runtime guard runs after its build and before its e2e`() {
-        // The guard only guards if it sits between the build that produced <image>:dev and that variant's
-        // e2e — a refactor that moved it after e2e (or before the build) would defeat it silently. Pin the
-        // ordering per token-gating variant: Build idx < guard idx < first matching e2e idx.
-        fun name(s: JsonNode) = s["name"]?.asText() ?: ""
-        val guards = steps.withIndex().filter { (_, s) -> name(s).startsWith("Verify built runtime version") }
-        val guardNames = guards.map { name(it.value) }
-        assertEquals(2, guards.size, "expected two runtime guards (free + token-gated): $guardNames")
-        val gatedDomain = "token_gated == 'true'"
-        val freeDomain = "token_gated != 'true'"
-        guards.forEach { (gi, g) ->
-            // The guard's own token_gated domain (== 'true' vs != 'true') distinguishes the two variants.
-            val variant = if (g.ifExpr().contains(gatedDomain)) gatedDomain else freeDomain
+    fun `the action receives the cell's matrix wiring and the secret inputs`() {
+        val step = steps.single { it["uses"]?.asText() == "./.github/actions/build-linter-image" }
+        val w = step["with"] ?: error("build-linter-image step needs a with: block")
+        mapOf(
+            "image" to "\${{ matrix.image.name }}",
+            "version" to "\${{ matrix.image.version }}",
+            "arch" to "\${{ matrix.image.arch }}",
+            "token-gated" to "\${{ matrix.image.token_gated }}",
+            "feed-required" to "\${{ matrix.image.feed_required }}",
+            "compose-files" to "\${{ matrix.image.compose_files }}",
+            "docker-registry-user" to "\${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_USER }}",
+            "docker-registry-token" to "\${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}",
+            "space-packages-token" to "\${{ secrets.QODANA_READ_SPACE_PACKAGES_TOKEN }}",
+        ).forEach { (k, v) -> assertEquals(v, w[k]?.asText(), "action input '$k'") }
+    }
 
-            fun matchesVariant(s: JsonNode): Boolean = s.ifExpr().contains(variant)
-            val buildIdx =
-                steps.withIndex().indexOfFirst { (_, s) ->
-                    s.runScript().contains("docker compose") && s.runScript().contains(" build ") && matchesVariant(s)
-                }
-            val e2eIdx =
-                steps.withIndex().indexOfFirst { (_, s) ->
-                    s.runScript().contains("linterE2eTest") && matchesVariant(s)
-                }
-            assertTrue(buildIdx in 0 until gi, "${name(g)}: its Build (idx $buildIdx) must precede the guard (idx $gi)")
-            assertTrue(e2eIdx > gi, "${name(g)}: its e2e (idx $e2eIdx) must follow the guard (idx $gi)")
-        }
+    @Test
+    fun `the licensed scan step forwards the license token so an unlicensed scan fails loud`() {
+        val licensed =
+            steps.single {
+                it.runScript().contains("linterE2eTest") && it.ifExpr().contains("requires_license == 'true'")
+            }
+        assertEquals(
+            "\${{ secrets.QODANA_LICENSE_ONLY_TOKEN }}",
+            licensed["env"]?.get("QODANA_LICENSE_ONLY_TOKEN")?.asText(),
+            "the licensed scan must carry QODANA_LICENSE_ONLY_TOKEN in its step env",
+        )
+    }
+
+    @Test
+    fun `the e2e scan runs after the build action (build then scan)`() {
+        val actionIdx = steps.indexOfFirst { it["uses"]?.asText() == "./.github/actions/build-linter-image" }
+        val scanIdx = steps.indexOfFirst { it.runScript().contains("linterE2eTest") }
+        assertTrue(actionIdx in 0 until scanIdx, "the action ($actionIdx) must precede the scan ($scanIdx)")
     }
 
     @Test
