@@ -463,238 +463,38 @@ jobs:
             feed_required: "false"
             arch: arm64
             runner: ubuntu-24.04-arm
-    env:
-      # QODANA_READ_SPACE_PACKAGES_TOKEN reads the private JetBrains Space packages — the qodana-cli-deps
-      # mirror (clang/cdnet) AND the internal nightly dist feed (every dist image). Surfaced as `env.*` so the
-      # clang/cdnet hard-fail and the feed_required hard-fail `if:`s can reference it (`secrets.*` is not
-      # addressable in a step-level `if:`). QODANA_LICENSE_ONLY_TOKEN licenses the paid IDE-dist linters
-      # at scan time in license-only mode (no upload); the e2e harness forwards it into the scan container via the
-      # fixture passEnv. The DOCKER_READ_PUBLIC_REGISTRY_* creds authenticate the docker.io and dhi.io pulls.
-      DOCKER_READ_PUBLIC_REGISTRY_TOKEN: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
-      DOCKER_READ_PUBLIC_REGISTRY_USER: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_USER }}
-      QODANA_READ_SPACE_PACKAGES_TOKEN: ${{ secrets.QODANA_READ_SPACE_PACKAGES_TOKEN }}
-      QODANA_LICENSE_ONLY_TOKEN: ${{ secrets.QODANA_LICENSE_ONLY_TOKEN }}
     steps:
-      # Each cell builds a multi-GB image AND runs a full IDE scan on one ~14 GB-free ubuntu-latest;
-      # the dotnet/android toolchains exhaust the disk (QD-15127, intermittent ENOSPC / index-flush).
-      # Reclaim the preinstalled runner toolchains this job never uses — each linter image provisions
-      # its own SDK/runtime inside the container, so the host copies are dead weight here. Keep the
-      # swap file (swap-storage: false): reclaiming it trades ~4 GB of disk for zero swap headroom on
-      # a memory-heavy scan, and the ~25 GB freed from toolchains is ample without it.
-      - name: Free runner disk space
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: false
-          tool-cache: false
-      # No `ref:` override → checkout defaults to github.ref = the PR merge commit on pull_request, so CI builds against latest main.
+      # No `ref:` override → checkout defaults to github.ref = the PR merge commit on pull_request.
       - uses: actions/checkout@v7
-      # GraalVM + Gradle for the from-tree native CLI (assembleRelease → nativeCompile) and the harness.
-      - uses: ./.github/actions/setup-native-build
-      - name: Docker Hub login (raise anonymous pull-rate ceiling)
-        # An authenticated docker.io pull raises the anonymous rate ceiling for the public images the
-        # build fetches (dockerfile-x frontend, amazoncorretto).
-        uses: docker/login-action@v4
-        with:
-          username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
-          password: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
-      - name: dhi.io login (Docker Hardened Images base)
-        # QD_BASE_IMAGE is a dhi.io OS or language base (debian-base for jvm/android/python/clang,
-        # node for js); this login authenticates the whole dhi.io registry with the same credentials. No
-        # if-gate: the base is mandatory, so a missing credential must fail loudly here, not skip.
-        uses: docker/login-action@v4
-        with:
-          registry: dhi.io
-          username: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_USER }}
-          password: ${{ env.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
-
-      - name: Resolve version build-args
-        # Translate matrix.image.version into the per-cell --build-arg set via image-tool (single-sourced
-        # from the version files); empty version = the family default → no build args. Emits BUILD_ARGS +
-        # EXPECT_TOOL/EXPECT_VERSION (for the runtime guard) to $GITHUB_ENV. Runs before both Build steps.
-        run: |
-          set -euo pipefail
-          ./gradlew :linter-images:installDist
-          linter-images/build/install/image-tool/bin/image-tool resolve-build-args \
-            --image '${{ matrix.image.name }}' \
-            --version '${{ matrix.image.version }}' >> "$GITHUB_ENV"
-
-      - name: Require feed token for internal-feed images
-        # Same fail-loud contract as the clang/cdnet mirror-token gate below: an internal-feed image (feed_required=="true") with an
-        # empty QODANA_READ_SPACE_PACKAGES_TOKEN fails RED on every run. Active for the whole dist fleet
-        # (every feed_required cell — all IDE-dist images now pull the internal nightly); off only for the
-        # token-gated clang/cdnet cells (covered by the symmetric mirror-token gate below).
-        if: ${{ matrix.image.feed_required == 'true' && env.QODANA_READ_SPACE_PACKAGES_TOKEN == '' }}
-        run: |
-          echo "::error::QODANA_READ_SPACE_PACKAGES_TOKEN is required for ${{ matrix.image.name }} (internal nightly feed) but is empty."
-          echo "This is a rotated or missing repo/environment secret; re-check it."
-          exit 1
-      - name: Require mirror token for token-gated images
-        # Symmetric with the feed_required gate above: a token-gated image (clang/cdnet) with an empty
-        # QODANA_READ_SPACE_PACKAGES_TOKEN fails RED on every run. Its clang-tidy/CLT comes
-        # from the private Space mirror, so an empty token can't build/scan (the secret is repo-scoped).
-        if: ${{ matrix.image.token_gated == 'true' && env.QODANA_READ_SPACE_PACKAGES_TOKEN == '' }}
-        run: |
-          echo "::error::QODANA_READ_SPACE_PACKAGES_TOKEN is required for ${{ matrix.image.name }} (private clang-tidy/CLT mirror) but is empty."
-          echo "This is a rotated or missing repo secret; re-check it."
-          exit 1
-      # --- Non-token-gated images (jvm, android): stage contexts, build, run the harness. --------------
-      - name: Stage from-tree contexts (cli + image-tool)
-        if: ${{ matrix.image.token_gated != 'true' }}
-        # CI tests the code under review: the inner CLI is the from-tree binary (CLI_SOURCE=context),
-        # the `tooling` image-tool comes from installDist. compose.ci.yaml binds the `cli` context to
-        # qodana-cli/build/release-staging; install-cli reads /cli-src/${CLI_BINARY} there.
-        run: |
-          set -euo pipefail
-          ./gradlew \
-            :qodana-cli:assembleRelease -PtargetOs=linux -PtargetArch=${{ matrix.image.arch }} -Pquick=true \
-            :linter-images:installDist
-          # qodana-jvm/android consume /cli-src/qodana (Cli kind already staged at release-staging/qodana).
-          test -x qodana-cli/build/release-staging/qodana
-          # Fail-closed: the staged binary's ELF machine MUST match matrix.image.arch (nativeCompile is
-          # host-arch; -PtargetArch is only a label, so a arch/runner mismatch would ship a wrong-arch CLI).
-          want='${{ matrix.image.arch }}'
-          got="$(file -b qodana-cli/build/release-staging/qodana)"
-          case "$want" in
-            amd64) echo "$got" | grep -q 'x86-64' || { echo "::error::staged CLI is not x86-64 (arch=$want): $got"; exit 1; } ;;
-            arm64) echo "$got" | grep -q 'aarch64'  || { echo "::error::staged CLI is not aarch64 (arch=$want): $got"; exit 1; } ;;
-            *) echo "::error::unexpected matrix arch '$want'"; exit 1 ;;
-          esac
       - name: Build ${{ matrix.image.name }}
-        if: ${{ matrix.image.token_gated != 'true' }}
-        # Every dist image fetches its IDE dist from the internal nightly feed: the compose.private.yaml
-        # overlay mounts the space_packages_token (required=false) and the dist is verified sha256-only —
-        # the job-level token supplies it. (Token-gated clang/cdnet mount the same token for the mirror.)
-        run: |
-          # shellcheck disable=SC2086
-          docker compose ${{ matrix.image.compose_files }} build ${BUILD_ARGS} ${{ matrix.image.name }}
-          # Reclaim the BuildKit cache (a near-duplicate of the image layers) before the scan; the
-          # built <image>:dev survives — the e2e step runs it, never rebuilds (QD-15127).
-          docker builder prune -af
-      - name: Verify built runtime version (free)
-        # Fail loud if the requested-runtime --build-arg silently didn't take (ARG-shadowing). EXPECT_TOOL=none skips.
-        if: ${{ matrix.image.token_gated != 'true' && env.EXPECT_TOOL != 'none' }}
-        run: |
-          set -euo pipefail
-          img="${{ matrix.image.name }}:dev"
-          case "$EXPECT_TOOL" in
-            # clang: probe the version-SPECIFIC path /usr/lib/llvm-<M>/bin/clang — a wrong baked CLANG has
-            # no such tree, so the probe can't run and the step reds (exit-0 is the load-bearing signal;
-            # the needle grep is a secondary sanity check). That path exists on BOTH cpp (which also pins
-            # /usr/local/bin/clang and does NOT create /usr/bin/clang-<M>) and clang-community.
-            # ruby: `ruby --version` exits 0 for ANY baked ruby, so here the needle grep is the PRIMARY
-            # version discriminator — a wrong-baked runtime prints `ruby 3.2.…` and fails the 3.3 grep.
-            ruby)  probe="ruby --version";                                  needle="ruby $EXPECT_VERSION." ;;
-            clang) probe="/usr/lib/llvm-$EXPECT_VERSION/bin/clang --version"; needle="version $EXPECT_VERSION." ;;
-            *) echo "::error::unknown EXPECT_TOOL=$EXPECT_TOOL"; exit 1 ;;
-          esac
-          # --network none: the version probe needs no network; deny it so a hung/hostile base can't stall the guard.
-          if ! out="$(docker run --rm --network none --entrypoint /bin/sh "$img" -c "$probe" 2>&1)"; then
-            echo "::error::runtime guard: '$probe' did not run in $img — the requested runtime is likely not baked (ARG-shadowing?):"
-            echo "$out"
-            # Disambiguate wrong-baked-runtime from a container/PATH issue: list what IS present, per family.
-            [ "$EXPECT_TOOL" = clang ] && docker run --rm --network none --entrypoint /bin/sh "$img" -c 'ls -d /usr/lib/llvm-* 2>&1 || true'
-            [ "$EXPECT_TOOL" = ruby ] && docker run --rm --network none --entrypoint /bin/sh "$img" -c 'command -v ruby; ruby --version 2>&1 || true'
-            exit 1
-          fi
-          echo "$out"
-          printf '%s\n' "$out" | grep -qF "$needle" || {
-            echo "::error::runtime guard sanity check failed for $img: wanted '$needle', got: $out"; exit 1; }
+        uses: ./.github/actions/build-linter-image
+        with:
+          image: ${{ matrix.image.name }}
+          version: ${{ matrix.image.version }}
+          arch: ${{ matrix.image.arch }}
+          token-gated: ${{ matrix.image.token_gated }}
+          feed-required: ${{ matrix.image.feed_required }}
+          compose-files: ${{ matrix.image.compose_files }}
+          docker-registry-user: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_USER }}
+          docker-registry-token: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
+          space-packages-token: ${{ secrets.QODANA_READ_SPACE_PACKAGES_TOKEN }}
       - name: e2e ${{ matrix.image.name }} (free)
         if: ${{ matrix.image.token_gated != 'true' && matrix.image.requires_license != 'true' }}
-        # Builds the @Tag("linter-e2e") harness, discovers fixtures under
-        # linter-images/e2e/fixtures/${image}/*/expected.json, scans the pre-built <image>:dev, and
-        # asserts SARIF content + exit code + log gate. Missing/unparseable SARIF or Docker-down → loud.
         run: ./gradlew :linter-images:linterE2eTest -Dlinter.e2e.image=${{ matrix.image.name }}
       - name: e2e ${{ matrix.image.name }} (licensed)
-        # Paid IDE-dist linters license over the bridge network in license-only mode. Runs on every paid cell;
-        # a missing/rotated QODANA_LICENSE_ONLY_TOKEN fails loud (the harness errors on a blank passEnv).
+        # Paid IDE-dist linters license over the bridge network in license-only mode. The token forwards
+        # via the fixture passEnv; the harness errors on a blank one, so a missing token fails loud.
         if: ${{ matrix.image.token_gated != 'true' && matrix.image.requires_license == 'true' }}
+        env:
+          QODANA_LICENSE_ONLY_TOKEN: ${{ secrets.QODANA_LICENSE_ONLY_TOKEN }}
         run: ./gradlew :linter-images:linterE2eTest -Dlinter.e2e.image=${{ matrix.image.name }}
-
-      # --- Token-gated images (clang, cdnet): identical flow, but build + e2e require the mirror token. -
-      - name: Stage from-tree contexts (cli + image-tool + ${{ matrix.image.name }} binary)
-        if: ${{ matrix.image.token_gated == 'true' }}
-        run: |
-          set -euo pipefail
-          ./gradlew \
-            :qodana-cli:assembleRelease -PtargetOs=linux -PtargetArch=${{ matrix.image.arch }} -Pquick=true \
-            :${{ matrix.image.name }}:assembleRelease -PtargetOs=linux -PtargetArch=${{ matrix.image.arch }} -Pquick=true \
-            :linter-images:installDist
-          test -x qodana-cli/build/release-staging/qodana
-          # Fail-closed: the staged binary's ELF machine MUST match matrix.image.arch (nativeCompile is
-          # host-arch; -PtargetArch is only a label, so a arch/runner mismatch would ship a wrong-arch CLI).
-          want='${{ matrix.image.arch }}'
-          got="$(file -b qodana-cli/build/release-staging/qodana)"
-          case "$want" in
-            amd64) echo "$got" | grep -q 'x86-64' || { echo "::error::staged CLI is not x86-64 (arch=$want): $got"; exit 1; } ;;
-            arm64) echo "$got" | grep -q 'aarch64'  || { echo "::error::staged CLI is not aarch64 (arch=$want): $got"; exit 1; } ;;
-            *) echo "::error::unexpected matrix arch '$want'"; exit 1 ;;
-          esac
-          # The token-gated images' inner CLI is a Tool-kind raw binary <module>_<version>_linux_<arch>
-          # (NOT staged). Place it at release-staging/<module> so /cli-src/<module> resolves. Parameterized
-          # on matrix.image.name AND matrix.image.arch so each token-gated cell (clang, cdnet) stages ITS own
-          # binary for the cell's arch.
-          shopt -s nullglob
-          tool_binaries=(${{ matrix.image.name }}/build/release/${{ matrix.image.name }}_*_linux_${{ matrix.image.arch }})
-          if [ "${#tool_binaries[@]}" -ne 1 ]; then
-            echo "::error::expected exactly one ${{ matrix.image.name }} tool binary, found ${#tool_binaries[@]}: ${tool_binaries[*]:-<none>}"
-            exit 1
-          fi
-          cp "${tool_binaries[0]}" "qodana-cli/build/release-staging/${{ matrix.image.name }}"
-          chmod 0755 "qodana-cli/build/release-staging/${{ matrix.image.name }}"
-      - name: Build ${{ matrix.image.name }} (token-gated clang-tidy mirror)
-        # clang's clang-tidy comes from the PRIVATE qodana-cli-deps mirror, so its build REQUIRES the
-        # token (lib/tools.dockerfile mounts the secret required=true). An empty token already failed the
-        # run at the "Require mirror token" gate above; same-repo PRs and pushes build + scan it.
-        if: ${{ matrix.image.token_gated == 'true' }}
-        run: |
-          # shellcheck disable=SC2086
-          docker compose ${{ matrix.image.compose_files }} build ${BUILD_ARGS} ${{ matrix.image.name }}
-          # Reclaim the BuildKit cache (a near-duplicate of the image layers) before the scan; the
-          # built <image>:dev survives — the e2e step runs it, never rebuilds (QD-15127).
-          docker builder prune -af
-      - name: Verify built runtime version (token-gated)
-        # Same guard as the free variant above, for the token-gated build.
-        if: ${{ matrix.image.token_gated == 'true' && env.EXPECT_TOOL != 'none' }}
-        run: |
-          set -euo pipefail
-          img="${{ matrix.image.name }}:dev"
-          case "$EXPECT_TOOL" in
-            # clang: probe the version-SPECIFIC path /usr/lib/llvm-<M>/bin/clang — a wrong baked CLANG has
-            # no such tree, so the probe can't run and the step reds (exit-0 is the load-bearing signal;
-            # the needle grep is a secondary sanity check). That path exists on BOTH cpp (which also pins
-            # /usr/local/bin/clang and does NOT create /usr/bin/clang-<M>) and clang-community.
-            # ruby: `ruby --version` exits 0 for ANY baked ruby, so here the needle grep is the PRIMARY
-            # version discriminator — a wrong-baked runtime prints `ruby 3.2.…` and fails the 3.3 grep.
-            ruby)  probe="ruby --version";                                  needle="ruby $EXPECT_VERSION." ;;
-            clang) probe="/usr/lib/llvm-$EXPECT_VERSION/bin/clang --version"; needle="version $EXPECT_VERSION." ;;
-            *) echo "::error::unknown EXPECT_TOOL=$EXPECT_TOOL"; exit 1 ;;
-          esac
-          # --network none: the version probe needs no network; deny it so a hung/hostile base can't stall the guard.
-          if ! out="$(docker run --rm --network none --entrypoint /bin/sh "$img" -c "$probe" 2>&1)"; then
-            echo "::error::runtime guard: '$probe' did not run in $img — the requested runtime is likely not baked (ARG-shadowing?):"
-            echo "$out"
-            # Disambiguate wrong-baked-runtime from a container/PATH issue: list what IS present, per family.
-            [ "$EXPECT_TOOL" = clang ] && docker run --rm --network none --entrypoint /bin/sh "$img" -c 'ls -d /usr/lib/llvm-* 2>&1 || true'
-            [ "$EXPECT_TOOL" = ruby ] && docker run --rm --network none --entrypoint /bin/sh "$img" -c 'command -v ruby; ruby --version 2>&1 || true'
-            exit 1
-          fi
-          echo "$out"
-          printf '%s\n' "$out" | grep -qF "$needle" || {
-            echo "::error::runtime guard sanity check failed for $img: wanted '$needle', got: $out"; exit 1; }
       - name: e2e ${{ matrix.image.name }} (token-gated)
+        # clang/cdnet are self-contained after build (clang-tidy/CLT baked in): the scan needs no token.
         if: ${{ matrix.image.token_gated == 'true' }}
         run: ./gradlew :linter-images:linterE2eTest -Dlinter.e2e.image=${{ matrix.image.name }}
-
       - name: Upload e2e artifacts (idea.log + sarif)
-        # Always upload whatever the harness archived to build/linter-e2e-artifacts (idea.log + SARIF per
-        # case), so a failing scan's real cause is downloadable. if-no-files-found:ignore covers skipped
-        # cells (no artifacts produced).
+        # Always upload whatever the harness archived (idea.log + SARIF per case) so a failing scan's real
+        # cause is downloadable. if-no-files-found:ignore covers skipped cells.
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
