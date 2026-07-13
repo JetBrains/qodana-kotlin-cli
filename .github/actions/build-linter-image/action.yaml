@@ -1,0 +1,165 @@
+name: Build a linter image
+description: |
+  Builds one Qodana linter image from this tree (CLI_SOURCE=context) for a single arch, ready for a
+  caller to scan (e2e) or push (publish). Encapsulates the shared build core: disk reclaim, toolchain
+  and registry logins, required-token hard-fail gates, version build-arg resolution, from-tree CLI
+  staging, `docker compose build`, and the runtime-version guard. On success the built `<image>:dev`
+  is loaded locally and $GITHUB_ENV carries BUILD_ARGS / EXPECT_TOOL / EXPECT_VERSION.
+
+  IMPORTANT: callers MUST run actions/checkout themselves before invoking this action — local
+  composite actions are resolved from the workspace.
+
+inputs:
+  image:
+    description: 'Linter image = compose service, e.g. qodana-jvm.'
+    required: true
+  version:
+    description: 'Runtime version sub-axis (ruby/cpp/clang); empty = family default.'
+    required: false
+    default: ''
+  arch:
+    description: 'amd64 | arm64. Must match the runner arch (nativeCompile is host-arch).'
+    required: true
+  token-gated:
+    description: 'true for clang/cdnet: the inner CLI is a raw Tool binary staged from build/release, and the build needs the private mirror token.'
+    required: false
+    default: 'false'
+  feed-required:
+    description: 'true for every internal-nightly-feed dist image (mounts the Space token via compose.private.yaml).'
+    required: false
+    default: 'false'
+  compose-files:
+    description: 'The exact -f flags for docker compose (repo-root-relative).'
+    required: true
+  docker-registry-user:
+    description: 'docker.io / dhi.io username (raises the anonymous pull ceiling; dhi base is mandatory).'
+    required: true
+  docker-registry-token:
+    description: 'docker.io / dhi.io token.'
+    required: true
+  space-packages-token:
+    description: 'QODANA_READ_SPACE_PACKAGES_TOKEN — internal nightly feed + private clang-tidy/CLT mirror. Empty on the public path.'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    # Reclaim preinstalled toolchains this job never uses (each image provisions its own SDK); dotnet/
+    # android otherwise exhaust the ~14 GB-free runner (QD-15127). Runs after checkout (a local action
+    # forces checkout first) — benign: free-disk targets system dirs, never the workspace.
+    - name: Free runner disk space
+      uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+      with:
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: true
+        docker-images: true
+        swap-storage: false
+        tool-cache: false
+    - uses: ./.github/actions/setup-native-build
+    - name: Docker Hub login (raise anonymous pull-rate ceiling)
+      # Authenticated docker.io pull raises the anonymous rate ceiling for the public base images.
+      uses: docker/login-action@v4
+      with:
+        username: ${{ inputs.docker-registry-user }}
+        password: ${{ inputs.docker-registry-token }}
+    - name: dhi.io login (Docker Hardened Images base)
+      # Mandatory base — a missing credential must fail loudly here, not skip.
+      uses: docker/login-action@v4
+      with:
+        registry: dhi.io
+        username: ${{ inputs.docker-registry-user }}
+        password: ${{ inputs.docker-registry-token }}
+    - name: Require feed token for internal-feed images
+      # An internal-feed image with an empty token fails RED on every run (a rotated/missing secret).
+      if: ${{ inputs.feed-required == 'true' && inputs.space-packages-token == '' }}
+      shell: bash
+      run: |
+        echo "::error::QODANA_READ_SPACE_PACKAGES_TOKEN is required for ${{ inputs.image }} (internal nightly feed) but is empty."
+        echo "This is a rotated or missing repo/environment secret; re-check it."
+        exit 1
+    - name: Require mirror token for token-gated images
+      # Empty token can't build the private clang-tidy/CLT mirror → fail RED (symmetric with the feed gate).
+      if: ${{ inputs.token-gated == 'true' && inputs.space-packages-token == '' }}
+      shell: bash
+      run: |
+        echo "::error::QODANA_READ_SPACE_PACKAGES_TOKEN is required for ${{ inputs.image }} (private clang-tidy/CLT mirror) but is empty."
+        echo "This is a rotated or missing repo secret; re-check it."
+        exit 1
+    - name: Resolve version build-args
+      # EXPECT_TOOL/EXPECT_VERSION feed the runtime guard below; BUILD_ARGS feeds the build.
+      shell: bash
+      run: |
+        set -euo pipefail
+        ./gradlew :linter-images:installDist
+        linter-images/build/install/image-tool/bin/image-tool resolve-build-args \
+          --image '${{ inputs.image }}' \
+          --version '${{ inputs.version }}' >> "$GITHUB_ENV"
+    - name: Stage from-tree contexts (cli + image-tool)
+      # From-tree inner CLI (CLI_SOURCE=context). Token-gated images also build + stage their own
+      # Tool-kind CLI binary so /cli-src/<module> resolves.
+      shell: bash
+      run: |
+        set -euo pipefail
+        token_gated='${{ inputs.token-gated }}'
+        targets=(:qodana-cli:assembleRelease -PtargetOs=linux -PtargetArch=${{ inputs.arch }} -Pquick=true)
+        # Token-gated images also build their own Tool-kind inner CLI binary from this tree.
+        if [ "$token_gated" = "true" ]; then
+          targets+=(:${{ inputs.image }}:assembleRelease -PtargetOs=linux -PtargetArch=${{ inputs.arch }} -Pquick=true)
+        fi
+        targets+=(:linter-images:installDist)
+        ./gradlew "${targets[@]}"
+        test -x qodana-cli/build/release-staging/qodana
+        # Fail-closed: nativeCompile is host-arch; -PtargetArch is only a label, so verify the ELF machine.
+        want='${{ inputs.arch }}'
+        got="$(file -b qodana-cli/build/release-staging/qodana)"
+        case "$want" in
+          amd64) echo "$got" | grep -q 'x86-64' || { echo "::error::staged CLI is not x86-64 (arch=$want): $got"; exit 1; } ;;
+          arm64) echo "$got" | grep -q 'aarch64'  || { echo "::error::staged CLI is not aarch64 (arch=$want): $got"; exit 1; } ;;
+          *) echo "::error::unexpected arch '$want'"; exit 1 ;;
+        esac
+        if [ "$token_gated" = "true" ]; then
+          shopt -s nullglob
+          tool_binaries=(${{ inputs.image }}/build/release/${{ inputs.image }}_*_linux_${{ inputs.arch }})
+          if [ "${#tool_binaries[@]}" -ne 1 ]; then
+            echo "::error::expected exactly one ${{ inputs.image }} tool binary, found ${#tool_binaries[@]}: ${tool_binaries[*]:-<none>}"
+            exit 1
+          fi
+          cp "${tool_binaries[0]}" "qodana-cli/build/release-staging/${{ inputs.image }}"
+          chmod 0755 "qodana-cli/build/release-staging/${{ inputs.image }}"
+        fi
+    - name: Build ${{ inputs.image }}
+      shell: bash
+      env:
+        # compose.private.yaml mounts this as the space_packages_token build secret (feed sha256 + mirror).
+        QODANA_READ_SPACE_PACKAGES_TOKEN: ${{ inputs.space-packages-token }}
+      run: |
+        # shellcheck disable=SC2086
+        docker compose ${{ inputs.compose-files }} build ${BUILD_ARGS} ${{ inputs.image }}
+        # Reclaim the BuildKit cache before the caller's scan; the built <image>:dev survives.
+        docker builder prune -af
+    - name: Verify built runtime version
+      # Catch ARG-shadowing (a build-arg silently not applied). MUST be the action's last step — the
+      # caller's scan/push tail runs after it, so build < guard < tail holds structurally.
+      if: ${{ env.EXPECT_TOOL != 'none' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        img="${{ inputs.image }}:dev"
+        case "$EXPECT_TOOL" in
+          ruby)  probe="ruby --version";                                  needle="ruby $EXPECT_VERSION." ;;
+          clang) probe="/usr/lib/llvm-$EXPECT_VERSION/bin/clang --version"; needle="version $EXPECT_VERSION." ;;
+          *) echo "::error::unknown EXPECT_TOOL=$EXPECT_TOOL"; exit 1 ;;
+        esac
+        if ! out="$(docker run --rm --network none --entrypoint /bin/sh "$img" -c "$probe" 2>&1)"; then
+          echo "::error::runtime guard: '$probe' did not run in $img — the requested runtime is likely not baked (ARG-shadowing?):"
+          echo "$out"
+          [ "$EXPECT_TOOL" = clang ] && docker run --rm --network none --entrypoint /bin/sh "$img" -c 'ls -d /usr/lib/llvm-* 2>&1 || true'
+          [ "$EXPECT_TOOL" = ruby ] && docker run --rm --network none --entrypoint /bin/sh "$img" -c 'command -v ruby; ruby --version 2>&1 || true'
+          exit 1
+        fi
+        echo "$out"
+        printf '%s\n' "$out" | grep -qF "$needle" || {
+          echo "::error::runtime guard sanity check failed for $img: wanted '$needle', got: $out"; exit 1; }
