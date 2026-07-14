@@ -143,15 +143,17 @@ runs:
           cp "${tool_binaries[0]}" "qodana-cli/build/release-staging/${{ inputs.image }}"
           chmod 0755 "qodana-cli/build/release-staging/${{ inputs.image }}"
         fi
+    - name: Set up a container builder
+      # push-by-digest is unsupported by the default `docker` driver — publish mode needs a
+      # docker-container builder. (e2e mode keeps the default driver for `docker compose build` + --load.)
+      if: ${{ inputs.push-registry != '' }}
+      uses: docker/setup-buildx-action@v3
     - name: Build ${{ inputs.image }}
       id: build
       shell: bash
       env:
         # compose.private.yaml / bake mount this as the space_packages_token build secret (feed sha256 + mirror).
         QODANA_READ_SPACE_PACKAGES_TOKEN: ${{ inputs.space-packages-token }}
-        # bake's fs-entitlement check would block reading the out-of-context `cli` (../qodana-cli/…) and
-        # `tooling` contexts. Our bake files are the repo's own, so disable the check (CI-standard).
-        BUILDX_BAKE_ENTITLEMENTS_FS: '0'
       run: |
         set -euo pipefail
         if [ -z '${{ inputs.push-registry }}' ]; then
@@ -167,8 +169,11 @@ runs:
           while [ "$i" -lt "${#ba[@]}" ]; do
             if [ "${ba[$i]}" = "--build-arg" ]; then set_args+=(--set "${{ inputs.image }}.args.${ba[$((i+1))]}"); i=$((i+2)); else i=$((i+1)); fi
           done
+          # --allow=fs.read=..: the `cli`/`tooling` contexts resolve outside the compose-file dir, which
+          # bake's entitlement check blocks by default. Our bake files are the repo's own → grant it.
           # shellcheck disable=SC2086
           docker buildx bake ${{ inputs.compose-files }} \
+            --allow=fs.read=.. \
             --set '${{ inputs.image }}.platform=linux/${{ inputs.arch }}' \
             --set '${{ inputs.image }}.output=type=image,name=${{ inputs.push-registry }}/${{ inputs.image }},push-by-digest=true,push=true' \
             "${set_args[@]}" \
