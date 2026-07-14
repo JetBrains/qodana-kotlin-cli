@@ -16,7 +16,7 @@ data class ImageMeta(
 
 /**
  * The up-front publish gate for one (image, version) cell — single-sources the per-image gating so the
- * dispatch and nightly can't drift from images.yaml (a CiWorkflowContractTest binds this to the matrix).
+ * dispatch and nightly can't drift from images.yaml (PublishWorkflowContractTest binds this to the matrix).
  * Validates the pair loudly (unknown image → throw; a stray/unknown version → throw via [RuntimeResolver])
  * BEFORE any build starts, and emits the NORMALIZED `effective_version` (the resolved runtime, e.g. "20"
  * for the cpp default) so callers key the concurrency group and tags on it — collapsing an empty version

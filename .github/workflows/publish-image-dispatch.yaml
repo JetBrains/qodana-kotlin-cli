@@ -64,7 +64,7 @@ jobs:
           echo "sha7=$(git rev-parse --short=7 "$full")" >> "$GITHUB_OUTPUT"
       - name: Resolve per-image gating and normalize the version
         id: meta
-        # Fails loud on an unknown image or an illegal (image, version) pair before any build starts.
+        # Rejects an illegal (image, version) before any build starts (the point of this cheap gate).
         shell: bash
         run: |
           set -euo pipefail

@@ -47,11 +47,19 @@ class ResolveBuildArgsCommand(
             when {
                 rt.isDefault -> emptyList()
                 rt.tool == "ruby" -> {
-                    val row = versionRows(rubyVersions, 2, 3).single { it[0] == rt.version }
+                    // singleOrNull ?: error names the version+file on a duplicate row (RuntimeResolver
+                    // already proved the version exists, so only a malformed duplicate can trip this).
+                    val row =
+                        versionRows(rubyVersions, 2, 3).singleOrNull { it[0] == rt.version }
+                            ?: error("ambiguous or missing '${rt.version}' row in ${rubyVersions.fileName}")
                     listOf("--build-arg", "QD_BASE_IMAGE=${row[1]}")
                 }
                 rt.tool == "clang" -> {
-                    val os = versionRows(clangVersions, 2, 2).single { it[0] == rt.version }[1]
+                    val os =
+                        (
+                            versionRows(clangVersions, 2, 2).singleOrNull { it[0] == rt.version }
+                                ?: error("ambiguous or missing clang '${rt.version}' row in ${clangVersions.fileName}")
+                        )[1]
                     val base =
                         versionRows(debianBases, 2, 2).singleOrNull { it[0] == os }?.get(1)
                             ?: error("no debian-bases row for '$os'")

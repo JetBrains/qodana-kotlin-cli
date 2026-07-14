@@ -1,11 +1,20 @@
 package org.jetbrains.qodana.images
 
+import com.github.ajalt.clikt.testing.test
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import kotlin.test.assertTrue
 
 class ExtractDigestCommandTest {
     private val sha = "sha256:" + "a".repeat(64)
+
+    @Test
+    fun `the --file CLI path reads via getContent and echoes just the digest`() {
+        // Exercises the production entry point (the --file option + getContent + echo), which the
+        // workflow captures as `$(image-tool extract-digest --file push.log)`.
+        val cmd = ExtractDigestCommand(getContent = { "5f70bf18: Pushed\nfoo: digest: $sha size: 9" })
+        assertEquals(sha, cmd.test("--file push.log").stdout.trim())
+    }
 
     @Test
     fun `extracts the single digest from a real-looking push log`() {

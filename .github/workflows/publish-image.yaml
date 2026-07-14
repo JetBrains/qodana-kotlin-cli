@@ -2,10 +2,10 @@ name: Publish Image
 
 # Reusable: build one linter image per arch on its native runner (via build-linter-image), push each to a
 # unique per-run staging tag, capture the pushed digest, then assemble the multi-arch manifest with
-# `imagetools create` and apply the resolve-tags tags. Staging tags are pruned by retention (QD-15391),
-# not deleted here. Callers pass a NORMALIZED version (the resolved runtime, e.g. "20" for the cpp default)
-# so the concurrency group and tags key on one identity. Callers: publish-image-dispatch (snapshot) and
-# nightly (QD-15391).
+# `imagetools create` and apply the resolve-tags tags. Staging tags are pruned by retention, not deleted
+# here. Callers pass a NORMALIZED version (the resolved runtime, e.g. "20" for the cpp default) so the
+# concurrency group and tags key on one identity. Callers: publish-image-dispatch (snapshot) and a future
+# nightly caller.
 
 on:
   workflow_call:

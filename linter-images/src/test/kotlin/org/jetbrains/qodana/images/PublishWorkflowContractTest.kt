@@ -53,6 +53,18 @@ class PublishWorkflowContractTest {
     }
 
     @Test
+    fun `every dispatchable image is arch-capable, so the hardcoded both-arch matrix is valid`() {
+        // publish-image's build matrix is a static [amd64, arm64] — valid only while EVERY dispatchable
+        // image is multiarch. Bind that assumption to ArchContract so an image added to the dispatch
+        // before its arm64 port lands fails here (forcing publish-image to be made arch-aware first).
+        val options =
+            dispatch.on()["workflow_dispatch"]["inputs"]["image"]["options"].map { it.asText() }
+        options.forEach {
+            assertTrue(it in ArchContract.archCapable, "dispatchable image '$it' must be in ArchContract.archCapable")
+        }
+    }
+
+    @Test
     fun `build verifies the built arch and captures the digest via extract-digest`() {
         val scripts = scriptsOf(publish, "build")
         assertTrue(scripts.contains("{{.Architecture}}"), "build must verify the image arch")
