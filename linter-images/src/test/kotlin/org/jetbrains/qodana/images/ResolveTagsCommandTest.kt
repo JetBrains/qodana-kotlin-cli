@@ -56,14 +56,26 @@ class ResolveTagsCommandTest {
         cmd(gp(tmp, "2026.2")).resolve("qodana-ruby", "3.4", reg, "snapshot", "a1b2c3d"),
     )
 
-    @Test fun `nightly exact carries the date`(
+    @Test fun `nightly dated emits the dated and the moving tag`(
         @TempDir tmp: Path,
     ) = assertEquals(
-        listOf("$reg/qodana-jvm:2026.2-nightly.20260605"),
+        listOf("$reg/qodana-jvm:2026.2-nightly.20260605", "$reg/qodana-jvm:2026.2-nightly"),
         cmd(gp(tmp, "2026.2")).resolve("qodana-jvm", "", reg, "nightly", "20260605"),
     )
 
-    @Test fun `nightly moving omits the id and still dual-tags a default`(
+    @Test fun `nightly dated default emits dated and moving, each dual-tagged`(
+        @TempDir tmp: Path,
+    ) = assertEquals(
+        listOf(
+            "$reg/qodana-cpp:2026.2-nightly.20260605",
+            "$reg/qodana-cpp:2026.2-nightly.20260605-clang20",
+            "$reg/qodana-cpp:2026.2-nightly",
+            "$reg/qodana-cpp:2026.2-nightly-clang20",
+        ),
+        cmd(gp(tmp, "2026.2")).resolve("qodana-cpp", "", reg, "nightly", "20260605"),
+    )
+
+    @Test fun `nightly moving-only (empty id) dual-tags a default`(
         @TempDir tmp: Path,
     ) = assertEquals(
         listOf("$reg/qodana-cpp:2026.2-nightly", "$reg/qodana-cpp:2026.2-nightly-clang20"),
