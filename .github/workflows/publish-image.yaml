@@ -1,0 +1,134 @@
+name: Publish Image
+
+# Reusable: build one linter image per arch on its native runner (via build-linter-image), push each to a
+# unique per-run staging tag, capture the pushed digest, then assemble the multi-arch manifest with
+# `imagetools create` and apply the resolve-tags tags. Staging tags are pruned by retention (QD-15391),
+# not deleted here. Callers pass a NORMALIZED version (the resolved runtime, e.g. "20" for the cpp default)
+# so the concurrency group and tags key on one identity. Callers: publish-image-dispatch (snapshot) and
+# nightly (QD-15391).
+
+on:
+  workflow_call:
+    inputs:
+      image: { required: true, type: string }
+      version: { required: false, type: string, default: '' }
+      channel: { required: true, type: string }
+      id: { required: true, type: string }
+      ref: { required: true, type: string }
+      token-gated: { required: true, type: string }
+      feed-required: { required: true, type: string }
+      compose-files: { required: true, type: string }
+
+permissions:
+  contents: read
+
+# Serialize same-target publishes (same normalized version) so two runs can't race the shared tags.
+concurrency:
+  group: publish-${{ inputs.image }}-${{ inputs.version }}-${{ inputs.channel }}-${{ inputs.id }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: registry.jetbrains.team/p/sa/qodana-kcli-images
+
+jobs:
+  build:
+    name: Build ${{ inputs.image }} (linux/${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Build ${{ inputs.image }}
+        uses: ./.github/actions/build-linter-image
+        with:
+          image: ${{ inputs.image }}
+          version: ${{ inputs.version }}
+          arch: ${{ matrix.arch }}
+          token-gated: ${{ inputs.token-gated }}
+          feed-required: ${{ inputs.feed-required }}
+          compose-files: ${{ inputs.compose-files }}
+          docker-registry-user: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_USER }}
+          docker-registry-token: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
+          space-packages-token: ${{ secrets.QODANA_READ_SPACE_PACKAGES_TOKEN }}
+      - name: Verify the built image is actually ${{ matrix.arch }}
+        # Fail-closed: a build-linter-image wiring bug could produce a cross-arch image that would still
+        # slot into the manifest's arch declaration. Assert the real image architecture matches.
+        shell: bash
+        run: |
+          set -euo pipefail
+          got="$(docker image inspect --format '{{.Architecture}}' '${{ inputs.image }}:dev')"
+          [ "$got" = '${{ matrix.arch }}' ] || { echo "::error::built image is $got, expected ${{ matrix.arch }}"; exit 1; }
+      - name: Log in to the target registry
+        uses: docker/login-action@v4
+        with:
+          registry: registry.jetbrains.team
+          username: ${{ secrets.DOCKER_WRITE_KCLI_REGISTRY_USER }}
+          password: ${{ secrets.DOCKER_WRITE_KCLI_REGISTRY_TOKEN }}
+      - name: Push the per-arch image and capture its digest
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Unique per run+attempt+arch, so concurrent DIFFERENT runs never collide on staging tags.
+          staging="$REGISTRY/${{ inputs.image }}:_staging.${{ github.run_id }}.${{ github.run_attempt }}-${{ matrix.arch }}"
+          docker tag "${{ inputs.image }}:dev" "$staging"
+          docker push "$staging" 2>&1 | tee push.log
+          # Authoritative digest from THIS push (image-tool requires exactly one match, else fails loud).
+          digest="$(linter-images/build/install/image-tool/bin/image-tool extract-digest --file push.log)"
+          mkdir -p digests
+          printf '%s' "$digest" > "digests/${{ matrix.arch }}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: digest-${{ inputs.image }}-${{ inputs.version || 'default' }}-${{ matrix.arch }}
+          path: digests/${{ matrix.arch }}
+          if-no-files-found: error
+
+  merge:
+    name: Merge ${{ inputs.image }} manifest
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: ./.github/actions/setup-kotlin
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: digest-${{ inputs.image }}-${{ inputs.version || 'default' }}-*
+          path: digests
+          merge-multiple: true
+      - name: Log in to the target registry
+        uses: docker/login-action@v4
+        with:
+          registry: registry.jetbrains.team
+          username: ${{ secrets.DOCKER_WRITE_KCLI_REGISTRY_USER }}
+          password: ${{ secrets.DOCKER_WRITE_KCLI_REGISTRY_TOKEN }}
+      - name: Assemble the multi-arch manifest and apply the tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          amd64="$(cat digests/amd64)"; arm64="$(cat digests/arm64)"
+          for d in "$amd64" "$arm64"; do
+            [[ "$d" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::missing/invalid per-arch digest: '$d'"; exit 1; }
+          done
+          ./gradlew :linter-images:installDist
+          mapfile -t TAGS < <(linter-images/build/install/image-tool/bin/image-tool resolve-tags \
+            --image '${{ inputs.image }}' --version '${{ inputs.version }}' \
+            --registry "$REGISTRY" --channel '${{ inputs.channel }}' --id '${{ inputs.id }}')
+          [ "${#TAGS[@]}" -ge 1 ] || { echo "::error::resolve-tags produced no tags"; exit 1; }
+          tflags=(); for t in "${TAGS[@]}"; do tflags+=(--tag "$t"); done
+          docker buildx imagetools create "${tflags[@]}" \
+            "$REGISTRY/${{ inputs.image }}@$amd64" "$REGISTRY/${{ inputs.image }}@$arm64"
+          # Assert the published manifest resolves BOTH arches — guards the digest-referenced child
+          # manifests' survival without relying on unstated registry GC behaviour.
+          inspect="$(docker buildx imagetools inspect "${TAGS[0]}")"
+          echo "$inspect" | grep -q 'linux/amd64' || { echo "::error::published manifest missing linux/amd64"; exit 1; }
+          echo "$inspect" | grep -q 'linux/arm64' || { echo "::error::published manifest missing linux/arm64"; exit 1; }
+          { echo "### Published ${{ inputs.image }}"; for t in "${TAGS[@]}"; do echo "- \`$t\`"; done; } >> "$GITHUB_STEP_SUMMARY"

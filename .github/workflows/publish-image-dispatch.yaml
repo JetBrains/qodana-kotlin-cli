@@ -1,0 +1,91 @@
+name: Publish Image (on-demand)
+
+# Build one linter image from the dispatched branch and push it as a SHA-addressed <mm>-snapshot.<sha7>
+# multi-arch tag. The `resolve` job pins the commit ONCE and threads that SHA (not the mutable branch ref)
+# to every build/merge job, and single-sources the per-image gating + the normalized runtime version via
+# `image-tool resolve-image-meta` (which fails loud on an illegal image/version BEFORE any build starts).
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: 'Linter image to build and publish.'
+        required: true
+        type: choice
+        options:
+          - qodana-jvm
+          - qodana-jvm-community
+          - qodana-android
+          - qodana-android-community
+          - qodana-python
+          - qodana-python-community
+          - qodana-js
+          - qodana-go
+          - qodana-php
+          - qodana-rust
+          - qodana-ruby
+          - qodana-dotnet
+          - qodana-cpp
+          - qodana-clang
+          - qodana-cdnet
+      version:
+        description: 'Runtime version sub-axis (ruby 3.2/3.4; cpp/clang 16-21). Empty = family default.'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Resolve build parameters
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+      sha7: ${{ steps.sha.outputs.sha7 }}
+      token-gated: ${{ steps.meta.outputs.token_gated }}
+      feed-required: ${{ steps.meta.outputs.feed_required }}
+      compose-files: ${{ steps.meta.outputs.compose_files }}
+      version: ${{ steps.meta.outputs.effective_version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Pin the dispatched commit
+        id: sha
+        shell: bash
+        run: |
+          set -euo pipefail
+          full="$(git rev-parse HEAD)"
+          echo "sha=$full" >> "$GITHUB_OUTPUT"
+          echo "sha7=$(git rev-parse --short=7 "$full")" >> "$GITHUB_OUTPUT"
+      - name: Resolve per-image gating and normalize the version
+        id: meta
+        # Fails loud on an unknown image or an illegal (image, version) pair before any build starts.
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :linter-images:installDist
+          linter-images/build/install/image-tool/bin/image-tool resolve-image-meta \
+            --image '${{ inputs.image }}' --version '${{ inputs.version }}' > meta.txt
+          for key in token_gated feed_required compose_files effective_version; do
+            grep -q "^$key=" meta.txt || { echo "::error::resolve-image-meta did not emit $key="; exit 1; }
+          done
+          grep -E '^(token_gated|feed_required|compose_files|effective_version)=' meta.txt >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: resolve
+    uses: ./.github/workflows/publish-image.yaml
+    with:
+      image: ${{ inputs.image }}
+      version: ${{ needs.resolve.outputs.version }}
+      channel: snapshot
+      id: ${{ needs.resolve.outputs.sha7 }}
+      ref: ${{ needs.resolve.outputs.sha }}
+      token-gated: ${{ needs.resolve.outputs.token-gated }}
+      feed-required: ${{ needs.resolve.outputs.feed-required }}
+      compose-files: ${{ needs.resolve.outputs.compose-files }}
+    secrets: inherit
