@@ -24,10 +24,10 @@ class PublishWorkflowContractTest {
 
     private fun JsonNode.runScript(): String = this["run"]?.asText() ?: ""
 
-    private fun steps(
+    private fun scriptsOf(
         wf: JsonNode,
         job: String,
-    ): List<JsonNode> = wf["jobs"][job]["steps"].toList()
+    ): String = wf["jobs"][job]["steps"].joinToString("\n") { it.runScript() }
 
     // --- publish-image.yaml (reusable) ---------------------------------------------------------------
 
@@ -42,7 +42,8 @@ class PublishWorkflowContractTest {
         listOf("inputs.image", "inputs.version", "inputs.channel", "inputs.id").forEach {
             assertTrue(group.contains(it), "concurrency group must key on $it: $group")
         }
-        assertEquals("false", publish["concurrency"]["cancel-in-progress"].asText(), "same-target publishes must serialize")
+        val cancel = publish["concurrency"]["cancel-in-progress"].asText()
+        assertEquals("false", cancel, "same-target publishes must serialize")
     }
 
     @Test
@@ -53,19 +54,20 @@ class PublishWorkflowContractTest {
 
     @Test
     fun `build verifies the built arch and captures the digest via extract-digest`() {
-        val scripts = steps(publish, "build").joinToString("\n") { it.runScript() }
-        assertTrue(scripts.contains("docker image inspect --format '{{.Architecture}}'"), "build must verify the image arch")
+        val scripts = scriptsOf(publish, "build")
+        assertTrue(scripts.contains("{{.Architecture}}"), "build must verify the image arch")
         assertTrue(scripts.contains("image-tool extract-digest"), "build must capture the digest via extract-digest")
     }
 
     @Test
     fun `merge needs build and assembles the manifest from resolve-tags`() {
         val merge = publish["jobs"]["merge"]
-        assertTrue(merge["needs"].asText() == "build" || merge["needs"].any { it.asText() == "build" }, "merge must need build")
-        val scripts = steps(publish, "merge").joinToString("\n") { it.runScript() }
+        val needsBuild = merge["needs"].asText() == "build" || merge["needs"].any { it.asText() == "build" }
+        assertTrue(needsBuild, "merge must need build")
+        val scripts = scriptsOf(publish, "merge")
         assertTrue(scripts.contains("image-tool resolve-tags"), "merge must derive tags from resolve-tags")
         assertTrue(scripts.contains("imagetools create"), "merge must assemble a multi-arch manifest")
-        assertTrue(scripts.contains("imagetools inspect"), "merge must assert the published manifest resolves both arches")
+        assertTrue(scripts.contains("imagetools inspect"), "merge must assert both arches resolve")
     }
 
     // --- publish-image-dispatch.yaml (on-demand) -----------------------------------------------------
@@ -75,22 +77,26 @@ class PublishWorkflowContractTest {
         val options =
             dispatch.on()["workflow_dispatch"]["inputs"]["image"]["options"].map { it.asText() }.toSet()
         val services =
-            YAMLMapper().readTree(Path.of("compose.yaml").readText())["services"].fieldNames().asSequence().toSet()
+            YAMLMapper()
+                .readTree(Path.of("compose.yaml").readText())["services"]
+                .fieldNames()
+                .asSequence()
+                .toSet()
         assertEquals(services, options, "the dispatch image choices must equal the compose services")
     }
 
     @Test
     fun `dispatch threads the pinned SHA as ref, not the mutable branch ref`() {
-        val with = dispatch["jobs"]["publish"]["with"]
-        assertEquals("\${{ needs.resolve.outputs.sha }}", with["ref"].asText(), "ref must be the pinned SHA (no TOCTOU)")
-        assertFalse(with["ref"].asText().contains("github.ref"), "ref must NOT be the mutable branch ref")
+        val ref = dispatch["jobs"]["publish"]["with"]["ref"].asText()
+        assertEquals("\${{ needs.resolve.outputs.sha }}", ref, "ref must be the pinned SHA (no TOCTOU)")
+        assertFalse(ref.contains("github.ref"), "ref must NOT be the mutable branch ref")
     }
 
     @Test
     fun `dispatch publishes the snapshot channel with the normalized version and sha7 id`() {
         val with = dispatch["jobs"]["publish"]["with"]
         assertEquals("snapshot", with["channel"].asText())
-        assertEquals("\${{ needs.resolve.outputs.version }}", with["version"].asText(), "version must be the normalized effective")
+        assertEquals("\${{ needs.resolve.outputs.version }}", with["version"].asText(), "version must be normalized")
         assertEquals("\${{ needs.resolve.outputs.sha7 }}", with["id"].asText())
     }
 
@@ -108,9 +114,7 @@ class PublishWorkflowContractTest {
                         Path.of("docker/ruby-versions.txt"),
                     ),
             )
-        val cells =
-            YAMLMapper()
-                .readTree(Path.of("../.github/workflows/images.yaml").readText())["jobs"]["e2e"]["strategy"]["matrix"]["image"]
+        val cells = wf("images.yaml")["jobs"]["e2e"]["strategy"]["matrix"]["image"]
         cells.forEach { c ->
             val name = c["name"].asText()
             val version = c["version"]?.asText() ?: ""

@@ -5,12 +5,16 @@ import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 
 /** The runtime version sub-axis of a cell: ruby X.Y, or clang N (for both cpp and clang images). */
-data class Runtime(val tool: String, val version: String, val isDefault: Boolean)
+data class Runtime(
+    val tool: String,
+    val version: String,
+    val isDefault: Boolean,
+)
 
 /**
  * Rows of a version file, comments/blanks stripped, arity-validated before any positional index —
- * the single parser for every docker version file (`clang-versions.txt`/`ruby-versions.txt`/`debian-bases.txt`; shared by
- * [RuntimeResolver] and [ResolveBuildArgsCommand] so the malformed-input contract can't diverge).
+ * the single parser for the docker version files (clang/ruby/debian-bases), shared by [RuntimeResolver]
+ * and [ResolveBuildArgsCommand] so the malformed-input contract can't diverge.
  * Missing/empty/malformed input fails loud with an [IllegalStateException] naming the file.
  */
 fun versionRows(
