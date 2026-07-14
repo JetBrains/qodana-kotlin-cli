@@ -22,7 +22,7 @@ class MainTest {
                 "resolve-build-args",
                 "resolve-tags",
                 "resolve-image-meta",
-                "extract-digest",
+                "resolve-publish-matrix",
             ),
             names,
         )

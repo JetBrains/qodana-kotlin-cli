@@ -22,6 +22,7 @@ fun buildImageTool(): CliktCommand {
     val clangVersions = Path.of("linter-images/docker/clang-versions.txt")
     val rubyVersions = Path.of("linter-images/docker/ruby-versions.txt")
     val runtime = RuntimeResolver(imagesDir, clangVersions, rubyVersions)
+    val imageMeta = ResolveImageMetaCommand(imagesDir = imagesDir, runtime = runtime)
     return ImageToolCommand().subcommands(
         ProvisionDistCommand(
             feedClient = FeedClient(runner),
@@ -38,8 +39,13 @@ fun buildImageTool(): CliktCommand {
             debianBases = Path.of("linter-images/docker/debian-bases.txt"),
         ),
         ResolveTagsCommand(gradleProperties = Path.of("gradle.properties"), runtime = runtime),
-        ResolveImageMetaCommand(imagesDir = imagesDir, runtime = runtime),
-        ExtractDigestCommand(),
+        imageMeta,
+        ResolvePublishMatrixCommand(
+            imagesDir = imagesDir,
+            clangVersions = clangVersions,
+            rubyVersions = rubyVersions,
+            meta = imageMeta,
+        ),
     )
 }
 

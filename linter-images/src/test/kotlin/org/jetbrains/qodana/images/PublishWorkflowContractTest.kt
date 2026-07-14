@@ -65,10 +65,15 @@ class PublishWorkflowContractTest {
     }
 
     @Test
-    fun `build verifies the built arch and captures the digest via extract-digest`() {
-        val scripts = scriptsOf(publish, "build")
-        assertTrue(scripts.contains("{{.Architecture}}"), "build must verify the image arch")
-        assertTrue(scripts.contains("image-tool extract-digest"), "build must capture the digest via extract-digest")
+    fun `build pushes by digest via the action's publish mode (no staging tags)`() {
+        val step =
+            publish["jobs"]["build"]["steps"].single {
+                it["uses"]?.asText() == "./.github/actions/build-linter-image"
+            }
+        val pushRegistry = step["with"]["push-registry"].asText()
+        assertEquals("\${{ env.REGISTRY }}", pushRegistry, "build must run the action in publish mode")
+        // No staging tags anywhere in the build job (the child is pushed untagged, by digest).
+        assertFalse(scriptsOf(publish, "build").contains("_staging"), "publish must not create staging tags")
     }
 
     @Test

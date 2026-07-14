@@ -28,6 +28,8 @@ jobs:
     outputs:
       version: ${{ steps.compute.outputs.version }}
       sha: ${{ steps.compute.outputs.sha }}
+      # <date[.counter]> — the image nightly tag id, so `<mm>-nightly.<id>` matches the CLI nightly version.
+      nightly-id: ${{ steps.compute.outputs.nightly-id }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -51,8 +53,9 @@ jobs:
           fi
           VERSION="${BASE#v}"
           SHA=$(git rev-parse HEAD)
-          { echo "version=$VERSION"; echo "sha=$SHA"; } >> "$GITHUB_OUTPUT"
-          echo "Computed: version=$VERSION sha=$SHA"
+          NIGHTLY_ID="${VERSION#*-nightly.}"
+          { echo "version=$VERSION"; echo "sha=$SHA"; echo "nightly-id=$NIGHTLY_ID"; } >> "$GITHUB_OUTPUT"
+          echo "Computed: version=$VERSION sha=$SHA nightly-id=$NIGHTLY_ID"
 
   draft:
     name: Draft
@@ -83,6 +86,48 @@ jobs:
       prerelease: true
       latest: false
       mode: nightly
+    secrets: inherit
+
+  publish-matrix:
+    name: Compute publish matrix
+    needs: compute
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.compute.outputs.sha }}
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - id: m
+        # The full (image, version) set + per-cell gating, single-sourced (bound to images.yaml by a test).
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :linter-images:installDist
+          matrix="$(linter-images/build/install/image-tool/bin/image-tool resolve-publish-matrix)"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  publish-images:
+    name: Publish ${{ matrix.image }}${{ matrix.version != '' && format('-{0}', matrix.version) || '' }}
+    needs: [compute, publish-matrix]
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.publish-matrix.outputs.matrix) }}
+    uses: ./.github/workflows/publish-image.yaml
+    with:
+      image: ${{ matrix.image }}
+      version: ${{ matrix.version }}
+      channel: nightly
+      id: ${{ needs.compute.outputs.nightly-id }}
+      ref: ${{ needs.compute.outputs.sha }}
+      token-gated: ${{ matrix.token_gated }}
+      feed-required: ${{ matrix.feed_required }}
+      compose-files: ${{ matrix.compose_files }}
     secrets: inherit
 
   cleanup:

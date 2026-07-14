@@ -1,11 +1,13 @@
 name: Publish Image
 
-# Reusable: build one linter image per arch on its native runner (via build-linter-image), push each to a
-# unique per-run staging tag, capture the pushed digest, then assemble the multi-arch manifest with
-# `imagetools create` and apply the resolve-tags tags. Staging tags are pruned by retention, not deleted
-# here. Callers pass a NORMALIZED version (the resolved runtime, e.g. "20" for the cpp default) so the
-# concurrency group and tags key on one identity. Callers: publish-image-dispatch (snapshot) and a future
-# nightly caller.
+# Reusable: build one linter image per arch on its native runner (via build-linter-image), push each child
+# UNTAGGED by digest (push-by-digest), then assemble the multi-arch manifest from those digests with
+# `imagetools create` and apply the resolve-tags tags. No staging tags exist — the children are referenced
+# only by the index, so retention deletes the index by digest and the registry GCs the orphaned children
+# (Space rejects tag deletes, and a staging tag would share the child's digest → un-deletable without
+# breaking the index). Callers pass a NORMALIZED version (the resolved runtime, e.g. "20" for the cpp
+# default) so the concurrency group and tags key on one identity. Callers: publish-image-dispatch
+# (snapshot) and nightly.yaml's publish-images stage (nightly).
 
 on:
   workflow_call:
@@ -42,7 +44,15 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
-      - name: Build ${{ inputs.image }}
+      - name: Log in to the target registry
+        # Before the build: build-linter-image (publish mode) bakes push-by-digest straight to this registry.
+        uses: docker/login-action@v4
+        with:
+          registry: registry.jetbrains.team
+          username: ${{ secrets.DOCKER_WRITE_KCLI_REGISTRY_USER }}
+          password: ${{ secrets.DOCKER_WRITE_KCLI_REGISTRY_TOKEN }}
+      - name: Build and push ${{ inputs.image }} by digest
+        id: build
         uses: ./.github/actions/build-linter-image
         with:
           image: ${{ inputs.image }}
@@ -54,30 +64,16 @@ jobs:
           docker-registry-user: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_USER }}
           docker-registry-token: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
           space-packages-token: ${{ secrets.QODANA_READ_SPACE_PACKAGES_TOKEN }}
-      - name: Verify the built image is actually ${{ matrix.arch }}
-        # Fail-closed: a build-linter-image wiring bug could produce a cross-arch image that would still
-        # slot into the manifest's arch declaration. Assert the real image architecture matches.
+          push-registry: ${{ env.REGISTRY }}
+      - name: Record the per-arch digest
+        # The child is pushed UNTAGGED (push-by-digest); only the merge job tags the final index. bake's
+        # `--set platform` makes the child's arch authoritative; the merge job's both-arches inspect
+        # catches any arch mix-up.
         shell: bash
         run: |
           set -euo pipefail
-          got="$(docker image inspect --format '{{.Architecture}}' '${{ inputs.image }}:dev')"
-          [ "$got" = '${{ matrix.arch }}' ] || { echo "::error::built image is $got, expected ${{ matrix.arch }}"; exit 1; }
-      - name: Log in to the target registry
-        uses: docker/login-action@v4
-        with:
-          registry: registry.jetbrains.team
-          username: ${{ secrets.DOCKER_WRITE_KCLI_REGISTRY_USER }}
-          password: ${{ secrets.DOCKER_WRITE_KCLI_REGISTRY_TOKEN }}
-      - name: Push the per-arch image and capture its digest
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Unique per run+attempt+arch, so concurrent DIFFERENT runs never collide on staging tags.
-          staging="$REGISTRY/${{ inputs.image }}:_staging.${{ github.run_id }}.${{ github.run_attempt }}-${{ matrix.arch }}"
-          docker tag "${{ inputs.image }}:dev" "$staging"
-          docker push "$staging" 2>&1 | tee push.log
-          # Authoritative digest from THIS push (image-tool requires exactly one match, else fails loud).
-          digest="$(linter-images/build/install/image-tool/bin/image-tool extract-digest --file push.log)"
+          digest='${{ steps.build.outputs.digest }}'
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::no digest from build: '$digest'"; exit 1; }
           mkdir -p digests
           printf '%s' "$digest" > "digests/${{ matrix.arch }}"
       - uses: actions/upload-artifact@v7

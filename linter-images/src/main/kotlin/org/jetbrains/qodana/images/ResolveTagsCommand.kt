@@ -33,13 +33,19 @@ class ResolveTagsCommand(
         id: String,
     ): List<String> {
         check(channel == "snapshot" || channel == "nightly") { "unknown channel '$channel' (snapshot|nightly)" }
-        val base = "${majorMinor()}-$channel" + if (id.isNotEmpty()) ".$id" else ""
         val repo = "$registry/$image"
         val rt = runtime.resolve(image, version)
-        return when {
-            rt == null -> listOf("$repo:$base")
-            rt.isDefault -> listOf("$repo:$base", "$repo:$base-${rt.tool}${rt.version}")
-            else -> listOf("$repo:$base-${rt.tool}${rt.version}")
+        val mm = majorMinor()
+        // A nightly publish stamps the dated tag AND advances the moving <mm>-nightly pointer; a snapshot
+        // (and a nightly with an empty id) yields just its one id'd/moving tag.
+        val ids = if (channel == "nightly" && id.isNotEmpty()) listOf(id, "") else listOf(id)
+        return ids.flatMap { theId ->
+            val base = "$mm-$channel" + if (theId.isNotEmpty()) ".$theId" else ""
+            when {
+                rt == null -> listOf("$repo:$base")
+                rt.isDefault -> listOf("$repo:$base", "$repo:$base-${rt.tool}${rt.version}")
+                else -> listOf("$repo:$base-${rt.tool}${rt.version}")
+            }
         }
     }
 
