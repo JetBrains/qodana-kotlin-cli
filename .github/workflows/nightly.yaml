@@ -53,7 +53,6 @@ jobs:
           fi
           VERSION="${BASE#v}"
           SHA=$(git rev-parse HEAD)
-          # The image nightly id is the version's date[.counter] suffix (after "<mm>-nightly.").
           NIGHTLY_ID="${VERSION#*-nightly.}"
           { echo "version=$VERSION"; echo "sha=$SHA"; echo "nightly-id=$NIGHTLY_ID"; } >> "$GITHUB_OUTPUT"
           echo "Computed: version=$VERSION sha=$SHA nightly-id=$NIGHTLY_ID"

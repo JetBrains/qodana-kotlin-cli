@@ -49,7 +49,6 @@ fun computeTagPrune(
     val byName = tags.associateBy { it.name }
     val prune = mutableListOf<String>()
 
-    // Nightly-exact: keep the newest keepNightly generations; prune tags of older ones.
     val nightlyExact = parsed.filter { it.channel == "nightly" && it.id != null }
     val keptGenerations =
         nightlyExact

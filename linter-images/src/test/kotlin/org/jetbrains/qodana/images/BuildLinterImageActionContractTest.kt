@@ -110,4 +110,17 @@ class BuildLinterImageActionContractTest {
         assertTrue(guardIdx > buildIdx, "guard ($guardIdx) must follow build ($buildIdx)")
         assertTrue(guardIdx == steps.lastIndex, "guard must be the action's last step (caller's tail follows it)")
     }
+
+    @Test
+    fun `the runtime guard also runs in publish mode, probing the pushed digest`() {
+        // On-demand publish can build an arbitrary, un-e2e'd ref, so a mis-baked runtime (ARG-shadowing)
+        // must fail loud there too — the guard must NOT be gated off when push-registry is set.
+        val guard = steps.single { (it["name"]?.asText() ?: "").startsWith("Verify built runtime version") }
+        assertFalse(guard.ifExpr().contains("push-registry == ''"), "guard must not be skipped in publish mode")
+        assertTrue(guard.ifExpr().contains("EXPECT_TOOL != 'none'"), "guard still only runs when a runtime is expected")
+        assertTrue(
+            guard.runScript().contains("steps.build.outputs.digest"),
+            "publish mode has no local :dev image — the guard must probe the pushed per-arch digest",
+        )
+    }
 }

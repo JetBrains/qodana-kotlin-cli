@@ -66,9 +66,9 @@ jobs:
           space-packages-token: ${{ secrets.QODANA_READ_SPACE_PACKAGES_TOKEN }}
           push-registry: ${{ env.REGISTRY }}
       - name: Record the per-arch digest
-        # The child is pushed UNTAGGED (push-by-digest); only the merge job tags the final index. No
-        # staging tags to accumulate/clean. bake's `--set platform` makes the child's arch authoritative;
-        # the merge job's both-arches inspect catches any arch mix-up.
+        # The child is pushed UNTAGGED (push-by-digest); only the merge job tags the final index. bake's
+        # `--set platform` makes the child's arch authoritative; the merge job's both-arches inspect
+        # catches any arch mix-up.
         shell: bash
         run: |
           set -euo pipefail

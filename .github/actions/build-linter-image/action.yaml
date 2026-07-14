@@ -42,11 +42,11 @@ inputs:
     default: ''
   push-registry:
     description: >
-      Empty (default) = e2e mode: `docker compose build` loads <image>:dev locally + runs the runtime guard.
-      Set (e.g. registry.jetbrains.team/p/sa/qodana-kcli-images) = publish mode: `docker buildx bake` builds
-      this arch and pushes it BY DIGEST (no tag) under <push-registry>/<image>, emitting `digest`. The caller
-      must `docker login` the registry first. The runtime guard is skipped in publish mode (the from-tree
-      code was already guarded by the e2e matrix; publish builds e2e-verified refs).
+      Empty (default) = e2e mode: `docker compose build` loads <image>:dev locally. Set (e.g.
+      registry.jetbrains.team/p/sa/qodana-kcli-images) = publish mode: `docker buildx bake` builds this arch
+      and pushes it BY DIGEST (no tag) under <push-registry>/<image>, emitting `digest`. The caller must
+      `docker login` the registry first. Either way the runtime guard runs — publish mode pulls the pushed
+      digest to probe it — so a mis-baked runtime fails loud on any ref, e2e-verified or not.
     required: false
     default: ''
 
@@ -163,7 +163,7 @@ runs:
           docker builder prune -af
         else
           # publish mode: build this arch via bake and push it BY DIGEST (no tag). bake reads the same
-          # contexts/secret/args from the compose files (verified). Translate resolve-build-args'
+          # contexts/secret/args from the compose files. Translate resolve-build-args'
           # `--build-arg K=V` tokens into bake `--set <svc>.args.K=V` for the version sub-axis overrides.
           set_args=(); read -ra ba <<< "${BUILD_ARGS:-}"; i=0
           while [ "$i" -lt "${#ba[@]}" ]; do
@@ -190,14 +190,21 @@ runs:
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
         fi
     - name: Verify built runtime version
-      # Catch ARG-shadowing (a build-arg silently not applied). e2e-mode only: publish mode has no local
-      # image to probe (the from-tree code was already guarded by the e2e matrix). Last step of the load
-      # path, so the caller's scan tail runs after build < guard.
-      if: ${{ inputs.push-registry == '' && env.EXPECT_TOOL != 'none' }}
+      # Catch ARG-shadowing (a build-arg silently not applied) by probing the built image for the requested
+      # runtime. Runs in BOTH modes: e2e probes the loaded <image>:dev; publish pulls + probes the pushed
+      # per-arch digest (on-demand publish can build an arbitrary, un-e2e'd ref, so it must gate too). The
+      # action's last step, so a caller's scan tail runs after build < guard.
+      if: ${{ env.EXPECT_TOOL != 'none' }}
       shell: bash
       run: |
         set -euo pipefail
-        img="${{ inputs.image }}:dev"
+        if [ -z '${{ inputs.push-registry }}' ]; then
+          img="${{ inputs.image }}:dev"
+        else
+          # No local :dev in publish mode — pull the just-pushed per-arch artifact and probe it offline.
+          img="${{ inputs.push-registry }}/${{ inputs.image }}@${{ steps.build.outputs.digest }}"
+          docker pull "$img"
+        fi
         case "$EXPECT_TOOL" in
           ruby)  probe="ruby --version";                                  needle="ruby $EXPECT_VERSION." ;;
           clang) probe="/usr/lib/llvm-$EXPECT_VERSION/bin/clang --version"; needle="version $EXPECT_VERSION." ;;
