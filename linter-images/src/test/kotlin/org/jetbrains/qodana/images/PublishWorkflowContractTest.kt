@@ -1,0 +1,138 @@
+package org.jetbrains.qodana.images
+
+import com.fasterxml.jackson.databind.JsonNode
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+import java.nio.file.Path
+import kotlin.io.path.readText
+
+/**
+ * Contract for the on-demand publish path (publish-image.yaml reusable + publish-image-dispatch.yaml):
+ * multi-arch build+merge shape, the concurrency guard, the SHA-threading (no mutable-ref TOCTOU), and the
+ * binding that keeps `resolve-image-meta`'s per-image gating in lock-step with the images.yaml matrix.
+ */
+class PublishWorkflowContractTest {
+    private fun wf(file: String): JsonNode = YAMLMapper().readTree(Path.of("../.github/workflows/$file").readText())
+
+    private val publish = wf("publish-image.yaml")
+    private val dispatch = wf("publish-image-dispatch.yaml")
+
+    private fun JsonNode.on(): JsonNode = this["on"] ?: this["true"] ?: error("no on: block")
+
+    private fun JsonNode.runScript(): String = this["run"]?.asText() ?: ""
+
+    private fun scriptsOf(
+        wf: JsonNode,
+        job: String,
+    ): String = wf["jobs"][job]["steps"].joinToString("\n") { it.runScript() }
+
+    // --- publish-image.yaml (reusable) ---------------------------------------------------------------
+
+    @Test
+    fun `publish-image is a reusable workflow_call`() {
+        assertTrue(publish.on().has("workflow_call"), "publish-image must be workflow_call-triggered")
+    }
+
+    @Test
+    fun `concurrency group keys on image, version, channel and id`() {
+        val group = publish["concurrency"]["group"].asText()
+        listOf("inputs.image", "inputs.version", "inputs.channel", "inputs.id").forEach {
+            assertTrue(group.contains(it), "concurrency group must key on $it: $group")
+        }
+        val cancel = publish["concurrency"]["cancel-in-progress"].asText()
+        assertEquals("false", cancel, "same-target publishes must serialize")
+    }
+
+    @Test
+    fun `build matrix covers both arches on native runners`() {
+        val arches = publish["jobs"]["build"]["strategy"]["matrix"]["arch"].map { it.asText() }.toSet()
+        assertEquals(setOf("amd64", "arm64"), arches, "build must fan out over both arches")
+    }
+
+    @Test
+    fun `every dispatchable image is arch-capable, so the hardcoded both-arch matrix is valid`() {
+        // publish-image's build matrix is a static [amd64, arm64] — valid only while EVERY dispatchable
+        // image is multiarch. Bind that assumption to ArchContract so an image added to the dispatch
+        // before its arm64 port lands fails here (forcing publish-image to be made arch-aware first).
+        val options =
+            dispatch.on()["workflow_dispatch"]["inputs"]["image"]["options"].map { it.asText() }
+        options.forEach {
+            assertTrue(it in ArchContract.archCapable, "dispatchable image '$it' must be in ArchContract.archCapable")
+        }
+    }
+
+    @Test
+    fun `build verifies the built arch and captures the digest via extract-digest`() {
+        val scripts = scriptsOf(publish, "build")
+        assertTrue(scripts.contains("{{.Architecture}}"), "build must verify the image arch")
+        assertTrue(scripts.contains("image-tool extract-digest"), "build must capture the digest via extract-digest")
+    }
+
+    @Test
+    fun `merge needs build and assembles the manifest from resolve-tags`() {
+        val merge = publish["jobs"]["merge"]
+        val needsBuild = merge["needs"].asText() == "build" || merge["needs"].any { it.asText() == "build" }
+        assertTrue(needsBuild, "merge must need build")
+        val scripts = scriptsOf(publish, "merge")
+        assertTrue(scripts.contains("image-tool resolve-tags"), "merge must derive tags from resolve-tags")
+        assertTrue(scripts.contains("imagetools create"), "merge must assemble a multi-arch manifest")
+        assertTrue(scripts.contains("imagetools inspect"), "merge must assert both arches resolve")
+    }
+
+    // --- publish-image-dispatch.yaml (on-demand) -----------------------------------------------------
+
+    @Test
+    fun `dispatch image options are exactly the compose services`() {
+        val options =
+            dispatch.on()["workflow_dispatch"]["inputs"]["image"]["options"].map { it.asText() }.toSet()
+        val services =
+            YAMLMapper()
+                .readTree(Path.of("compose.yaml").readText())["services"]
+                .fieldNames()
+                .asSequence()
+                .toSet()
+        assertEquals(services, options, "the dispatch image choices must equal the compose services")
+    }
+
+    @Test
+    fun `dispatch threads the pinned SHA as ref, not the mutable branch ref`() {
+        val ref = dispatch["jobs"]["publish"]["with"]["ref"].asText()
+        assertEquals("\${{ needs.resolve.outputs.sha }}", ref, "ref must be the pinned SHA (no TOCTOU)")
+        assertFalse(ref.contains("github.ref"), "ref must NOT be the mutable branch ref")
+    }
+
+    @Test
+    fun `dispatch publishes the snapshot channel with the normalized version and sha7 id`() {
+        val with = dispatch["jobs"]["publish"]["with"]
+        assertEquals("snapshot", with["channel"].asText())
+        assertEquals("\${{ needs.resolve.outputs.version }}", with["version"].asText(), "version must be normalized")
+        assertEquals("\${{ needs.resolve.outputs.sha7 }}", with["id"].asText())
+    }
+
+    // --- resolve-image-meta <-> images.yaml matrix binding (no drift) --------------------------------
+
+    @Test
+    fun `resolve-image-meta gating matches every images_yaml e2e cell`() {
+        val meta =
+            ResolveImageMetaCommand(
+                imagesDir = Path.of("docker/images"),
+                runtime =
+                    RuntimeResolver(
+                        Path.of("docker/images"),
+                        Path.of("docker/clang-versions.txt"),
+                        Path.of("docker/ruby-versions.txt"),
+                    ),
+            )
+        val cells = wf("images.yaml")["jobs"]["e2e"]["strategy"]["matrix"]["image"]
+        cells.forEach { c ->
+            val name = c["name"].asText()
+            val version = c["version"]?.asText() ?: ""
+            val m = meta.resolve(name, version)
+            assertEquals(c["token_gated"].asText(), m.tokenGated.toString(), "$name/$version token_gated")
+            assertEquals(c["feed_required"].asText(), m.feedRequired.toString(), "$name/$version feed_required")
+        }
+    }
+}

@@ -18,6 +18,10 @@ import java.nio.file.Path
  */
 fun buildImageTool(): CliktCommand {
     val runner = ProcessCommandRunner()
+    val imagesDir = Path.of("linter-images/docker/images")
+    val clangVersions = Path.of("linter-images/docker/clang-versions.txt")
+    val rubyVersions = Path.of("linter-images/docker/ruby-versions.txt")
+    val runtime = RuntimeResolver(imagesDir, clangVersions, rubyVersions)
     return ImageToolCommand().subcommands(
         ProvisionDistCommand(
             feedClient = FeedClient(runner),
@@ -28,11 +32,14 @@ fun buildImageTool(): CliktCommand {
         InstallCliCommand(runner = runner),
         VerifyDistLayoutCommand(),
         ResolveBuildArgsCommand(
-            imagesDir = Path.of("linter-images/docker/images"),
-            clangVersions = Path.of("linter-images/docker/clang-versions.txt"),
-            rubyVersions = Path.of("linter-images/docker/ruby-versions.txt"),
+            imagesDir = imagesDir,
+            clangVersions = clangVersions,
+            rubyVersions = rubyVersions,
             debianBases = Path.of("linter-images/docker/debian-bases.txt"),
         ),
+        ResolveTagsCommand(gradleProperties = Path.of("gradle.properties"), runtime = runtime),
+        ResolveImageMetaCommand(imagesDir = imagesDir, runtime = runtime),
+        ExtractDigestCommand(),
     )
 }
 
