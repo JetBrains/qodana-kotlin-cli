@@ -22,7 +22,6 @@ class MainTest {
                 "resolve-build-args",
                 "resolve-tags",
                 "resolve-image-meta",
-                "extract-digest",
             ),
             names,
         )

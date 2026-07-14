@@ -39,7 +39,6 @@ fun buildImageTool(): CliktCommand {
         ),
         ResolveTagsCommand(gradleProperties = Path.of("gradle.properties"), runtime = runtime),
         ResolveImageMetaCommand(imagesDir = imagesDir, runtime = runtime),
-        ExtractDigestCommand(),
     )
 }
 

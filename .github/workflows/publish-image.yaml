@@ -42,7 +42,15 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref }}
-      - name: Build ${{ inputs.image }}
+      - name: Log in to the target registry
+        # Before the build: build-linter-image (publish mode) bakes push-by-digest straight to this registry.
+        uses: docker/login-action@v4
+        with:
+          registry: registry.jetbrains.team
+          username: ${{ secrets.DOCKER_WRITE_KCLI_REGISTRY_USER }}
+          password: ${{ secrets.DOCKER_WRITE_KCLI_REGISTRY_TOKEN }}
+      - name: Build and push ${{ inputs.image }} by digest
+        id: build
         uses: ./.github/actions/build-linter-image
         with:
           image: ${{ inputs.image }}
@@ -54,30 +62,16 @@ jobs:
           docker-registry-user: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_USER }}
           docker-registry-token: ${{ secrets.DOCKER_READ_PUBLIC_REGISTRY_TOKEN }}
           space-packages-token: ${{ secrets.QODANA_READ_SPACE_PACKAGES_TOKEN }}
-      - name: Verify the built image is actually ${{ matrix.arch }}
-        # Fail-closed: a build-linter-image wiring bug could produce a cross-arch image that would still
-        # slot into the manifest's arch declaration. Assert the real image architecture matches.
+          push-registry: ${{ env.REGISTRY }}
+      - name: Record the per-arch digest
+        # The child is pushed UNTAGGED (push-by-digest); only the merge job tags the final index. No
+        # staging tags to accumulate/clean. bake's `--set platform` makes the child's arch authoritative;
+        # the merge job's both-arches inspect catches any arch mix-up.
         shell: bash
         run: |
           set -euo pipefail
-          got="$(docker image inspect --format '{{.Architecture}}' '${{ inputs.image }}:dev')"
-          [ "$got" = '${{ matrix.arch }}' ] || { echo "::error::built image is $got, expected ${{ matrix.arch }}"; exit 1; }
-      - name: Log in to the target registry
-        uses: docker/login-action@v4
-        with:
-          registry: registry.jetbrains.team
-          username: ${{ secrets.DOCKER_WRITE_KCLI_REGISTRY_USER }}
-          password: ${{ secrets.DOCKER_WRITE_KCLI_REGISTRY_TOKEN }}
-      - name: Push the per-arch image and capture its digest
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Unique per run+attempt+arch, so concurrent DIFFERENT runs never collide on staging tags.
-          staging="$REGISTRY/${{ inputs.image }}:_staging.${{ github.run_id }}.${{ github.run_attempt }}-${{ matrix.arch }}"
-          docker tag "${{ inputs.image }}:dev" "$staging"
-          docker push "$staging" 2>&1 | tee push.log
-          # Authoritative digest from THIS push (image-tool requires exactly one match, else fails loud).
-          digest="$(linter-images/build/install/image-tool/bin/image-tool extract-digest --file push.log)"
+          digest='${{ steps.build.outputs.digest }}'
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::no digest from build: '$digest'"; exit 1; }
           mkdir -p digests
           printf '%s' "$digest" > "digests/${{ matrix.arch }}"
       - uses: actions/upload-artifact@v7

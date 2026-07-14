@@ -40,6 +40,20 @@ inputs:
     description: 'QODANA_READ_SPACE_PACKAGES_TOKEN — internal nightly feed + private clang-tidy/CLT mirror. Empty on the public path.'
     required: false
     default: ''
+  push-registry:
+    description: >
+      Empty (default) = e2e mode: `docker compose build` loads <image>:dev locally + runs the runtime guard.
+      Set (e.g. registry.jetbrains.team/p/sa/qodana-kcli-images) = publish mode: `docker buildx bake` builds
+      this arch and pushes it BY DIGEST (no tag) under <push-registry>/<image>, emitting `digest`. The caller
+      must `docker login` the registry first. The runtime guard is skipped in publish mode (the from-tree
+      code was already guarded by the e2e matrix; publish builds e2e-verified refs).
+    required: false
+    default: ''
+
+outputs:
+  digest:
+    description: 'In publish mode, the sha256 digest of the per-arch image pushed by digest.'
+    value: ${{ steps.build.outputs.digest }}
 
 runs:
   using: composite
@@ -130,19 +144,42 @@ runs:
           chmod 0755 "qodana-cli/build/release-staging/${{ inputs.image }}"
         fi
     - name: Build ${{ inputs.image }}
+      id: build
       shell: bash
       env:
-        # compose.private.yaml mounts this as the space_packages_token build secret (feed sha256 + mirror).
+        # compose.private.yaml / bake mount this as the space_packages_token build secret (feed sha256 + mirror).
         QODANA_READ_SPACE_PACKAGES_TOKEN: ${{ inputs.space-packages-token }}
       run: |
-        # shellcheck disable=SC2086
-        docker compose ${{ inputs.compose-files }} build ${BUILD_ARGS} ${{ inputs.image }}
-        # Reclaim the BuildKit cache before the caller's scan; the built <image>:dev survives.
-        docker builder prune -af
+        set -euo pipefail
+        if [ -z '${{ inputs.push-registry }}' ]; then
+          # e2e mode: build + load <image>:dev locally for the caller's scan + the runtime guard below.
+          # shellcheck disable=SC2086
+          docker compose ${{ inputs.compose-files }} build ${BUILD_ARGS} ${{ inputs.image }}
+          docker builder prune -af
+        else
+          # publish mode: build this arch via bake and push it BY DIGEST (no tag). bake reads the same
+          # contexts/secret/args from the compose files (verified). Translate resolve-build-args'
+          # `--build-arg K=V` tokens into bake `--set <svc>.args.K=V` for the version sub-axis overrides.
+          set_args=(); read -ra ba <<< "${BUILD_ARGS:-}"; i=0
+          while [ "$i" -lt "${#ba[@]}" ]; do
+            if [ "${ba[$i]}" = "--build-arg" ]; then set_args+=(--set "${{ inputs.image }}.args.${ba[$((i+1))]}"); i=$((i+2)); else i=$((i+1)); fi
+          done
+          # shellcheck disable=SC2086
+          docker buildx bake ${{ inputs.compose-files }} \
+            --set '${{ inputs.image }}.platform=linux/${{ inputs.arch }}' \
+            --set '${{ inputs.image }}.output=type=image,name=${{ inputs.push-registry }}/${{ inputs.image }},push-by-digest=true,push=true' \
+            "${set_args[@]}" \
+            --metadata-file bake-meta.json \
+            ${{ inputs.image }}
+          digest="$(jq -r '."${{ inputs.image }}"."containerimage.digest"' bake-meta.json)"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::bake did not emit a sha256 digest: '$digest'"; exit 1; }
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+        fi
     - name: Verify built runtime version
-      # Catch ARG-shadowing (a build-arg silently not applied). MUST be the action's last step — the
-      # caller's scan/push tail runs after it, so build < guard < tail holds structurally.
-      if: ${{ env.EXPECT_TOOL != 'none' }}
+      # Catch ARG-shadowing (a build-arg silently not applied). e2e-mode only: publish mode has no local
+      # image to probe (the from-tree code was already guarded by the e2e matrix). Last step of the load
+      # path, so the caller's scan tail runs after build < guard.
+      if: ${{ inputs.push-registry == '' && env.EXPECT_TOOL != 'none' }}
       shell: bash
       run: |
         set -euo pipefail
