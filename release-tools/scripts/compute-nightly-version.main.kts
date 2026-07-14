@@ -4,6 +4,7 @@
 import org.jetbrains.qodana.release.VersionState
 import org.jetbrains.qodana.release.computeNightlyVersion
 import org.jetbrains.qodana.release.computeVersionState
+import org.jetbrains.qodana.release.nightlyBase
 import org.jetbrains.qodana.release.selectLastStableTag
 import java.io.File
 import java.time.LocalDate
@@ -32,15 +33,17 @@ val source = File("gradle.properties").readLines()
 // Stable tags are scoped to ancestors of HEAD (--merged) for the bump rule.
 val stable = sh("git", "tag", "--list", "v*", "--merged", "HEAD", "--sort=-v:refname")
     .lines().map { it.trim() }.filter { it.isNotEmpty() }
-val base = when (val s = computeVersionState(source, selectLastStableTag(stable))) {
-    is VersionState.JustReleased -> s.nextBase
-    is VersionState.BumpAhead -> s.nextBase
+// Validate the release state (fail on dev / invariant violation), but tag the nightly stream by the
+// release LINE (major.minor), not the next patch — the version identifies the branch, not a patch (QD-15392).
+when (val s = computeVersionState(source, selectLastStableTag(stable))) {
+    is VersionState.JustReleased, is VersionState.BumpAhead -> Unit
     is VersionState.Dev -> {
         System.err.println("version=dev; bump gradle.properties to a numeric version")
         exitProcess(1)
     }
     is VersionState.Invalid -> { System.err.println("version invariant violated: ${s.message}"); exitProcess(1) }
-}.removePrefix("v")
+}
+val base = nightlyBase(source)
 
 // Nightly counter intentionally queries ALL nightly tags repo-wide (no --merged): tag names are
 // globally unique, so a same-day nightly on any ref would still collide on `gh release create`.
