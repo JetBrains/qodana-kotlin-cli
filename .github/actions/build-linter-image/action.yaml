@@ -149,6 +149,9 @@ runs:
       env:
         # compose.private.yaml / bake mount this as the space_packages_token build secret (feed sha256 + mirror).
         QODANA_READ_SPACE_PACKAGES_TOKEN: ${{ inputs.space-packages-token }}
+        # bake's fs-entitlement check would block reading the out-of-context `cli` (../qodana-cli/…) and
+        # `tooling` contexts. Our bake files are the repo's own, so disable the check (CI-standard).
+        BUILDX_BAKE_ENTITLEMENTS_FS: '0'
       run: |
         set -euo pipefail
         if [ -z '${{ inputs.push-registry }}' ]; then
