@@ -1,11 +1,13 @@
 name: Publish Image
 
-# Reusable: build one linter image per arch on its native runner (via build-linter-image), push each to a
-# unique per-run staging tag, capture the pushed digest, then assemble the multi-arch manifest with
-# `imagetools create` and apply the resolve-tags tags. Staging tags are pruned by retention, not deleted
-# here. Callers pass a NORMALIZED version (the resolved runtime, e.g. "20" for the cpp default) so the
-# concurrency group and tags key on one identity. Callers: publish-image-dispatch (snapshot) and a future
-# nightly caller.
+# Reusable: build one linter image per arch on its native runner (via build-linter-image), push each child
+# UNTAGGED by digest (push-by-digest), then assemble the multi-arch manifest from those digests with
+# `imagetools create` and apply the resolve-tags tags. No staging tags exist — the children are referenced
+# only by the index, so retention deletes the index by digest and the registry GCs the orphaned children
+# (Space rejects tag deletes, and a staging tag would share the child's digest → un-deletable without
+# breaking the index). Callers pass a NORMALIZED version (the resolved runtime, e.g. "20" for the cpp
+# default) so the concurrency group and tags key on one identity. Callers: publish-image-dispatch
+# (snapshot) and nightly.yaml's publish-images stage (nightly).
 
 on:
   workflow_call:
