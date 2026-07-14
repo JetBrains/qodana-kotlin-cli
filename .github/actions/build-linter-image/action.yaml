@@ -175,8 +175,11 @@ runs:
           # --allow=fs.read=..: the `cli` context (../qodana-cli/…) resolves outside that dir; grant it.
           cfiles='${{ inputs.compose-files }}'; cfiles="${cfiles//linter-images\//}"
           # shellcheck disable=SC2086
+          # Clear the compose `image:`-derived tag: push-by-digest refuses a tagged ref, so the output
+          # must carry only the bare `name=` (repository), pushed untagged and referenced by digest.
           ( cd linter-images && docker buildx bake $cfiles \
             --allow=fs.read=.. \
+            --set '${{ inputs.image }}.tags=' \
             --set '${{ inputs.image }}.platform=linux/${{ inputs.arch }}' \
             --set '${{ inputs.image }}.output=type=image,name=${{ inputs.push-registry }}/${{ inputs.image }},push-by-digest=true,push=true' \
             "${set_args[@]}" \
