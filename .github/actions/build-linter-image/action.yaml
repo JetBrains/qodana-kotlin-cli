@@ -169,17 +169,20 @@ runs:
           while [ "$i" -lt "${#ba[@]}" ]; do
             if [ "${ba[$i]}" = "--build-arg" ]; then set_args+=(--set "${{ inputs.image }}.args.${ba[$((i+1))]}"); i=$((i+2)); else i=$((i+1)); fi
           done
-          # --allow=fs.read=..: the `cli`/`tooling` contexts resolve outside the compose-file dir, which
-          # bake's entitlement check blocks by default. Our bake files are the repo's own → grant it.
+          # bake resolves `context:`/contexts relative to CWD (unlike compose, which uses the compose-file
+          # dir), so run bake FROM linter-images/ with that prefix stripped from the -f flags — then
+          # `context: docker` and the cli/tooling contexts resolve exactly as compose intends.
+          # --allow=fs.read=..: the `cli` context (../qodana-cli/…) resolves outside that dir; grant it.
+          cfiles='${{ inputs.compose-files }}'; cfiles="${cfiles//linter-images\//}"
           # shellcheck disable=SC2086
-          docker buildx bake ${{ inputs.compose-files }} \
+          ( cd linter-images && docker buildx bake $cfiles \
             --allow=fs.read=.. \
             --set '${{ inputs.image }}.platform=linux/${{ inputs.arch }}' \
             --set '${{ inputs.image }}.output=type=image,name=${{ inputs.push-registry }}/${{ inputs.image }},push-by-digest=true,push=true' \
             "${set_args[@]}" \
             --metadata-file bake-meta.json \
-            ${{ inputs.image }}
-          digest="$(jq -r '."${{ inputs.image }}"."containerimage.digest"' bake-meta.json)"
+            ${{ inputs.image }} )
+          digest="$(jq -r '."${{ inputs.image }}"."containerimage.digest"' linter-images/bake-meta.json)"
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::bake did not emit a sha256 digest: '$digest'"; exit 1; }
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
         fi
