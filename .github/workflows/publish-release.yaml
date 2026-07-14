@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs: &inputs
       version:
-        description: 'Version (e.g. 2026.3.1 for tagged, or 2026.3.1-nightly.20260603 for nightly)'
+        description: 'Version (e.g. 2026.3.1 for tagged, or 2026.3-nightly.20260603 for nightly)'
         required: true
         type: string
       prerelease:

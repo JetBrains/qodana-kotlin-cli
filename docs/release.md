@@ -18,7 +18,7 @@ Nightly releases (`.github/workflows/nightly.yaml`) chain `Draft` → `Publish` 
 ## Tagged release procedure
 
 1. **Bump source-of-truth.** Edit `gradle.properties` `version=…` to the version you want to release. The new value must be either:
-   - equal to the most recent stable `v*` tag (the just-released state — the next nightly anchors one patch ahead), or
+   - equal to the most recent stable `v*` tag (the just-released state — the next nightly anchors on the release line, `<major>.<minor>`), or
    - exactly one semantic bump ahead (patch +1, minor +1, or major +1, with all later segments collapsed to 0 — a zero patch is omitted, e.g. `2026.4.0` → `v2026.4`).
 2. **Commit and push.** The pre-push `checkVersion` hook validates the bump rule. If the version skips a segment (e.g., `2026.3.0` → `2026.3.2`), the push is rejected.
 3. **Dispatch `Draft Release`.** From GitHub Actions UI or `gh workflow run draft-release.yaml -f version=<your-version>`. Defaults: `prerelease=false`, `cli-only=false`, `dry-run=false`, `latest=true`.
@@ -39,7 +39,7 @@ gh release delete v<version> --yes --cleanup-tag
 
 The `nightly.yaml` umbrella workflow fires daily at **03:07 UTC** (`cron: '7 3 * * *'`) and is also manually triggerable via `gh workflow run nightly.yaml`.
 
-The `compute` job runs `kotlin release-tools/scripts/compute-nightly-version.main.kts`, which derives the bumped base from `gradle.properties` + the last stable tag, then appends `-nightly.<UTC-YYYYMMDD>` plus a same-day counter (`.1`, `.2`, …) when earlier nightlies exist for that day. Example: source `2026.3.0` → `v2026.3.1-nightly.20260603`, and a second same-day run → `v2026.3.1-nightly.20260603.1`. It greps the `NIGHTLY_VERSION=` marker and strips the leading `v`.
+The `compute` job runs `kotlin release-tools/scripts/compute-nightly-version.main.kts`, which validates the release state from `gradle.properties` + the last stable tag, derives the release line (`<major>.<minor>`) as the base, then appends `-nightly.<UTC-YYYYMMDD>` plus a same-day counter (`.1`, `.2`, …) when earlier nightlies exist for that day. Example: source `2026.3.0` → `v2026.3-nightly.20260603`, and a second same-day run → `v2026.3-nightly.20260603.1`. It greps the `NIGHTLY_VERSION=` marker and strips the leading `v`.
 
 **Important:** if `gradle.properties` `version=dev`, the `compute` job's `compute-nightly-version.main.kts` exits non-zero with "version=dev; bump gradle.properties to a numeric version". This is by design — there must be a planned next release for nightlies to anchor against.
 
