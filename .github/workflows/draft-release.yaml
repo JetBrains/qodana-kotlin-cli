@@ -229,7 +229,6 @@ jobs:
         platform:
           - { name: linux/amd64, tag: linux-amd64, runner: ubuntu-latest, os: linux, arch: amd64 }
           - { name: linux/arm64, tag: linux-arm64, runner: ubuntu-24.04-arm, os: linux, arch: arm64 }
-          - { name: darwin/amd64, tag: darwin-amd64, runner: macos-15-intel, os: darwin, arch: amd64 }
           - { name: darwin/arm64, tag: darwin-arm64, runner: macos-15, os: darwin, arch: arm64 }
           - { name: windows/amd64, tag: windows-amd64, runner: windows-latest, os: windows, arch: amd64 }
     runs-on: ${{ matrix.platform.runner }}
@@ -250,7 +249,7 @@ jobs:
             -Pversion='${{ needs.prepare.outputs.version }}' \
             -PtargetOs=${{ matrix.platform.os }} \
             -PtargetArch=${{ matrix.platform.arch }} \
-            "${EXTRA[@]}"
+            "${EXTRA[@]+"${EXTRA[@]}"}"
       - uses: actions/upload-artifact@v7
         with:
           name: cli-${{ matrix.platform.tag }}
@@ -268,7 +267,6 @@ jobs:
         platform:
           - { name: linux/amd64, tag: linux-amd64, runner: ubuntu-latest, os: linux, arch: amd64 }
           - { name: linux/arm64, tag: linux-arm64, runner: ubuntu-24.04-arm, os: linux, arch: arm64 }
-          - { name: darwin/amd64, tag: darwin-amd64, runner: macos-15-intel, os: darwin, arch: amd64 }
           - { name: darwin/arm64, tag: darwin-arm64, runner: macos-15, os: darwin, arch: arm64 }
           - { name: windows/amd64, tag: windows-amd64, runner: windows-latest, os: windows, arch: amd64 }
         module: [qodana-clang, qodana-cdnet]
@@ -290,7 +288,7 @@ jobs:
             -Pversion='${{ needs.prepare.outputs.version }}' \
             -PtargetOs=${{ matrix.platform.os }} \
             -PtargetArch=${{ matrix.platform.arch }} \
-            "${EXTRA[@]}"
+            "${EXTRA[@]+"${EXTRA[@]}"}"
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.module }}-${{ matrix.platform.tag }}
@@ -338,20 +336,20 @@ jobs:
           if [ '${{ inputs.cli-only }}' = 'true' ]; then
             EXPECTED_FILES=(
               qodana_linux_x86_64.tar.gz qodana_linux_arm64.tar.gz
-              qodana_darwin_x86_64.tar.gz qodana_darwin_arm64.tar.gz
+              qodana_darwin_arm64.tar.gz
               qodana_windows_x86_64.zip
               qodana-cli-sbom.json
             )
           else
             EXPECTED_FILES=(
               qodana_linux_x86_64.tar.gz qodana_linux_arm64.tar.gz
-              qodana_darwin_x86_64.tar.gz qodana_darwin_arm64.tar.gz
+              qodana_darwin_arm64.tar.gz
               qodana_windows_x86_64.zip
               "qodana-clang_${VERSION}_linux_amd64"   "qodana-clang_${VERSION}_linux_arm64"
-              "qodana-clang_${VERSION}_darwin_amd64"  "qodana-clang_${VERSION}_darwin_arm64"
+              "qodana-clang_${VERSION}_darwin_arm64"
               "qodana-clang_${VERSION}_windows_amd64.zip"
               "qodana-cdnet_${VERSION}_linux_amd64"   "qodana-cdnet_${VERSION}_linux_arm64"
-              "qodana-cdnet_${VERSION}_darwin_amd64"  "qodana-cdnet_${VERSION}_darwin_arm64"
+              "qodana-cdnet_${VERSION}_darwin_arm64"
               "qodana-cdnet_${VERSION}_windows_amd64.zip"
               qodana-cli-sbom.json qodana-clang-sbom.json qodana-cdnet-sbom.json
             )
