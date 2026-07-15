@@ -9,6 +9,8 @@ import org.jetbrains.qodana.images.dist.FeedClient
 import org.jetbrains.qodana.images.dist.TarGzExtractor
 import org.jetbrains.qodana.images.dist.VerifyDistLayoutCommand
 import org.jetbrains.qodana.images.process.ProcessCommandRunner
+import org.jetbrains.qodana.images.registry.PruneRegistryCommand
+import org.jetbrains.qodana.images.registry.SpaceRegistryClient
 import java.nio.file.Path
 
 /**
@@ -23,6 +25,13 @@ fun buildImageTool(): CliktCommand {
     val rubyVersions = Path.of("linter-images/docker/ruby-versions.txt")
     val runtime = RuntimeResolver(imagesDir, clangVersions, rubyVersions)
     val imageMeta = ResolveImageMetaCommand(imagesDir = imagesDir, runtime = runtime)
+    val publishMatrix =
+        ResolvePublishMatrixCommand(
+            imagesDir = imagesDir,
+            clangVersions = clangVersions,
+            rubyVersions = rubyVersions,
+            meta = imageMeta,
+        )
     return ImageToolCommand().subcommands(
         ProvisionDistCommand(
             feedClient = FeedClient(runner),
@@ -40,11 +49,13 @@ fun buildImageTool(): CliktCommand {
         ),
         ResolveTagsCommand(gradleProperties = Path.of("gradle.properties"), runtime = runtime),
         imageMeta,
-        ResolvePublishMatrixCommand(
-            imagesDir = imagesDir,
-            clangVersions = clangVersions,
-            rubyVersions = rubyVersions,
-            meta = imageMeta,
+        publishMatrix,
+        PruneRegistryCommand(
+            client = {
+                fun env(name: String) = System.getenv(name) ?: error("$name not set")
+                SpaceRegistryClient(env("DOCKER_WRITE_KCLI_REGISTRY_USER"), env("DOCKER_WRITE_KCLI_REGISTRY_TOKEN"))
+            },
+            publishMatrix = publishMatrix,
         ),
     )
 }

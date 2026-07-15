@@ -56,6 +56,11 @@ private data class ImageConfig(
 private const val ACCEPT_INDEX = "application/vnd.oci.image.index.v1+json"
 private const val ACCEPT_MANIFEST = "application/vnd.oci.image.manifest.v1+json"
 
+private const val HTTP_OK = 200
+private const val HTTP_ACCEPTED = 202
+private const val HTTP_UNAUTHORIZED = 401
+private const val HTTP_NOT_FOUND = 404
+
 // The Docker Registry token spec defines an absent `expires_in` as 60s; Space omits the field. This is a
 // client-side cache margin, not a trust boundary — `withAuth` re-authenticates and retries once on any
 // 401 regardless of what this cache believes, so a wrong guess here costs one retry, not a wrong result.
@@ -66,7 +71,10 @@ private const val TOKEN_CACHE_SECONDS = 45L
 private val CONNECT_TIMEOUT = Duration.ofSeconds(30)
 private val REQUEST_TIMEOUT = Duration.ofSeconds(60)
 
-private data class CachedToken(val value: String, val expiresAt: Instant)
+private data class CachedToken(
+    val value: String,
+    val expiresAt: Instant,
+)
 
 /**
  * HTTP adapter over the Space OCI Distribution v2 API. Auth: the realm/service pair in the 401 challenge
@@ -84,15 +92,24 @@ class SpaceRegistryClient(
     private val password: String,
     private val scheme: String = "https",
     private val http: HttpClient =
-        HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NORMAL).connectTimeout(CONNECT_TIMEOUT).build(),
+        HttpClient
+            .newBuilder()
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .connectTimeout(CONNECT_TIMEOUT)
+            .build(),
 ) : RegistryClient {
     private val mapper = ObjectMapper().registerModule(kotlinModule())
     private val challengeCache = mutableMapOf<String, Pair<String, String>>() // host -> (realm, service)
     private val tokenCache = mutableMapOf<Pair<String, String>, CachedToken>() // (repo, actions) -> token
+
     // (repo, tag) -> index digest. Purpose: skip a redundant re-fetch within ONE listing. Cleared per-repo
     // at the start of each listTags so a re-verify listing never serves a digest learned in a prior pass.
     private val digestCache = mutableMapOf<Pair<String, String>, String>()
 
+    // Generic catch is deliberate: age resolution is best-effort — ANY failure falls back to Instant.MAX
+    // (never prunable by age), which can only defer a prune, never over-delete. InterruptedException is
+    // re-thrown first so a cancellation signal is never swallowed.
+    @Suppress("TooGenericExceptionCaught")
     override fun listTags(repo: String): List<RegistryTag> {
         digestCache.keys.removeAll { it.first == repo }
         val names = mutableListOf<String>()
@@ -103,11 +120,16 @@ class SpaceRegistryClient(
         var next: URI? = URI("${apiBase(repo)}/tags/list")
         while (next != null) {
             val uri = next
-            check(visited.add(canonicalKey(uri))) { "tags/list pagination did not advance (repeated page) for $repo: $uri" }
+            check(visited.add(canonicalKey(uri))) { "tags/list pagination did not advance (repeated page): $uri" }
             val resp = get(repo, uri, "pull")
-            check(resp.statusCode() == 200) { "tags/list failed for $repo: ${resp.statusCode()} ${resp.body()}" }
+            check(resp.statusCode() == HTTP_OK) { "tags/list failed for $repo: ${resp.statusCode()} ${resp.body()}" }
             names += mapper.readValue<TagsListResponse>(resp.body()).tags
-            next = resp.headers().firstValue("Link").orElse(null)?.let { nextLink(it, uri) }
+            next =
+                resp
+                    .headers()
+                    .firstValue("Link")
+                    .orElse(null)
+                    ?.let { nextLink(it, uri) }
         }
         return names.map { name ->
             val pushed =
@@ -133,15 +155,16 @@ class SpaceRegistryClient(
     ): String? {
         digestCache[repo to tag]?.let { return it }
         val resp = get(repo, URI("${apiBase(repo)}/manifests/$tag"), "pull", accept = ACCEPT_INDEX)
-        if (resp.statusCode() == 404) return null
-        check(resp.statusCode() == 200) { "manifest fetch failed for $repo:$tag: ${resp.statusCode()} ${resp.body()}" }
-        val digest =
-            resp
-                .headers()
-                .firstValue("Docker-Content-Digest")
-                .orElseThrow { IllegalStateException("no Docker-Content-Digest header for $repo:$tag") }
-        digestCache[repo to tag] = digest
-        return digest
+        return when (resp.statusCode()) {
+            HTTP_NOT_FOUND -> null // no index manifest — provably a different digest than any of ours
+            HTTP_OK ->
+                resp
+                    .headers()
+                    .firstValue("Docker-Content-Digest")
+                    .orElseThrow { IllegalStateException("no Docker-Content-Digest header for $repo:$tag") }
+                    .also { digestCache[repo to tag] = it }
+            else -> error("manifest fetch failed for $repo:$tag: ${resp.statusCode()} ${resp.body()}")
+        }
     }
 
     override fun deleteByDigest(
@@ -161,7 +184,7 @@ class SpaceRegistryClient(
             }
         // 202 = deleted; 404 = already absent. A digest-delete is idempotent "ensure absent", so a 404
         // (e.g. concurrent GC after a re-point) means the desired end state already holds — not a failure.
-        check(resp.statusCode() == 202 || resp.statusCode() == 404) {
+        check(resp.statusCode() == HTTP_ACCEPTED || resp.statusCode() == HTTP_NOT_FOUND) {
             "delete failed for $repo@$digest: ${resp.statusCode()} ${resp.body()}"
         }
     }
@@ -171,21 +194,24 @@ class SpaceRegistryClient(
         tag: String,
     ): Instant {
         val indexResp = get(repo, URI("${apiBase(repo)}/manifests/$tag"), "pull", accept = ACCEPT_INDEX)
-        check(indexResp.statusCode() == 200) { "index fetch failed for $repo:$tag: ${indexResp.statusCode()}" }
+        check(indexResp.statusCode() == HTTP_OK) { "index fetch failed for $repo:$tag: ${indexResp.statusCode()}" }
         indexResp.headers().firstValue("Docker-Content-Digest").ifPresent { digestCache[repo to tag] = it }
         val index = mapper.readValue<ImageIndex>(indexResp.body())
         val amd64 =
             index.manifests.firstOrNull { it.platform?.os == "linux" && it.platform.architecture == "amd64" }
                 ?: error("no linux/amd64 manifest in the index for $repo:$tag")
 
-        val manifestResp = get(repo, URI("${apiBase(repo)}/manifests/${amd64.digest}"), "pull", accept = ACCEPT_MANIFEST)
-        check(manifestResp.statusCode() == 200) {
+        val childUri = URI("${apiBase(repo)}/manifests/${amd64.digest}")
+        val manifestResp = get(repo, childUri, "pull", accept = ACCEPT_MANIFEST)
+        check(manifestResp.statusCode() == HTTP_OK) {
             "child manifest fetch failed for $repo@${amd64.digest}: ${manifestResp.statusCode()}"
         }
         val configDigest = mapper.readValue<ImageManifest>(manifestResp.body()).config.digest
 
         val blobResp = get(repo, URI("${apiBase(repo)}/blobs/$configDigest"), "pull")
-        check(blobResp.statusCode() == 200) { "config blob fetch failed for $repo@$configDigest: ${blobResp.statusCode()}" }
+        check(blobResp.statusCode() == HTTP_OK) {
+            "config blob fetch failed for $repo@$configDigest: ${blobResp.statusCode()}"
+        }
         return Instant.parse(mapper.readValue<ImageConfig>(blobResp.body()).created)
     }
 
@@ -202,7 +228,12 @@ class SpaceRegistryClient(
         accept: String? = null,
     ): HttpResponse<String> =
         withAuth(repo, actions) { bearer ->
-            val builder = HttpRequest.newBuilder(uri).timeout(REQUEST_TIMEOUT).header("Authorization", "Bearer $bearer").GET()
+            val builder =
+                HttpRequest
+                    .newBuilder(uri)
+                    .timeout(REQUEST_TIMEOUT)
+                    .header("Authorization", "Bearer $bearer")
+                    .GET()
             if (accept != null) builder.header("Accept", accept)
             http.send(builder.build(), BodyHandlers.ofString())
         }
@@ -215,7 +246,7 @@ class SpaceRegistryClient(
         send: (String) -> HttpResponse<String>,
     ): HttpResponse<String> {
         val first = send(token(repo, actions))
-        if (first.statusCode() != 401) return first
+        if (first.statusCode() != HTTP_UNAUTHORIZED) return first
         tokenCache.remove(repo to actions)
         return send(token(repo, actions))
     }
@@ -239,7 +270,9 @@ class SpaceRegistryClient(
                 .GET()
                 .build()
         val resp = http.send(req, BodyHandlers.ofString())
-        check(resp.statusCode() == 200) { "token request failed for $repo ($actions): ${resp.statusCode()} ${resp.body()}" }
+        check(resp.statusCode() == HTTP_OK) {
+            "token request failed for $repo ($actions): ${resp.statusCode()} ${resp.body()}"
+        }
         val value = mapper.readValue<TokenResponse>(resp.body()).accessToken
         tokenCache[key] = CachedToken(value, Instant.now().plusSeconds(TOKEN_CACHE_SECONDS))
         return value
@@ -247,9 +280,16 @@ class SpaceRegistryClient(
 
     private fun challenge(host: String): Pair<String, String> {
         challengeCache[host]?.let { return it }
-        val req = HttpRequest.newBuilder(URI("$scheme://$host/v2/")).timeout(REQUEST_TIMEOUT).GET().build()
+        val req =
+            HttpRequest
+                .newBuilder(URI("$scheme://$host/v2/"))
+                .timeout(REQUEST_TIMEOUT)
+                .GET()
+                .build()
         val resp = http.send(req, BodyHandlers.discarding())
-        check(resp.statusCode() == 401) { "expected a 401 auth challenge from $host, got ${resp.statusCode()}" }
+        check(resp.statusCode() == HTTP_UNAUTHORIZED) {
+            "expected a 401 auth challenge from $host, got ${resp.statusCode()}"
+        }
         val header =
             resp
                 .headers()

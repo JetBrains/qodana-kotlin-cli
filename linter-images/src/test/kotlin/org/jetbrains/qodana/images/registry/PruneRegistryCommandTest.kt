@@ -40,9 +40,11 @@ class PruneRegistryCommandTest {
         command(client).parse(listOf("--registry", "reg.example/proj"))
 
         val expectedImages =
-            Files.newDirectoryStream(imagesDir, "*.env").use { stream ->
-                stream.map { it.fileName.toString().removeSuffix(".env") }
-            }.sorted()
+            Files
+                .newDirectoryStream(imagesDir, "*.env")
+                .use { stream ->
+                    stream.map { it.fileName.toString().removeSuffix(".env") }
+                }.sorted()
         assertEquals(expectedImages.map { "reg.example/proj/$it" }, client.listedRepos.sorted())
     }
 
@@ -118,7 +120,7 @@ class PruneRegistryCommandTest {
 
         command(client, now).parse(listOf("--registry", "reg.example/proj"))
 
-        assertTrue(client.deletedDigests.isEmpty(), "a re-point onto the digest between plan and delete must block the delete")
+        assertTrue(client.deletedDigests.isEmpty(), "a re-point between plan and delete must block the delete")
     }
 
     @Test
@@ -136,7 +138,7 @@ class PruneRegistryCommandTest {
         command(client, now).parse(listOf("--registry", "reg.example/proj"))
 
         assertEquals(3, client.deletedDigests.size)
-        assertEquals(2, client.listedRepos.count { it == repo }, "one plan listing + one bounded re-verify, not one per deleted digest")
+        assertEquals(2, client.listedRepos.count { it == repo }, "one plan listing + one bounded re-verify per repo")
     }
 
     @Test
@@ -211,7 +213,8 @@ class PruneRegistryCommandTest {
         val repo = "reg.example/proj/qodana-jvm"
         val a = "2026.2-snapshot.aaa1111"
         val b = "2026.2-snapshot.bbb2222"
-        val tags = listOf(RegistryTag(a, now.minus(Duration.ofDays(10))), RegistryTag(b, now.minus(Duration.ofDays(10))))
+        val old = now.minus(Duration.ofDays(10))
+        val tags = listOf(RegistryTag(a, old), RegistryTag(b, old))
         val delegate =
             FakeRegistryClient(
                 tagsByRepo = mapOf(repo to tags),
@@ -242,7 +245,7 @@ class PruneRegistryCommandTest {
 
         val thrown = assertFailsWith<Exception> { command(client, now).parse(listOf("--registry", "reg.example/proj")) }
 
-        assertTrue(thrown.cause is IllegalStateException, "the real underlying exception must be preserved as the cause")
+        assertTrue(thrown.cause is IllegalStateException, "the underlying exception must be preserved as the cause")
         assertTrue(thrown.cause!!.message!!.contains("simulated failure"), thrown.cause!!.message.toString())
     }
 
@@ -268,7 +271,8 @@ class PruneRegistryCommandTest {
 
         // The real delete exception must survive somewhere in the cause chain, not be replaced by a bare synthetic.
         val chain = generateSequence(thrown as Throwable?) { it.cause }.toList()
-        assertTrue(chain.any { it.message?.contains("boom-delete-detail") == true }, chain.map { it.message }.toString())
+        val messages = chain.map { it.message }
+        assertTrue(messages.any { it?.contains("boom-delete-detail") == true }, messages.toString())
     }
 
     @Test
@@ -285,7 +289,7 @@ class PruneRegistryCommandTest {
         command(client, now).parse(listOf("--registry", "reg.example/proj", "--keep-nightly", "3"))
 
         assertEquals(expectedPruned.map { "sha256:$it" }.toSet(), client.deletedDigests.map { it.second }.toSet())
-        assertEquals(6, client.deletedDigests.size, "keeping 3 of 9 generations prunes the oldest 6 (vs 2 under the default 7)")
+        assertEquals(6, client.deletedDigests.size, "keeping 3 of 9 generations prunes the oldest 6")
     }
 
     @Test
@@ -302,7 +306,7 @@ class PruneRegistryCommandTest {
 
         command(client, now).parse(listOf("--registry", "reg.example/proj"))
 
-        assertTrue(client.deletedDigests.isEmpty(), "the planned digest is unreferenced after the repush; the stale delete must be skipped")
+        assertTrue(client.deletedDigests.isEmpty(), "repushed digest unreferenced; the stale delete must be skipped")
     }
 
     @Test

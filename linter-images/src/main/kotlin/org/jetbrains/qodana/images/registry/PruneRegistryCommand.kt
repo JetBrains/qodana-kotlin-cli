@@ -56,6 +56,10 @@ class PruneRegistryCommand(
     private val keepNightly by option("--keep-nightly").int().default(7)
     private val snapshotMaxAgeDays by option("--snapshot-max-age-days").long().default(7)
 
+    // Generic catch is deliberate: a repo is a fault-isolation boundary — any failure processing one repo
+    // is logged and collected so the sweep continues, then reported in aggregate. InterruptedException is
+    // re-thrown first so a cancellation signal is never swallowed as a data failure.
+    @Suppress("TooGenericExceptionCaught")
     override fun run() {
         val c = client()
         val failures = mutableListOf<Pair<String, Throwable>>()
@@ -64,7 +68,7 @@ class PruneRegistryCommand(
             try {
                 prune(c, repo)
             } catch (e: InterruptedException) {
-                Thread.currentThread().interrupt() // a cancellation signal, not a data failure — honor it
+                Thread.currentThread().interrupt()
                 throw e
             } catch (e: Exception) {
                 echo("error: failed to prune $repo: ${e.message ?: e::class.simpleName}", err = true)
@@ -76,8 +80,16 @@ class PruneRegistryCommand(
         }
     }
 
-    private fun repos(): List<String> = publishMatrix.rows().map { it.getValue("image") }.distinct().sorted()
+    private fun repos(): List<String> =
+        publishMatrix
+            .rows()
+            .map { it.getValue("image") }
+            .distinct()
+            .sorted()
 
+    // Generic catch is deliberate: each delete is isolated so one failure doesn't abort the sibling deletes;
+    // failures are collected and reported in aggregate. InterruptedException is re-thrown first.
+    @Suppress("TooGenericExceptionCaught")
     private fun prune(
         client: RegistryClient,
         repo: String,
@@ -112,7 +124,10 @@ class PruneRegistryCommand(
             }
         }
         if (failures.isNotEmpty()) {
-            throw AggregateFailure("failed to delete in $repo: ${failures.joinToString { it.first }}", failures.map { it.second })
+            throw AggregateFailure(
+                "failed to delete in $repo: ${failures.joinToString { it.first }}",
+                failures.map { it.second },
+            )
         }
     }
 
@@ -130,7 +145,7 @@ class PruneRegistryCommand(
         // exit) rather than a warning nobody reads in a green job. (A foreign tag with no index is fine — it
         // never appears in pruneNames.)
         val unresolvable = pruneNames.filter { it !in digestOf }
-        check(unresolvable.isEmpty()) { "prune candidate(s) in $repo have no resolvable digest: ${unresolvable.joinToString()}" }
+        check(unresolvable.isEmpty()) { "unresolvable prune candidate(s) in $repo: ${unresolvable.joinToString()}" }
         val tagsByDigest = digestOf.entries.groupBy({ it.value }, { it.key })
         return pruneNames
             .map { digestOf.getValue(it) }
