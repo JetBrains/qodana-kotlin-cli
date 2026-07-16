@@ -20,6 +20,8 @@ ap-scheme-tools = "0.0.26"
 intellij-report-converter = "0.12.6"
 junit = "6.1.0"
 portex = "5.0.6"
+# Keep in lockstep with build-logic/gradle/libs.versions.toml `kover` (two separate catalogs).
+kover = "0.9.8"
 
 [libraries]
 # Kotlin
@@ -72,3 +74,4 @@ kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-t
 portex = { module = "io.github.struppigel:portex_2.12", version.ref = "portex" }
 
 [plugins]
+kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
