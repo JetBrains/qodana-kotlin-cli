@@ -64,41 +64,64 @@ class CiWorkflowContractTest {
     @Test
     fun `coverage flows from test into a decoupled qodana job`() {
         val jobs = wf("checks.yaml")["jobs"]
+        val testSteps = jobs["test"]["steps"]
+        val testRuns = testSteps.mapNotNull { it["run"]?.asText() }
 
         // Producer: the test job builds the merged .ic under -Pkover and uploads it as `coverage-ic`.
-        val testRuns = jobs["test"]["steps"].mapNotNull { it["run"]?.asText() }
         assertTrue(
             testRuns.any { it.contains(":koverBinaryReport") && it.contains("-Pkover") },
             "test job must run ./gradlew :koverBinaryReport -Pkover",
         )
-        // Locate the coverage upload by artifact name, not by counting all uploads (an unrelated future
-        // upload step must not break this invariant).
-        val upload =
-            jobs["test"]["steps"].single {
+        val uploadWith =
+            testSteps.single {
                 it["uses"]?.asText()?.startsWith("actions/upload-artifact") == true &&
                     it["with"]?.get("name")?.asText() == "coverage-ic"
-            }
-        val artifactName = upload["with"]["name"].asText()
+            }["with"]
+        assertEquals("build/reports/kover/report.ic", uploadWith["path"].asText(), "upload the merged Kover .ic")
+        assertEquals("error", uploadWith["if-no-files-found"].asText(), "a missing report must fail the job loudly")
+        val artifactName = uploadWith["name"].asText()
 
-        // Consumer: qodana needs test (for the artifact) but is NOT suppressed by a red test, and stages
-        // the report at .qodana/code-coverage — the path the qodana-jvm linter reads per Qodana's docs
-        // (empirically confirmed once by the e2e; see the plan's known-limitations note).
+        // The dry-run guard is what keeps docker/native test tasks out of the coverage .ic. Assert it
+        // exists and that its excluded set is EXACTLY disabledForTestTasks in kotlin-common — one source,
+        // so the two lists cannot silently drift.
+        val guardRun = testRuns.single { it.contains("--dry-run") }
+        val grepExcluded =
+            Regex(""":\(([^)]+)\)""")
+                .find(guardRun)
+                ?.groupValues
+                ?.get(1)
+                ?.split("|")
+                ?.toSet()
+        val conventionExcluded =
+            Path
+                .of("../build-logic/src/main/kotlin/kotlin-common.gradle.kts")
+                .readText()
+                .substringAfter("disabledForTestTasks.addAll(")
+                .substringBefore(")")
+                .let { Regex("\"([^\"]+)\"").findAll(it).map { m -> m.groupValues[1] }.toSet() }
+        assertTrue(conventionExcluded.isNotEmpty(), "disabledForTestTasks must list the docker/native test tasks")
+        assertEquals(conventionExcluded, grepExcluded, "CI guard grep must match disabledForTestTasks")
+
+        // Consumer: qodana needs test (for the artifact) but a red test must never suppress it.
         val qodana = jobs["qodana"]
         assertTrue(qodana["needs"].map { it.asText() }.contains("test"), "qodana must need test (for the artifact)")
-        assertEquals(
-            "\${{ !cancelled() }}",
-            qodana["if"].asText(),
-            "qodana must run even when test fails, so a red test never suppresses the required Qodana check",
-        )
+        assertEquals("\${{ !cancelled() }}", qodana["if"].asText(), "qodana must run even when test fails")
         val download =
             qodana["steps"].single { it["uses"]?.asText()?.startsWith("actions/download-artifact") == true }
         assertEquals(artifactName, download["with"]["name"].asText(), "qodana must download the coverage artifact")
-        assertEquals(".qodana/code-coverage", download["with"]["path"].asText(), "stage where qodana-jvm reads it")
+        assertEquals(
+            ".qodana/code-coverage",
+            download["with"]["path"].asText(),
+            "the qodana-jvm coverage read path",
+        )
         assertEquals(
             "\${{ needs.test.result == 'success' }}",
             download["if"].asText(),
-            "download only when test succeeded: tolerates the red-test no-artifact case while still " +
-                "surfacing genuine download errors on a green test (vs a blanket continue-on-error)",
+            "download only when test succeeded (red test → no artifact → qodana still scans without coverage)",
+        )
+        assertFalse(
+            download["continue-on-error"]?.asBoolean() == true,
+            "a genuine download error on a green test must fail loudly, not be swallowed",
         )
         val scan = qodana["steps"].single { it["uses"]?.asText()?.startsWith("JetBrains/qodana-action") == true }
         assertTrue(scan["with"]["pr-mode"].asBoolean(), "pr-mode must be true for Fresh code coverage")

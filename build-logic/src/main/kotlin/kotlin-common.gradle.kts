@@ -29,9 +29,9 @@ kotlin {
     }
 }
 
-// -Pkover-gated: Kover instruments the `test` task itself, so gating by application (not just report
-// tasks) is required to keep plain `./gradlew test` unchanged. Value-gated so `-Pkover=false` disables.
-if (providers.gradleProperty("kover").getOrElse("false") != "false") {
+// -Pkover-gated (koverEnabled computed once in settings.gradle.kts): Kover instruments the `test` task
+// itself, so gating by application — not just report tasks — is what keeps plain `./gradlew test` unchanged.
+if (rootProject.extra["koverEnabled"] as Boolean) {
     apply(plugin = "org.jetbrains.kotlinx.kover")
     extensions.configure<kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension> {
         currentProject {

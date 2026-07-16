@@ -151,8 +151,8 @@ tasks.register("parityTest") {
 // Aggregate coverage from every module so a module's tests count toward classes they exercise in
 // dependency modules (e.g. qodana-engine tests → qodana-core coverage). Derived from subprojects so a
 // newly added module can't be silently omitted. Per Kover: without kover(project) deps a report covers
-// only the current project.
-if (providers.gradleProperty("kover").getOrElse("false") != "false") {
+// only the current project. Gate (koverEnabled) is computed once in settings.gradle.kts.
+if (extra["koverEnabled"] as Boolean) {
     apply(plugin = "org.jetbrains.kotlinx.kover")
     dependencies {
         subprojects.forEach { add("kover", project(it.path)) }

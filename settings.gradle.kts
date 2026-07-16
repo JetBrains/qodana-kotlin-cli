@@ -35,3 +35,10 @@ include(
     "release-tools",
     "linter-images",
 )
+
+// Single source of truth for the -Pkover coverage gate, read by build.gradle.kts (root aggregation)
+// and kotlin-common.gradle.kts (per-module instrumentation) via rootProject.extra — so the two can't
+// diverge. Value-based: a bare -Pkover or -Pkover=true enables; absent or -Pkover=false disables.
+gradle.rootProject {
+    extra["koverEnabled"] = providers.gradleProperty("kover").getOrElse("false") != "false"
+}
