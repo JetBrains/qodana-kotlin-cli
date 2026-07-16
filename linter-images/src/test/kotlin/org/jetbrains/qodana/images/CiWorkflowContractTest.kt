@@ -62,6 +62,49 @@ class CiWorkflowContractTest {
     }
 
     @Test
+    fun `coverage flows from test into a decoupled qodana job`() {
+        val jobs = wf("checks.yaml")["jobs"]
+
+        // Producer: the test job builds the merged .ic under -Pkover and uploads it as `coverage-ic`.
+        val testRuns = jobs["test"]["steps"].mapNotNull { it["run"]?.asText() }
+        assertTrue(
+            testRuns.any { it.contains(":koverBinaryReport") && it.contains("-Pkover") },
+            "test job must run ./gradlew :koverBinaryReport -Pkover",
+        )
+        // Locate the coverage upload by artifact name, not by counting all uploads (an unrelated future
+        // upload step must not break this invariant).
+        val upload =
+            jobs["test"]["steps"].single {
+                it["uses"]?.asText()?.startsWith("actions/upload-artifact") == true &&
+                    it["with"]?.get("name")?.asText() == "coverage-ic"
+            }
+        val artifactName = upload["with"]["name"].asText()
+
+        // Consumer: qodana needs test (for the artifact) but is NOT suppressed by a red test, and stages
+        // the report at .qodana/code-coverage — the path the qodana-jvm linter reads per Qodana's docs
+        // (empirically confirmed once by the e2e; see the plan's known-limitations note).
+        val qodana = jobs["qodana"]
+        assertTrue(qodana["needs"].map { it.asText() }.contains("test"), "qodana must need test (for the artifact)")
+        assertEquals(
+            "\${{ !cancelled() }}",
+            qodana["if"].asText(),
+            "qodana must run even when test fails, so a red test never suppresses the required Qodana check",
+        )
+        val download =
+            qodana["steps"].single { it["uses"]?.asText()?.startsWith("actions/download-artifact") == true }
+        assertEquals(artifactName, download["with"]["name"].asText(), "qodana must download the coverage artifact")
+        assertEquals(".qodana/code-coverage", download["with"]["path"].asText(), "stage where qodana-jvm reads it")
+        assertEquals(
+            "\${{ needs.test.result == 'success' }}",
+            download["if"].asText(),
+            "download only when test succeeded: tolerates the red-test no-artifact case while still " +
+                "surfacing genuine download errors on a green test (vs a blanket continue-on-error)",
+        )
+        val scan = qodana["steps"].single { it["uses"]?.asText()?.startsWith("JetBrains/qodana-action") == true }
+        assertTrue(scan["with"]["pr-mode"].asBoolean(), "pr-mode must be true for Fresh code coverage")
+    }
+
+    @Test
     fun `cli workflow builds and e2es the native binary`() {
         val cli = wf("cli.yaml")
         assertEquals("CLI", cli["name"].asText())
