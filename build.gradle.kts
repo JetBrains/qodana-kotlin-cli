@@ -160,9 +160,10 @@ if (extra["koverEnabled"] as Boolean) {
     extensions.configure<kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension> {
         reports {
             total {
-                binary {
-                    // Qodana ingests this IntelliJ-Coverage .ic.
-                    file.set(layout.buildDirectory.file("reports/kover/report.ic"))
+                xml {
+                    // JaCoCo-compatible XML: Qodana reads it for the absolute % and CI publishes it as an
+                    // artifact for any XML-consuming tool (Codecov/Coveralls/SonarQube/…).
+                    xmlFile.set(layout.buildDirectory.file("reports/kover/report.xml"))
                     onCheck.set(false)
                 }
             }

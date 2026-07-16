@@ -67,21 +67,21 @@ class CiWorkflowContractTest {
         val testSteps = jobs["test"]["steps"]
         val testRuns = testSteps.mapNotNull { it["run"]?.asText() }
 
-        // Producer: the test job builds the merged .ic under -Pkover and uploads it as `coverage-ic`.
+        // Producer: the test job builds the merged JaCoCo-compatible XML under -Pkover, uploads `coverage-xml`.
         assertTrue(
-            testRuns.any { it.contains(":koverBinaryReport") && it.contains("-Pkover") },
-            "test job must run ./gradlew :koverBinaryReport -Pkover",
+            testRuns.any { it.contains(":koverXmlReport") && it.contains("-Pkover") },
+            "test job must run ./gradlew :koverXmlReport -Pkover",
         )
         val uploadWith =
             testSteps.single {
                 it["uses"]?.asText()?.startsWith("actions/upload-artifact") == true &&
-                    it["with"]?.get("name")?.asText() == "coverage-ic"
+                    it["with"]?.get("name")?.asText() == "coverage-xml"
             }["with"]
-        assertEquals("build/reports/kover/report.ic", uploadWith["path"].asText(), "upload the merged Kover .ic")
+        assertEquals("build/reports/kover/report.xml", uploadWith["path"].asText(), "upload the merged Kover XML")
         assertEquals("error", uploadWith["if-no-files-found"].asText(), "a missing report must fail the job loudly")
         val artifactName = uploadWith["name"].asText()
 
-        // The dry-run guard is what keeps docker/native test tasks out of the coverage .ic. Assert it
+        // The dry-run guard is what keeps docker/native test tasks out of the coverage report. Assert it
         // exists and that its excluded set is EXACTLY disabledForTestTasks in kotlin-common — one source,
         // so the two lists cannot silently drift.
         val guardRun = testRuns.single { it.contains("--dry-run") }
@@ -124,7 +124,7 @@ class CiWorkflowContractTest {
             "a genuine download error on a green test must fail loudly, not be swallowed",
         )
         val scan = qodana["steps"].single { it["uses"]?.asText()?.startsWith("JetBrains/qodana-action") == true }
-        assertTrue(scan["with"]["pr-mode"].asBoolean(), "pr-mode must be true for Fresh code coverage")
+        assertFalse(scan["with"]["pr-mode"].asBoolean(), "pr-mode false → absolute total coverage")
     }
 
     @Test

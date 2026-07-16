@@ -25,17 +25,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
       - name: Verify coverage runs only unit tests
         run: |
-          graph="$(./gradlew :koverBinaryReport -Pkover --dry-run)"
+          graph="$(./gradlew :koverXmlReport -Pkover --dry-run)"
           if echo "$graph" | grep -Eq ':(parityTest|nativeBinaryTest|linterE2eTest)'; then
             echo "::error::coverage task graph pulled in a docker/native test task"; exit 1
           fi
       - name: Run tests with coverage
-        run: ./gradlew :koverBinaryReport -Pkover
+        run: ./gradlew :koverXmlReport -Pkover
+      # JaCoCo-compatible XML: consumed by the Qodana job below AND published here so anyone can feed it
+      # to a coverage tool (Codecov/Coveralls/SonarQube/…) or browse it — no extra service wired in.
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-ic
-          path: build/reports/kover/report.ic
+          name: coverage-xml
+          path: build/reports/kover/report.xml
           if-no-files-found: error
 
   lint:
@@ -85,7 +87,7 @@ jobs:
         if: ${{ needs.test.result == 'success' }}
         uses: actions/download-artifact@v4
         with:
-          name: coverage-ic
+          name: coverage-xml
           path: .qodana/code-coverage
       # Requires the QODANA_CI_ACTION_TOKEN secret on the repo (project token from
       # https://qodana.cloud). Without it the linter fails fast with
@@ -95,8 +97,9 @@ jobs:
         env:
           QODANA_TOKEN: ${{ secrets.QODANA_CI_ACTION_TOKEN }}
         with:
-          # pr-mode scopes inspections to the PR diff AND enables Fresh (new/modified-code) coverage.
-          pr-mode: true
+          # pr-mode:false → full-project scan + absolute (total) coverage. Fresh/diff coverage would need
+          # pr-mode:true AND a PR-head checkout (not the merge ref above); deferred by decision.
+          pr-mode: false
           post-pr-comment: true
           use-annotations: true
           upload-result: true
