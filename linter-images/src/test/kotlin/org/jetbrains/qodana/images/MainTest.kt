@@ -23,6 +23,7 @@ class MainTest {
                 "resolve-tags",
                 "resolve-image-meta",
                 "resolve-publish-matrix",
+                "prune-registry",
             ),
             names,
         )
