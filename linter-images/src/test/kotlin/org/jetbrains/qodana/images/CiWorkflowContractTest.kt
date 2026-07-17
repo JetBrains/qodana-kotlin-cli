@@ -62,12 +62,12 @@ class CiWorkflowContractTest {
     }
 
     @Test
-    fun `coverage flows from test into a decoupled qodana job`() {
+    fun `test job publishes the coverage XML artifact and Qodana does not consume it`() {
         val jobs = wf("checks.yaml")["jobs"]
         val testSteps = jobs["test"]["steps"]
         val testRuns = testSteps.mapNotNull { it["run"]?.asText() }
 
-        // Producer: the test job builds the merged JaCoCo-compatible XML under -Pkover, uploads `coverage-xml`.
+        // The test job builds the merged JaCoCo-compatible XML under -Pkover and publishes it as `coverage-xml`.
         assertTrue(
             testRuns.any { it.contains(":koverXmlReport") && it.contains("-Pkover") },
             "test job must run ./gradlew :koverXmlReport -Pkover",
@@ -79,11 +79,9 @@ class CiWorkflowContractTest {
             }["with"]
         assertEquals("build/reports/kover/report.xml", uploadWith["path"].asText(), "upload the merged Kover XML")
         assertEquals("error", uploadWith["if-no-files-found"].asText(), "a missing report must fail the job loudly")
-        val artifactName = uploadWith["name"].asText()
 
-        // The dry-run guard is what keeps docker/native test tasks out of the coverage report. Assert it
-        // exists and that its excluded set is EXACTLY disabledForTestTasks in kotlin-common — one source,
-        // so the two lists cannot silently drift.
+        // The dry-run guard keeps docker/native test tasks out of the coverage report. Assert it exists and
+        // that its excluded set is EXACTLY disabledForTestTasks in kotlin-common — one source, no drift.
         val guardRun = testRuns.single { it.contains("--dry-run") }
         val grepExcluded =
             Regex(""":\(([^)]+)\)""")
@@ -102,29 +100,13 @@ class CiWorkflowContractTest {
         assertTrue(conventionExcluded.isNotEmpty(), "disabledForTestTasks must list the docker/native test tasks")
         assertEquals(conventionExcluded, grepExcluded, "CI guard grep must match disabledForTestTasks")
 
-        // Consumer: qodana needs test (for the artifact) but a red test must never suppress it.
-        val qodana = jobs["qodana"]
-        assertTrue(qodana["needs"].map { it.asText() }.contains("test"), "qodana must need test (for the artifact)")
-        assertEquals("\${{ !cancelled() }}", qodana["if"].asText(), "qodana must run even when test fails")
-        val download =
-            qodana["steps"].single { it["uses"]?.asText()?.startsWith("actions/download-artifact") == true }
-        assertEquals(artifactName, download["with"]["name"].asText(), "qodana must download the coverage artifact")
-        assertEquals(
-            ".qodana/code-coverage",
-            download["with"]["path"].asText(),
-            "the qodana-jvm coverage read path",
+        // Coverage is published as an artifact only — Qodana must NOT be fed coverage (that coupling
+        // bundled the % with per-method inspection warnings we didn't want).
+        val qodanaSteps = jobs["qodana"]["steps"]
+        assertTrue(
+            qodanaSteps.none { it["uses"]?.asText()?.startsWith("actions/download-artifact") == true },
+            "Qodana must not download coverage — it is published as an artifact, not consumed by Qodana",
         )
-        assertEquals(
-            "\${{ needs.test.result == 'success' }}",
-            download["if"].asText(),
-            "download only when test succeeded (red test → no artifact → qodana still scans without coverage)",
-        )
-        assertFalse(
-            download["continue-on-error"]?.asBoolean() == true,
-            "a genuine download error on a green test must fail loudly, not be swallowed",
-        )
-        val scan = qodana["steps"].single { it["uses"]?.asText()?.startsWith("JetBrains/qodana-action") == true }
-        assertFalse(scan["with"]["pr-mode"].asBoolean(), "pr-mode false → absolute total coverage")
     }
 
     @Test

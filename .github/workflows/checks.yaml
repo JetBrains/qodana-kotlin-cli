@@ -31,8 +31,8 @@ jobs:
           fi
       - name: Run tests with coverage
         run: ./gradlew :koverXmlReport -Pkover
-      # JaCoCo-compatible XML: consumed by the Qodana job below AND published here so anyone can feed it
-      # to a coverage tool (Codecov/Coveralls/SonarQube/…) or browse it — no extra service wired in.
+      # Publish the merged JaCoCo-compatible XML so anyone can feed it to a coverage tool
+      # (Codecov/Coveralls/SonarQube/…) or browse it — no external service wired into CI.
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         with:
@@ -63,10 +63,6 @@ jobs:
     name: Qodana
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    needs: [test]
-    # Run even when test fails so a red/flaky test never suppresses the required Qodana check; coverage
-    # is simply absent in that case (the download step below is gated on test success).
-    if: ${{ !cancelled() }}
     permissions:
       contents: read
       pull-requests: write
@@ -81,14 +77,6 @@ jobs:
           distribution: temurin
           java-version: 25
       - uses: gradle/actions/setup-gradle@v6
-      # Download only when test succeeded: on a red test there is no artifact and Qodana still scans
-      # (coverage absent); on a green test a genuine download error surfaces instead of being swallowed.
-      - name: Stage coverage for Qodana
-        if: ${{ needs.test.result == 'success' }}
-        uses: actions/download-artifact@v4
-        with:
-          name: coverage-xml
-          path: .qodana/code-coverage
       # Requires the QODANA_CI_ACTION_TOKEN secret on the repo (project token from
       # https://qodana.cloud). Without it the linter fails fast with
       # "Starting from 2023.2 release versions require connection to Qodana Cloud."
@@ -97,8 +85,6 @@ jobs:
         env:
           QODANA_TOKEN: ${{ secrets.QODANA_CI_ACTION_TOKEN }}
         with:
-          # pr-mode:false → full-project scan + absolute (total) coverage. Fresh/diff coverage would need
-          # pr-mode:true AND a PR-head checkout (not the merge ref above); deferred by decision.
           pr-mode: false
           post-pr-comment: true
           use-annotations: true
