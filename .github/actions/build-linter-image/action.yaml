@@ -116,8 +116,10 @@ runs:
             cat "$err" >&2
             cat "$out" >> "$GITHUB_ENV"   # only reached on full success → retries stay idempotent
             exit 0
+          else
+            rc=$?
           fi
-          rc=$?; cat "$err" >&2
+          cat "$err" >&2
           grep -qE 'Received status code (403|429|5[0-9][0-9])|Could not (resolve|GET|download)|Connection reset|Read timed out|Connect(ion)? timed out|TLS handshake timeout|Premature end of Content-Length' "$err" && exit 75
           exit "$rc"
     - name: Stage from-tree contexts (build)
@@ -137,8 +139,8 @@ runs:
           fi
           targets+=(:linter-images:installDist)
           err="$(mktemp)"
-          if ./gradlew "${targets[@]}" 2>"$err"; then cat "$err" >&2; exit 0; fi
-          rc=$?; cat "$err" >&2
+          if ./gradlew "${targets[@]}" 2>"$err"; then cat "$err" >&2; exit 0; else rc=$?; fi
+          cat "$err" >&2
           grep -qE 'Received status code (403|429|5[0-9][0-9])|Could not (resolve|GET|download)|Connection reset|Read timed out|Connect(ion)? timed out|TLS handshake timeout|Premature end of Content-Length' "$err" && exit 75
           exit "$rc"
     - name: Stage from-tree contexts (verify + place)
@@ -220,8 +222,8 @@ runs:
           set -euo pipefail
           img="${{ inputs.push-registry }}/${{ inputs.image }}@${{ steps.build.outputs.digest }}"
           err="$(mktemp)"
-          if docker pull "$img" 2>"$err"; then cat "$err" >&2; exit 0; fi
-          rc=$?; cat "$err" >&2
+          if docker pull "$img" 2>"$err"; then cat "$err" >&2; exit 0; else rc=$?; fi
+          cat "$err" >&2
           grep -qE 'received unexpected HTTP status: (429|5[0-9][0-9])|TLS handshake timeout|connection refused|i/o timeout|EOF' "$err" && exit 75
           exit "$rc"
     - name: Verify built runtime version
