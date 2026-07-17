@@ -4,6 +4,7 @@ import com.github.ajalt.clikt.core.parse
 import org.jetbrains.qodana.images.RegistryTag
 import org.jetbrains.qodana.images.ResolveImageMetaCommand
 import org.jetbrains.qodana.images.ResolvePublishMatrixCommand
+import org.jetbrains.qodana.images.ResolveTagsCommand
 import org.jetbrains.qodana.images.RuntimeResolver
 import org.jetbrains.qodana.images.computeTagPrune
 import java.nio.file.Files
@@ -21,12 +22,15 @@ class PruneRegistryCommandTest {
     private val rubyVersions = Path.of("docker/ruby-versions.txt")
     private val runtime = RuntimeResolver(imagesDir, clangVersions, rubyVersions)
     private val meta = ResolveImageMetaCommand(imagesDir = imagesDir, runtime = runtime)
+    private val gradleProperties =
+        Files.createTempFile("gradle", ".properties").also { Files.writeString(it, "version=2026.2\n") }
     private val publishMatrix =
         ResolvePublishMatrixCommand(
             imagesDir = imagesDir,
             clangVersions = clangVersions,
             rubyVersions = rubyVersions,
             meta = meta,
+            tags = ResolveTagsCommand(gradleProperties = gradleProperties, runtime = runtime),
         )
 
     private fun command(
