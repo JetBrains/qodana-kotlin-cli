@@ -1,0 +1,36 @@
+name: Retry a transient command
+description: |
+  Re-runs `run` while it exits 75 (EX_TEMPFAIL), bounded by a wall-clock deadline with capped exponential
+  backoff and a per-attempt `timeout`. Exit 0 succeeds; any other non-zero passes straight through (never
+  retried). The command decides what is transient by exiting 75 itself — this action never inspects output.
+inputs:
+  run:
+    description: 'The command to run. Exit 75 to request a retry; any other non-zero fails fast.'
+    required: true
+  timeout-seconds:
+    description: 'Wall-clock budget across all attempts; also caps each single attempt. Surfaced red on expiry.'
+    required: false
+    default: '600'
+  initial-delay-seconds:
+    description: 'First backoff delay; doubles each retry up to max-delay-seconds.'
+    required: false
+    default: '5'
+  max-delay-seconds:
+    description: 'Backoff cap.'
+    required: false
+    default: '60'
+  what:
+    description: 'Label for the log lines (what is being retried).'
+    required: false
+    default: 'command'
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        RUN: ${{ inputs.run }}
+        TIMEOUT_SECONDS: ${{ inputs.timeout-seconds }}
+        INITIAL_DELAY_SECONDS: ${{ inputs.initial-delay-seconds }}
+        MAX_DELAY_SECONDS: ${{ inputs.max-delay-seconds }}
+        WHAT: ${{ inputs.what }}
+      run: ${{ github.action_path }}/retry.sh

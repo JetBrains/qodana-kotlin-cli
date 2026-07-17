@@ -103,29 +103,52 @@ runs:
         exit 1
     - name: Resolve version build-args
       # EXPECT_TOOL/EXPECT_VERSION feed the runtime guard below; BUILD_ARGS feeds the build.
+      uses: ./.github/actions/retry
+      with:
+        what: resolve build-args (Gradle → Maven Central)
+        timeout-seconds: '1800'
+        run: |
+          set -euo pipefail
+          out="$(mktemp)"; err="$(mktemp)"
+          if { ./gradlew :linter-images:installDist \
+            && linter-images/build/install/image-tool/bin/image-tool resolve-build-args \
+              --image '${{ inputs.image }}' --version '${{ inputs.version }}' > "$out"; } 2>"$err"; then
+            cat "$err" >&2
+            cat "$out" >> "$GITHUB_ENV"   # append only on success → idempotent under retry
+            exit 0
+          else
+            rc=$?
+          fi
+          cat "$err" >&2
+          grep -qE 'Received status code (403|429|5[0-9][0-9])|Could not (resolve|GET|download)|Connection reset|Read timed out|Connect(ion)? timed out|TLS handshake timeout|Premature end of Content-Length' "$err" && exit 75
+          exit "$rc"
+    - name: Stage from-tree contexts (build)
+      # Assembles the from-tree inner CLI via Gradle (CLI_SOURCE=context); token-gated images also
+      # assemble their own Tool-kind CLI binary here. Verification + placement happens in the next step.
+      uses: ./.github/actions/retry
+      with:
+        what: assemble from-tree CLI (Gradle → Maven Central)
+        timeout-seconds: '3600'
+        run: |
+          set -euo pipefail
+          token_gated='${{ inputs.token-gated }}'
+          targets=(:qodana-cli:assembleRelease -PtargetOs=linux -PtargetArch=${{ inputs.arch }} -Pquick=true)
+          # Token-gated images also build their own Tool-kind inner CLI binary from this tree.
+          if [ "$token_gated" = "true" ]; then
+            targets+=(:${{ inputs.image }}:assembleRelease -PtargetOs=linux -PtargetArch=${{ inputs.arch }} -Pquick=true)
+          fi
+          targets+=(:linter-images:installDist)
+          err="$(mktemp)"
+          if ./gradlew "${targets[@]}" 2>"$err"; then cat "$err" >&2; exit 0; else rc=$?; fi
+          cat "$err" >&2
+          grep -qE 'Received status code (403|429|5[0-9][0-9])|Could not (resolve|GET|download)|Connection reset|Read timed out|Connect(ion)? timed out|TLS handshake timeout|Premature end of Content-Length' "$err" && exit 75
+          exit "$rc"
+    - name: Stage from-tree contexts (verify + place)
+      # Fail-closed: nativeCompile is host-arch; -PtargetArch is only a label, so verify the ELF machine.
       shell: bash
       run: |
         set -euo pipefail
-        ./gradlew :linter-images:installDist
-        linter-images/build/install/image-tool/bin/image-tool resolve-build-args \
-          --image '${{ inputs.image }}' \
-          --version '${{ inputs.version }}' >> "$GITHUB_ENV"
-    - name: Stage from-tree contexts (cli + image-tool)
-      # From-tree inner CLI (CLI_SOURCE=context). Token-gated images also build + stage their own
-      # Tool-kind CLI binary so /cli-src/<module> resolves.
-      shell: bash
-      run: |
-        set -euo pipefail
-        token_gated='${{ inputs.token-gated }}'
-        targets=(:qodana-cli:assembleRelease -PtargetOs=linux -PtargetArch=${{ inputs.arch }} -Pquick=true)
-        # Token-gated images also build their own Tool-kind inner CLI binary from this tree.
-        if [ "$token_gated" = "true" ]; then
-          targets+=(:${{ inputs.image }}:assembleRelease -PtargetOs=linux -PtargetArch=${{ inputs.arch }} -Pquick=true)
-        fi
-        targets+=(:linter-images:installDist)
-        ./gradlew "${targets[@]}"
         test -x qodana-cli/build/release-staging/qodana
-        # Fail-closed: nativeCompile is host-arch; -PtargetArch is only a label, so verify the ELF machine.
         want='${{ inputs.arch }}'
         got="$(file -b qodana-cli/build/release-staging/qodana)"
         case "$want" in
@@ -133,7 +156,7 @@ runs:
           arm64) echo "$got" | grep -q 'aarch64'  || { echo "::error::staged CLI is not aarch64 (arch=$want): $got"; exit 1; } ;;
           *) echo "::error::unexpected arch '$want'"; exit 1 ;;
         esac
-        if [ "$token_gated" = "true" ]; then
+        if [ '${{ inputs.token-gated }}' = "true" ]; then
           shopt -s nullglob
           tool_binaries=(${{ inputs.image }}/build/release/${{ inputs.image }}_*_linux_${{ inputs.arch }})
           if [ "${#tool_binaries[@]}" -ne 1 ]; then
@@ -149,51 +172,80 @@ runs:
       if: ${{ inputs.push-registry != '' }}
       uses: docker/setup-buildx-action@v3
     - name: Build ${{ inputs.image }}
-      id: build
-      shell: bash
+      # The build/push is the heaviest, most flake-prone network op. Retry-wrap it: buildx push is
+      # incremental (skips blobs already in the registry), so a retry re-runs the fully-cached build
+      # graph and resumes the push. Token env on this `uses:` step propagates into the retry shell.
+      uses: ./.github/actions/retry
       env:
-        # compose.private.yaml / bake mount this as the space_packages_token build secret (feed sha256 + mirror).
         QODANA_READ_SPACE_PACKAGES_TOKEN: ${{ inputs.space-packages-token }}
+      with:
+        what: build+push ${{ inputs.image }} (registry)
+        timeout-seconds: '3600'
+        run: |
+          set -euo pipefail
+          err="$(mktemp)"
+          if (
+            if [ -z '${{ inputs.push-registry }}' ]; then
+              # e2e mode: build + load <image>:dev locally for the caller's scan + the runtime guard.
+              # shellcheck disable=SC2086
+              docker compose ${{ inputs.compose-files }} build ${BUILD_ARGS} ${{ inputs.image }} || exit $?
+              docker builder prune -af || true
+            else
+              # publish mode: bake + push-by-digest (untagged). Deterministic digest → bake-meta.json,
+              # extracted in the next step. Translate resolve-build-args' `--build-arg K=V` into bake
+              # `--set <svc>.args.K=V`.
+              set_args=(); read -ra ba <<< "${BUILD_ARGS:-}"; i=0
+              while [ "$i" -lt "${#ba[@]}" ]; do
+                if [ "${ba[$i]}" = "--build-arg" ]; then set_args+=(--set "${{ inputs.image }}.args.${ba[$((i+1))]}"); i=$((i+2)); else i=$((i+1)); fi
+              done
+              cfiles='${{ inputs.compose-files }}'; cfiles="${cfiles//linter-images\//}"
+              # --allow=fs.read=..: the `cli` context resolves outside linter-images/. Clear the tag:
+              # push-by-digest refuses a tagged ref (pushed untagged, referenced by digest).
+              # shellcheck disable=SC2086
+              ( cd linter-images && docker buildx bake $cfiles \
+                --allow=fs.read=.. \
+                --set '${{ inputs.image }}.tags=' \
+                --set '${{ inputs.image }}.platform=linux/${{ inputs.arch }}' \
+                --set '${{ inputs.image }}.output=type=image,name=${{ inputs.push-registry }}/${{ inputs.image }},push-by-digest=true,push=true' \
+                "${set_args[@]}" \
+                --metadata-file bake-meta.json \
+                ${{ inputs.image }} )
+            fi
+          ) 2>"$err"; then cat "$err" >&2; exit 0; else rc=$?; fi
+          cat "$err" >&2
+          grep -qE '(received )?unexpected (HTTP )?status[^0-9]*(429|5[0-9][0-9])|TLS handshake timeout|connection reset( by peer)?|connection refused|i/o timeout|EOF|failed to do request' "$err" && exit 75
+          exit "$rc"
+    - name: Record built digest
+      # Plain step (not the retry composite) so `steps.build.outputs.digest` — the action's `digest`
+      # output — is set from bake's deterministic metadata file after a successful (possibly retried) build.
+      id: build
+      if: ${{ inputs.push-registry != '' }}
+      shell: bash
       run: |
         set -euo pipefail
-        if [ -z '${{ inputs.push-registry }}' ]; then
-          # e2e mode: build + load <image>:dev locally for the caller's scan + the runtime guard below.
-          # shellcheck disable=SC2086
-          docker compose ${{ inputs.compose-files }} build ${BUILD_ARGS} ${{ inputs.image }}
-          docker builder prune -af
-        else
-          # publish mode: build this arch via bake and push it BY DIGEST (no tag). bake reads the same
-          # contexts/secret/args from the compose files. Translate resolve-build-args'
-          # `--build-arg K=V` tokens into bake `--set <svc>.args.K=V` for the version sub-axis overrides.
-          set_args=(); read -ra ba <<< "${BUILD_ARGS:-}"; i=0
-          while [ "$i" -lt "${#ba[@]}" ]; do
-            if [ "${ba[$i]}" = "--build-arg" ]; then set_args+=(--set "${{ inputs.image }}.args.${ba[$((i+1))]}"); i=$((i+2)); else i=$((i+1)); fi
-          done
-          # bake resolves `context:`/contexts relative to CWD (unlike compose, which uses the compose-file
-          # dir), so run bake FROM linter-images/ with that prefix stripped from the -f flags — then
-          # `context: docker` and the cli/tooling contexts resolve exactly as compose intends.
-          # --allow=fs.read=..: the `cli` context (../qodana-cli/…) resolves outside that dir; grant it.
-          cfiles='${{ inputs.compose-files }}'; cfiles="${cfiles//linter-images\//}"
-          # shellcheck disable=SC2086
-          # Clear the compose `image:`-derived tag: push-by-digest refuses a tagged ref, so the output
-          # must carry only the bare `name=` (repository), pushed untagged and referenced by digest.
-          ( cd linter-images && docker buildx bake $cfiles \
-            --allow=fs.read=.. \
-            --set '${{ inputs.image }}.tags=' \
-            --set '${{ inputs.image }}.platform=linux/${{ inputs.arch }}' \
-            --set '${{ inputs.image }}.output=type=image,name=${{ inputs.push-registry }}/${{ inputs.image }},push-by-digest=true,push=true' \
-            "${set_args[@]}" \
-            --metadata-file bake-meta.json \
-            ${{ inputs.image }} )
-          digest="$(jq -r '."${{ inputs.image }}"."containerimage.digest"' linter-images/bake-meta.json)"
-          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::bake did not emit a sha256 digest: '$digest'"; exit 1; }
-          echo "digest=$digest" >> "$GITHUB_OUTPUT"
-        fi
+        digest="$(jq -r '."${{ inputs.image }}"."containerimage.digest"' linter-images/bake-meta.json)"
+        [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::bake did not emit a sha256 digest: '$digest'"; exit 1; }
+        echo "digest=$digest" >> "$GITHUB_OUTPUT"
+    - name: Pull the pushed digest for the runtime guard
+      # No local :dev in publish mode — pull the just-pushed per-arch artifact so the guard can probe it offline.
+      if: ${{ env.EXPECT_TOOL != 'none' && inputs.push-registry != '' }}
+      uses: ./.github/actions/retry
+      with:
+        what: pull pushed digest (registry)
+        timeout-seconds: '1800'
+        run: |
+          set -euo pipefail
+          img="${{ inputs.push-registry }}/${{ inputs.image }}@${{ steps.build.outputs.digest }}"
+          err="$(mktemp)"
+          if docker pull "$img" 2>"$err"; then cat "$err" >&2; exit 0; else rc=$?; fi
+          cat "$err" >&2
+          grep -qE 'received unexpected HTTP status: (429|5[0-9][0-9])|TLS handshake timeout|connection refused|i/o timeout|EOF' "$err" && exit 75
+          exit "$rc"
     - name: Verify built runtime version
       # Catch ARG-shadowing (a build-arg silently not applied) by probing the built image for the requested
-      # runtime. Runs in BOTH modes: e2e probes the loaded <image>:dev; publish pulls + probes the pushed
-      # per-arch digest (on-demand publish can build an arbitrary, un-e2e'd ref, so it must gate too). The
-      # action's last step, so a caller's scan tail runs after build < guard.
+      # runtime. Runs in BOTH modes: e2e probes the loaded <image>:dev; publish probes the pulled per-arch
+      # digest (on-demand publish can build an arbitrary, un-e2e'd ref, so it must gate too). The action's
+      # last step, so a caller's scan tail runs after build < guard.
       if: ${{ env.EXPECT_TOOL != 'none' }}
       shell: bash
       run: |
@@ -201,9 +253,7 @@ runs:
         if [ -z '${{ inputs.push-registry }}' ]; then
           img="${{ inputs.image }}:dev"
         else
-          # No local :dev in publish mode — pull the just-pushed per-arch artifact and probe it offline.
           img="${{ inputs.push-registry }}/${{ inputs.image }}@${{ steps.build.outputs.digest }}"
-          docker pull "$img"
         fi
         case "$EXPECT_TOOL" in
           ruby)  probe="ruby --version";                                  needle="ruby $EXPECT_VERSION." ;;

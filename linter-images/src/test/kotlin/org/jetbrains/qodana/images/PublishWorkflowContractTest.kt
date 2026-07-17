@@ -37,13 +37,24 @@ class PublishWorkflowContractTest {
     }
 
     @Test
-    fun `concurrency group keys on image, version, channel and id`() {
+    fun `concurrency group keys on image and the tags (the authoritative publish identity)`() {
         val group = publish["concurrency"]["group"].asText()
-        listOf("inputs.image", "inputs.version", "inputs.channel", "inputs.id").forEach {
-            assertTrue(group.contains(it), "concurrency group must key on $it: $group")
-        }
-        val cancel = publish["concurrency"]["cancel-in-progress"].asText()
-        assertEquals("false", cancel, "same-target publishes must serialize")
+        assertTrue(group.contains("inputs.image"), "concurrency must key on image: $group")
+        assertTrue(group.contains("inputs.tags"), "concurrency must key on the tags identity: $group")
+        assertEquals("false", publish["concurrency"]["cancel-in-progress"].asText(), "same-target publishes serialize")
+    }
+
+    @Test
+    fun `publish-image drops channel and id inputs (tags is the identity)`() {
+        val inputs = publish.on()["workflow_call"]["inputs"]
+        assertFalse(inputs.has("channel"), "channel input is subsumed by tags")
+        assertFalse(inputs.has("id"), "id input is subsumed by tags")
+    }
+
+    @Test
+    fun `publish-image declares a required tags input`() {
+        val tags = publish.on()["workflow_call"]["inputs"]["tags"]
+        assertTrue(tags != null && tags["required"].asBoolean(), "tags must be a required input")
     }
 
     @Test
@@ -77,14 +88,18 @@ class PublishWorkflowContractTest {
     }
 
     @Test
-    fun `merge needs build and assembles the manifest from resolve-tags`() {
+    fun `merge is Gradle-free and applies the passed-in tags via retry`() {
         val merge = publish["jobs"]["merge"]
         val needsBuild = merge["needs"].asText() == "build" || merge["needs"].any { it.asText() == "build" }
-        assertTrue(needsBuild, "merge must need build")
-        val scripts = scriptsOf(publish, "merge")
-        assertTrue(scripts.contains("image-tool resolve-tags"), "merge must derive tags from resolve-tags")
-        assertTrue(scripts.contains("imagetools create"), "merge must assemble a multi-arch manifest")
-        assertTrue(scripts.contains("imagetools inspect"), "merge must assert both arches resolve")
+        assertTrue(needsBuild, "merge needs build")
+        val stepsText = merge["steps"].toString()
+        assertFalse(stepsText.contains("setup-java"), "merge must not set up Java")
+        assertFalse(stepsText.contains("gradlew"), "merge must not run Gradle")
+        assertFalse(stepsText.contains("resolve-tags"), "merge must not compute tags (passed in)")
+        assertTrue(stepsText.contains("inputs.tags"), "merge must consume the tags input")
+        val assemblesAndAsserts = stepsText.contains("imagetools create") && stepsText.contains("imagetools inspect")
+        assertTrue(assemblesAndAsserts, "merge assembles + asserts")
+        assertTrue(stepsText.contains("actions/retry"), "the imagetools calls must be retry-wrapped")
     }
 
     // --- publish-image-dispatch.yaml (on-demand) -----------------------------------------------------
@@ -110,11 +125,23 @@ class PublishWorkflowContractTest {
     }
 
     @Test
-    fun `dispatch publishes the snapshot channel with the normalized version and sha7 id`() {
+    fun `dispatch resolves bare tags and threads them, without channel or id`() {
+        val resolve = dispatch["jobs"]["resolve"]["steps"].joinToString("\n") { it["run"]?.asText() ?: "" }
+        assertTrue("resolve-tags" in resolve, "dispatch computes bare tags via resolve-tags")
+        assertTrue("--channel snapshot" in resolve, "dispatch resolves tags for the snapshot channel")
+        assertTrue(
+            "steps.meta.outputs.effective_version" in resolve,
+            "dispatch tags the normalized version, not the raw input",
+        )
+        assertTrue("steps.sha.outputs.sha7" in resolve, "dispatch ids the tag with the pinned sha7")
         val with = dispatch["jobs"]["publish"]["with"]
-        assertEquals("snapshot", with["channel"].asText())
-        assertEquals("\${{ needs.resolve.outputs.version }}", with["version"].asText(), "version must be normalized")
-        assertEquals("\${{ needs.resolve.outputs.sha7 }}", with["id"].asText())
+        assertEquals("\${{ needs.resolve.outputs.tags }}", with["tags"].asText())
+        assertEquals(
+            "\${{ needs.resolve.outputs.version }}",
+            with["version"].asText(),
+            "version must be normalized",
+        )
+        assertFalse(with.has("channel") || with.has("id"), "channel/id are subsumed by tags")
     }
 
     // --- resolve-image-meta <-> images.yaml matrix binding (no drift) --------------------------------

@@ -102,13 +102,25 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
+      - name: Install image-tool
+        uses: ./.github/actions/retry
+        with:
+          what: install image-tool (Gradle → Maven Central)
+          timeout-seconds: '1800'
+          run: |
+            set -euo pipefail
+            err="$(mktemp)"
+            if ./gradlew :linter-images:installDist 2>"$err"; then cat "$err" >&2; exit 0; else rc=$?; fi
+            cat "$err" >&2
+            grep -qE 'Received status code (403|429|5[0-9][0-9])|Could not (resolve|GET|download)|Connection reset|Read timed out|Connect(ion)? timed out|TLS handshake timeout|Premature end of Content-Length' "$err" && exit 75
+            exit "$rc"
       - id: m
         # The full (image, version) set + per-cell gating, single-sourced (bound to images.yaml by a test).
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew :linter-images:installDist
-          matrix="$(linter-images/build/install/image-tool/bin/image-tool resolve-publish-matrix)"
+          matrix="$(linter-images/build/install/image-tool/bin/image-tool resolve-publish-matrix \
+            --channel nightly --id '${{ needs.compute.outputs.nightly-id }}')"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   publish-images:
@@ -122,8 +134,7 @@ jobs:
     with:
       image: ${{ matrix.image }}
       version: ${{ matrix.version }}
-      channel: nightly
-      id: ${{ needs.compute.outputs.nightly-id }}
+      tags: ${{ matrix.tags }}
       ref: ${{ needs.compute.outputs.sha }}
       token-gated: ${{ matrix.token_gated }}
       feed-required: ${{ matrix.feed_required }}
