@@ -74,12 +74,17 @@ class TransientClassificationTest {
             "received unexpected HTTP status: 429 Too Many Requests",
             "TLS handshake timeout",
             "connection refused",
+            "failed to push registry.jetbrains.team/p/sa/img: received unexpected HTTP status: 503 Service Unavailable",
+            "unexpected status from POST request to https://registry.jetbrains.team/oauth/token: 503",
+            "connection reset by peer",
         )
     private val dockerGenuine =
         listOf(
             "manifest unknown",
             "unauthorized: authentication required",
             "denied: requested access to the resource is denied",
+            "failed to solve: process \"/bin/sh -c apt-get install foo\" did not complete successfully: exit code 100",
+            "ERROR: failed to solve: dockerfile parse error on line 3",
         )
 
     @Test
@@ -98,8 +103,8 @@ class TransientClassificationTest {
     fun `no classifier reads rc after a bare fi (the exit-code-reset bug)`() {
         val bodies = retryRunBodies()
         assertTrue(
-            bodies.size >= 7,
-            "expected >=7 retry classifiers (3 build + 2 merge + 2 caller installDist); found ${bodies.size}",
+            bodies.size >= 8,
+            "expected >=8 retry classifiers (4 build + 2 merge + 2 caller installDist); found ${bodies.size}",
         )
         bodies.forEach { body ->
             val squashed = body.replace(Regex("\\s+"), " ")

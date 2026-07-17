@@ -21,8 +21,8 @@ class BuildLinterImageActionContractTest {
     private fun idxOf(pred: (JsonNode) -> Boolean) = steps.indexOfFirst(pred)
 
     private fun JsonNode.isBuild(): Boolean {
-        val r = runScript()
-        return r.contains("docker compose") && r.contains(" build ")
+        val r = effectiveRun()
+        return r.contains("docker buildx bake") || (r.contains("docker compose") && r.contains(" build "))
     }
 
     private fun usesRetry(step: JsonNode): Boolean = step["uses"]?.asText() == "./.github/actions/retry"
@@ -87,14 +87,15 @@ class BuildLinterImageActionContractTest {
         val resolveIdx = steps.indexOfFirst { it.effectiveRun().contains("resolve-build-args") }
         val buildIdx = idxOf { it.isBuild() }
         assertTrue(resolveIdx in 0 until buildIdx, "resolve ($resolveIdx) must precede build ($buildIdx)")
-        assertTrue(steps[buildIdx].runScript().contains("\${BUILD_ARGS}"), "build must interpolate \${BUILD_ARGS}")
+        assertTrue(steps[buildIdx].effectiveRun().contains("\${BUILD_ARGS}"), "build must interpolate \${BUILD_ARGS}")
     }
 
     @Test
-    fun `the two gradle steps and the runtime-guard pull are retry-wrapped`() {
+    fun `the two gradle steps, the build+push, and the runtime-guard pull are retry-wrapped`() {
         val cmds = steps.filter { usesRetry(it) }.joinToString("\n") { it["with"]?.get("run")?.asText() ?: "" }
         assertTrue(cmds.contains("resolve-build-args"), "resolve-build-args must run under retry")
         assertTrue(cmds.contains("assembleRelease"), "the from-tree assemble must run under retry")
+        assertTrue(cmds.contains("docker buildx bake"), "the build+push (bake) must run under retry")
         assertTrue(cmds.contains("docker pull"), "the runtime-guard pull must run under retry")
     }
 
@@ -123,9 +124,9 @@ class BuildLinterImageActionContractTest {
     }
 
     @Test
-    fun `bake is NOT retry-wrapped`() {
-        val bake = steps.single { it.runScript().contains("docker buildx bake") }
-        assertFalse(usesRetry(bake), "bake must not be retry-wrapped (local array state; BuildKit self-retries pulls)")
+    fun `bake (the build+push step) is retry-wrapped`() {
+        val bake = steps.single { it.effectiveRun().contains("docker buildx bake") }
+        assertTrue(usesRetry(bake), "the build+push step must be retry-wrapped: buildx push-by-digest is incremental")
     }
 
     @Test

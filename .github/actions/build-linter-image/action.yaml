@@ -172,46 +172,60 @@ runs:
       if: ${{ inputs.push-registry != '' }}
       uses: docker/setup-buildx-action@v3
     - name: Build ${{ inputs.image }}
-      id: build
-      shell: bash
+      # The build/push is the heaviest, most flake-prone network op. Retry-wrap it: buildx push is
+      # incremental (skips blobs already in the registry), so a retry re-runs the fully-cached build
+      # graph and resumes the push. Token env on this `uses:` step propagates into the retry shell.
+      uses: ./.github/actions/retry
       env:
-        # compose.private.yaml / bake mount this as the space_packages_token build secret (feed sha256 + mirror).
         QODANA_READ_SPACE_PACKAGES_TOKEN: ${{ inputs.space-packages-token }}
+      with:
+        what: build+push ${{ inputs.image }} (registry)
+        timeout-seconds: '3600'
+        run: |
+          set -euo pipefail
+          err="$(mktemp)"
+          if (
+            if [ -z '${{ inputs.push-registry }}' ]; then
+              # e2e mode: build + load <image>:dev locally for the caller's scan + the runtime guard.
+              # shellcheck disable=SC2086
+              docker compose ${{ inputs.compose-files }} build ${BUILD_ARGS} ${{ inputs.image }}
+              docker builder prune -af
+            else
+              # publish mode: bake + push-by-digest (untagged). Deterministic digest → bake-meta.json,
+              # extracted in the next step. Translate resolve-build-args' `--build-arg K=V` into bake
+              # `--set <svc>.args.K=V`.
+              set_args=(); read -ra ba <<< "${BUILD_ARGS:-}"; i=0
+              while [ "$i" -lt "${#ba[@]}" ]; do
+                if [ "${ba[$i]}" = "--build-arg" ]; then set_args+=(--set "${{ inputs.image }}.args.${ba[$((i+1))]}"); i=$((i+2)); else i=$((i+1)); fi
+              done
+              cfiles='${{ inputs.compose-files }}'; cfiles="${cfiles//linter-images\//}"
+              # --allow=fs.read=..: the `cli` context resolves outside linter-images/. Clear the tag:
+              # push-by-digest refuses a tagged ref (pushed untagged, referenced by digest).
+              # shellcheck disable=SC2086
+              ( cd linter-images && docker buildx bake $cfiles \
+                --allow=fs.read=.. \
+                --set '${{ inputs.image }}.tags=' \
+                --set '${{ inputs.image }}.platform=linux/${{ inputs.arch }}' \
+                --set '${{ inputs.image }}.output=type=image,name=${{ inputs.push-registry }}/${{ inputs.image }},push-by-digest=true,push=true' \
+                "${set_args[@]}" \
+                --metadata-file bake-meta.json \
+                ${{ inputs.image }} )
+            fi
+          ) 2>"$err"; then cat "$err" >&2; exit 0; else rc=$?; fi
+          cat "$err" >&2
+          grep -qE '(received )?unexpected (HTTP )?status[^0-9]*(429|5[0-9][0-9])|TLS handshake timeout|connection reset( by peer)?|connection refused|i/o timeout|EOF|failed to do request' "$err" && exit 75
+          exit "$rc"
+    - name: Record built digest
+      # Plain step (not the retry composite) so `steps.build.outputs.digest` — the action's `digest`
+      # output — is set from bake's deterministic metadata file after a successful (possibly retried) build.
+      id: build
+      if: ${{ inputs.push-registry != '' }}
+      shell: bash
       run: |
         set -euo pipefail
-        if [ -z '${{ inputs.push-registry }}' ]; then
-          # e2e mode: build + load <image>:dev locally for the caller's scan + the runtime guard below.
-          # shellcheck disable=SC2086
-          docker compose ${{ inputs.compose-files }} build ${BUILD_ARGS} ${{ inputs.image }}
-          docker builder prune -af
-        else
-          # publish mode: build this arch via bake and push it BY DIGEST (no tag). bake reads the same
-          # contexts/secret/args from the compose files. Translate resolve-build-args'
-          # `--build-arg K=V` tokens into bake `--set <svc>.args.K=V` for the version sub-axis overrides.
-          set_args=(); read -ra ba <<< "${BUILD_ARGS:-}"; i=0
-          while [ "$i" -lt "${#ba[@]}" ]; do
-            if [ "${ba[$i]}" = "--build-arg" ]; then set_args+=(--set "${{ inputs.image }}.args.${ba[$((i+1))]}"); i=$((i+2)); else i=$((i+1)); fi
-          done
-          # bake resolves `context:`/contexts relative to CWD (unlike compose, which uses the compose-file
-          # dir), so run bake FROM linter-images/ with that prefix stripped from the -f flags — then
-          # `context: docker` and the cli/tooling contexts resolve exactly as compose intends.
-          # --allow=fs.read=..: the `cli` context (../qodana-cli/…) resolves outside that dir; grant it.
-          cfiles='${{ inputs.compose-files }}'; cfiles="${cfiles//linter-images\//}"
-          # shellcheck disable=SC2086
-          # Clear the compose `image:`-derived tag: push-by-digest refuses a tagged ref, so the output
-          # must carry only the bare `name=` (repository), pushed untagged and referenced by digest.
-          ( cd linter-images && docker buildx bake $cfiles \
-            --allow=fs.read=.. \
-            --set '${{ inputs.image }}.tags=' \
-            --set '${{ inputs.image }}.platform=linux/${{ inputs.arch }}' \
-            --set '${{ inputs.image }}.output=type=image,name=${{ inputs.push-registry }}/${{ inputs.image }},push-by-digest=true,push=true' \
-            "${set_args[@]}" \
-            --metadata-file bake-meta.json \
-            ${{ inputs.image }} )
-          digest="$(jq -r '."${{ inputs.image }}"."containerimage.digest"' linter-images/bake-meta.json)"
-          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::bake did not emit a sha256 digest: '$digest'"; exit 1; }
-          echo "digest=$digest" >> "$GITHUB_OUTPUT"
-        fi
+        digest="$(jq -r '."${{ inputs.image }}"."containerimage.digest"' linter-images/bake-meta.json)"
+        [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::bake did not emit a sha256 digest: '$digest'"; exit 1; }
+        echo "digest=$digest" >> "$GITHUB_OUTPUT"
     - name: Pull the pushed digest for the runtime guard
       # No local :dev in publish mode — pull the just-pushed per-arch artifact so the guard can probe it offline.
       if: ${{ env.EXPECT_TOOL != 'none' && inputs.push-registry != '' }}
