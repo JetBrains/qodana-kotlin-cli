@@ -111,8 +111,8 @@ runs:
           set -euo pipefail
           out="$(mktemp)"; err="$(mktemp)"
           if { ./gradlew :linter-images:installDist \
-                && linter-images/build/install/image-tool/bin/image-tool resolve-build-args \
-                     --image '${{ inputs.image }}' --version '${{ inputs.version }}' > "$out"; } 2>"$err"; then
+            && linter-images/build/install/image-tool/bin/image-tool resolve-build-args \
+              --image '${{ inputs.image }}' --version '${{ inputs.version }}' > "$out"; } 2>"$err"; then
             cat "$err" >&2
             cat "$out" >> "$GITHUB_ENV"   # only reached on full success → retries stay idempotent
             exit 0
