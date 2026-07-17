@@ -67,7 +67,6 @@ class CiWorkflowContractTest {
         val testSteps = jobs["test"]["steps"]
         val testRuns = testSteps.mapNotNull { it["run"]?.asText() }
 
-        // The test job builds the merged JaCoCo-compatible XML under -Pkover and publishes it as `coverage-xml`.
         assertTrue(
             testRuns.any { it.contains(":koverXmlReport") && it.contains("-Pkover") },
             "test job must run ./gradlew :koverXmlReport -Pkover",
@@ -90,18 +89,20 @@ class CiWorkflowContractTest {
                 ?.get(1)
                 ?.split("|")
                 ?.toSet()
+        val conventionSrc = Path.of("../build-logic/src/main/kotlin/kotlin-common.gradle.kts").readText()
+        check(conventionSrc.contains("disabledForTestTasks.addAll(")) {
+            "anchor 'disabledForTestTasks.addAll(' moved in kotlin-common.gradle.kts — update this guard"
+        }
         val conventionExcluded =
-            Path
-                .of("../build-logic/src/main/kotlin/kotlin-common.gradle.kts")
-                .readText()
+            conventionSrc
                 .substringAfter("disabledForTestTasks.addAll(")
                 .substringBefore(")")
                 .let { Regex("\"([^\"]+)\"").findAll(it).map { m -> m.groupValues[1] }.toSet() }
         assertTrue(conventionExcluded.isNotEmpty(), "disabledForTestTasks must list the docker/native test tasks")
         assertEquals(conventionExcluded, grepExcluded, "CI guard grep must match disabledForTestTasks")
 
-        // Coverage is published as an artifact only — Qodana must NOT be fed coverage (that coupling
-        // bundled the % with per-method inspection warnings we didn't want).
+        // Qodana must NOT be fed coverage — that coupling bundled the % with per-method inspection
+        // warnings we didn't want.
         val qodanaSteps = jobs["qodana"]["steps"]
         assertTrue(
             qodanaSteps.none { it["uses"]?.asText()?.startsWith("actions/download-artifact") == true },

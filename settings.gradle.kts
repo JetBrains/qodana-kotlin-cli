@@ -38,7 +38,13 @@ include(
 
 // Single source of truth for the -Pkover coverage gate, read by build.gradle.kts (root aggregation)
 // and kotlin-common.gradle.kts (per-module instrumentation) via rootProject.extra — so the two can't
-// diverge. Value-based: a bare -Pkover or -Pkover=true enables; absent or -Pkover=false disables.
+// diverge. Bare -Pkover or -Pkover=true enables; absent or -Pkover=false disables; anything else fails
+// loudly so a typo'd flag can't silently flip coverage on (mirrors the -Pquick gate in graalvm-native).
 gradle.rootProject {
-    extra["koverEnabled"] = providers.gradleProperty("kover").getOrElse("false") != "false"
+    extra["koverEnabled"] =
+        when (val raw = providers.gradleProperty("kover").orNull) {
+            null, "false" -> false
+            "", "true" -> true
+            else -> error("Unrecognized -Pkover value '$raw'; use -Pkover, -Pkover=true, or -Pkover=false.")
+        }
 }

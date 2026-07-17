@@ -161,8 +161,8 @@ if (extra["koverEnabled"] as Boolean) {
         reports {
             total {
                 xml {
-                    // JaCoCo-compatible XML: Qodana reads it for the absolute % and CI publishes it as an
-                    // artifact for any XML-consuming tool (Codecov/Coveralls/SonarQube/…).
+                    // JaCoCo-compatible XML, published by CI as an artifact for any XML-consuming tool
+                    // (Codecov/Coveralls/SonarQube/…) or browsing.
                     xmlFile.set(layout.buildDirectory.file("reports/kover/report.xml"))
                     onCheck.set(false)
                 }
