@@ -25,6 +25,11 @@ class BuildLinterImageActionContractTest {
         return r.contains("docker compose") && r.contains(" build ")
     }
 
+    private fun usesRetry(step: JsonNode): Boolean = step["uses"]?.asText() == "./.github/actions/retry"
+
+    private fun JsonNode.effectiveRun(): String =
+        this["run"]?.asText() ?: (if (usesRetry(this)) this["with"]?.get("run")?.asText() ?: "" else "")
+
     @Test
     fun `is a composite action`() {
         assertTrue(action["runs"]["using"].asText() == "composite", "must be a composite action")
@@ -79,15 +84,56 @@ class BuildLinterImageActionContractTest {
 
     @Test
     fun `resolve-build-args precedes the build, which interpolates BUILD_ARGS`() {
-        val resolveIdx = idxOf { it.runScript().contains("resolve-build-args") }
+        val resolveIdx = steps.indexOfFirst { it.effectiveRun().contains("resolve-build-args") }
         val buildIdx = idxOf { it.isBuild() }
         assertTrue(resolveIdx in 0 until buildIdx, "resolve ($resolveIdx) must precede build ($buildIdx)")
         assertTrue(steps[buildIdx].runScript().contains("\${BUILD_ARGS}"), "build must interpolate \${BUILD_ARGS}")
     }
 
     @Test
+    fun `the two gradle steps and the runtime-guard pull are retry-wrapped`() {
+        val cmds = steps.filter { usesRetry(it) }.joinToString("\n") { it["with"]?.get("run")?.asText() ?: "" }
+        assertTrue(cmds.contains("resolve-build-args"), "resolve-build-args must run under retry")
+        assertTrue(cmds.contains("assembleRelease"), "the from-tree assemble must run under retry")
+        assertTrue(cmds.contains("docker pull"), "the runtime-guard pull must run under retry")
+    }
+
+    @Test
+    fun `each retry-wrapped command self-classifies by exiting 75 on a transient signal`() {
+        steps.filter { usesRetry(it) }.forEach { s ->
+            assertTrue(
+                s["with"]["run"].asText().contains("exit 75"),
+                "retry step must be able to signal transient: ${s["name"]?.asText()}",
+            )
+        }
+    }
+
+    @Test
+    fun `the gradle build steps raise timeout-seconds above a worst-case build`() {
+        val gradleSteps = steps.filter { usesRetry(it) && it["with"]["run"].asText().contains("gradlew") }
+        assertTrue(gradleSteps.isNotEmpty(), "expected retry-wrapped gradle steps")
+        gradleSteps.forEach { s ->
+            val t = s["with"]["timeout-seconds"]?.asText()?.toIntOrNull() ?: 600
+            assertTrue(
+                t >= 1800,
+                "gradle retry needs timeout-seconds >= 1800 so a slow build outlives the per-attempt cap: " +
+                    "${s["name"]?.asText()} = $t",
+            )
+        }
+    }
+
+    @Test
+    fun `bake is NOT retry-wrapped`() {
+        val bake = steps.single { it.runScript().contains("docker buildx bake") }
+        assertFalse(usesRetry(bake), "bake must not be retry-wrapped (local array state; BuildKit self-retries pulls)")
+    }
+
+    @Test
     fun `staging arch-verifies the staged CLI ELF against inputs_arch`() {
-        val staging = steps.single { (it["name"]?.asText() ?: "").startsWith("Stage from-tree contexts") }
+        // The retry-wrapped assemble step shares the "Stage from-tree contexts" name prefix; disambiguate
+        // to the plain follow-up step (it.has("run")) that carries the ELF/tool-staging checks.
+        val staging =
+            steps.single { (it["name"]?.asText() ?: "").startsWith("Stage from-tree contexts") && it.has("run") }
         val run = staging.runScript()
         assertTrue(run.contains("file -b"), "must inspect the staged ELF via file -b")
         assertTrue(run.contains("grep -q 'x86-64'") && run.contains("grep -q 'aarch64'"), "must verify amd64/arm64 ELF")

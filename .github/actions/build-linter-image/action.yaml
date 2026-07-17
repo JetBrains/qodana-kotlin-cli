@@ -103,29 +103,50 @@ runs:
         exit 1
     - name: Resolve version build-args
       # EXPECT_TOOL/EXPECT_VERSION feed the runtime guard below; BUILD_ARGS feeds the build.
-      shell: bash
-      run: |
-        set -euo pipefail
-        ./gradlew :linter-images:installDist
-        linter-images/build/install/image-tool/bin/image-tool resolve-build-args \
-          --image '${{ inputs.image }}' \
-          --version '${{ inputs.version }}' >> "$GITHUB_ENV"
-    - name: Stage from-tree contexts (cli + image-tool)
+      uses: ./.github/actions/retry
+      with:
+        what: resolve build-args (Gradle → Maven Central)
+        timeout-seconds: '1800'
+        run: |
+          set -euo pipefail
+          out="$(mktemp)"; err="$(mktemp)"
+          if { ./gradlew :linter-images:installDist \
+                && linter-images/build/install/image-tool/bin/image-tool resolve-build-args \
+                     --image '${{ inputs.image }}' --version '${{ inputs.version }}' > "$out"; } 2>"$err"; then
+            cat "$err" >&2
+            cat "$out" >> "$GITHUB_ENV"   # only reached on full success → retries stay idempotent
+            exit 0
+          fi
+          rc=$?; cat "$err" >&2
+          grep -qE 'Received status code (403|429|5[0-9][0-9])|Could not (resolve|GET|download)|Connection reset|Read timed out|Connect(ion)? timed out|TLS handshake timeout|Premature end of Content-Length' "$err" && exit 75
+          exit "$rc"
+    - name: Stage from-tree contexts (build)
       # From-tree inner CLI (CLI_SOURCE=context). Token-gated images also build + stage their own
       # Tool-kind CLI binary so /cli-src/<module> resolves.
+      uses: ./.github/actions/retry
+      with:
+        what: assemble from-tree CLI (Gradle → Maven Central)
+        timeout-seconds: '3600'
+        run: |
+          set -euo pipefail
+          token_gated='${{ inputs.token-gated }}'
+          targets=(:qodana-cli:assembleRelease -PtargetOs=linux -PtargetArch=${{ inputs.arch }} -Pquick=true)
+          # Token-gated images also build their own Tool-kind inner CLI binary from this tree.
+          if [ "$token_gated" = "true" ]; then
+            targets+=(:${{ inputs.image }}:assembleRelease -PtargetOs=linux -PtargetArch=${{ inputs.arch }} -Pquick=true)
+          fi
+          targets+=(:linter-images:installDist)
+          err="$(mktemp)"
+          if ./gradlew "${targets[@]}" 2>"$err"; then cat "$err" >&2; exit 0; fi
+          rc=$?; cat "$err" >&2
+          grep -qE 'Received status code (403|429|5[0-9][0-9])|Could not (resolve|GET|download)|Connection reset|Read timed out|Connect(ion)? timed out|TLS handshake timeout|Premature end of Content-Length' "$err" && exit 75
+          exit "$rc"
+    - name: Stage from-tree contexts (verify + place)
+      # Fail-closed: nativeCompile is host-arch; -PtargetArch is only a label, so verify the ELF machine.
       shell: bash
       run: |
         set -euo pipefail
-        token_gated='${{ inputs.token-gated }}'
-        targets=(:qodana-cli:assembleRelease -PtargetOs=linux -PtargetArch=${{ inputs.arch }} -Pquick=true)
-        # Token-gated images also build their own Tool-kind inner CLI binary from this tree.
-        if [ "$token_gated" = "true" ]; then
-          targets+=(:${{ inputs.image }}:assembleRelease -PtargetOs=linux -PtargetArch=${{ inputs.arch }} -Pquick=true)
-        fi
-        targets+=(:linter-images:installDist)
-        ./gradlew "${targets[@]}"
         test -x qodana-cli/build/release-staging/qodana
-        # Fail-closed: nativeCompile is host-arch; -PtargetArch is only a label, so verify the ELF machine.
         want='${{ inputs.arch }}'
         got="$(file -b qodana-cli/build/release-staging/qodana)"
         case "$want" in
@@ -133,7 +154,7 @@ runs:
           arm64) echo "$got" | grep -q 'aarch64'  || { echo "::error::staged CLI is not aarch64 (arch=$want): $got"; exit 1; } ;;
           *) echo "::error::unexpected arch '$want'"; exit 1 ;;
         esac
-        if [ "$token_gated" = "true" ]; then
+        if [ '${{ inputs.token-gated }}' = "true" ]; then
           shopt -s nullglob
           tool_binaries=(${{ inputs.image }}/build/release/${{ inputs.image }}_*_linux_${{ inputs.arch }})
           if [ "${#tool_binaries[@]}" -ne 1 ]; then
@@ -189,11 +210,25 @@ runs:
           [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "::error::bake did not emit a sha256 digest: '$digest'"; exit 1; }
           echo "digest=$digest" >> "$GITHUB_OUTPUT"
         fi
+    - name: Pull the pushed digest for the runtime guard
+      # No local :dev in publish mode — pull the just-pushed per-arch artifact so the guard can probe it offline.
+      if: ${{ env.EXPECT_TOOL != 'none' && inputs.push-registry != '' }}
+      uses: ./.github/actions/retry
+      with:
+        what: pull pushed digest (registry)
+        run: |
+          set -euo pipefail
+          img="${{ inputs.push-registry }}/${{ inputs.image }}@${{ steps.build.outputs.digest }}"
+          err="$(mktemp)"
+          if docker pull "$img" 2>"$err"; then cat "$err" >&2; exit 0; fi
+          rc=$?; cat "$err" >&2
+          grep -qE 'received unexpected HTTP status: (429|5[0-9][0-9])|TLS handshake timeout|connection refused|i/o timeout|EOF' "$err" && exit 75
+          exit "$rc"
     - name: Verify built runtime version
       # Catch ARG-shadowing (a build-arg silently not applied) by probing the built image for the requested
-      # runtime. Runs in BOTH modes: e2e probes the loaded <image>:dev; publish pulls + probes the pushed
-      # per-arch digest (on-demand publish can build an arbitrary, un-e2e'd ref, so it must gate too). The
-      # action's last step, so a caller's scan tail runs after build < guard.
+      # runtime. Runs in BOTH modes: e2e probes the loaded <image>:dev; publish probes the pulled per-arch
+      # digest (on-demand publish can build an arbitrary, un-e2e'd ref, so it must gate too). The action's
+      # last step, so a caller's scan tail runs after build < guard.
       if: ${{ env.EXPECT_TOOL != 'none' }}
       shell: bash
       run: |
@@ -201,9 +236,7 @@ runs:
         if [ -z '${{ inputs.push-registry }}' ]; then
           img="${{ inputs.image }}:dev"
         else
-          # No local :dev in publish mode — pull the just-pushed per-arch artifact and probe it offline.
           img="${{ inputs.push-registry }}/${{ inputs.image }}@${{ steps.build.outputs.digest }}"
-          docker pull "$img"
         fi
         case "$EXPECT_TOOL" in
           ruby)  probe="ruby --version";                                  needle="ruby $EXPECT_VERSION." ;;
