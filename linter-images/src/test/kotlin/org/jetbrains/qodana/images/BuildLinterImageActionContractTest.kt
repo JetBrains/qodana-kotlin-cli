@@ -37,9 +37,9 @@ class BuildLinterImageActionContractTest {
 
     @Test
     fun `every run step has a sentence-y name (never blank, never a raw flag)`() {
-        steps.filter { it.has("run") }.forEach { s ->
+        steps.filter { it.has("run") || usesRetry(it) }.forEach { s ->
             val name = s["name"]?.asText()
-            assertTrue(!name.isNullOrBlank(), "a run step has no name: ${s.runScript().take(60)}")
+            assertTrue(!name.isNullOrBlank(), "a run step has no name: ${s.effectiveRun().take(60)}")
             assertFalse(name!!.trim().startsWith("-"), "step name is a raw flag: '$name'")
             assertFalse(name.contains("--"), "step name embeds a raw flag: '$name'")
         }

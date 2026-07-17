@@ -37,6 +37,15 @@ class RetryActionContractTest {
     }
 
     @Test
+    fun `documented input defaults match the retry semantics`() {
+        val inputs = action["inputs"]
+        assertEquals("600", inputs["timeout-seconds"]["default"].asText())
+        assertEquals("5", inputs["initial-delay-seconds"]["default"].asText())
+        assertEquals("60", inputs["max-delay-seconds"]["default"].asText())
+        assertEquals("command", inputs["what"]["default"].asText())
+    }
+
+    @Test
     fun `retry_sh exists and is executable`() {
         val sh = dir.resolve("retry.sh")
         assertTrue(sh.toFile().canExecute(), "retry.sh must be executable")

@@ -218,6 +218,7 @@ runs:
       uses: ./.github/actions/retry
       with:
         what: pull pushed digest (registry)
+        timeout-seconds: '1800'
         run: |
           set -euo pipefail
           img="${{ inputs.push-registry }}/${{ inputs.image }}@${{ steps.build.outputs.digest }}"
