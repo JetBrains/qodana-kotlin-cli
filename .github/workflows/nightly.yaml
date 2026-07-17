@@ -108,7 +108,8 @@ jobs:
         run: |
           set -euo pipefail
           ./gradlew :linter-images:installDist
-          matrix="$(linter-images/build/install/image-tool/bin/image-tool resolve-publish-matrix)"
+          matrix="$(linter-images/build/install/image-tool/bin/image-tool resolve-publish-matrix \
+            --channel nightly --id '${{ needs.compute.outputs.nightly-id }}')"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   publish-images:
@@ -122,8 +123,7 @@ jobs:
     with:
       image: ${{ matrix.image }}
       version: ${{ matrix.version }}
-      channel: nightly
-      id: ${{ needs.compute.outputs.nightly-id }}
+      tags: ${{ matrix.tags }}
       ref: ${{ needs.compute.outputs.sha }}
       token-gated: ${{ matrix.token_gated }}
       feed-required: ${{ matrix.feed_required }}

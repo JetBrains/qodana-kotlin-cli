@@ -125,11 +125,12 @@ class PublishWorkflowContractTest {
     }
 
     @Test
-    fun `dispatch publishes the snapshot channel with the normalized version and sha7 id`() {
+    fun `dispatch resolves bare tags and threads them, without channel or id`() {
+        val resolve = dispatch["jobs"]["resolve"]["steps"].joinToString("\n") { it["run"]?.asText() ?: "" }
+        assertTrue("resolve-tags" in resolve, "dispatch computes bare tags via resolve-tags")
         val with = dispatch["jobs"]["publish"]["with"]
-        assertEquals("snapshot", with["channel"].asText())
-        assertEquals("\${{ needs.resolve.outputs.version }}", with["version"].asText(), "version must be normalized")
-        assertEquals("\${{ needs.resolve.outputs.sha7 }}", with["id"].asText())
+        assertEquals("\${{ needs.resolve.outputs.tags }}", with["tags"].asText())
+        assertFalse(with.has("channel") || with.has("id"), "channel/id are subsumed by tags")
     }
 
     // --- resolve-image-meta <-> images.yaml matrix binding (no drift) --------------------------------

@@ -48,6 +48,7 @@ jobs:
       feed-required: ${{ steps.meta.outputs.feed_required }}
       compose-files: ${{ steps.meta.outputs.compose_files }}
       version: ${{ steps.meta.outputs.effective_version }}
+      tags: ${{ steps.tags.outputs.tags }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v5
@@ -75,6 +76,15 @@ jobs:
             grep -q "^$key=" meta.txt || { echo "::error::resolve-image-meta did not emit $key="; exit 1; }
           done
           grep -E '^(token_gated|feed_required|compose_files|effective_version)=' meta.txt >> "$GITHUB_OUTPUT"
+      - name: Resolve the bare tag names
+        id: tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          tags="$(linter-images/build/install/image-tool/bin/image-tool resolve-tags \
+            --image '${{ inputs.image }}' --version '${{ steps.meta.outputs.effective_version }}' \
+            --channel snapshot --id '${{ steps.sha.outputs.sha7 }}' | paste -sd' ' -)"
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
 
   publish:
     needs: resolve
@@ -82,8 +92,7 @@ jobs:
     with:
       image: ${{ inputs.image }}
       version: ${{ needs.resolve.outputs.version }}
-      channel: snapshot
-      id: ${{ needs.resolve.outputs.sha7 }}
+      tags: ${{ needs.resolve.outputs.tags }}
       ref: ${{ needs.resolve.outputs.sha }}
       token-gated: ${{ needs.resolve.outputs.token-gated }}
       feed-required: ${{ needs.resolve.outputs.feed-required }}

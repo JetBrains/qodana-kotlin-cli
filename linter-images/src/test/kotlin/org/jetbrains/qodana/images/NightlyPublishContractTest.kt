@@ -3,6 +3,7 @@ package org.jetbrains.qodana.images
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Path
@@ -51,16 +52,30 @@ class NightlyPublishContractTest {
     }
 
     @Test
-    fun `publish-images publishes the nightly channel with the pinned sha and id, threading each cell`() {
+    fun `publish-images threads the pinned sha and per-cell gating`() {
         val with = job("publish-images")["with"]
-        assertEquals("nightly", with["channel"].asText(), "the nightly stage publishes the nightly channel")
         assertEquals("\${{ needs.compute.outputs.sha }}", with["ref"].asText(), "build the pinned SHA, not HEAD")
-        assertEquals("\${{ needs.compute.outputs.nightly-id }}", with["id"].asText(), "tag id = the nightly id")
         // Every per-cell field is threaded from the matrix, so gating stays in lock-step with images.yaml.
         assertEquals("\${{ matrix.image }}", with["image"].asText())
         assertEquals("\${{ matrix.version }}", with["version"].asText())
         assertEquals("\${{ matrix.token_gated }}", with["token-gated"].asText())
         assertEquals("\${{ matrix.feed_required }}", with["feed-required"].asText())
         assertEquals("\${{ matrix.compose_files }}", with["compose-files"].asText())
+    }
+
+    @Test
+    fun `publish-matrix computes tags for the nightly channel and id`() {
+        val script = job("publish-matrix")["steps"].joinToString("\n") { it["run"]?.asText() ?: "" }
+        assertTrue("resolve-publish-matrix" in script, "matrix from resolve-publish-matrix")
+        assertTrue("--channel nightly" in script, "matrix resolves tags for the nightly channel")
+        assertTrue("--id" in script && "nightly-id" in script, "matrix passes the nightly id")
+    }
+
+    @Test
+    fun `publish-images threads per-cell tags and no longer passes channel or id`() {
+        val with = job("publish-images")["with"]
+        assertEquals("\${{ matrix.tags }}", with["tags"].asText())
+        assertFalse(with.has("channel"), "channel is subsumed by tags")
+        assertFalse(with.has("id"), "id is subsumed by tags")
     }
 }
