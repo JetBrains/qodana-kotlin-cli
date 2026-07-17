@@ -8,10 +8,11 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * Emits the registry tag list for one (image, version, channel, id) cell, single-sourcing the tag grammar
+ * Emits the bare tag list for one (image, version, channel, id) cell, single-sourcing the tag grammar
  * `<mm>-<channel>[.<id>][-<runtime>]`. `<mm>` is major.minor of gradle.properties (fails on `dev`).
  * An empty `id` yields the moving tag (no `.id`); a non-empty `id` the exact tag. A versioned DEFAULT cell
  * dual-tags: the bare tag plus the explicit `-<tool><version>` tag pointing at the same manifest.
+ * Tags carry no registry/repo prefix — that's the merge job's concern, not this cell-level grammar.
  */
 class ResolveTagsCommand(
     private val gradleProperties: Path,
@@ -19,34 +20,40 @@ class ResolveTagsCommand(
 ) : CliktCommand(name = "resolve-tags") {
     private val image by option("--image").required()
     private val version by option("--version").default("")
-    private val registry by option("--registry").required()
     private val channel by option("--channel").required()
     private val id by option("--id").default("")
 
-    override fun run() = resolve(image, version, registry, channel, id).forEach { echo(it) }
+    override fun run() = resolve(image, version, channel, id).forEach { echo(it) }
 
     fun resolve(
         image: String,
         version: String,
-        registry: String,
         channel: String,
         id: String,
     ): List<String> {
         check(channel == "snapshot" || channel == "nightly") { "unknown channel '$channel' (snapshot|nightly)" }
-        val repo = "$registry/$image"
         val rt = runtime.resolve(image, version)
         val mm = majorMinor()
         // A nightly publish stamps the dated tag AND advances the moving <mm>-nightly pointer; a snapshot
         // (and a nightly with an empty id) yields just its one id'd/moving tag.
         val ids = if (channel == "nightly" && id.isNotEmpty()) listOf(id, "") else listOf(id)
-        return ids.flatMap { theId ->
-            val base = "$mm-$channel" + if (theId.isNotEmpty()) ".$theId" else ""
-            when {
-                rt == null -> listOf("$repo:$base")
-                rt.isDefault -> listOf("$repo:$base", "$repo:$base-${rt.tool}${rt.version}")
-                else -> listOf("$repo:$base-${rt.tool}${rt.version}")
+        val tags =
+            ids.flatMap { theId ->
+                val base = "$mm-$channel" + if (theId.isNotEmpty()) ".$theId" else ""
+                when {
+                    rt == null -> listOf(base)
+                    rt.isDefault -> listOf(base, "$base-${rt.tool}${rt.version}")
+                    else -> listOf("$base-${rt.tool}${rt.version}")
+                }
             }
-        }
+        // Tags round-trip through the workflow as a space-joined string; a space in a tag would silently
+        // split into bogus refs at merge time. Enforce the registry-safe shape at the source.
+        tags.forEach { check(it.matches(TAG_RE)) { "tag '$it' is not registry-safe (must match $TAG_RE)" } }
+        return tags
+    }
+
+    private companion object {
+        val TAG_RE = Regex("^[A-Za-z0-9._-]+$")
     }
 
     private fun majorMinor(): String {
