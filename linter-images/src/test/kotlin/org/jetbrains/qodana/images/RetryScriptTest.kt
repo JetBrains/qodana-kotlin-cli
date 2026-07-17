@@ -81,7 +81,12 @@ class RetryScriptTest {
             )
         val (code, out) = run(body, env)
         assertEquals(0, code)
-        val delays = Regex("retrying in (\\d+)s").findAll(out).map { it.groupValues[1] }.toList()
+        // Read the real `::warning::` lines only — `set -x` also echoes a traced copy of each echo.
+        val delays =
+            out
+                .lines()
+                .filter { it.startsWith("::warning::") }
+                .mapNotNull { Regex("retrying in (\\d+)s").find(it)?.groupValues?.get(1) }
         assertEquals(listOf("1", "2", "2"), delays, "backoff must double (1→2) then cap at max-delay (2): $out")
     }
 
