@@ -128,8 +128,19 @@ class PublishWorkflowContractTest {
     fun `dispatch resolves bare tags and threads them, without channel or id`() {
         val resolve = dispatch["jobs"]["resolve"]["steps"].joinToString("\n") { it["run"]?.asText() ?: "" }
         assertTrue("resolve-tags" in resolve, "dispatch computes bare tags via resolve-tags")
+        assertTrue("--channel snapshot" in resolve, "dispatch resolves tags for the snapshot channel")
+        assertTrue(
+            "steps.meta.outputs.effective_version" in resolve,
+            "dispatch tags the normalized version, not the raw input",
+        )
+        assertTrue("steps.sha.outputs.sha7" in resolve, "dispatch ids the tag with the pinned sha7")
         val with = dispatch["jobs"]["publish"]["with"]
         assertEquals("\${{ needs.resolve.outputs.tags }}", with["tags"].asText())
+        assertEquals(
+            "\${{ needs.resolve.outputs.version }}",
+            with["version"].asText(),
+            "version must be normalized",
+        )
         assertFalse(with.has("channel") || with.has("id"), "channel/id are subsumed by tags")
     }
 
