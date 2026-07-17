@@ -91,4 +91,12 @@ class RetryScriptTest {
         val (code, out) = run("sleep 30", mapOf("TIMEOUT_SECONDS" to "1"))
         assertEquals(124, code, "a hung attempt must be killed at the budget (exit 124): $out")
     }
+
+    @Test
+    fun `passes through a genuine early exit-124 without calling it a hang`() {
+        assumeTrue(hasTimeout(), "no timeout/gtimeout on PATH (local macOS without coreutils) — skipping this case")
+        val (code, out) = run("exit 124", mapOf("TIMEOUT_SECONDS" to "10"))
+        assertEquals(124, code, "the command's own exit code must pass through unchanged: $out")
+        assertTrue(!out.contains("likely hung"), "a fast, non-deadline 124 must not be misdiagnosed as a hang: $out")
+    }
 }

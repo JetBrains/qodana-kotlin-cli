@@ -14,6 +14,8 @@ class TransientClassificationTest {
         listOf(
             "../.github/actions/build-linter-image/action.yaml",
             "../.github/workflows/publish-image.yaml",
+            "../.github/workflows/nightly.yaml",
+            "../.github/workflows/publish-image-dispatch.yaml",
         )
 
     // pattern -> its `grep -qE '...'` extracted from every retry step in the two files
@@ -83,7 +85,7 @@ class TransientClassificationTest {
     @Test
     fun `each transient sample matches at least one classifier and no genuine sample matches`() {
         val pats = patterns()
-        assertTrue(pats.size >= 5, "expected a classifier per retry step; found ${pats.size}")
+        assertTrue(pats.size >= 7, "expected a classifier per retry step; found ${pats.size}")
         (gradleTransient + dockerTransient).forEach { s ->
             assertTrue(pats.any { matches(it, s) }, "transient sample not classified as transient: '$s'")
         }
@@ -95,7 +97,10 @@ class TransientClassificationTest {
     @Test
     fun `no classifier reads rc after a bare fi (the exit-code-reset bug)`() {
         val bodies = retryRunBodies()
-        assertTrue(bodies.size >= 5, "expected >=5 retry classifiers (3 build + 2 merge); found ${bodies.size}")
+        assertTrue(
+            bodies.size >= 7,
+            "expected >=7 retry classifiers (3 build + 2 merge + 2 caller installDist); found ${bodies.size}",
+        )
         bodies.forEach { body ->
             val squashed = body.replace(Regex("\\s+"), " ")
             // `$?` right after a bare `fi` reads 0 (the if-statement's own status), silently turning a genuine

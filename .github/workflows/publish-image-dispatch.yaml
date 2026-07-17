@@ -63,13 +63,24 @@ jobs:
           full="$(git rev-parse HEAD)"
           echo "sha=$full" >> "$GITHUB_OUTPUT"
           echo "sha7=$(git rev-parse --short=7 "$full")" >> "$GITHUB_OUTPUT"
+      - name: Install image-tool
+        uses: ./.github/actions/retry
+        with:
+          what: install image-tool (Gradle → Maven Central)
+          timeout-seconds: '1800'
+          run: |
+            set -euo pipefail
+            err="$(mktemp)"
+            if ./gradlew :linter-images:installDist 2>"$err"; then cat "$err" >&2; exit 0; else rc=$?; fi
+            cat "$err" >&2
+            grep -qE 'Received status code (403|429|5[0-9][0-9])|Could not (resolve|GET|download)|Connection reset|Read timed out|Connect(ion)? timed out|TLS handshake timeout|Premature end of Content-Length' "$err" && exit 75
+            exit "$rc"
       - name: Resolve per-image gating and normalize the version
         id: meta
         # Rejects an illegal (image, version) before any build starts (the point of this cheap gate).
         shell: bash
         run: |
           set -euo pipefail
-          ./gradlew :linter-images:installDist
           linter-images/build/install/image-tool/bin/image-tool resolve-image-meta \
             --image '${{ inputs.image }}' --version '${{ inputs.version }}' > meta.txt
           for key in token_gated feed_required compose_files effective_version; do

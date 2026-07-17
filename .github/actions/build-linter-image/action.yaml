@@ -114,7 +114,7 @@ runs:
             && linter-images/build/install/image-tool/bin/image-tool resolve-build-args \
               --image '${{ inputs.image }}' --version '${{ inputs.version }}' > "$out"; } 2>"$err"; then
             cat "$err" >&2
-            cat "$out" >> "$GITHUB_ENV"   # only reached on full success → retries stay idempotent
+            cat "$out" >> "$GITHUB_ENV"   # append only on success → idempotent under retry
             exit 0
           else
             rc=$?
@@ -123,8 +123,8 @@ runs:
           grep -qE 'Received status code (403|429|5[0-9][0-9])|Could not (resolve|GET|download)|Connection reset|Read timed out|Connect(ion)? timed out|TLS handshake timeout|Premature end of Content-Length' "$err" && exit 75
           exit "$rc"
     - name: Stage from-tree contexts (build)
-      # From-tree inner CLI (CLI_SOURCE=context). Token-gated images also build + stage their own
-      # Tool-kind CLI binary so /cli-src/<module> resolves.
+      # Assembles the from-tree inner CLI via Gradle (CLI_SOURCE=context); token-gated images also
+      # assemble their own Tool-kind CLI binary here. Verification + placement happens in the next step.
       uses: ./.github/actions/retry
       with:
         what: assemble from-tree CLI (Gradle → Maven Central)

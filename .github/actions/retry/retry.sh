@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# Re-runs $RUN while it exits 75 (EX_TEMPFAIL = "transient, retry me"); 0 succeeds, any other code fails
-# fast. The retry loop is bounded by wall-clock TIMEOUT_SECONDS, and each attempt is capped by `timeout`
-# so a hung attempt cannot outlive the budget (needs a `timeout`/`gtimeout` binary — present on CI; if
-# absent, e.g. local macOS without coreutils, the per-attempt cap is skipped). The command owns the
-# retry decision; this script never inspects output.
+# See action.yaml for the contract. Capping each attempt needs a `timeout`/`gtimeout` binary — present on
+# CI; if absent (e.g. local macOS without coreutils), the per-attempt cap is skipped.
 set -uo pipefail
 : "${RUN:?RUN is required}"
 : "${TIMEOUT_SECONDS:?}" "${INITIAL_DELAY_SECONDS:?}" "${MAX_DELAY_SECONDS:?}"
@@ -31,7 +28,8 @@ while :; do
     fi
     rc=$?
     [ "$rc" -eq 0 ] && exit 0
-    if [ -n "$timeout_bin" ] && [ "$rc" -eq 124 ]; then
+    now=$(date +%s)
+    if [ -n "$timeout_bin" ] && [ "$rc" -eq 124 ] && [ "$now" -ge "$deadline" ]; then
         echo "::error::$what: killed at the ${TIMEOUT_SECONDS}s deadline (attempt $attempt, no progress — likely hung)"
         exit 124
     fi
@@ -39,7 +37,6 @@ while :; do
         echo "::error::$what failed (exit $rc) — not a transient signal (75), not retrying"
         exit "$rc"
     fi
-    now=$(date +%s)
     if [ "$now" -ge "$deadline" ]; then
         echo "::error::$what still transiently failing after ${TIMEOUT_SECONDS}s (attempt $attempt) — giving up"
         exit 75
