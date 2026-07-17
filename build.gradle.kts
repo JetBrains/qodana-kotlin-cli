@@ -1,6 +1,7 @@
 import org.gradle.api.tasks.testing.Test
 
 plugins {
+    alias(libs.plugins.kover) apply false
 }
 
 fun loadDotEnv(path: java.io.File): Map<String, String> {
@@ -145,4 +146,27 @@ tasks.register("parityTest") {
     group = "verification"
     description = "Runs parityTest in all modules."
     dependsOn(subprojects.map { it.tasks.named("parityTest") })
+}
+
+// Aggregate coverage from every module so a module's tests count toward classes they exercise in
+// dependency modules (e.g. qodana-engine tests → qodana-core coverage). Derived from subprojects so a
+// newly added module can't be silently omitted. Per Kover: without kover(project) deps a report covers
+// only the current project. Gate (koverEnabled) is computed once in settings.gradle.kts.
+if (extra["koverEnabled"] as Boolean) {
+    apply(plugin = "org.jetbrains.kotlinx.kover")
+    dependencies {
+        subprojects.forEach { add("kover", project(it.path)) }
+    }
+    extensions.configure<kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension> {
+        reports {
+            total {
+                xml {
+                    // JaCoCo-compatible XML, published by CI as an artifact for any XML-consuming tool
+                    // (Codecov/Coveralls/SonarQube/…) or browsing.
+                    xmlFile.set(layout.buildDirectory.file("reports/kover/report.xml"))
+                    onCheck.set(false)
+                }
+            }
+        }
+    }
 }

@@ -62,6 +62,55 @@ class CiWorkflowContractTest {
     }
 
     @Test
+    fun `test job publishes the coverage XML artifact and Qodana does not consume it`() {
+        val jobs = wf("checks.yaml")["jobs"]
+        val testSteps = jobs["test"]["steps"]
+        val testRuns = testSteps.mapNotNull { it["run"]?.asText() }
+
+        assertTrue(
+            testRuns.any { it.contains(":koverXmlReport") && it.contains("-Pkover") },
+            "test job must run ./gradlew :koverXmlReport -Pkover",
+        )
+        val uploadWith =
+            testSteps.single {
+                it["uses"]?.asText()?.startsWith("actions/upload-artifact") == true &&
+                    it["with"]?.get("name")?.asText() == "coverage-xml"
+            }["with"]
+        assertEquals("build/reports/kover/report.xml", uploadWith["path"].asText(), "upload the merged Kover XML")
+        assertEquals("error", uploadWith["if-no-files-found"].asText(), "a missing report must fail the job loudly")
+
+        // The dry-run guard keeps docker/native test tasks out of the coverage report. Assert it exists and
+        // that its excluded set is EXACTLY disabledForTestTasks in kotlin-common — one source, no drift.
+        val guardRun = testRuns.single { it.contains("--dry-run") }
+        val grepExcluded =
+            Regex(""":\(([^)]+)\)""")
+                .find(guardRun)
+                ?.groupValues
+                ?.get(1)
+                ?.split("|")
+                ?.toSet()
+        val conventionSrc = Path.of("../build-logic/src/main/kotlin/kotlin-common.gradle.kts").readText()
+        check(conventionSrc.contains("disabledForTestTasks.addAll(")) {
+            "anchor 'disabledForTestTasks.addAll(' moved in kotlin-common.gradle.kts — update this guard"
+        }
+        val conventionExcluded =
+            conventionSrc
+                .substringAfter("disabledForTestTasks.addAll(")
+                .substringBefore(")")
+                .let { Regex("\"([^\"]+)\"").findAll(it).map { m -> m.groupValues[1] }.toSet() }
+        assertTrue(conventionExcluded.isNotEmpty(), "disabledForTestTasks must list the docker/native test tasks")
+        assertEquals(conventionExcluded, grepExcluded, "CI guard grep must match disabledForTestTasks")
+
+        // Qodana must NOT be fed coverage — that coupling bundled the % with per-method inspection
+        // warnings we didn't want.
+        val qodanaSteps = jobs["qodana"]["steps"]
+        assertTrue(
+            qodanaSteps.none { it["uses"]?.asText()?.startsWith("actions/download-artifact") == true },
+            "Qodana must not download coverage — it is published as an artifact, not consumed by Qodana",
+        )
+    }
+
+    @Test
     fun `cli workflow builds and e2es the native binary`() {
         val cli = wf("cli.yaml")
         assertEquals("CLI", cli["name"].asText())

@@ -22,6 +22,9 @@ Thumbs.db
 # Environment
 .env
 
+# Qodana (local scans + staged coverage reports)
+.qodana/
+
 # Native binaries
 *.exe
 *.dll

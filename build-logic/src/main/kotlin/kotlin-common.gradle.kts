@@ -28,3 +28,18 @@ kotlin {
         )
     }
 }
+
+// -Pkover-gated (koverEnabled computed once in settings.gradle.kts): Kover instruments the `test` task
+// itself, so gating by application — not just report tasks — is what keeps plain `./gradlew test` unchanged.
+if (rootProject.extra["koverEnabled"] as Boolean) {
+    apply(plugin = "org.jetbrains.kotlinx.kover")
+    extensions.configure<kotlinx.kover.gradle.plugin.dsl.KoverProjectExtension> {
+        currentProject {
+            instrumentation {
+                // Keep :koverBinaryReport to the unit `test` task. These need Docker / a prebuilt native
+                // binary and run product code out-of-JVM, so they carry no JVM coverage.
+                disabledForTestTasks.addAll("parityTest", "nativeBinaryTest", "linterE2eTest")
+            }
+        }
+    }
+}

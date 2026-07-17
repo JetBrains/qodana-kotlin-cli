@@ -23,8 +23,22 @@ jobs:
           distribution: temurin
           java-version: 25
       - uses: gradle/actions/setup-gradle@v6
-      - name: Run tests
-        run: ./gradlew test
+      - name: Verify coverage runs only unit tests
+        run: |
+          graph="$(./gradlew :koverXmlReport -Pkover --dry-run)"
+          if echo "$graph" | grep -Eq ':(parityTest|nativeBinaryTest|linterE2eTest)'; then
+            echo "::error::coverage task graph pulled in a docker/native test task"; exit 1
+          fi
+      - name: Run tests with coverage
+        run: ./gradlew :koverXmlReport -Pkover
+      # Publish the merged JaCoCo-compatible XML so anyone can feed it to a coverage tool
+      # (Codecov/Coveralls/SonarQube/…) or browse it — no external service wired into CI.
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: build/reports/kover/report.xml
+          if-no-files-found: error
 
   lint:
     name: Lint
