@@ -188,8 +188,8 @@ runs:
             if [ -z '${{ inputs.push-registry }}' ]; then
               # e2e mode: build + load <image>:dev locally for the caller's scan + the runtime guard.
               # shellcheck disable=SC2086
-              docker compose ${{ inputs.compose-files }} build ${BUILD_ARGS} ${{ inputs.image }}
-              docker builder prune -af
+              docker compose ${{ inputs.compose-files }} build ${BUILD_ARGS} ${{ inputs.image }} || exit $?
+              docker builder prune -af || true
             else
               # publish mode: bake + push-by-digest (untagged). Deterministic digest → bake-meta.json,
               # extracted in the next step. Translate resolve-build-args' `--build-arg K=V` into bake
